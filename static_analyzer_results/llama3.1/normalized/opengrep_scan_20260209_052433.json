@@ -1,0 +1,3122 @@
+{
+  "findings": [
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/access_002.js",
+      "start_line": 20,
+      "end_line": 20,
+      "start_column": 14,
+      "end_column": 18,
+      "rule_id": "app.opengrep-rules.javascript.express.security.audit.xss.direct-response-write",
+      "title": "app.opengrep-rules.javascript.express.security.audit.xss.direct-response-write",
+      "description": "Detected directly writing to a Response object from user-defined input. This bypasses any HTML escaping and may expose your application to a Cross-Site-scripting (XSS) vulnerability. Instead, use 'resp.render()' to render safely escaped HTML.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp_categories": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "    res.send(user);",
+      "recommendation": "",
+      "references": [
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 1,
+              "col": 1,
+              "offset": 0
+            },
+            "end": {
+              "line": 1,
+              "col": 4,
+              "offset": 3
+            },
+            "abstract_content": "get"
+          },
+          "$APP": {
+            "start": {
+              "line": 8,
+              "col": 1,
+              "offset": 344
+            },
+            "end": {
+              "line": 8,
+              "col": 7,
+              "offset": 350
+            },
+            "abstract_content": "router",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 6,
+                "col": 16,
+                "offset": 325
+              },
+              "svalue_end": {
+                "line": 6,
+                "col": 32,
+                "offset": 341
+              },
+              "svalue_abstract_content": "express.Router()"
+            }
+          },
+          "$METHOD": {
+            "start": {
+              "line": 8,
+              "col": 8,
+              "offset": 351
+            },
+            "end": {
+              "line": 8,
+              "col": 11,
+              "offset": 354
+            },
+            "abstract_content": "get"
+          },
+          "$RES": {
+            "start": {
+              "line": 8,
+              "col": 32,
+              "offset": 375
+            },
+            "end": {
+              "line": 8,
+              "col": 35,
+              "offset": 378
+            },
+            "abstract_content": "res"
+          },
+          "$REQ": {
+            "start": {
+              "line": 10,
+              "col": 20,
+              "offset": 412
+            },
+            "end": {
+              "line": 10,
+              "col": 23,
+              "offset": 415
+            },
+            "abstract_content": "req"
+          },
+          "$ARG": {
+            "start": {
+              "line": 20,
+              "col": 14,
+              "offset": 751
+            },
+            "end": {
+              "line": 20,
+              "col": 18,
+              "offset": 755
+            },
+            "abstract_content": "user"
+          }
+        },
+        "lines": "    res.send(user);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/access_007.py",
+      "start_line": 61,
+      "end_line": 61,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 61,
+              "col": 5,
+              "offset": 2442
+            },
+            "end": {
+              "line": 61,
+              "col": 8,
+              "offset": 2445
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 560
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 575
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/auth_003.py",
+      "start_line": 9,
+      "end_line": 9,
+      "start_column": 1,
+      "end_column": 45,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "title": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "description": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "app.config['SECRET_KEY'] = 'secret_key_here'",
+      "recommendation": "",
+      "references": [
+        "https://bento.dev/checks/flask/avoid-hardcoded-config/",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$M": {
+            "start": {
+              "line": 9,
+              "col": 1,
+              "offset": 340
+            },
+            "end": {
+              "line": 9,
+              "col": 4,
+              "offset": 343
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 8,
+                "col": 7,
+                "offset": 324
+              },
+              "svalue_end": {
+                "line": 8,
+                "col": 22,
+                "offset": 339
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "app.config['SECRET_KEY'] = 'secret_key_here'"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/auth_003.py",
+      "start_line": 35,
+      "end_line": 35,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 35,
+              "col": 5,
+              "offset": 1161
+            },
+            "end": {
+              "line": 35,
+              "col": 8,
+              "offset": 1164
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 8,
+                "col": 7,
+                "offset": 324
+              },
+              "svalue_end": {
+                "line": 8,
+                "col": 22,
+                "offset": 339
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/auth_004.js",
+      "start_line": 15,
+      "end_line": 16,
+      "start_column": 5,
+      "end_column": 95,
+      "rule_id": "app.opengrep-rules.javascript.lang.correctness.useless-assignment",
+      "title": "app.opengrep-rules.javascript.lang.correctness.useless-assignment",
+      "description": "`document.cookie` is assigned twice; the first assignment is useless",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "    document.cookie = `username=${username}; expires=${cookieExpirationDate}; path=/`;\n    document.cookie = `passwordHash=${passwordHash}; expires=${cookieExpirationDate}; path=/`;",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "metavars": {
+          "$X": {
+            "start": {
+              "line": 15,
+              "col": 5,
+              "offset": 767
+            },
+            "end": {
+              "line": 15,
+              "col": 20,
+              "offset": 782
+            },
+            "abstract_content": "document.cookie"
+          },
+          "$Y": {
+            "start": {
+              "line": 15,
+              "col": 23,
+              "offset": 785
+            },
+            "end": {
+              "line": 15,
+              "col": 86,
+              "offset": 848
+            },
+            "abstract_content": "``username=username; expires=cookieExpirationDate; path=/`"
+          },
+          "$Z": {
+            "start": {
+              "line": 16,
+              "col": 23,
+              "offset": 872
+            },
+            "end": {
+              "line": 16,
+              "col": 94,
+              "offset": 943
+            },
+            "abstract_content": "``passwordHash=passwordHash; expires=cookieExpirationDate; path=/`"
+          }
+        },
+        "lines": "    document.cookie = `username=${username}; expires=${cookieExpirationDate}; path=/`;\n    document.cookie = `passwordHash=${passwordHash}; expires=${cookieExpirationDate}; path=/`;"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/auth_004.js",
+      "start_line": 33,
+      "end_line": 33,
+      "start_column": 19,
+      "end_column": 48,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-regexp",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-regexp",
+      "description": "RegExp() called with a `name` function argument, this might allow an attacker to cause a Regular Expression Denial-of-Service (ReDoS) within your application as RegExP blocks the main thread. For this reason, it is recommended to use hardcoded regexes instead. If your regex is run on user-controlled input, consider performing input validation or use a regex checking/sanitization library such as https://www.npmjs.com/package/recheck to verify that the regex does not appear vulnerable to ReDoS.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-1333: Inefficient Regular Expression Complexity"
+      ],
+      "owasp_categories": [
+        "A05:2021 - Security Misconfiguration",
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    const regex = new RegExp(`${name}=([^;]*)`);",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 32,
+              "col": 20,
+              "offset": 1400
+            },
+            "end": {
+              "line": 32,
+              "col": 24,
+              "offset": 1404
+            },
+            "abstract_content": "name"
+          }
+        },
+        "lines": "    const regex = new RegExp(`${name}=([^;]*)`);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_003.py",
+      "start_line": 33,
+      "end_line": 33,
+      "start_column": 9,
+      "end_column": 56,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "title": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "description": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(command, shell=True, check=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html",
+        "https://docs.python.org/3/library/shlex.html",
+        "https://semgrep.dev/docs/cheat-sheets/python-command-injection/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 33,
+              "col": 20,
+              "offset": 1375
+            },
+            "end": {
+              "line": 33,
+              "col": 23,
+              "offset": 1378
+            },
+            "abstract_content": "run"
+          }
+        },
+        "lines": "        subprocess.run(command, shell=True, check=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_003.py",
+      "start_line": 33,
+      "end_line": 33,
+      "start_column": 39,
+      "end_column": 43,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "title": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "description": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(command, shell=True, check=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 33,
+              "col": 20,
+              "offset": 1375
+            },
+            "end": {
+              "line": 33,
+              "col": 23,
+              "offset": 1378
+            },
+            "abstract_content": "run"
+          },
+          "$TRUE": {
+            "start": {
+              "line": 33,
+              "col": 39,
+              "offset": 1394
+            },
+            "end": {
+              "line": 33,
+              "col": 43,
+              "offset": 1398
+            },
+            "abstract_content": "True"
+          }
+        },
+        "lines": "        subprocess.run(command, shell=True, check=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_004.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 9,
+      "end_column": 40,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "title": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "description": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(cmd, shell=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html",
+        "https://docs.python.org/3/library/shlex.html",
+        "https://semgrep.dev/docs/cheat-sheets/python-command-injection/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 10,
+              "col": 20,
+              "offset": 598
+            },
+            "end": {
+              "line": 10,
+              "col": 23,
+              "offset": 601
+            },
+            "abstract_content": "run"
+          }
+        },
+        "lines": "        subprocess.run(cmd, shell=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_004.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 35,
+      "end_column": 39,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "title": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "description": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(cmd, shell=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 10,
+              "col": 20,
+              "offset": 598
+            },
+            "end": {
+              "line": 10,
+              "col": 23,
+              "offset": 601
+            },
+            "abstract_content": "run"
+          },
+          "$TRUE": {
+            "start": {
+              "line": 10,
+              "col": 35,
+              "offset": 613
+            },
+            "end": {
+              "line": 10,
+              "col": 39,
+              "offset": 617
+            },
+            "abstract_content": "True"
+          }
+        },
+        "lines": "        subprocess.run(cmd, shell=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_004.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 9,
+      "end_column": 40,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "title": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+      "description": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(cmd, shell=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html",
+        "https://docs.python.org/3/library/shlex.html",
+        "https://semgrep.dev/docs/cheat-sheets/python-command-injection/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 15,
+              "col": 20,
+              "offset": 795
+            },
+            "end": {
+              "line": 15,
+              "col": 23,
+              "offset": 798
+            },
+            "abstract_content": "run"
+          }
+        },
+        "lines": "        subprocess.run(cmd, shell=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/cmd_004.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 35,
+      "end_column": 39,
+      "rule_id": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "title": "app.opengrep-rules.python.lang.security.audit.subprocess-shell-true",
+      "description": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "        subprocess.run(cmd, shell=True)",
+      "recommendation": "",
+      "references": [
+        "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess",
+        "https://docs.python.org/3/library/subprocess.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 15,
+              "col": 20,
+              "offset": 795
+            },
+            "end": {
+              "line": 15,
+              "col": 23,
+              "offset": 798
+            },
+            "abstract_content": "run"
+          },
+          "$TRUE": {
+            "start": {
+              "line": 15,
+              "col": 35,
+              "offset": 810
+            },
+            "end": {
+              "line": 15,
+              "col": 39,
+              "offset": 814
+            },
+            "abstract_content": "True"
+          }
+        },
+        "lines": "        subprocess.run(cmd, shell=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/csrf_002.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 1,
+      "end_column": 45,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "title": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "description": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "app.config['SECRET_KEY'] = 'secret_key_here'",
+      "recommendation": "",
+      "references": [
+        "https://bento.dev/checks/flask/avoid-hardcoded-config/",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$M": {
+            "start": {
+              "line": 10,
+              "col": 1,
+              "offset": 483
+            },
+            "end": {
+              "line": 10,
+              "col": 4,
+              "offset": 486
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 467
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 482
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "app.config['SECRET_KEY'] = 'secret_key_here'"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/csrf_002.py",
+      "start_line": 41,
+      "end_line": 41,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 41,
+              "col": 5,
+              "offset": 1543
+            },
+            "end": {
+              "line": 41,
+              "col": 8,
+              "offset": 1546
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 467
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 482
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 9,
+      "end_column": 39,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-dill",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-dill",
+      "description": "Avoid using `dill`, which uses `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "        pickle.dump(preferences, file)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 10,
+              "col": 16,
+              "offset": 819
+            },
+            "end": {
+              "line": 10,
+              "col": 20,
+              "offset": 823
+            },
+            "abstract_content": "dump"
+          }
+        },
+        "lines": "        pickle.dump(preferences, file)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 9,
+      "end_column": 39,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "description": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "        pickle.dump(preferences, file)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 10,
+              "col": 16,
+              "offset": 819
+            },
+            "end": {
+              "line": 10,
+              "col": 20,
+              "offset": 823
+            },
+            "abstract_content": "dump"
+          }
+        },
+        "lines": "        pickle.dump(preferences, file)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 20,
+      "end_column": 37,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-dill",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-dill",
+      "description": "Avoid using `dill`, which uses `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "            return pickle.load(file)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 15,
+              "col": 27,
+              "offset": 966
+            },
+            "end": {
+              "line": 15,
+              "col": 31,
+              "offset": 970
+            },
+            "abstract_content": "load"
+          }
+        },
+        "lines": "            return pickle.load(file)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 20,
+      "end_column": 37,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "description": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "            return pickle.load(file)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 15,
+              "col": 27,
+              "offset": 966
+            },
+            "end": {
+              "line": 15,
+              "col": 31,
+              "offset": 970
+            },
+            "abstract_content": "load"
+          }
+        },
+        "lines": "            return pickle.load(file)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_002.py",
+      "start_line": 21,
+      "end_line": 21,
+      "start_column": 13,
+      "end_column": 34,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "description": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "            pickle.dump(value, f)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 21,
+              "col": 20,
+              "offset": 937
+            },
+            "end": {
+              "line": 21,
+              "col": 24,
+              "offset": 941
+            },
+            "abstract_content": "dump"
+          }
+        },
+        "lines": "            pickle.dump(value, f)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/deserial_002.py",
+      "start_line": 26,
+      "end_line": 26,
+      "start_column": 24,
+      "end_column": 38,
+      "rule_id": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "title": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+      "description": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-502: Deserialization of Untrusted Data"
+      ],
+      "owasp_categories": [
+        "A08:2017 - Insecure Deserialization",
+        "A08:2021 - Software and Data Integrity Failures"
+      ],
+      "code_excerpt": "                return pickle.load(f)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/pickle.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FUNC": {
+            "start": {
+              "line": 26,
+              "col": 31,
+              "offset": 1082
+            },
+            "end": {
+              "line": 26,
+              "col": 35,
+              "offset": 1086
+            },
+            "abstract_content": "load"
+          }
+        },
+        "lines": "                return pickle.load(f)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/jwt_001.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 1,
+      "end_column": 45,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "title": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+      "description": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "app.config['SECRET_KEY'] = 'your_secret_key'",
+      "recommendation": "",
+      "references": [
+        "https://bento.dev/checks/flask/avoid-hardcoded-config/",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values",
+        "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$M": {
+            "start": {
+              "line": 10,
+              "col": 1,
+              "offset": 324
+            },
+            "end": {
+              "line": 10,
+              "col": 4,
+              "offset": 327
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 308
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 323
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "app.config['SECRET_KEY'] = 'your_secret_key'"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/jwt_001.py",
+      "start_line": 23,
+      "end_line": 23,
+      "start_column": 43,
+      "end_column": 55,
+      "rule_id": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+      "title": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+      "description": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-522: Insufficiently Protected Credentials"
+      ],
+      "owasp_categories": [
+        "A02:2017 - Broken Authentication",
+        "A04:2021 - Insecure Design"
+      ],
+      "code_excerpt": "    return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')",
+      "recommendation": "",
+      "references": [
+        "https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$X": {
+            "start": {
+              "line": 23,
+              "col": 23,
+              "offset": 647
+            },
+            "end": {
+              "line": 23,
+              "col": 30,
+              "offset": 654
+            },
+            "abstract_content": "payload"
+          },
+          "$SECRET": {
+            "start": {
+              "line": 23,
+              "col": 32,
+              "offset": 656
+            },
+            "end": {
+              "line": 23,
+              "col": 56,
+              "offset": 680
+            },
+            "abstract_content": "app.config['SECRET_KEY']"
+          }
+        },
+        "lines": "    return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/jwt_001.py",
+      "start_line": 48,
+      "end_line": 48,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 48,
+              "col": 5,
+              "offset": 1628
+            },
+            "end": {
+              "line": 48,
+              "col": 8,
+              "offset": 1631
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 308
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 323
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/jwt_005.py",
+      "start_line": 16,
+      "end_line": 16,
+      "start_column": 32,
+      "end_column": 42,
+      "rule_id": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+      "title": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+      "description": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-522: Insufficiently Protected Credentials"
+      ],
+      "owasp_categories": [
+        "A02:2017 - Broken Authentication",
+        "A04:2021 - Insecure Design"
+      ],
+      "code_excerpt": "    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')",
+      "recommendation": "",
+      "references": [
+        "https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$X": {
+            "start": {
+              "line": 16,
+              "col": 23,
+              "offset": 579
+            },
+            "end": {
+              "line": 16,
+              "col": 30,
+              "offset": 586
+            },
+            "abstract_content": "payload"
+          },
+          "$SECRET": {
+            "start": {
+              "line": 16,
+              "col": 32,
+              "offset": 588
+            },
+            "end": {
+              "line": 16,
+              "col": 42,
+              "offset": 598
+            },
+            "abstract_content": "SECRET_KEY",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 8,
+                "col": 14,
+                "offset": 376
+              },
+              "svalue_end": {
+                "line": 8,
+                "col": 31,
+                "offset": 393
+              },
+              "svalue_abstract_content": "'secret_key_here'"
+            }
+          }
+        },
+        "lines": "    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/ldap_001.py",
+      "start_line": 30,
+      "end_line": 31,
+      "start_column": 1,
+      "end_column": 1,
+      "rule_id": "app.opengrep-rules.generic.secrets.gitleaks.hashicorp-tf-password",
+      "title": "app.opengrep-rules.generic.secrets.gitleaks.hashicorp-tf-password",
+      "description": "A gitleaks hashicorp-tf-password was detected which attempts to identify hard-coded credentials. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module).",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-798: Use of Hard-coded Credentials"
+      ],
+      "owasp_categories": [
+        "A07:2021 - Identification and Authentication Failures"
+      ],
+      "code_excerpt": "password = \"password\"",
+      "recommendation": "",
+      "references": [
+        "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 30,
+              "col": 12,
+              "offset": 1013
+            },
+            "end": {
+              "line": 30,
+              "col": 22,
+              "offset": 1023
+            },
+            "abstract_content": "\"password\""
+          }
+        },
+        "lines": "password = \"password\""
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/logic_003.py",
+      "start_line": 11,
+      "end_line": 11,
+      "start_column": 9,
+      "end_column": 27,
+      "rule_id": "app.opengrep-rules.python.lang.maintainability.is-function-without-parentheses",
+      "title": "app.opengrep-rules.python.lang.maintainability.is-function-without-parentheses",
+      "description": "Is \"is_admin_only\" a function or an attribute? If it is a function, you may have meant self.is_admin_only() because self.is_admin_only is always true.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "        self.is_admin_only = is_admin_only",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "metavars": {
+          "$X": {
+            "start": {
+              "line": 11,
+              "col": 9,
+              "offset": 564
+            },
+            "end": {
+              "line": 11,
+              "col": 13,
+              "offset": 568
+            },
+            "abstract_content": "self"
+          },
+          "$FUNC": {
+            "start": {
+              "line": 11,
+              "col": 14,
+              "offset": 569
+            },
+            "end": {
+              "line": 11,
+              "col": 27,
+              "offset": 582
+            },
+            "abstract_content": "is_admin_only"
+          }
+        },
+        "lines": "        self.is_admin_only = is_admin_only"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/logic_003.py",
+      "start_line": 25,
+      "end_line": 25,
+      "start_column": 17,
+      "end_column": 39,
+      "rule_id": "app.opengrep-rules.python.lang.maintainability.is-function-without-parentheses",
+      "title": "app.opengrep-rules.python.lang.maintainability.is-function-without-parentheses",
+      "description": "Is \"is_admin_only\" a function or an attribute? If it is a function, you may have meant discount.is_admin_only() because discount.is_admin_only is always true.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "        if (not discount.is_admin_only or user.tier == 'admin') and 'code' in cart:",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "metavars": {
+          "$X": {
+            "start": {
+              "line": 25,
+              "col": 17,
+              "offset": 942
+            },
+            "end": {
+              "line": 25,
+              "col": 25,
+              "offset": 950
+            },
+            "abstract_content": "discount"
+          },
+          "$FUNC": {
+            "start": {
+              "line": 25,
+              "col": 26,
+              "offset": 951
+            },
+            "end": {
+              "line": 25,
+              "col": 39,
+              "offset": 964
+            },
+            "abstract_content": "is_admin_only"
+          }
+        },
+        "lines": "        if (not discount.is_admin_only or user.tier == 'admin') and 'code' in cart:"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/path_001.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 15,
+              "col": 5,
+              "offset": 477
+            },
+            "end": {
+              "line": 15,
+              "col": 8,
+              "offset": 480
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 8,
+                "col": 7,
+                "offset": 323
+              },
+              "svalue_end": {
+                "line": 8,
+                "col": 22,
+                "offset": 338
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/path_004.py",
+      "start_line": 54,
+      "end_line": 54,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 54,
+              "col": 5,
+              "offset": 1993
+            },
+            "end": {
+              "line": 54,
+              "col": 8,
+              "offset": 1996
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 489
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 504
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/race_002.py",
+      "start_line": 35,
+      "end_line": 35,
+      "start_column": 14,
+      "end_column": 33,
+      "rule_id": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding",
+      "title": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding",
+      "description": "Missing 'encoding' parameter. 'open()' uses device locale encodings by default, corrupting files with special characters. Specify the encoding to ensure cross-platform support when opening files in text mode (e.g. encoding=\"utf-8\").",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "        with open(filename, 'r') as f:",
+      "recommendation": "",
+      "references": [
+        "https://www.python.org/dev/peps/pep-0597/",
+        "https://docs.python.org/3/library/functions.html#open"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$FILE": {
+            "start": {
+              "line": 35,
+              "col": 19,
+              "offset": 1166
+            },
+            "end": {
+              "line": 35,
+              "col": 27,
+              "offset": 1174
+            },
+            "abstract_content": "filename"
+          },
+          "$MODE": {
+            "start": {
+              "line": 35,
+              "col": 29,
+              "offset": 1176
+            },
+            "end": {
+              "line": 35,
+              "col": 32,
+              "offset": 1179
+            },
+            "abstract_content": "'r'"
+          }
+        },
+        "lines": "        with open(filename, 'r') as f:"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/rate_limit_002.py",
+      "start_line": 64,
+      "end_line": 64,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 64,
+              "col": 5,
+              "offset": 2181
+            },
+            "end": {
+              "line": 64,
+              "col": 8,
+              "offset": 2184
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 12,
+                "col": 7,
+                "offset": 521
+              },
+              "svalue_end": {
+                "line": 12,
+                "col": 22,
+                "offset": 536
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/secrets_001.py",
+      "start_line": 7,
+      "end_line": 11,
+      "start_column": 6,
+      "end_column": 2,
+      "rule_id": "app.opengrep-rules.python.boto3.security.hardcoded-token",
+      "title": "app.opengrep-rules.python.boto3.security.hardcoded-token",
+      "description": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module).",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-798: Use of Hard-coded Credentials"
+      ],
+      "owasp_categories": [
+        "A07:2021 - Identification and Authentication Failures"
+      ],
+      "code_excerpt": "s3 = boto3.client('s3',\n    aws_access_key_id='AKIA123EXAMPLE',\n    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',\n    region_name='us-east-1'\n)",
+      "recommendation": "",
+      "references": [
+        "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+        "https://bento.dev/checks/boto3/hardcoded-access-token/",
+        "https://aws.amazon.com/blogs/security/what-to-do-if-you-inadvertently-expose-an-aws-access-key/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 1,
+              "col": 1,
+              "offset": 0
+            },
+            "end": {
+              "line": 1,
+              "col": 22,
+              "offset": 21
+            },
+            "abstract_content": "aws_secret_access_key"
+          },
+          "$BOTO": {
+            "start": {
+              "line": 7,
+              "col": 6,
+              "offset": 558
+            },
+            "end": {
+              "line": 7,
+              "col": 11,
+              "offset": 563
+            },
+            "abstract_content": "boto3"
+          },
+          "$W": {
+            "start": {
+              "line": 7,
+              "col": 12,
+              "offset": 564
+            },
+            "end": {
+              "line": 7,
+              "col": 18,
+              "offset": 570
+            },
+            "abstract_content": "client"
+          },
+          "$TOKEN": {
+            "start": {
+              "line": 9,
+              "col": 5,
+              "offset": 621
+            },
+            "end": {
+              "line": 9,
+              "col": 26,
+              "offset": 642
+            },
+            "abstract_content": "aws_secret_access_key"
+          },
+          "$VALUE": {
+            "start": {
+              "line": 9,
+              "col": 28,
+              "offset": 644
+            },
+            "end": {
+              "line": 9,
+              "col": 68,
+              "offset": 684
+            },
+            "abstract_content": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          }
+        },
+        "lines": "s3 = boto3.client('s3',\n    aws_access_key_id='AKIA123EXAMPLE',\n    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',\n    region_name='us-east-1'\n)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/sql_001.py",
+      "start_line": 13,
+      "end_line": 14,
+      "start_column": 13,
+      "end_column": 1,
+      "rule_id": "app.opengrep-rules.generic.secrets.gitleaks.hashicorp-tf-password",
+      "title": "app.opengrep-rules.generic.secrets.gitleaks.hashicorp-tf-password",
+      "description": "A gitleaks hashicorp-tf-password was detected which attempts to identify hard-coded credentials. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module).",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-798: Use of Hard-coded Credentials"
+      ],
+      "owasp_categories": [
+        "A07:2021 - Identification and Authentication Failures"
+      ],
+      "code_excerpt": "            password=\"password\"\n        )",
+      "recommendation": "",
+      "references": [
+        "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 13,
+              "col": 22,
+              "offset": 491
+            },
+            "end": {
+              "line": 13,
+              "col": 32,
+              "offset": 501
+            },
+            "abstract_content": "\"password\""
+          }
+        },
+        "lines": "            password=\"password\"\n        )"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/sql_002.js",
+      "start_line": 8,
+      "end_line": 8,
+      "start_column": 7,
+      "end_column": 22,
+      "rule_id": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "title": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "description": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies.",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp_categories": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "const app = express();",
+      "recommendation": "",
+      "references": [
+        "https://www.npmjs.com/package/csurf",
+        "https://www.npmjs.com/package/csrf",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 8,
+              "col": 7,
+              "offset": 364
+            },
+            "end": {
+              "line": 8,
+              "col": 10,
+              "offset": 367
+            },
+            "abstract_content": "app"
+          },
+          "$EXPRESS": {
+            "start": {
+              "line": 8,
+              "col": 13,
+              "offset": 370
+            },
+            "end": {
+              "line": 8,
+              "col": 20,
+              "offset": 377
+            },
+            "abstract_content": "express",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 5,
+                "col": 17,
+                "offset": 305
+              },
+              "svalue_end": {
+                "line": 5,
+                "col": 35,
+                "offset": 323
+              },
+              "svalue_abstract_content": "require('express')"
+            }
+          }
+        },
+        "lines": "const app = express();"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/sql_002.js",
+      "start_line": 27,
+      "end_line": 27,
+      "start_column": 64,
+      "end_column": 68,
+      "rule_id": "app.opengrep-rules.javascript.express.security.injection.tainted-sql-string",
+      "title": "app.opengrep-rules.javascript.express.security.injection.tainted-sql-string",
+      "description": "Detected user input used to manually construct a SQL string. This is usually bad practice because manual construction could accidentally result in a SQL injection. An attacker could use a SQL injection to steal or modify contents of the database. Instead, use a parameterized query which is available by default in most database engines. Alternatively, consider using an object-relational mapper (ORM) such as Sequelize which will protect your queries.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      ],
+      "owasp_categories": [
+        "A01:2017 - Injection",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "  db.query(`SELECT * FROM products WHERE product_name LIKE '%${name}%'`, (err, results) => {",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/SQL_Injection"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 1,
+              "col": 1,
+              "offset": 0
+            },
+            "end": {
+              "line": 1,
+              "col": 7,
+              "offset": 6
+            },
+            "abstract_content": "SELECT"
+          },
+          "$REQ": {
+            "start": {
+              "line": 25,
+              "col": 16,
+              "offset": 734
+            },
+            "end": {
+              "line": 25,
+              "col": 19,
+              "offset": 737
+            },
+            "abstract_content": "req"
+          },
+          "$SQLSTR": {
+            "start": {
+              "line": 27,
+              "col": 13,
+              "offset": 764
+            },
+            "end": {
+              "line": 27,
+              "col": 62,
+              "offset": 813
+            },
+            "abstract_content": "SELECT * FROM products WHERE product_name LIKE '%"
+          },
+          "$EXPR": {
+            "start": {
+              "line": 27,
+              "col": 64,
+              "offset": 815
+            },
+            "end": {
+              "line": 27,
+              "col": 68,
+              "offset": 819
+            },
+            "abstract_content": "name",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 25,
+                "col": 16,
+                "offset": 734
+              },
+              "svalue_end": {
+                "line": 25,
+                "col": 31,
+                "offset": 749
+              },
+              "svalue_abstract_content": "req.params.name"
+            }
+          }
+        },
+        "lines": "  db.query(`SELECT * FROM products WHERE product_name LIKE '%${name}%'`, (err, results) => {"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/ssrf_001.py",
+      "start_line": 16,
+      "end_line": 16,
+      "start_column": 20,
+      "end_column": 54,
+      "rule_id": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+      "title": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+      "description": "Detected a 'requests' call without a timeout set. By default, 'requests' calls wait until the connection is closed. This means a 'requests' call without a timeout will hang the program if a response is never received. Consider setting a timeout for all 'requests'.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "        response = requests.get(url, headers=headers)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python-requests.org/en/latest/user/advanced/?highlight=timeout#timeouts",
+        "https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts"
+      ],
+      "tool_specific": {
+        "metavars": {},
+        "lines": "        response = requests.get(url, headers=headers)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/ssrf_001.py",
+      "start_line": 23,
+      "end_line": 23,
+      "start_column": 20,
+      "end_column": 45,
+      "rule_id": "app.opengrep-rules.python.requests.best-practice.python.requests.best-practice.use-response-json-shortcut",
+      "title": "app.opengrep-rules.python.requests.best-practice.python.requests.best-practice.use-response-json-shortcut",
+      "description": "The requests library has a convenient shortcut for reading JSON responses, which lets you stop worrying about deserializing the response yourself.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "            return json.loads(response.text), new_parsed_url",
+      "recommendation": "",
+      "references": [
+        "https://requests.readthedocs.io/en/stable/user/quickstart/#json-response-content"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$METHOD": {
+            "start": {
+              "line": 16,
+              "col": 29,
+              "offset": 590
+            },
+            "end": {
+              "line": 16,
+              "col": 32,
+              "offset": 593
+            },
+            "abstract_content": "get"
+          },
+          "$RESP": {
+            "start": {
+              "line": 23,
+              "col": 31,
+              "offset": 973
+            },
+            "end": {
+              "line": 23,
+              "col": 39,
+              "offset": 981
+            },
+            "abstract_content": "response",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 16,
+                "col": 20,
+                "offset": 581
+              },
+              "svalue_end": {
+                "line": 16,
+                "col": 54,
+                "offset": 615
+              },
+              "svalue_abstract_content": "requests.get(url headers headers)"
+            }
+          }
+        },
+        "lines": "            return json.loads(response.text), new_parsed_url"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/ssrf_002.js",
+      "start_line": 29,
+      "end_line": 29,
+      "start_column": 16,
+      "end_column": 20,
+      "rule_id": "app.opengrep-rules.problem-based-packs.insecure-transport.js-node.using-http-server",
+      "title": "app.opengrep-rules.problem-based-packs.insecure-transport.js-node.using-http-server",
+      "description": "Checks for any usage of http servers instead of https servers. Encourages the usage of https protocol instead of http, which does not have TLS and is therefore unencrypted. Using http can lead to man-in-the-middle attacks in which the attacker is able to read sensitive information.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-319: Cleartext Transmission of Sensitive Information"
+      ],
+      "owasp_categories": [
+        "A02:2021 - Cryptographic Failures",
+        "A03:2017 - Sensitive Data Exposure"
+      ],
+      "code_excerpt": "const server = http.createServer(webhookProxy);",
+      "recommendation": "",
+      "references": [
+        "https://nodejs.org/api/http.html#http_class_http_agent",
+        "https://groups.google.com/g/rubyonrails-security/c/NCCsca7TEtY"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$HTTP": {
+            "start": {
+              "line": 29,
+              "col": 16,
+              "offset": 947
+            },
+            "end": {
+              "line": 29,
+              "col": 20,
+              "offset": 951
+            },
+            "abstract_content": "http",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 5,
+                "col": 14,
+                "offset": 355
+              },
+              "svalue_end": {
+                "line": 5,
+                "col": 29,
+                "offset": 370
+              },
+              "svalue_abstract_content": "require('http')"
+            }
+          },
+          "$FUNC": {
+            "start": {
+              "line": 29,
+              "col": 21,
+              "offset": 952
+            },
+            "end": {
+              "line": 29,
+              "col": 33,
+              "offset": 964
+            },
+            "abstract_content": "createServer"
+          }
+        },
+        "lines": "const server = http.createServer(webhookProxy);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_001.py",
+      "start_line": 33,
+      "end_line": 33,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 33,
+              "col": 5,
+              "offset": 1146
+            },
+            "end": {
+              "line": 33,
+              "col": 8,
+              "offset": 1149
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 9,
+                "col": 7,
+                "offset": 244
+              },
+              "svalue_end": {
+                "line": 9,
+                "col": 22,
+                "offset": 259
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 9,
+      "end_line": 9,
+      "start_column": 7,
+      "end_column": 22,
+      "rule_id": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "title": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "description": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies.",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp_categories": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "const app = express();",
+      "recommendation": "",
+      "references": [
+        "https://www.npmjs.com/package/csurf",
+        "https://www.npmjs.com/package/csrf",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 9,
+              "col": 7,
+              "offset": 484
+            },
+            "end": {
+              "line": 9,
+              "col": 10,
+              "offset": 487
+            },
+            "abstract_content": "app"
+          },
+          "$EXPRESS": {
+            "start": {
+              "line": 9,
+              "col": 13,
+              "offset": 490
+            },
+            "end": {
+              "line": 9,
+              "col": 20,
+              "offset": 497
+            },
+            "abstract_content": "express"
+          }
+        },
+        "lines": "const app = express();"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 26,
+      "end_line": 26,
+      "start_column": 24,
+      "end_column": 53,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "description": "Detected that function argument `file` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp_categories": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "      fs.writeFileSync(`${uploadDir}${originalname}`, file.buffer);",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 22,
+              "col": 28,
+              "offset": 878
+            },
+            "end": {
+              "line": 22,
+              "col": 32,
+              "offset": 882
+            },
+            "abstract_content": "file"
+          },
+          "$FS": {
+            "start": {
+              "line": 26,
+              "col": 7,
+              "offset": 1037
+            },
+            "end": {
+              "line": 26,
+              "col": 9,
+              "offset": 1039
+            },
+            "abstract_content": "fs",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 7,
+                "col": 12,
+                "offset": 462
+              },
+              "svalue_end": {
+                "line": 7,
+                "col": 25,
+                "offset": 475
+              },
+              "svalue_abstract_content": "require('fs')"
+            }
+          },
+          "$FILE": {
+            "start": {
+              "line": 26,
+              "col": 24,
+              "offset": 1054
+            },
+            "end": {
+              "line": 26,
+              "col": 53,
+              "offset": 1083
+            },
+            "abstract_content": "``uploadDir originalname`"
+          }
+        },
+        "lines": "      fs.writeFileSync(`${uploadDir}${originalname}`, file.buffer);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 41,
+      "end_line": 41,
+      "start_column": 31,
+      "end_column": 46,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "description": "Detected that function argument `dir` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp_categories": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "  const img = fs.readFileSync(`${dir}${file}`, 'binary');",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 39,
+              "col": 32,
+              "offset": 1519
+            },
+            "end": {
+              "line": 39,
+              "col": 35,
+              "offset": 1522
+            },
+            "abstract_content": "dir"
+          },
+          "$FS": {
+            "start": {
+              "line": 41,
+              "col": 15,
+              "offset": 1636
+            },
+            "end": {
+              "line": 41,
+              "col": 17,
+              "offset": 1638
+            },
+            "abstract_content": "fs"
+          },
+          "$FILE": {
+            "start": {
+              "line": 41,
+              "col": 31,
+              "offset": 1652
+            },
+            "end": {
+              "line": 41,
+              "col": 46,
+              "offset": 1667
+            },
+            "abstract_content": "``dir file`"
+          }
+        },
+        "lines": "  const img = fs.readFileSync(`${dir}${file}`, 'binary');"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 41,
+      "end_line": 41,
+      "start_column": 31,
+      "end_column": 46,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "description": "Detected that function argument `file` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp_categories": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "  const img = fs.readFileSync(`${dir}${file}`, 'binary');",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 39,
+              "col": 26,
+              "offset": 1513
+            },
+            "end": {
+              "line": 39,
+              "col": 30,
+              "offset": 1517
+            },
+            "abstract_content": "file"
+          },
+          "$FS": {
+            "start": {
+              "line": 41,
+              "col": 15,
+              "offset": 1636
+            },
+            "end": {
+              "line": 41,
+              "col": 17,
+              "offset": 1638
+            },
+            "abstract_content": "fs",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 7,
+                "col": 12,
+                "offset": 462
+              },
+              "svalue_end": {
+                "line": 7,
+                "col": 25,
+                "offset": 475
+              },
+              "svalue_abstract_content": "require('fs')"
+            }
+          },
+          "$FILE": {
+            "start": {
+              "line": 41,
+              "col": 31,
+              "offset": 1652
+            },
+            "end": {
+              "line": 41,
+              "col": 46,
+              "offset": 1667
+            },
+            "abstract_content": "``dir file`"
+          }
+        },
+        "lines": "  const img = fs.readFileSync(`${dir}${file}`, 'binary');"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 46,
+      "end_line": 46,
+      "start_column": 20,
+      "end_column": 40,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "description": "Detected that function argument `dir` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp_categories": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "  fs.writeFileSync(`${dir}${thumbName}`, binaryData);",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 39,
+              "col": 32,
+              "offset": 1519
+            },
+            "end": {
+              "line": 39,
+              "col": 35,
+              "offset": 1522
+            },
+            "abstract_content": "dir"
+          },
+          "$FS": {
+            "start": {
+              "line": 46,
+              "col": 3,
+              "offset": 1824
+            },
+            "end": {
+              "line": 46,
+              "col": 5,
+              "offset": 1826
+            },
+            "abstract_content": "fs"
+          },
+          "$FILE": {
+            "start": {
+              "line": 46,
+              "col": 20,
+              "offset": 1841
+            },
+            "end": {
+              "line": 46,
+              "col": 40,
+              "offset": 1861
+            },
+            "abstract_content": "``dir thumbName`"
+          }
+        },
+        "lines": "  fs.writeFileSync(`${dir}${thumbName}`, binaryData);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/upload_003.js",
+      "start_line": 46,
+      "end_line": 46,
+      "start_column": 20,
+      "end_column": 40,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "title": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+      "description": "Detected that function argument `file` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+      ],
+      "owasp_categories": [
+        "A05:2017 - Broken Access Control",
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "  fs.writeFileSync(`${dir}${thumbName}`, binaryData);",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/www-community/attacks/Path_Traversal"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$ARG": {
+            "start": {
+              "line": 39,
+              "col": 26,
+              "offset": 1513
+            },
+            "end": {
+              "line": 39,
+              "col": 30,
+              "offset": 1517
+            },
+            "abstract_content": "file"
+          },
+          "$FS": {
+            "start": {
+              "line": 46,
+              "col": 3,
+              "offset": 1824
+            },
+            "end": {
+              "line": 46,
+              "col": 5,
+              "offset": 1826
+            },
+            "abstract_content": "fs",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 7,
+                "col": 12,
+                "offset": 462
+              },
+              "svalue_end": {
+                "line": 7,
+                "col": 25,
+                "offset": 475
+              },
+              "svalue_abstract_content": "require('fs')"
+            }
+          },
+          "$FILE": {
+            "start": {
+              "line": 46,
+              "col": 20,
+              "offset": 1841
+            },
+            "end": {
+              "line": 46,
+              "col": 40,
+              "offset": 1861
+            },
+            "abstract_content": "``dir thumbName`"
+          }
+        },
+        "lines": "  fs.writeFileSync(`${dir}${thumbName}`, binaryData);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xss_001.js",
+      "start_line": 10,
+      "end_line": 15,
+      "start_column": 27,
+      "end_column": 8,
+      "rule_id": "app.opengrep-rules.javascript.lang.security.html-in-template-string",
+      "title": "app.opengrep-rules.javascript.lang.security.html-in-template-string",
+      "description": "This template literal looks like HTML and has interpolated variables. These variables are not HTML-encoded by default. If the variables contain HTML tags, these may be interpreted by the browser, resulting in cross-site scripting (XSS).",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-116: Improper Encoding or Escaping of Output"
+      ],
+      "owasp_categories": [
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "      const commentHTML = `\n        <div class=\"comment\">\n          <p>${comments[i].text}</p>\n          <p>Posted by: ${comments[i].author}</p>\n        </div>\n      `;",
+      "recommendation": "",
+      "references": [
+        "https://owasp.org/Top10/A03_2021-Injection"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$VAR": {
+            "start": {
+              "line": 13,
+              "col": 25,
+              "offset": 540
+            },
+            "end": {
+              "line": 13,
+              "col": 46,
+              "offset": 561
+            },
+            "abstract_content": "comments[i].author"
+          },
+          "$HTML": {
+            "start": {
+              "line": 13,
+              "col": 46,
+              "offset": 561
+            },
+            "end": {
+              "line": 15,
+              "col": 7,
+              "offset": 587
+            },
+            "abstract_content": "</p>\n        </div>\n      "
+          }
+        },
+        "lines": "      const commentHTML = `\n        <div class=\"comment\">\n          <p>${comments[i].text}</p>\n          <p>Posted by: ${comments[i].author}</p>\n        </div>\n      `;"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xss_001.js",
+      "start_line": 16,
+      "end_line": 16,
+      "start_column": 54,
+      "end_column": 65,
+      "rule_id": "app.opengrep-rules.typescript.react.security.audit.react-unsanitized-method",
+      "title": "app.opengrep-rules.typescript.react.security.audit.react-unsanitized-method",
+      "description": "Detection of insertAdjacentHTML from non-constant definition. This can inadvertently expose users to cross-site scripting (XSS) attacks if this comes from user-provided input. If you have to use insertAdjacentHTML, consider using a sanitization library such as DOMPurify to sanitize your HTML.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      ],
+      "owasp_categories": [
+        "A07:2017 - Cross-Site Scripting (XSS)",
+        "A03:2021 - Injection"
+      ],
+      "code_excerpt": "      commentElement.insertAdjacentHTML('beforeend', commentHTML);",
+      "recommendation": "",
+      "references": [
+        "https://developer.mozilla.org/en-US/docs/Web/API/Document/writeln",
+        "https://developer.mozilla.org/en-US/docs/Web/API/Document/write",
+        "https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$1": {
+            "start": {
+              "line": 1,
+              "col": 1,
+              "offset": 0
+            },
+            "end": {
+              "line": 1,
+              "col": 19,
+              "offset": 18
+            },
+            "abstract_content": "insertAdjacentHTML"
+          },
+          "$X": {
+            "start": {
+              "line": 12,
+              "col": 16,
+              "offset": 494
+            },
+            "end": {
+              "line": 12,
+              "col": 24,
+              "offset": 502
+            },
+            "abstract_content": "comments"
+          },
+          "$PROP": {
+            "start": {
+              "line": 16,
+              "col": 7,
+              "offset": 596
+            },
+            "end": {
+              "line": 16,
+              "col": 21,
+              "offset": 610
+            },
+            "abstract_content": "commentElement",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 6,
+                "col": 26,
+                "offset": 277
+              },
+              "svalue_end": {
+                "line": 6,
+                "col": 61,
+                "offset": 312
+              },
+              "svalue_abstract_content": "document.getElementById('comments')"
+            }
+          },
+          "$HTML": {
+            "start": {
+              "line": 16,
+              "col": 22,
+              "offset": 611
+            },
+            "end": {
+              "line": 16,
+              "col": 40,
+              "offset": 629
+            },
+            "abstract_content": "insertAdjacentHTML"
+          },
+          "$SINK": {
+            "start": {
+              "line": 16,
+              "col": 54,
+              "offset": 643
+            },
+            "end": {
+              "line": 16,
+              "col": 65,
+              "offset": 654
+            },
+            "abstract_content": "commentHTML",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 10,
+                "col": 27,
+                "offset": 447
+              },
+              "svalue_end": {
+                "line": 15,
+                "col": 8,
+                "offset": 588
+              },
+              "svalue_abstract_content": "``\n        <div class=\"comment\">\n          <p>comments[i].text</p>\n          <p>Posted by: comments[i].author</p>\n        </div>\n      `"
+            }
+          }
+        },
+        "lines": "      commentElement.insertAdjacentHTML('beforeend', commentHTML);"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xss_002.py",
+      "start_line": 19,
+      "end_line": 19,
+      "start_column": 5,
+      "end_column": 24,
+      "rule_id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "title": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+      "description": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-489: Active Debug Code"
+      ],
+      "owasp_categories": [
+        "A06:2017 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    app.run(debug=True)",
+      "recommendation": "",
+      "references": [
+        "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 19,
+              "col": 5,
+              "offset": 625
+            },
+            "end": {
+              "line": 19,
+              "col": 8,
+              "offset": 628
+            },
+            "abstract_content": "app",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 7,
+                "col": 7,
+                "offset": 307
+              },
+              "svalue_end": {
+                "line": 7,
+                "col": 22,
+                "offset": 322
+              },
+              "svalue_abstract_content": "Flask(__name__)"
+            }
+          }
+        },
+        "lines": "    app.run(debug=True)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xxe_001.py",
+      "start_line": 5,
+      "end_line": 5,
+      "start_column": 1,
+      "end_column": 35,
+      "rule_id": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "title": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "description": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-611: Improper Restriction of XML External Entity Reference"
+      ],
+      "owasp_categories": [
+        "A04:2017 - XML External Entities (XXE)",
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "import xml.etree.ElementTree as ET",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/xml.html",
+        "https://github.com/tiran/defusedxml",
+        "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+      ],
+      "tool_specific": {
+        "metavars": {},
+        "lines": "import xml.etree.ElementTree as ET"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xxe_001.py",
+      "start_line": 8,
+      "end_line": 8,
+      "start_column": 12,
+      "end_column": 31,
+      "rule_id": "app.opengrep-rules.python.lang.security.use-defused-xml-parse",
+      "title": "app.opengrep-rules.python.lang.security.use-defused-xml-parse",
+      "description": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-611: Improper Restriction of XML External Entity Reference"
+      ],
+      "owasp_categories": [
+        "A04:2017 - XML External Entities (XXE)",
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "    tree = ET.parse(file_path)",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/xml.html",
+        "https://github.com/tiran/defusedxml",
+        "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$...ARGS": {
+            "start": {
+              "line": 8,
+              "col": 21,
+              "offset": 253
+            },
+            "end": {
+              "line": 8,
+              "col": 30,
+              "offset": 262
+            },
+            "abstract_content": "file_path"
+          }
+        },
+        "lines": "    tree = ET.parse(file_path)"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xxe_002.js",
+      "start_line": 9,
+      "end_line": 9,
+      "start_column": 7,
+      "end_column": 22,
+      "rule_id": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "title": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+      "description": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies.",
+      "severity": "INFO",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-352: Cross-Site Request Forgery (CSRF)"
+      ],
+      "owasp_categories": [
+        "A01:2021 - Broken Access Control"
+      ],
+      "code_excerpt": "const app = express();",
+      "recommendation": "",
+      "references": [
+        "https://www.npmjs.com/package/csurf",
+        "https://www.npmjs.com/package/csrf",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+      ],
+      "tool_specific": {
+        "metavars": {
+          "$APP": {
+            "start": {
+              "line": 9,
+              "col": 7,
+              "offset": 554
+            },
+            "end": {
+              "line": 9,
+              "col": 10,
+              "offset": 557
+            },
+            "abstract_content": "app"
+          },
+          "$EXPRESS": {
+            "start": {
+              "line": 9,
+              "col": 13,
+              "offset": 560
+            },
+            "end": {
+              "line": 9,
+              "col": 20,
+              "offset": 567
+            },
+            "abstract_content": "express",
+            "propagated_value": {
+              "svalue_start": {
+                "line": 5,
+                "col": 17,
+                "offset": 468
+              },
+              "svalue_end": {
+                "line": 5,
+                "col": 35,
+                "offset": 486
+              },
+              "svalue_abstract_content": "require('express')"
+            }
+          }
+        },
+        "lines": "const app = express();"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xxe_003.py",
+      "start_line": 5,
+      "end_line": 5,
+      "start_column": 1,
+      "end_column": 35,
+      "rule_id": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "title": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "description": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-611: Improper Restriction of XML External Entity Reference"
+      ],
+      "owasp_categories": [
+        "A04:2017 - XML External Entities (XXE)",
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "import xml.etree.ElementTree as ET",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/xml.html",
+        "https://github.com/tiran/defusedxml",
+        "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+      ],
+      "tool_specific": {
+        "metavars": {},
+        "lines": "import xml.etree.ElementTree as ET"
+      }
+    },
+    {
+      "tool_name": "opengrep",
+      "scan_date": "2026-02-09T05:25:19.542251Z",
+      "file_path": "/src/xxe_004.py",
+      "start_line": 7,
+      "end_line": 7,
+      "start_column": 1,
+      "end_column": 23,
+      "rule_id": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "title": "app.opengrep-rules.python.lang.security.use-defused-xml",
+      "description": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service.",
+      "severity": "LOW",
+      "confidence": "LOW",
+      "cwe_ids": [
+        "CWE-611: Improper Restriction of XML External Entity Reference"
+      ],
+      "owasp_categories": [
+        "A04:2017 - XML External Entities (XXE)",
+        "A05:2021 - Security Misconfiguration"
+      ],
+      "code_excerpt": "import xml.dom.minidom",
+      "recommendation": "",
+      "references": [
+        "https://docs.python.org/3/library/xml.html",
+        "https://github.com/tiran/defusedxml",
+        "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+      ],
+      "tool_specific": {
+        "metavars": {},
+        "lines": "import xml.dom.minidom"
+      }
+    }
+  ]
+}

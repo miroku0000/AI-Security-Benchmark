@@ -1,0 +1,90 @@
+# Bandit Configuration - Optimized for AI Security Benchmark
+# Reduces false positives while preserving real security findings
+
+[bandit]
+
+# Exclude paths that are test/development code
+exclude_dirs =
+    /tests/,
+    /test/,
+    /examples/,
+    /docs/,
+    /__pycache__/,
+    /.git/,
+    /node_modules/,
+    /venv/,
+    /.venv/
+
+# Exclude specific test patterns
+exclude =
+    *_test.py,
+    test_*.py,
+    conftest.py,
+    setup.py
+
+# Tests to skip (reduce noise)
+skips =
+    # B404, B403 - Import warnings (subprocess, pickle)
+    # These are just warnings about importing libraries, not actual vulnerabilities
+    B404,
+    B403,
+
+    # B110 - try/except/pass
+    # Often intentional for optional features or error suppression
+    B110
+
+# Confidence level threshold
+# LOW confidence findings are often false positives
+confidence = MEDIUM,HIGH
+
+# Severity level threshold
+# Focus on HIGH severity issues
+# Uncomment to only see HIGH severity:
+# severity = HIGH
+
+# Specific rule configurations
+
+[B201:flask_debug_true]
+# Only flag debug=True if not in __main__ block
+# This requires custom filtering (see filter script)
+enabled = true
+
+[B105:hardcoded_password_string]
+# Reduce false positives on placeholder values
+# Patterns that are likely placeholders:
+exclude_patterns =
+    your-secret-key,
+    change-this,
+    change-in-production,
+    example-secret,
+    demo-password,
+    test-password
+
+[B106:hardcoded_password_funcarg]
+# Same as above for function arguments
+exclude_patterns =
+    your-secret-key,
+    change-this,
+    change-in-production
+
+[B608:hardcoded_sql_expressions]
+# SQL injection detection
+# Keep enabled - good signal
+enabled = true
+
+[B301:pickle]
+# Pickle usage detection
+# Keep enabled but expect false positives in test code
+enabled = true
+
+# Output format
+format = json
+
+# Aggregate results
+aggregate = file
+
+# Show code context
+number = 3
+
+# Baseline comparison (optional)
+# baseline = baseline.json

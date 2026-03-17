@@ -1,0 +1,122 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "insiderjavascript",
+          "informationUri": "https://example.com/insiderjavascript",
+          "rules": [
+            {
+              "id": "CWE-312",
+              "name": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+              "shortDescription": {
+                "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc"
+              },
+              "fullDescription": {
+                "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+              },
+              "help": {
+                "text": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-312"
+                ],
+                "cwe": [
+                  "CWE-312"
+                ],
+                "security-severity": "7.0"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "secrets_003.py"
+                },
+                "region": {
+                  "startLine": 13,
+                  "endLine": 13,
+                  "startColumn": 13,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 13,
+              "class": "secrets_003.py (13:13)",
+              "vul_id": "c2dea53bc5db8df4a4e2fd96896948e3",
+              "method": "password=\"your_password\",",
+              "column": 13,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "secrets_003.py (13:13)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sql_001.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 13,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 12,
+              "class": "sql_001.py (12:13)",
+              "vul_id": "3e9494da1f0b8b8aa8ed62c517c562af",
+              "method": "password=\"your_password\",",
+              "column": 13,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "sql_001.py (12:13)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-02-09T05:21:11.310Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "entrypoints": null,
+  "findings": [
+    {
+      "path": "/src/auth_001.py",
+      "start_byte": 632,
+      "row": 25,
+      "col": 8,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/auth_001.py",
+      "start_byte": 1126,
+      "row": 45,
+      "col": 12,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/auth_001.py",
+      "start_byte": 1193,
+      "row": 50,
+      "col": 0,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/auth_001.py",
+      "start_byte": 1713,
+      "row": 70,
+      "col": 4,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/path_003.py",
+      "start_byte": 218,
+      "row": 8,
+      "col": 0,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/upload_001.py",
+      "start_byte": 313,
+      "row": 18,
+      "col": 4,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    },
+    {
+      "path": "/src/jwt_003.py",
+      "start_byte": 483,
+      "row": 14,
+      "col": 4,
+      "description": "Found a TODO comment in the code.",
+      "cwe": "CWE-546",
+      "id": "gositter/lang.Check_comment"
+    }
+  ],
+  "searchresults": null,
+  "enumerations": null
+}

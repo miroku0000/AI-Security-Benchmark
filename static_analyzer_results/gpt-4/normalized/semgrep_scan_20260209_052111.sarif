@@ -1,0 +1,2251 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "semgrep",
+          "informationUri": "https://example.com/semgrep",
+          "rules": [
+            {
+              "id": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+              "name": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+              "shortDescription": {
+                "text": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage"
+              },
+              "fullDescription": {
+                "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+              },
+              "help": {
+                "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-352: Cross-Site Request Forgery (CSRF)",
+                  "A01:2021 - Broken Access Control",
+                  "A01:2025 - Broken Access Control"
+                ],
+                "cwe": [
+                  "CWE-352: Cross-Site Request Forgery (CSRF)"
+                ],
+                "owasp": [
+                  "A01:2021 - Broken Access Control",
+                  "A01:2025 - Broken Access Control"
+                ],
+                "security-severity": "1.0"
+              },
+              "helpUri": "https://www.npmjs.com/package/csurf"
+            },
+            {
+              "id": "python.flask.security.audit.debug-enabled.debug-enabled",
+              "name": "python.flask.security.audit.debug-enabled.debug-enabled",
+              "shortDescription": {
+                "text": "python.flask.security.audit.debug-enabled.debug-enabled"
+              },
+              "fullDescription": {
+                "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+              },
+              "help": {
+                "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-489: Active Debug Code",
+                  "A06:2017 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-489: Active Debug Code"
+                ],
+                "owasp": [
+                  "A06:2017 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+            },
+            {
+              "id": "trailofbits.python.tarfile-extractall-traversal.tarfile-extractall-traversal",
+              "name": "trailofbits.python.tarfile-extractall-traversal.tarfile-extractall-traversal",
+              "shortDescription": {
+                "text": "trailofbits.python.tarfile-extractall-traversal.tarfile-extractall-traversal"
+              },
+              "fullDescription": {
+                "text": "Possible path traversal through `tarfile.open($PATH).extractall()` if the source tar is controlled by an attacker"
+              },
+              "help": {
+                "text": "Possible path traversal through `tarfile.open($PATH).extractall()` if the source tar is controlled by an attacker"
+              },
+              "properties": {
+                "tags": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+                ],
+                "cwe": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python.org/3/library/tarfile.html#tarfile.TarFile.extractall"
+            },
+            {
+              "id": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+              "name": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+              "shortDescription": {
+                "text": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true"
+              },
+              "fullDescription": {
+                "text": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead."
+              },
+              "help": {
+                "text": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')",
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection",
+                  "A05:2025 - Injection"
+                ],
+                "cwe": [
+                  "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+                ],
+                "owasp": [
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection",
+                  "A05:2025 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess"
+            },
+            {
+              "id": "python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_SECRET_KEY",
+              "name": "python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_SECRET_KEY",
+              "shortDescription": {
+                "text": "python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_SECRET_KEY"
+              },
+              "fullDescription": {
+                "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+              },
+              "help": {
+                "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+              },
+              "properties": {
+                "tags": [
+                  "CWE-489: Active Debug Code",
+                  "A05:2021 - Security Misconfiguration",
+                  "A02:2025 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-489: Active Debug Code"
+                ],
+                "owasp": [
+                  "A05:2021 - Security Misconfiguration",
+                  "A02:2025 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://bento.dev/checks/flask/avoid-hardcoded-config/"
+            },
+            {
+              "id": "javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret",
+              "name": "javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret",
+              "shortDescription": {
+                "text": "javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret"
+              },
+              "fullDescription": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "help": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-798: Use of Hard-coded Credentials",
+                  "A07:2021 - Identification and Authentication Failures",
+                  "A07:2025 - Authentication Failures"
+                ],
+                "cwe": [
+                  "CWE-798: Use of Hard-coded Credentials"
+                ],
+                "owasp": [
+                  "A07:2021 - Identification and Authentication Failures",
+                  "A07:2025 - Authentication Failures"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+            },
+            {
+              "id": "python.jwt.security.unverified-jwt-decode.unverified-jwt-decode",
+              "name": "python.jwt.security.unverified-jwt-decode.unverified-jwt-decode",
+              "shortDescription": {
+                "text": "python.jwt.security.unverified-jwt-decode.unverified-jwt-decode"
+              },
+              "fullDescription": {
+                "text": "Detected JWT token decoded with 'verify=False'. This bypasses any integrity checks for the token which means the token could be tampered with by malicious actors. Ensure that the JWT token is verified."
+              },
+              "help": {
+                "text": "Detected JWT token decoded with 'verify=False'. This bypasses any integrity checks for the token which means the token could be tampered with by malicious actors. Ensure that the JWT token is verified."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-287: Improper Authentication",
+                  "A02:2017 - Broken Authentication",
+                  "A07:2021 - Identification and Authentication Failures",
+                  "A07:2025 - Authentication Failures"
+                ],
+                "cwe": [
+                  "CWE-287: Improper Authentication"
+                ],
+                "owasp": [
+                  "A02:2017 - Broken Authentication",
+                  "A07:2021 - Identification and Authentication Failures",
+                  "A07:2025 - Authentication Failures"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://github.com/we45/Vulnerable-Flask-App/blob/752ee16087c0bfb79073f68802d907569a1f0df7/app/app.py#L96"
+            },
+            {
+              "id": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+              "name": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+              "shortDescription": {
+                "text": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal"
+              },
+              "fullDescription": {
+                "text": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+              },
+              "help": {
+                "text": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')",
+                  "A05:2017 - Broken Access Control",
+                  "A01:2021 - Broken Access Control",
+                  "A01:2025 - Broken Access Control"
+                ],
+                "cwe": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+                ],
+                "owasp": [
+                  "A05:2017 - Broken Access Control",
+                  "A01:2021 - Broken Access Control",
+                  "A01:2025 - Broken Access Control"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://owasp.org/www-community/attacks/Path_Traversal"
+            },
+            {
+              "id": "python.flask.security.audit.render-template-string.render-template-string",
+              "name": "python.flask.security.audit.render-template-string.render-template-string",
+              "shortDescription": {
+                "text": "python.flask.security.audit.render-template-string.render-template-string"
+              },
+              "fullDescription": {
+                "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+              },
+              "help": {
+                "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-96: Improper Neutralization of Directives in Statically Saved Code ('Static Code Injection')",
+                  "A03:2021 - Injection",
+                  "A05:2025 - Injection"
+                ],
+                "cwe": [
+                  "CWE-96: Improper Neutralization of Directives in Statically Saved Code ('Static Code Injection')"
+                ],
+                "owasp": [
+                  "A03:2021 - Injection",
+                  "A05:2025 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://nvisium.com/blog/2016/03/09/exploring-ssti-in-flask-jinja2.html"
+            },
+            {
+              "id": "python.lang.security.use-defused-xml-parse.use-defused-xml-parse",
+              "name": "python.lang.security.use-defused-xml-parse.use-defused-xml-parse",
+              "shortDescription": {
+                "text": "python.lang.security.use-defused-xml-parse.use-defused-xml-parse"
+              },
+              "fullDescription": {
+                "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+              },
+              "help": {
+                "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference",
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration",
+                  "A02:2025 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference"
+                ],
+                "owasp": [
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration",
+                  "A02:2025 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python.org/3/library/xml.html"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_002.js"
+                },
+                "region": {
+                  "startLine": 6,
+                  "endLine": 6,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 6,
+                    "offset": 316
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 6,
+                    "offset": 313
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 6,
+                    "offset": 326
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 6,
+                    "offset": 319
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_003.py"
+                },
+                "region": {
+                  "startLine": 30,
+                  "endLine": 30,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 30,
+                    "offset": 961
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 8,
+                      "offset": 425
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 8,
+                      "offset": 410
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 30,
+                    "offset": 958
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_007.py"
+                },
+                "region": {
+                  "startLine": 64,
+                  "endLine": 64,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 64,
+                    "offset": 2349
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 10,
+                      "offset": 623
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 10,
+                      "offset": 608
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 64,
+                    "offset": 2346
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_008.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 16,
+                    "offset": 785
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 6,
+                      "offset": 415
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 6,
+                      "offset": 400
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 16,
+                    "offset": 782
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 42,
+                  "endLine": 42,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 42,
+                    "offset": 1386
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 7,
+                      "offset": 309
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 7,
+                      "offset": 294
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 42,
+                    "offset": 1383
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "trailofbits.python.tarfile-extractall-traversal.tarfile-extractall-traversal",
+          "level": "note",
+          "message": {
+            "text": "Possible path traversal through `tarfile.open($PATH).extractall()` if the source tar is controlled by an attacker"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_001.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 9,
+                  "startColumn": 10,
+                  "endColumn": 38,
+                  "snippet": {
+                    "text": "    with tarfile.open(file_path) as tar:\n        tar.extractall(path=dest_dir)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$TAR": {
+                  "abstract_content": "tar",
+                  "end": {
+                    "col": 40,
+                    "line": 8,
+                    "offset": 267
+                  },
+                  "start": {
+                    "col": 37,
+                    "line": 8,
+                    "offset": 264
+                  }
+                }
+              },
+              "lines": "    with tarfile.open(file_path) as tar:\n        tar.extractall(path=dest_dir)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+          "level": "note",
+          "message": {
+            "text": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_004.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 35,
+                  "endColumn": 39,
+                  "snippet": {
+                    "text": "    subprocess.run(command, shell=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "abstract_content": "run",
+                  "end": {
+                    "col": 19,
+                    "line": 9,
+                    "offset": 597
+                  },
+                  "start": {
+                    "col": 16,
+                    "line": 9,
+                    "offset": 594
+                  }
+                },
+                "$TRUE": {
+                  "abstract_content": "True",
+                  "end": {
+                    "col": 39,
+                    "line": 9,
+                    "offset": 617
+                  },
+                  "start": {
+                    "col": 35,
+                    "line": 9,
+                    "offset": 613
+                  }
+                }
+              },
+              "lines": "    subprocess.run(command, shell=True)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/subprocess.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/subprocess.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/csrf_002.py"
+                },
+                "region": {
+                  "startLine": 30,
+                  "endLine": 30,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 30,
+                    "offset": 1022
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 8,
+                      "offset": 443
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 8,
+                      "offset": 428
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 30,
+                    "offset": 1019
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_SECRET_KEY",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 14,
+                  "startColumn": 1,
+                  "endColumn": 45,
+                  "snippet": {
+                    "text": "app.config['SECRET_KEY'] = 'your-secret-key'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$M": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 4,
+                    "line": 14,
+                    "offset": 532
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 12,
+                      "offset": 527
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 12,
+                      "offset": 512
+                    }
+                  },
+                  "start": {
+                    "col": 1,
+                    "line": 14,
+                    "offset": 529
+                  }
+                }
+              },
+              "lines": "app.config['SECRET_KEY'] = 'your-secret-key'"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 60,
+                  "endLine": 60,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 60,
+                    "offset": 2116
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 12,
+                      "offset": 527
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 12,
+                      "offset": 512
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 60,
+                    "offset": 2113
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_002.js"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 8,
+                    "offset": 331
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 8,
+                    "offset": 328
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 8,
+                    "offset": 341
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 8,
+                    "offset": 334
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret",
+          "level": "note",
+          "message": {
+            "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_002.js"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 21,
+                  "endColumn": 38,
+                  "snippet": {
+                    "text": "  jwt.verify(token, 'YOUR_SECRET_KEY', (err, decoded) => {"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$DATA": {
+                  "abstract_content": "token",
+                  "end": {
+                    "col": 19,
+                    "line": 17,
+                    "offset": 542
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "req.headers['authorization']",
+                    "svalue_end": {
+                      "col": 45,
+                      "line": 11,
+                      "offset": 432
+                    },
+                    "svalue_start": {
+                      "col": 17,
+                      "line": 11,
+                      "offset": 404
+                    }
+                  },
+                  "start": {
+                    "col": 14,
+                    "line": 17,
+                    "offset": 537
+                  }
+                },
+                "$JWT": {
+                  "abstract_content": "jwt",
+                  "end": {
+                    "col": 6,
+                    "line": 17,
+                    "offset": 529
+                  },
+                  "start": {
+                    "col": 3,
+                    "line": 17,
+                    "offset": 526
+                  }
+                },
+                "$VALUE": {
+                  "abstract_content": "'YOUR_SECRET_KEY'",
+                  "end": {
+                    "col": 38,
+                    "line": 17,
+                    "offset": 561
+                  },
+                  "start": {
+                    "col": 21,
+                    "line": 17,
+                    "offset": 544
+                  }
+                }
+              },
+              "lines": "  jwt.verify(token, 'YOUR_SECRET_KEY', (err, decoded) => {"
+            }
+          }
+        },
+        {
+          "ruleId": "python.jwt.security.unverified-jwt-decode.unverified-jwt-decode",
+          "level": "note",
+          "message": {
+            "text": "Detected JWT token decoded with 'verify=False'. This bypasses any integrity checks for the token which means the token could be tampered with by malicious actors. Ensure that the JWT token is verified."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_004.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 94,
+                  "endColumn": 99,
+                  "snippet": {
+                    "text": "        return jwt.decode(token, secret, algorithms=algorithms, options={'verify_signature': False})"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$BOOL": {
+                  "abstract_content": "False",
+                  "end": {
+                    "col": 99,
+                    "line": 16,
+                    "offset": 836
+                  },
+                  "start": {
+                    "col": 94,
+                    "line": 16,
+                    "offset": 831
+                  }
+                }
+              },
+              "lines": "        return jwt.decode(token, secret, algorithms=algorithms, options={'verify_signature': False})"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/path_001.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 14,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 14,
+                    "offset": 487
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 7,
+                      "offset": 325
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 7,
+                      "offset": 310
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 14,
+                    "offset": 484
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/path_004.py"
+                },
+                "region": {
+                  "startLine": 54,
+                  "endLine": 54,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 54,
+                    "offset": 2248
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 9,
+                      "offset": 501
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 9,
+                      "offset": 486
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 54,
+                    "offset": 2245
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_SECRET_KEY",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/rate_limit_002.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 1,
+                  "endColumn": 45,
+                  "snippet": {
+                    "text": "app.config['SECRET_KEY'] = 'your-secret-key'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$M": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 4,
+                    "line": 12,
+                    "offset": 521
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 11,
+                      "offset": 517
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 11,
+                      "offset": 502
+                    }
+                  },
+                  "start": {
+                    "col": 1,
+                    "line": 12,
+                    "offset": 518
+                  }
+                }
+              },
+              "lines": "app.config['SECRET_KEY'] = 'your-secret-key'"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/rate_limit_002.py"
+                },
+                "region": {
+                  "startLine": 35,
+                  "endLine": 35,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 35,
+                    "offset": 1433
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 11,
+                      "offset": 517
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 11,
+                      "offset": 502
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 35,
+                    "offset": 1430
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/redirect_001.py"
+                },
+                "region": {
+                  "startLine": 28,
+                  "endLine": 28,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 28,
+                    "offset": 853
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 7,
+                      "offset": 243
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 7,
+                      "offset": 228
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 28,
+                    "offset": 850
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_002.js"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 7,
+                    "offset": 363
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 7,
+                    "offset": 360
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 7,
+                    "offset": 373
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 7,
+                    "offset": 366
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_002.js"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 7,
+                    "offset": 416
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 7,
+                    "offset": 413
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 7,
+                    "offset": 426
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 7,
+                    "offset": 419
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_001.py"
+                },
+                "region": {
+                  "startLine": 25,
+                  "endLine": 25,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 25,
+                    "offset": 737
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 9,
+                      "offset": 247
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 9,
+                      "offset": 232
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 25,
+                    "offset": 734
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_003.js"
+                },
+                "region": {
+                  "startLine": 11,
+                  "endLine": 11,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 11,
+                    "offset": 546
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 11,
+                    "offset": 543
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 11,
+                    "offset": 556
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 11,
+                    "offset": 549
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+          "level": "note",
+          "message": {
+            "text": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_003.js"
+                },
+                "region": {
+                  "startLine": 43,
+                  "endLine": 43,
+                  "startColumn": 55,
+                  "endColumn": 72,
+                  "snippet": {
+                    "text": "        const filePath = path.join('public/uploads/', req.file.filename);"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$PATH": {
+                  "abstract_content": "path",
+                  "end": {
+                    "col": 30,
+                    "line": 43,
+                    "offset": 1429
+                  },
+                  "start": {
+                    "col": 26,
+                    "line": 43,
+                    "offset": 1425
+                  }
+                },
+                "$SINK": {
+                  "abstract_content": "req.file.filename",
+                  "end": {
+                    "col": 72,
+                    "line": 43,
+                    "offset": 1471
+                  },
+                  "start": {
+                    "col": 55,
+                    "line": 43,
+                    "offset": 1454
+                  }
+                },
+                "$X": {
+                  "abstract_content": "req",
+                  "end": {
+                    "col": 25,
+                    "line": 37,
+                    "offset": 1287
+                  },
+                  "start": {
+                    "col": 22,
+                    "line": 37,
+                    "offset": 1284
+                  }
+                }
+              },
+              "lines": "        const filePath = path.join('public/uploads/', req.file.filename);"
+            }
+          }
+        },
+        {
+          "ruleId": "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal",
+          "level": "note",
+          "message": {
+            "text": "Detected possible user input going into a `path.join` or `path.resolve` function. This could possibly lead to a path traversal vulnerability,  where the attacker can access arbitrary files stored in the file system. Instead, be sure to sanitize or validate user input first."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_003.js"
+                },
+                "region": {
+                  "startLine": 44,
+                  "endLine": 44,
+                  "startColumn": 60,
+                  "endColumn": 92,
+                  "snippet": {
+                    "text": "        const thumbnailPath = path.join('public/uploads/', 'thumbnail-' + req.file.filename);"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$PATH": {
+                  "abstract_content": "path",
+                  "end": {
+                    "col": 35,
+                    "line": 44,
+                    "offset": 1508
+                  },
+                  "start": {
+                    "col": 31,
+                    "line": 44,
+                    "offset": 1504
+                  }
+                },
+                "$SINK": {
+                  "abstract_content": "'thumbnail-'+req.file.filename",
+                  "end": {
+                    "col": 92,
+                    "line": 44,
+                    "offset": 1565
+                  },
+                  "start": {
+                    "col": 60,
+                    "line": 44,
+                    "offset": 1533
+                  }
+                },
+                "$X": {
+                  "abstract_content": "req",
+                  "end": {
+                    "col": 25,
+                    "line": 37,
+                    "offset": 1287
+                  },
+                  "start": {
+                    "col": 22,
+                    "line": 37,
+                    "offset": 1284
+                  }
+                }
+              },
+              "lines": "        const thumbnailPath = path.join('public/uploads/', 'thumbnail-' + req.file.filename);"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.render-template-string.render-template-string",
+          "level": "note",
+          "message": {
+            "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 12,
+                  "endColumn": 85,
+                  "snippet": {
+                    "text": "    return render_template_string(\"<h1>Welcome, <b>{{ user }}</b>!</h1>\", user=user)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "    return render_template_string(\"<h1>Welcome, <b>{{ user }}</b>!</h1>\", user=user)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.flask.security.audit.debug-enabled.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 8,
+                    "line": 15,
+                    "offset": 541
+                  },
+                  "propagated_value": {
+                    "svalue_abstract_content": "Flask(__name__)",
+                    "svalue_end": {
+                      "col": 22,
+                      "line": 7,
+                      "offset": 343
+                    },
+                    "svalue_start": {
+                      "col": 7,
+                      "line": 7,
+                      "offset": 328
+                    }
+                  },
+                  "start": {
+                    "col": 5,
+                    "line": 15,
+                    "offset": 538
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "python.lang.security.use-defused-xml-parse.use-defused-xml-parse",
+          "level": "note",
+          "message": {
+            "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_001.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 12,
+                  "endColumn": 31,
+                  "snippet": {
+                    "text": "    tree = ET.parse(file_path)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$...ARGS": {
+                  "abstract_content": "file_path",
+                  "end": {
+                    "col": 30,
+                    "line": 8,
+                    "offset": 259
+                  },
+                  "start": {
+                    "col": 21,
+                    "line": 8,
+                    "offset": 250
+                  }
+                }
+              },
+              "lines": "    tree = ET.parse(file_path)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://github.com/tiran/defusedxml"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://github.com/tiran/defusedxml"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_002.js"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "abstract_content": "app",
+                  "end": {
+                    "col": 10,
+                    "line": 9,
+                    "offset": 382
+                  },
+                  "start": {
+                    "col": 7,
+                    "line": 9,
+                    "offset": 379
+                  }
+                },
+                "$EXPRESS": {
+                  "abstract_content": "express",
+                  "end": {
+                    "col": 20,
+                    "line": 9,
+                    "offset": 392
+                  },
+                  "start": {
+                    "col": 13,
+                    "line": 9,
+                    "offset": 385
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "python.lang.security.use-defused-xml-parse.use-defused-xml-parse",
+          "level": "note",
+          "message": {
+            "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_003.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 16,
+                  "endColumn": 30,
+                  "snippet": {
+                    "text": "        tree = ET.parse(file)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$...ARGS": {
+                  "abstract_content": "file",
+                  "end": {
+                    "col": 29,
+                    "line": 9,
+                    "offset": 232
+                  },
+                  "start": {
+                    "col": 25,
+                    "line": 9,
+                    "offset": 228
+                  }
+                }
+              },
+              "lines": "        tree = ET.parse(file)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://github.com/tiran/defusedxml"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://github.com/tiran/defusedxml"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-02-09T05:21:18.754395Z"
+        }
+      ]
+    }
+  ]
+}

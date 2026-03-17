@@ -1,0 +1,8 @@
+{
+  "scanner": "insider-sast-javascript",
+  "success": true,
+  "output_file": "/output/raw/insider_javascript_20260209051337.json",
+  "normalized": "/output/normalized/normalized_insider_javascript_20260209051337.json",
+  "log_file": "/output/insiderjavascript.log",
+  "command": "insider -tech javascript --no-html -target \"/src\" && python3 normalize_insiderjavascript.py \"/output/raw/insider_javascript_20260209051337.json\" \"/output/normalized/normalized_insider_javascript_20260209051337.json\""
+}

@@ -1,0 +1,4308 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "opengrep",
+          "informationUri": "https://example.com/opengrep",
+          "rules": [
+            {
+              "id": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+              "name": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.audit.debug-enabled"
+              },
+              "fullDescription": {
+                "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+              },
+              "help": {
+                "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-489: Active Debug Code",
+                  "A06:2017 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-489: Active Debug Code"
+                ],
+                "owasp": [
+                  "A06:2017 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://labs.detectify.com/2015/10/02/how-patreon-got-hacked-publicly-exposed-werkzeug-debugger/"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+              "name": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY"
+              },
+              "fullDescription": {
+                "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+              },
+              "help": {
+                "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+              },
+              "properties": {
+                "tags": [
+                  "CWE-489: Active Debug Code",
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-489: Active Debug Code"
+                ],
+                "owasp": [
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://bento.dev/checks/flask/avoid-hardcoded-config/"
+            },
+            {
+              "id": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+              "name": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret"
+              },
+              "fullDescription": {
+                "text": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)"
+              },
+              "help": {
+                "text": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)"
+              },
+              "properties": {
+                "tags": [
+                  "CWE-522: Insufficiently Protected Credentials",
+                  "A02:2017 - Broken Authentication",
+                  "A04:2021 - Insecure Design"
+                ],
+                "cwe": [
+                  "CWE-522: Insufficiently Protected Credentials"
+                ],
+                "owasp": [
+                  "A02:2017 - Broken Authentication",
+                  "A04:2021 - Insecure Design"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://semgrep.dev/blog/2020/hardcoded-secrets-unverified-tokens-and-other-common-jwt-mistakes/"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.audit.render-template-string",
+              "name": "app.opengrep-rules.python.flask.security.audit.render-template-string",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.audit.render-template-string"
+              },
+              "fullDescription": {
+                "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+              },
+              "help": {
+                "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-96: Improper Neutralization of Directives in Statically Saved Code ('Static Code Injection')",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-96: Improper Neutralization of Directives in Statically Saved Code ('Static Code Injection')"
+                ],
+                "owasp": [
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://nvisium.com/blog/2016/03/09/exploring-ssti-in-flask-jinja2.html"
+            },
+            {
+              "id": "app.opengrep-rules.javascript.lang.correctness.useless-assignment",
+              "name": "app.opengrep-rules.javascript.lang.correctness.useless-assignment",
+              "shortDescription": {
+                "text": "app.opengrep-rules.javascript.lang.correctness.useless-assignment"
+              },
+              "fullDescription": {
+                "text": "`document.cookie` is assigned twice; the first assignment is useless"
+              },
+              "help": {
+                "text": "`document.cookie` is assigned twice; the first assignment is useless"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "1.0"
+              }
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+              "name": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit"
+              },
+              "fullDescription": {
+                "text": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'."
+              },
+              "help": {
+                "text": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')",
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+                ],
+                "owasp": [
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://stackoverflow.com/questions/3172470/actual-meaning-of-shell-true-in-subprocess"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+              "name": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle"
+              },
+              "fullDescription": {
+                "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+              },
+              "help": {
+                "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-502: Deserialization of Untrusted Data",
+                  "A08:2017 - Insecure Deserialization",
+                  "A08:2021 - Software and Data Integrity Failures"
+                ],
+                "cwe": [
+                  "CWE-502: Deserialization of Untrusted Data"
+                ],
+                "owasp": [
+                  "A08:2017 - Insecure Deserialization",
+                  "A08:2021 - Software and Data Integrity Failures"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python.org/3/library/pickle.html"
+            },
+            {
+              "id": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+              "name": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+              "shortDescription": {
+                "text": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage"
+              },
+              "fullDescription": {
+                "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+              },
+              "help": {
+                "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-352: Cross-Site Request Forgery (CSRF)",
+                  "A01:2021 - Broken Access Control"
+                ],
+                "cwe": [
+                  "CWE-352: Cross-Site Request Forgery (CSRF)"
+                ],
+                "owasp": [
+                  "A01:2021 - Broken Access Control"
+                ],
+                "security-severity": "1.0"
+              },
+              "helpUri": "https://www.npmjs.com/package/csurf"
+            },
+            {
+              "id": "app.opengrep-rules.javascript.jsonwebtoken.security.hardcoded-jwt-secret",
+              "name": "app.opengrep-rules.javascript.jsonwebtoken.security.hardcoded-jwt-secret",
+              "shortDescription": {
+                "text": "app.opengrep-rules.javascript.jsonwebtoken.security.hardcoded-jwt-secret"
+              },
+              "fullDescription": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "help": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-798: Use of Hard-coded Credentials",
+                  "A07:2021 - Identification and Authentication Failures"
+                ],
+                "cwe": [
+                  "CWE-798: Use of Hard-coded Credentials"
+                ],
+                "owasp": [
+                  "A07:2021 - Identification and Authentication Failures"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+              "name": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.best-practice.pass-body-fn"
+              },
+              "fullDescription": {
+                "text": "`pass` is the body of function validate_cart_items. Consider removing this or raise NotImplementedError() if this is a TODO"
+              },
+              "help": {
+                "text": "`pass` is the body of function validate_cart_items. Consider removing this or raise NotImplementedError() if this is a TODO"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding",
+              "name": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding"
+              },
+              "fullDescription": {
+                "text": "Missing 'encoding' parameter. 'open()' uses device locale encodings by default, corrupting files with special characters. Specify the encoding to ensure cross-platform support when opening files in text mode (e.g. encoding=\"utf-8\")."
+              },
+              "help": {
+                "text": "Missing 'encoding' parameter. 'open()' uses device locale encodings by default, corrupting files with special characters. Specify the encoding to ensure cross-platform support when opening files in text mode (e.g. encoding=\"utf-8\")."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://www.python.org/dev/peps/pep-0597/"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.open-redirect",
+              "name": "app.opengrep-rules.python.flask.security.open-redirect",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.open-redirect"
+              },
+              "fullDescription": {
+                "text": "Data from request is passed to redirect(). This is an open redirect and could be exploited. Consider using 'url_for()' to generate links to known locations. If you must use a URL to unknown pages, consider using 'urlparse()' or similar and checking if the 'netloc' property is the same as your site's host name. See the references for more information."
+              },
+              "help": {
+                "text": "Data from request is passed to redirect(). This is an open redirect and could be exploited. Consider using 'url_for()' to generate links to known locations. If you must use a URL to unknown pages, consider using 'urlparse()' or similar and checking if the 'netloc' property is the same as your site's host name. See the references for more information."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')",
+                  "A01:2021 - Broken Access Control"
+                ],
+                "cwe": [
+                  "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+                ],
+                "owasp": [
+                  "A01:2021 - Broken Access Control"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://flask-login.readthedocs.io/en/latest/#login-example"
+            },
+            {
+              "id": "app.opengrep-rules.python.boto3.security.hardcoded-token",
+              "name": "app.opengrep-rules.python.boto3.security.hardcoded-token",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.boto3.security.hardcoded-token"
+              },
+              "fullDescription": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "help": {
+                "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-798: Use of Hard-coded Credentials",
+                  "A07:2021 - Identification and Authentication Failures"
+                ],
+                "cwe": [
+                  "CWE-798: Use of Hard-coded Credentials"
+                ],
+                "owasp": [
+                  "A07:2021 - Identification and Authentication Failures"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.audit.formatted-sql-query",
+              "name": "app.opengrep-rules.python.lang.security.audit.formatted-sql-query",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.audit.formatted-sql-query"
+              },
+              "fullDescription": {
+                "text": "Detected possible formatted SQL query. Use parameterized queries instead."
+              },
+              "help": {
+                "text": "Detected possible formatted SQL query. Use parameterized queries instead."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+                ],
+                "owasp": [
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://stackoverflow.com/questions/775296/mysql-parameterized-queries"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.audit.sqli.psycopg-sqli",
+              "name": "app.opengrep-rules.python.lang.security.audit.sqli.psycopg-sqli",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.audit.sqli.psycopg-sqli"
+              },
+              "fullDescription": {
+                "text": "Detected string concatenation with a non-literal variable in a psycopg2 Python SQL statement. This could lead to SQL injection if the variable is user-controlled and not properly sanitized. In order to prevent SQL injection, use parameterized queries or prepared statements instead. You can use prepared statements by creating a 'sql.SQL' string. You can also use the pyformat binding style to create parameterized queries. For example: 'cur.execute(SELECT * FROM table WHERE name=%s, user_input)'"
+              },
+              "help": {
+                "text": "Detected string concatenation with a non-literal variable in a psycopg2 Python SQL statement. This could lead to SQL injection if the variable is user-controlled and not properly sanitized. In order to prevent SQL injection, use parameterized queries or prepared statements instead. You can use prepared statements by creating a 'sql.SQL' string. You can also use the pyformat binding style to create parameterized queries. For example: 'cur.execute(SELECT * FROM table WHERE name=%s, user_input)'"
+              },
+              "properties": {
+                "tags": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+                ],
+                "owasp": [
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://www.psycopg.org/docs/sql.html"
+            },
+            {
+              "id": "app.opengrep-rules.python.sqlalchemy.security.sqlalchemy-execute-raw-query",
+              "name": "app.opengrep-rules.python.sqlalchemy.security.sqlalchemy-execute-raw-query",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.sqlalchemy.security.sqlalchemy-execute-raw-query"
+              },
+              "fullDescription": {
+                "text": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+              },
+              "help": {
+                "text": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+                ],
+                "owasp": [
+                  "A01:2017 - Injection",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.sqlalchemy.org/en/14/core/tutorial.html#using-textual-sql"
+            },
+            {
+              "id": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+              "name": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.requests.best-practice.use-timeout"
+              },
+              "fullDescription": {
+                "text": "Detected a 'requests' call without a timeout set. By default, 'requests' calls wait until the connection is closed. This means a 'requests' call without a timeout will hang the program if a response is never received. Consider setting a timeout for all 'requests'."
+              },
+              "help": {
+                "text": "Detected a 'requests' call without a timeout set. By default, 'requests' calls wait until the connection is closed. This means a 'requests' call without a timeout will hang the program if a response is never received. Consider setting a timeout for all 'requests'."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python-requests.org/en/latest/user/advanced/?highlight=timeout#timeouts"
+            },
+            {
+              "id": "app.opengrep-rules.python.django.security.injection.ssrf.ssrf-injection-requests",
+              "name": "app.opengrep-rules.python.django.security.injection.ssrf.ssrf-injection-requests",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.django.security.injection.ssrf.ssrf-injection-requests"
+              },
+              "fullDescription": {
+                "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request. See https://owasp.org/www-community/attacks/Server_Side_Request_Forgery to learn more about SSRF vulnerabilities."
+              },
+              "help": {
+                "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request. See https://owasp.org/www-community/attacks/Server_Side_Request_Forgery to learn more about SSRF vulnerabilities."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-918: Server-Side Request Forgery (SSRF)",
+                  "A10:2021 - Server-Side Request Forgery (SSRF)"
+                ],
+                "cwe": [
+                  "CWE-918: Server-Side Request Forgery (SSRF)"
+                ],
+                "owasp": [
+                  "A10:2021 - Server-Side Request Forgery (SSRF)"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://owasp.org/www-community/attacks/Server_Side_Request_Forgery"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.injection.ssrf-requests",
+              "name": "app.opengrep-rules.python.flask.security.injection.ssrf-requests",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.injection.ssrf-requests"
+              },
+              "fullDescription": {
+                "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request."
+              },
+              "help": {
+                "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-918: Server-Side Request Forgery (SSRF)",
+                  "A10:2021 - Server-Side Request Forgery (SSRF)"
+                ],
+                "cwe": [
+                  "CWE-918: Server-Side Request Forgery (SSRF)"
+                ],
+                "owasp": [
+                  "A10:2021 - Server-Side Request Forgery (SSRF)"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://owasp.org/www-community/attacks/Server_Side_Request_Forgery"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.audit.directly-returned-format-string",
+              "name": "app.opengrep-rules.python.flask.security.audit.directly-returned-format-string",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.audit.directly-returned-format-string"
+              },
+              "fullDescription": {
+                "text": "Detected Flask route directly returning a formatted string. This is subject to cross-site scripting if user input can reach the string. Consider using the template engine instead and rendering pages with 'render_template()'."
+              },
+              "help": {
+                "text": "Detected Flask route directly returning a formatted string. This is subject to cross-site scripting if user input can reach the string. Consider using the template engine instead and rendering pages with 'render_template()'."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+                ],
+                "owasp": [
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://owasp.org/Top10/A03_2021-Injection"
+            },
+            {
+              "id": "app.opengrep-rules.python.django.security.injection.raw-html-format",
+              "name": "app.opengrep-rules.python.django.security.injection.raw-html-format",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.django.security.injection.raw-html-format"
+              },
+              "fullDescription": {
+                "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`django.shortcuts.render`) which will safely render HTML instead."
+              },
+              "help": {
+                "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`django.shortcuts.render`) which will safely render HTML instead."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+                ],
+                "owasp": [
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.djangoproject.com/en/3.2/topics/http/shortcuts/#render"
+            },
+            {
+              "id": "app.opengrep-rules.python.flask.security.injection.raw-html-format",
+              "name": "app.opengrep-rules.python.flask.security.injection.raw-html-format",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.flask.security.injection.raw-html-format"
+              },
+              "fullDescription": {
+                "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`flask.render_template`) which will safely render HTML instead."
+              },
+              "help": {
+                "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`flask.render_template`) which will safely render HTML instead."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')",
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "cwe": [
+                  "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+                ],
+                "owasp": [
+                  "A07:2017 - Cross-Site Scripting (XSS)",
+                  "A03:2021 - Injection"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://flask.palletsprojects.com/en/2.0.x/security/#cross-site-scripting-xss"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.use-defused-xml",
+              "name": "app.opengrep-rules.python.lang.security.use-defused-xml",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.use-defused-xml"
+              },
+              "fullDescription": {
+                "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+              },
+              "help": {
+                "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference",
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference"
+                ],
+                "owasp": [
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python.org/3/library/xml.html"
+            },
+            {
+              "id": "app.opengrep-rules.python.lang.security.use-defused-xml-parse",
+              "name": "app.opengrep-rules.python.lang.security.use-defused-xml-parse",
+              "shortDescription": {
+                "text": "app.opengrep-rules.python.lang.security.use-defused-xml-parse"
+              },
+              "fullDescription": {
+                "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+              },
+              "help": {
+                "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference",
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "cwe": [
+                  "CWE-611: Improper Restriction of XML External Entity Reference"
+                ],
+                "owasp": [
+                  "A04:2017 - XML External Entities (XXE)",
+                  "A05:2021 - Security Misconfiguration"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://docs.python.org/3/library/xml.html"
+            },
+            {
+              "id": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+              "name": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+              "shortDescription": {
+                "text": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename"
+              },
+              "fullDescription": {
+                "text": "Detected that function argument `req` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated."
+              },
+              "help": {
+                "text": "Detected that function argument `req` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')",
+                  "A05:2017 - Broken Access Control",
+                  "A01:2021 - Broken Access Control"
+                ],
+                "cwe": [
+                  "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+                ],
+                "owasp": [
+                  "A05:2017 - Broken Access Control",
+                  "A01:2021 - Broken Access Control"
+                ],
+                "security-severity": "3.0"
+              },
+              "helpUri": "https://owasp.org/www-community/attacks/Path_Traversal"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_003.py"
+                },
+                "region": {
+                  "startLine": 34,
+                  "endLine": 34,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 34,
+                    "col": 5,
+                    "offset": 1392
+                  },
+                  "end": {
+                    "line": 34,
+                    "col": 8,
+                    "offset": 1395
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 8,
+                      "col": 7,
+                      "offset": 556
+                    },
+                    "svalue_end": {
+                      "line": 8,
+                      "col": 22,
+                      "offset": 571
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_007.py"
+                },
+                "region": {
+                  "startLine": 42,
+                  "endLine": 42,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 42,
+                    "col": 5,
+                    "offset": 1627
+                  },
+                  "end": {
+                    "line": 42,
+                    "col": 8,
+                    "offset": 1630
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 8,
+                      "col": 7,
+                      "offset": 525
+                    },
+                    "svalue_end": {
+                      "line": 8,
+                      "col": 22,
+                      "offset": 540
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_008.py"
+                },
+                "region": {
+                  "startLine": 21,
+                  "endLine": 21,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 21,
+                    "col": 5,
+                    "offset": 890
+                  },
+                  "end": {
+                    "line": 21,
+                    "col": 8,
+                    "offset": 893
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 8,
+                      "col": 7,
+                      "offset": 426
+                    },
+                    "svalue_end": {
+                      "line": 8,
+                      "col": 22,
+                      "offset": 441
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.avoid_hardcoded_config_SECRET_KEY",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded variable `SECRET_KEY` detected. Use environment variables or config files instead"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_001.py"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 10,
+                  "startColumn": 1,
+                  "endColumn": 45,
+                  "snippet": {
+                    "text": "app.config['SECRET_KEY'] = 'your_secret_key'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$M": {
+                  "start": {
+                    "line": 10,
+                    "col": 1,
+                    "offset": 310
+                  },
+                  "end": {
+                    "line": 10,
+                    "col": 4,
+                    "offset": 313
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 7,
+                      "offset": 294
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 22,
+                      "offset": 309
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "app.config['SECRET_KEY'] = 'your_secret_key'"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#builtin-configuration-values"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://flask.palletsprojects.com/en/1.1.x/config/?highlight=configuration#environment-and-debug-features"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_001.py"
+                },
+                "region": {
+                  "startLine": 24,
+                  "endLine": 24,
+                  "startColumn": 43,
+                  "endColumn": 55,
+                  "snippet": {
+                    "text": "    return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 24,
+                    "col": 23,
+                    "offset": 647
+                  },
+                  "end": {
+                    "line": 24,
+                    "col": 30,
+                    "offset": 654
+                  },
+                  "abstract_content": "payload"
+                },
+                "$SECRET": {
+                  "start": {
+                    "line": 24,
+                    "col": 32,
+                    "offset": 656
+                  },
+                  "end": {
+                    "line": 24,
+                    "col": 56,
+                    "offset": 680
+                  },
+                  "abstract_content": "app.config['SECRET_KEY']"
+                }
+              },
+              "lines": "    return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_001.py"
+                },
+                "region": {
+                  "startLine": 60,
+                  "endLine": 60,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 60,
+                    "col": 5,
+                    "offset": 1949
+                  },
+                  "end": {
+                    "line": 60,
+                    "col": 8,
+                    "offset": 1952
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 7,
+                      "offset": 294
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 22,
+                      "offset": 309
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.render-template-string",
+          "level": "note",
+          "message": {
+            "text": "Found a template created with string formatting. This is susceptible to server-side template injection and cross-site scripting attacks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 21,
+                  "endLine": 27,
+                  "startColumn": 12,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "    return render_template_string('''\n        <form method=\"post\">\n            Username: <input type=\"text\" name=\"username\"><br>\n            Password: <input type=\"password\" name=\"password\"><br>\n            <input type=\"submit\" value=\"Login\">\n        </form>\n    ''')"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "    return render_template_string('''\n        <form method=\"post\">\n            Username: <input type=\"text\" name=\"username\"><br>\n            Password: <input type=\"password\" name=\"password\"><br>\n            <input type=\"submit\" value=\"Login\">\n        </form>\n    ''')"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 42,
+                  "endLine": 42,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 42,
+                    "col": 5,
+                    "offset": 1423
+                  },
+                  "end": {
+                    "line": 42,
+                    "col": 8,
+                    "offset": 1426
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 7,
+                      "col": 7,
+                      "offset": 318
+                    },
+                    "svalue_end": {
+                      "line": 7,
+                      "col": 22,
+                      "offset": 333
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.lang.correctness.useless-assignment",
+          "level": "note",
+          "message": {
+            "text": "`document.cookie` is assigned twice; the first assignment is useless"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_004.js"
+                },
+                "region": {
+                  "startLine": 44,
+                  "endLine": 45,
+                  "startColumn": 9,
+                  "endColumn": 90,
+                  "snippet": {
+                    "text": "        document.cookie = 'username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';\n        document.cookie = 'passwordHash=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 44,
+                    "col": 9,
+                    "offset": 1750
+                  },
+                  "end": {
+                    "line": 44,
+                    "col": 24,
+                    "offset": 1765
+                  },
+                  "abstract_content": "document.cookie"
+                },
+                "$Y": {
+                  "start": {
+                    "line": 44,
+                    "col": 27,
+                    "offset": 1768
+                  },
+                  "end": {
+                    "line": 44,
+                    "col": 85,
+                    "offset": 1826
+                  },
+                  "abstract_content": "'username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'"
+                },
+                "$Z": {
+                  "start": {
+                    "line": 45,
+                    "col": 27,
+                    "offset": 1854
+                  },
+                  "end": {
+                    "line": 45,
+                    "col": 89,
+                    "offset": 1916
+                  },
+                  "abstract_content": "'passwordHash=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'"
+                }
+              },
+              "lines": "        document.cookie = 'username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';\n        document.cookie = 'passwordHash=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit",
+          "level": "note",
+          "message": {
+            "text": "Detected subprocess function 'run' without a static string. If this data can be controlled by a malicious actor, it may be an instance of command injection. Audit the use of this call to ensure it is not controllable by an external resource. You may consider using 'shlex.escape()'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_004.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 5,
+                  "endColumn": 40,
+                  "snippet": {
+                    "text": "    subprocess.run(command, check=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 17,
+                    "col": 16,
+                    "offset": 753
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 19,
+                    "offset": 756
+                  },
+                  "abstract_content": "run"
+                }
+              },
+              "lines": "    subprocess.run(command, check=True)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/subprocess.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/subprocess.html"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/shlex.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/shlex.html"
+                }
+              }
+            },
+            {
+              "id": 3,
+              "message": {
+                "text": "Reference: https://semgrep.dev/docs/cheat-sheets/python-command-injection/"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://semgrep.dev/docs/cheat-sheets/python-command-injection/"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/csrf_002.py"
+                },
+                "region": {
+                  "startLine": 27,
+                  "endLine": 27,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 27,
+                    "col": 5,
+                    "offset": 1012
+                  },
+                  "end": {
+                    "line": 27,
+                    "col": 8,
+                    "offset": 1015
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 7,
+                      "col": 7,
+                      "offset": 383
+                    },
+                    "svalue_end": {
+                      "line": 7,
+                      "col": 22,
+                      "offset": 398
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+          "level": "note",
+          "message": {
+            "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_001.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 9,
+                  "endColumn": 39,
+                  "snippet": {
+                    "text": "        pickle.dump(preferences, file)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 9,
+                    "col": 16,
+                    "offset": 611
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 20,
+                    "offset": 615
+                  },
+                  "abstract_content": "dump"
+                }
+              },
+              "lines": "        pickle.dump(preferences, file)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+          "level": "note",
+          "message": {
+            "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_001.py"
+                },
+                "region": {
+                  "startLine": 13,
+                  "endLine": 13,
+                  "startColumn": 16,
+                  "endColumn": 33,
+                  "snippet": {
+                    "text": "        return pickle.load(file)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 13,
+                    "col": 23,
+                    "offset": 729
+                  },
+                  "end": {
+                    "line": 13,
+                    "col": 27,
+                    "offset": 733
+                  },
+                  "abstract_content": "load"
+                }
+              },
+              "lines": "        return pickle.load(file)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+          "level": "note",
+          "message": {
+            "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_002.py"
+                },
+                "region": {
+                  "startLine": 19,
+                  "endLine": 19,
+                  "startColumn": 13,
+                  "endColumn": 36,
+                  "snippet": {
+                    "text": "            pickle.dump(self, file)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 19,
+                    "col": 20,
+                    "offset": 931
+                  },
+                  "end": {
+                    "line": 19,
+                    "col": 24,
+                    "offset": 935
+                  },
+                  "abstract_content": "dump"
+                }
+              },
+              "lines": "            pickle.dump(self, file)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.deserialization.avoid-pickle",
+          "level": "note",
+          "message": {
+            "text": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_002.py"
+                },
+                "region": {
+                  "startLine": 25,
+                  "endLine": 25,
+                  "startColumn": 24,
+                  "endColumn": 41,
+                  "snippet": {
+                    "text": "                return pickle.load(file)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 25,
+                    "col": 31,
+                    "offset": 1123
+                  },
+                  "end": {
+                    "line": 25,
+                    "col": 35,
+                    "offset": 1127
+                  },
+                  "abstract_content": "load"
+                }
+              },
+              "lines": "                return pickle.load(file)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 37,
+                  "endLine": 37,
+                  "startColumn": 12,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "        }, SECRET_KEY, algorithm=\"HS256\")"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 34,
+                    "col": 28,
+                    "offset": 981
+                  },
+                  "end": {
+                    "line": 37,
+                    "col": 10,
+                    "offset": 1106
+                  },
+                  "abstract_content": "{'user'auth.username'exp'datetime.datetime.utcnow()+datetime.timedelta(minutes 30)}"
+                },
+                "$SECRET": {
+                  "start": {
+                    "line": 37,
+                    "col": 12,
+                    "offset": 1108
+                  },
+                  "end": {
+                    "line": 37,
+                    "col": 22,
+                    "offset": 1118
+                  },
+                  "abstract_content": "SECRET_KEY",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 11,
+                      "col": 14,
+                      "offset": 377
+                    },
+                    "svalue_end": {
+                      "line": 11,
+                      "col": 31,
+                      "offset": 394
+                    },
+                    "svalue_abstract_content": "'your_secret_key'"
+                  }
+                }
+              },
+              "lines": "        }, SECRET_KEY, algorithm=\"HS256\")"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 48,
+                  "endLine": 48,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 48,
+                    "col": 5,
+                    "offset": 1405
+                  },
+                  "end": {
+                    "line": 48,
+                    "col": 8,
+                    "offset": 1408
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 10,
+                      "col": 7,
+                      "offset": 348
+                    },
+                    "svalue_end": {
+                      "line": 10,
+                      "col": 22,
+                      "offset": 363
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_002.js"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 8,
+                    "col": 7,
+                    "offset": 336
+                  },
+                  "end": {
+                    "line": 8,
+                    "col": 10,
+                    "offset": 339
+                  },
+                  "abstract_content": "app"
+                },
+                "$EXPRESS": {
+                  "start": {
+                    "line": 8,
+                    "col": 13,
+                    "offset": 342
+                  },
+                  "end": {
+                    "line": 8,
+                    "col": 20,
+                    "offset": 349
+                  },
+                  "abstract_content": "express",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 5,
+                      "col": 17,
+                      "offset": 272
+                    },
+                    "svalue_end": {
+                      "line": 5,
+                      "col": 35,
+                      "offset": 290
+                    },
+                    "svalue_abstract_content": "require('express')"
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.jsonwebtoken.security.hardcoded-jwt-secret",
+          "level": "note",
+          "message": {
+            "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_002.js"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 21,
+                  "endColumn": 32,
+                  "snippet": {
+                    "text": "  jwt.verify(token, 'secretKey', (err, decoded) => {"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$JWT": {
+                  "start": {
+                    "line": 15,
+                    "col": 3,
+                    "offset": 564
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 6,
+                    "offset": 567
+                  },
+                  "abstract_content": "jwt"
+                },
+                "$DATA": {
+                  "start": {
+                    "line": 15,
+                    "col": 14,
+                    "offset": 575
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 19,
+                    "offset": 580
+                  },
+                  "abstract_content": "token",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 12,
+                      "col": 17,
+                      "offset": 440
+                    },
+                    "svalue_end": {
+                      "line": 12,
+                      "col": 45,
+                      "offset": 468
+                    },
+                    "svalue_abstract_content": "req.headers['authorization']"
+                  }
+                },
+                "$VALUE": {
+                  "start": {
+                    "line": 15,
+                    "col": 21,
+                    "offset": 582
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 32,
+                    "offset": 593
+                  },
+                  "abstract_content": "'secretKey'"
+                }
+              },
+              "lines": "  jwt.verify(token, 'secretKey', (err, decoded) => {"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.jwt.security.jwt-python-hardcoded-secret",
+          "level": "note",
+          "message": {
+            "text": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_005.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 33,
+                  "endColumn": 43,
+                  "snippet": {
+                    "text": "    token = jwt.encode(payload, secret_key, algorithm='HS256')"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 15,
+                    "col": 24,
+                    "offset": 657
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 31,
+                    "offset": 664
+                  },
+                  "abstract_content": "payload"
+                },
+                "$SECRET": {
+                  "start": {
+                    "line": 15,
+                    "col": 33,
+                    "offset": 666
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 43,
+                    "offset": 676
+                  },
+                  "abstract_content": "secret_key",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 18,
+                      "offset": 424
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 35,
+                      "offset": 441
+                    },
+                    "svalue_abstract_content": "\"your_secret_key\""
+                  }
+                }
+              },
+              "lines": "    token = jwt.encode(payload, secret_key, algorithm='HS256')"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+          "level": "note",
+          "message": {
+            "text": "`pass` is the body of function validate_cart_items. Consider removing this or raise NotImplementedError() if this is a TODO"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/logic_003.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 7,
+                  "startColumn": 1,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "def validate_cart_items(cart):\n    # Implement validation logic here\n    pass"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 5,
+                    "col": 5,
+                    "offset": 419
+                  },
+                  "end": {
+                    "line": 5,
+                    "col": 24,
+                    "offset": 438
+                  },
+                  "abstract_content": "validate_cart_items"
+                }
+              },
+              "lines": "def validate_cart_items(cart):\n    # Implement validation logic here\n    pass"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+          "level": "note",
+          "message": {
+            "text": "`pass` is the body of function apply_discount_codes. Consider removing this or raise NotImplementedError() if this is a TODO"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/logic_003.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 11,
+                  "startColumn": 1,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "def apply_discount_codes(cart, discount_codes):\n    # Apply discounts based on code validity and user permissions\n    pass"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 9,
+                    "col": 5,
+                    "offset": 498
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 25,
+                    "offset": 518
+                  },
+                  "abstract_content": "apply_discount_codes"
+                }
+              },
+              "lines": "def apply_discount_codes(cart, discount_codes):\n    # Apply discounts based on code validity and user permissions\n    pass"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+          "level": "note",
+          "message": {
+            "text": "`pass` is the body of function calculate_tax. Consider removing this or raise NotImplementedError() if this is a TODO"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/logic_003.py"
+                },
+                "region": {
+                  "startLine": 13,
+                  "endLine": 15,
+                  "startColumn": 1,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "def calculate_tax(cart, tax_rate):\n    # Calculate total tax for the cart\n    pass"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 13,
+                    "col": 5,
+                    "offset": 622
+                  },
+                  "end": {
+                    "line": 13,
+                    "col": 18,
+                    "offset": 635
+                  },
+                  "abstract_content": "calculate_tax"
+                }
+              },
+              "lines": "def calculate_tax(cart, tax_rate):\n    # Calculate total tax for the cart\n    pass"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+          "level": "note",
+          "message": {
+            "text": "`pass` is the body of function process_payment. Consider removing this or raise NotImplementedError() if this is a TODO"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/logic_003.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 19,
+                  "startColumn": 1,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "def process_payment(total_amount):\n    # Process payment logic here\n    pass"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 17,
+                    "col": 5,
+                    "offset": 706
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 20,
+                    "offset": 721
+                  },
+                  "abstract_content": "process_payment"
+                }
+              },
+              "lines": "def process_payment(total_amount):\n    # Process payment logic here\n    pass"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.pass-body-fn",
+          "level": "note",
+          "message": {
+            "text": "`pass` is the body of function create_order_record. Consider removing this or raise NotImplementedError() if this is a TODO"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/logic_003.py"
+                },
+                "region": {
+                  "startLine": 21,
+                  "endLine": 23,
+                  "startColumn": 1,
+                  "endColumn": 9,
+                  "snippet": {
+                    "text": "def create_order_record(order_details):\n    # Create and save order record in database\n    pass"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$X": {
+                  "start": {
+                    "line": 21,
+                    "col": 5,
+                    "offset": 784
+                  },
+                  "end": {
+                    "line": 21,
+                    "col": 24,
+                    "offset": 803
+                  },
+                  "abstract_content": "create_order_record"
+                }
+              },
+              "lines": "def create_order_record(order_details):\n    # Create and save order record in database\n    pass"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.best-practice.unspecified-open-encoding",
+          "level": "note",
+          "message": {
+            "text": "Missing 'encoding' parameter. 'open()' uses device locale encodings by default, corrupting files with special characters. Specify the encoding to ensure cross-platform support when opening files in text mode (e.g. encoding=\"utf-8\")."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/race_002.py"
+                },
+                "region": {
+                  "startLine": 19,
+                  "endLine": 19,
+                  "startColumn": 14,
+                  "endColumn": 34,
+                  "snippet": {
+                    "text": "        with open(file_path, 'r') as file:"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FILE": {
+                  "start": {
+                    "line": 19,
+                    "col": 19,
+                    "offset": 826
+                  },
+                  "end": {
+                    "line": 19,
+                    "col": 28,
+                    "offset": 835
+                  },
+                  "abstract_content": "file_path"
+                },
+                "$MODE": {
+                  "start": {
+                    "line": 19,
+                    "col": 30,
+                    "offset": 837
+                  },
+                  "end": {
+                    "line": 19,
+                    "col": 33,
+                    "offset": 840
+                  },
+                  "abstract_content": "'r'"
+                }
+              },
+              "lines": "        with open(file_path, 'r') as file:"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/functions.html#open"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/functions.html#open"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/rate_limit_002.py"
+                },
+                "region": {
+                  "startLine": 40,
+                  "endLine": 40,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 40,
+                    "col": 5,
+                    "offset": 1228
+                  },
+                  "end": {
+                    "line": 40,
+                    "col": 8,
+                    "offset": 1231
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 10,
+                      "col": 7,
+                      "offset": 451
+                    },
+                    "svalue_end": {
+                      "line": 10,
+                      "col": 22,
+                      "offset": 466
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.open-redirect",
+          "level": "note",
+          "message": {
+            "text": "Data from request is passed to redirect(). This is an open redirect and could be exploited. Consider using 'url_for()' to generate links to known locations. If you must use a URL to unknown pages, consider using 'urlparse()' or similar and checking if the 'netloc' property is the same as your site's host name. See the references for more information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/redirect_001.py"
+                },
+                "region": {
+                  "startLine": 11,
+                  "endLine": 16,
+                  "startColumn": 5,
+                  "endColumn": 35,
+                  "snippet": {
+                    "text": "    next_url = request.form.get('next')\n    # Authentication logic here...\n    if authenticated:\n        return redirect(next_url or url_for('dashboard'))\n    else:\n        return 'Login Failed', 401"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 9,
+                    "col": 2,
+                    "offset": 254
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 5,
+                    "offset": 257
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 7,
+                      "col": 7,
+                      "offset": 236
+                    },
+                    "svalue_end": {
+                      "line": 7,
+                      "col": 22,
+                      "offset": 251
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                },
+                "$X": {
+                  "start": {
+                    "line": 10,
+                    "col": 5,
+                    "offset": 296
+                  },
+                  "end": {
+                    "line": 10,
+                    "col": 10,
+                    "offset": 301
+                  },
+                  "abstract_content": "login"
+                },
+                "$V": {
+                  "start": {
+                    "line": 11,
+                    "col": 5,
+                    "offset": 309
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 13,
+                    "offset": 317
+                  },
+                  "abstract_content": "next_url"
+                },
+                "$W": {
+                  "start": {
+                    "line": 11,
+                    "col": 24,
+                    "offset": 328
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 28,
+                    "offset": 332
+                  },
+                  "abstract_content": "form"
+                }
+              },
+              "lines": "    next_url = request.form.get('next')\n    # Authentication logic here...\n    if authenticated:\n        return redirect(next_url or url_for('dashboard'))\n    else:\n        return 'Login Failed', 401"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/redirect_001.py"
+                },
+                "region": {
+                  "startLine": 23,
+                  "endLine": 23,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 23,
+                    "col": 5,
+                    "offset": 618
+                  },
+                  "end": {
+                    "line": 23,
+                    "col": 8,
+                    "offset": 621
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 7,
+                      "col": 7,
+                      "offset": 236
+                    },
+                    "svalue_end": {
+                      "line": 7,
+                      "col": 22,
+                      "offset": 251
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.boto3.security.hardcoded-token",
+          "level": "note",
+          "message": {
+            "text": "A hard-coded credential was detected. It is not recommended to store credentials in source-code, as this risks secrets being leaked and used by either an internal or external malicious adversary. It is recommended to use environment variables to securely provide credentials or retrieve credentials from a secure vault or HSM (Hardware Security Module)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/secrets_001.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 13,
+                  "endColumn": 113,
+                  "snippet": {
+                    "text": "s3_client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$1": {
+                  "start": {
+                    "line": 1,
+                    "col": 1,
+                    "offset": 0
+                  },
+                  "end": {
+                    "line": 1,
+                    "col": 22,
+                    "offset": 21
+                  },
+                  "abstract_content": "aws_secret_access_key"
+                },
+                "$VALUE": {
+                  "start": {
+                    "line": 9,
+                    "col": 26,
+                    "offset": 703
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 66,
+                    "offset": 743
+                  },
+                  "abstract_content": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                },
+                "$BOTO": {
+                  "start": {
+                    "line": 12,
+                    "col": 13,
+                    "offset": 780
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 18,
+                    "offset": 785
+                  },
+                  "abstract_content": "boto3"
+                },
+                "$W": {
+                  "start": {
+                    "line": 12,
+                    "col": 19,
+                    "offset": 786
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 25,
+                    "offset": 792
+                  },
+                  "abstract_content": "client"
+                },
+                "$TOKEN": {
+                  "start": {
+                    "line": 12,
+                    "col": 69,
+                    "offset": 836
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 90,
+                    "offset": 857
+                  },
+                  "abstract_content": "aws_secret_access_key"
+                }
+              },
+              "lines": "s3_client = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://bento.dev/checks/boto3/hardcoded-access-token/"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://bento.dev/checks/boto3/hardcoded-access-token/"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://aws.amazon.com/blogs/security/what-to-do-if-you-inadvertently-expose-an-aws-access-key/"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://aws.amazon.com/blogs/security/what-to-do-if-you-inadvertently-expose-an-aws-access-key/"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.audit.formatted-sql-query",
+          "level": "note",
+          "message": {
+            "text": "Detected possible formatted SQL query. Use parameterized queries instead."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_001.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 9,
+                  "endColumn": 74,
+                  "snippet": {
+                    "text": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$DB": {
+                  "start": {
+                    "line": 16,
+                    "col": 9,
+                    "offset": 588
+                  },
+                  "end": {
+                    "line": 16,
+                    "col": 12,
+                    "offset": 591
+                  },
+                  "abstract_content": "cur",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 13,
+                      "col": 15,
+                      "offset": 531
+                    },
+                    "svalue_end": {
+                      "line": 13,
+                      "col": 28,
+                      "offset": 544
+                    },
+                    "svalue_abstract_content": "conn.cursor()"
+                  }
+                }
+              },
+              "lines": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.audit.sqli.psycopg-sqli",
+          "level": "note",
+          "message": {
+            "text": "Detected string concatenation with a non-literal variable in a psycopg2 Python SQL statement. This could lead to SQL injection if the variable is user-controlled and not properly sanitized. In order to prevent SQL injection, use parameterized queries or prepared statements instead. You can use prepared statements by creating a 'sql.SQL' string. You can also use the pyformat binding style to create parameterized queries. For example: 'cur.execute(SELECT * FROM table WHERE name=%s, user_input)'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_001.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 9,
+                  "endColumn": 74,
+                  "snippet": {
+                    "text": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$1": {
+                  "start": {
+                    "line": 1,
+                    "col": 1,
+                    "offset": 0
+                  },
+                  "end": {
+                    "line": 1,
+                    "col": 8,
+                    "offset": 7
+                  },
+                  "abstract_content": "execute"
+                },
+                "$CONN": {
+                  "start": {
+                    "line": 10,
+                    "col": 9,
+                    "offset": 384
+                  },
+                  "end": {
+                    "line": 10,
+                    "col": 13,
+                    "offset": 388
+                  },
+                  "abstract_content": "conn"
+                },
+                "$CUR": {
+                  "start": {
+                    "line": 16,
+                    "col": 9,
+                    "offset": 588
+                  },
+                  "end": {
+                    "line": 16,
+                    "col": 12,
+                    "offset": 591
+                  },
+                  "abstract_content": "cur",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 13,
+                      "col": 15,
+                      "offset": 531
+                    },
+                    "svalue_end": {
+                      "line": 13,
+                      "col": 28,
+                      "offset": 544
+                    },
+                    "svalue_abstract_content": "conn.cursor()"
+                  }
+                },
+                "$METHOD": {
+                  "start": {
+                    "line": 16,
+                    "col": 13,
+                    "offset": 592
+                  },
+                  "end": {
+                    "line": 16,
+                    "col": 20,
+                    "offset": 599
+                  },
+                  "abstract_content": "execute"
+                },
+                "$USERINPUT": {
+                  "start": {
+                    "line": 16,
+                    "col": 62,
+                    "offset": 641
+                  },
+                  "end": {
+                    "line": 16,
+                    "col": 70,
+                    "offset": 649
+                  },
+                  "abstract_content": "username"
+                }
+              },
+              "lines": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.sqlalchemy.security.sqlalchemy-execute-raw-query",
+          "level": "note",
+          "message": {
+            "text": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_001.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 9,
+                  "endColumn": 74,
+                  "snippet": {
+                    "text": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$CONNECTION": {
+                  "start": {
+                    "line": 16,
+                    "col": 9,
+                    "offset": 588
+                  },
+                  "end": {
+                    "line": 16,
+                    "col": 12,
+                    "offset": 591
+                  },
+                  "abstract_content": "cur",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 13,
+                      "col": 15,
+                      "offset": 531
+                    },
+                    "svalue_end": {
+                      "line": 13,
+                      "col": 28,
+                      "offset": 544
+                    },
+                    "svalue_abstract_content": "conn.cursor()"
+                  }
+                }
+              },
+              "lines": "        cur.execute(f\"SELECT * FROM users WHERE username = '{username}'\")"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.tutorialspoint.com/sqlalchemy/sqlalchemy_quick_guide.htm"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.tutorialspoint.com/sqlalchemy/sqlalchemy_quick_guide.htm"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://docs.sqlalchemy.org/en/14/core/tutorial.html#using-more-specific-text-with-table-expression-literal-column-and-expression-column"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.sqlalchemy.org/en/14/core/tutorial.html#using-more-specific-text-with-table-expression-literal-column-and-expression-column"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_002.js"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 7,
+                    "col": 7,
+                    "offset": 368
+                  },
+                  "end": {
+                    "line": 7,
+                    "col": 10,
+                    "offset": 371
+                  },
+                  "abstract_content": "app"
+                },
+                "$EXPRESS": {
+                  "start": {
+                    "line": 7,
+                    "col": 13,
+                    "offset": 374
+                  },
+                  "end": {
+                    "line": 7,
+                    "col": 20,
+                    "offset": 381
+                  },
+                  "abstract_content": "express",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 5,
+                      "col": 17,
+                      "offset": 310
+                    },
+                    "svalue_end": {
+                      "line": 5,
+                      "col": 35,
+                      "offset": 328
+                    },
+                    "svalue_abstract_content": "require('express')"
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+          "level": "note",
+          "message": {
+            "text": "Detected a 'requests' call without a timeout set. By default, 'requests' calls wait until the connection is closed. This means a 'requests' call without a timeout will hang the program if a response is never received. Consider setting a timeout for all 'requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_001.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 20,
+                  "endColumn": 37,
+                  "snippet": {
+                    "text": "        response = requests.get(url)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "        response = requests.get(url)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_002.js"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 7,
+                    "col": 7,
+                    "offset": 421
+                  },
+                  "end": {
+                    "line": 7,
+                    "col": 10,
+                    "offset": 424
+                  },
+                  "abstract_content": "app"
+                },
+                "$EXPRESS": {
+                  "start": {
+                    "line": 7,
+                    "col": 13,
+                    "offset": 427
+                  },
+                  "end": {
+                    "line": 7,
+                    "col": 20,
+                    "offset": 434
+                  },
+                  "abstract_content": "express",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 5,
+                      "col": 17,
+                      "offset": 363
+                    },
+                    "svalue_end": {
+                      "line": 5,
+                      "col": 35,
+                      "offset": 381
+                    },
+                    "svalue_abstract_content": "require('express')"
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.django.security.injection.ssrf.ssrf-injection-requests",
+          "level": "note",
+          "message": {
+            "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request. See https://owasp.org/www-community/attacks/Server_Side_Request_Forgery to learn more about SSRF vulnerabilities."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_003.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 28,
+                  "startColumn": 5,
+                  "endColumn": 27,
+                  "snippet": {
+                    "text": "    url = request.args.get('url')\n    if not url:\n        return 'URL parameter is required', 400\n    \n    try:\n        response = requests.get(url, stream=True)\n        response.raise_for_status()\n        \n        return send_file(\n            response.raw,\n            mimetype='image/jpeg' if url.endswith('.jpg') else \n                    'image/png' if url.endswith('.png') else \n                    'image/gif'\n        )\n    \n    except requests.RequestException as e:\n        return str(e), 500"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 11,
+                    "col": 5,
+                    "offset": 274
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 16,
+                    "offset": 285
+                  },
+                  "abstract_content": "image_proxy"
+                },
+                "$DATA": {
+                  "start": {
+                    "line": 12,
+                    "col": 5,
+                    "offset": 293
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 8,
+                    "offset": 296
+                  },
+                  "abstract_content": "url"
+                },
+                "$W": {
+                  "start": {
+                    "line": 12,
+                    "col": 19,
+                    "offset": 307
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 23,
+                    "offset": 311
+                  },
+                  "abstract_content": "args"
+                },
+                "$METHOD": {
+                  "start": {
+                    "line": 17,
+                    "col": 29,
+                    "offset": 429
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 32,
+                    "offset": 432
+                  },
+                  "abstract_content": "get"
+                }
+              },
+              "lines": "    url = request.args.get('url')\n    if not url:\n        return 'URL parameter is required', 400\n    \n    try:\n        response = requests.get(url, stream=True)\n        response.raise_for_status()\n        \n        return send_file(\n            response.raw,\n            mimetype='image/jpeg' if url.endswith('.jpg') else \n                    'image/png' if url.endswith('.png') else \n                    'image/gif'\n        )\n    \n    except requests.RequestException as e:\n        return str(e), 500"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.injection.ssrf-requests",
+          "level": "note",
+          "message": {
+            "text": "Data from request object is passed to a new server-side request. This could lead to a server-side request forgery (SSRF). To mitigate, ensure that schemes and hosts are validated against an allowlist, do not forward the response to the user, and ensure proper authentication and transport-layer security in the proxied request."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_003.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 20,
+                  "endColumn": 50,
+                  "snippet": {
+                    "text": "        response = requests.get(url, stream=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$INTERM": {
+                  "start": {
+                    "line": 12,
+                    "col": 5,
+                    "offset": 293
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 8,
+                    "offset": 296
+                  },
+                  "abstract_content": "url"
+                },
+                "$W": {
+                  "start": {
+                    "line": 12,
+                    "col": 19,
+                    "offset": 307
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 23,
+                    "offset": 311
+                  },
+                  "abstract_content": "args"
+                },
+                "$FUNC": {
+                  "start": {
+                    "line": 17,
+                    "col": 29,
+                    "offset": 429
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 32,
+                    "offset": 432
+                  },
+                  "abstract_content": "get"
+                }
+              },
+              "lines": "        response = requests.get(url, stream=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.requests.best-practice.use-timeout",
+          "level": "note",
+          "message": {
+            "text": "Detected a 'requests' call without a timeout set. By default, 'requests' calls wait until the connection is closed. This means a 'requests' call without a timeout will hang the program if a response is never received. Consider setting a timeout for all 'requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_003.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 20,
+                  "endColumn": 50,
+                  "snippet": {
+                    "text": "        response = requests.get(url, stream=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "        response = requests.get(url, stream=True)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_003.py"
+                },
+                "region": {
+                  "startLine": 31,
+                  "endLine": 31,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 31,
+                    "col": 5,
+                    "offset": 823
+                  },
+                  "end": {
+                    "line": 31,
+                    "col": 8,
+                    "offset": 826
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 8,
+                      "col": 7,
+                      "offset": 215
+                    },
+                    "svalue_end": {
+                      "line": 8,
+                      "col": 22,
+                      "offset": 230
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.open-redirect",
+          "level": "note",
+          "message": {
+            "text": "Data from request is passed to redirect(). This is an open redirect and could be exploited. Consider using 'url_for()' to generate links to known locations. If you must use a URL to unknown pages, consider using 'urlparse()' or similar and checking if the 'netloc' property is the same as your site's host name. See the references for more information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_001.py"
+                },
+                "region": {
+                  "startLine": 18,
+                  "endLine": 18,
+                  "startColumn": 20,
+                  "endColumn": 41,
+                  "snippet": {
+                    "text": "            return redirect(request.url)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 13,
+                    "col": 2,
+                    "offset": 365
+                  },
+                  "end": {
+                    "line": 13,
+                    "col": 5,
+                    "offset": 368
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 7,
+                      "offset": 276
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 22,
+                      "offset": 291
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                },
+                "$X": {
+                  "start": {
+                    "line": 14,
+                    "col": 5,
+                    "offset": 415
+                  },
+                  "end": {
+                    "line": 14,
+                    "col": 16,
+                    "offset": 426
+                  },
+                  "abstract_content": "upload_file"
+                },
+                "$W": {
+                  "start": {
+                    "line": 18,
+                    "col": 37,
+                    "offset": 593
+                  },
+                  "end": {
+                    "line": 18,
+                    "col": 40,
+                    "offset": 596
+                  },
+                  "abstract_content": "url"
+                }
+              },
+              "lines": "            return redirect(request.url)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.open-redirect",
+          "level": "note",
+          "message": {
+            "text": "Data from request is passed to redirect(). This is an open redirect and could be exploited. Consider using 'url_for()' to generate links to known locations. If you must use a URL to unknown pages, consider using 'urlparse()' or similar and checking if the 'netloc' property is the same as your site's host name. See the references for more information."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_001.py"
+                },
+                "region": {
+                  "startLine": 23,
+                  "endLine": 23,
+                  "startColumn": 20,
+                  "endColumn": 41,
+                  "snippet": {
+                    "text": "            return redirect(request.url)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 13,
+                    "col": 2,
+                    "offset": 365
+                  },
+                  "end": {
+                    "line": 13,
+                    "col": 5,
+                    "offset": 368
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 7,
+                      "offset": 276
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 22,
+                      "offset": 291
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                },
+                "$X": {
+                  "start": {
+                    "line": 14,
+                    "col": 5,
+                    "offset": 415
+                  },
+                  "end": {
+                    "line": 14,
+                    "col": 16,
+                    "offset": 426
+                  },
+                  "abstract_content": "upload_file"
+                },
+                "$W": {
+                  "start": {
+                    "line": 23,
+                    "col": 37,
+                    "offset": 804
+                  },
+                  "end": {
+                    "line": 23,
+                    "col": 40,
+                    "offset": 807
+                  },
+                  "abstract_content": "url"
+                }
+              },
+              "lines": "            return redirect(request.url)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html#dangerous-url-redirect-example-1"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.python.org/3/library/urllib.parse.html#url-parsing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_001.py"
+                },
+                "region": {
+                  "startLine": 38,
+                  "endLine": 38,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 38,
+                    "col": 5,
+                    "offset": 1388
+                  },
+                  "end": {
+                    "line": 38,
+                    "col": 8,
+                    "offset": 1391
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 9,
+                      "col": 7,
+                      "offset": 276
+                    },
+                    "svalue_end": {
+                      "line": 9,
+                      "col": 22,
+                      "offset": 291
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_003.js"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 9,
+                    "col": 7,
+                    "offset": 493
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 10,
+                    "offset": 496
+                  },
+                  "abstract_content": "app"
+                },
+                "$EXPRESS": {
+                  "start": {
+                    "line": 9,
+                    "col": 13,
+                    "offset": 499
+                  },
+                  "end": {
+                    "line": 9,
+                    "col": 20,
+                    "offset": 506
+                  },
+                  "abstract_content": "express"
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.directly-returned-format-string",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask route directly returning a formatted string. This is subject to cross-site scripting if user input can reach the string. Consider using the template engine instead and rendering pages with 'render_template()'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 5,
+                  "endColumn": 57,
+                  "snippet": {
+                    "text": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$FUNC": {
+                  "start": {
+                    "line": 11,
+                    "col": 20,
+                    "offset": 379
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 24,
+                    "offset": 383
+                  },
+                  "abstract_content": "args"
+                }
+              },
+              "lines": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.django.security.injection.raw-html-format",
+          "level": "note",
+          "message": {
+            "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`django.shortcuts.render`) which will safely render HTML instead."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 12,
+                  "endColumn": 57,
+                  "snippet": {
+                    "text": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$ANYTHING": {
+                  "start": {
+                    "line": 11,
+                    "col": 20,
+                    "offset": 379
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 24,
+                    "offset": 383
+                  },
+                  "abstract_content": "args"
+                },
+                "$HTMLSTR": {
+                  "start": {
+                    "line": 12,
+                    "col": 14,
+                    "offset": 418
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 35,
+                    "offset": 439
+                  },
+                  "abstract_content": "<h1>Welcome, <strong>"
+                }
+              },
+              "lines": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://docs.djangoproject.com/en/3.2/topics/security/#cross-site-scripting-xss-protection"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://docs.djangoproject.com/en/3.2/topics/security/#cross-site-scripting-xss-protection"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.injection.raw-html-format",
+          "level": "note",
+          "message": {
+            "text": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`flask.render_template`) which will safely render HTML instead."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 12,
+                  "endColumn": 57,
+                  "snippet": {
+                    "text": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$ANYTHING": {
+                  "start": {
+                    "line": 11,
+                    "col": 20,
+                    "offset": 379
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 24,
+                    "offset": 383
+                  },
+                  "abstract_content": "args"
+                },
+                "$HTMLSTR": {
+                  "start": {
+                    "line": 12,
+                    "col": 14,
+                    "offset": 418
+                  },
+                  "end": {
+                    "line": 12,
+                    "col": 35,
+                    "offset": 439
+                  },
+                  "abstract_content": "<h1>Welcome, <strong>"
+                }
+              },
+              "lines": "    return f'<h1>Welcome, <strong>{name}</strong>!</h1>'"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.flask.security.audit.debug-enabled",
+          "level": "note",
+          "message": {
+            "text": "Detected Flask app with debug=True. Do not deploy to production with this flag enabled as it will leak sensitive information. Instead, consider using Flask configuration variables or setting 'debug' using system environment variables."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 5,
+                  "endColumn": 24,
+                  "snippet": {
+                    "text": "    app.run(debug=True)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 15,
+                    "col": 5,
+                    "offset": 494
+                  },
+                  "end": {
+                    "line": 15,
+                    "col": 8,
+                    "offset": 497
+                  },
+                  "abstract_content": "app",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 7,
+                      "col": 7,
+                      "offset": 312
+                    },
+                    "svalue_end": {
+                      "line": 7,
+                      "col": 22,
+                      "offset": 327
+                    },
+                    "svalue_abstract_content": "Flask(__name__)"
+                  }
+                }
+              },
+              "lines": "    app.run(debug=True)"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.use-defused-xml",
+          "level": "note",
+          "message": {
+            "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_001.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 1,
+                  "endColumn": 35,
+                  "snippet": {
+                    "text": "import xml.etree.ElementTree as ET"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "import xml.etree.ElementTree as ET"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://github.com/tiran/defusedxml"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://github.com/tiran/defusedxml"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.use-defused-xml-parse",
+          "level": "note",
+          "message": {
+            "text": "The native Python `xml` library is vulnerable to XML External Entity (XXE) attacks.  These attacks can leak confidential data and \"XML bombs\" can cause denial of service. Do not use this library to parse untrusted input. Instead  the Python documentation recommends using `defusedxml`."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_001.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 12,
+                  "endColumn": 31,
+                  "snippet": {
+                    "text": "    tree = ET.parse(file_path)"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$...ARGS": {
+                  "start": {
+                    "line": 8,
+                    "col": 21,
+                    "offset": 258
+                  },
+                  "end": {
+                    "line": 8,
+                    "col": 30,
+                    "offset": 267
+                  },
+                  "abstract_content": "file_path"
+                }
+              },
+              "lines": "    tree = ET.parse(file_path)"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://github.com/tiran/defusedxml"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://github.com/tiran/defusedxml"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.express.security.audit.express-check-csurf-middleware-usage",
+          "level": "note",
+          "message": {
+            "text": "A CSRF middleware was not detected in your express application. Ensure you are either using one such as `csurf` or `csrf` (see rule references) and/or you are properly doing CSRF validation in your routes with a token or cookies."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_002.js"
+                },
+                "region": {
+                  "startLine": 11,
+                  "endLine": 11,
+                  "startColumn": 7,
+                  "endColumn": 22,
+                  "snippet": {
+                    "text": "const app = express();"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$APP": {
+                  "start": {
+                    "line": 11,
+                    "col": 7,
+                    "offset": 624
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 10,
+                    "offset": 627
+                  },
+                  "abstract_content": "app"
+                },
+                "$EXPRESS": {
+                  "start": {
+                    "line": 11,
+                    "col": 13,
+                    "offset": 630
+                  },
+                  "end": {
+                    "line": 11,
+                    "col": 20,
+                    "offset": 637
+                  },
+                  "abstract_content": "express",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 5,
+                      "col": 17,
+                      "offset": 473
+                    },
+                    "svalue_end": {
+                      "line": 5,
+                      "col": 35,
+                      "offset": 491
+                    },
+                    "svalue_abstract_content": "require('express')"
+                  }
+                }
+              },
+              "lines": "const app = express();"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://www.npmjs.com/package/csrf"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://www.npmjs.com/package/csrf"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "app.opengrep-rules.javascript.lang.security.audit.detect-non-literal-fs-filename",
+          "level": "note",
+          "message": {
+            "text": "Detected that function argument `req` has entered the fs module. An attacker could potentially control the location of this file, to include going backwards in the directory with '../'. To address this, ensure that user-controlled variables in file paths are validated."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_002.js"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 15,
+                  "endColumn": 23,
+                  "snippet": {
+                    "text": "  fs.readFile(filePath, (err, data) => {"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {
+                "$ARG": {
+                  "start": {
+                    "line": 14,
+                    "col": 48,
+                    "offset": 734
+                  },
+                  "end": {
+                    "line": 14,
+                    "col": 51,
+                    "offset": 737
+                  },
+                  "abstract_content": "req"
+                },
+                "$FS": {
+                  "start": {
+                    "line": 17,
+                    "col": 3,
+                    "offset": 786
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 5,
+                    "offset": 788
+                  },
+                  "abstract_content": "fs"
+                },
+                "$FILE": {
+                  "start": {
+                    "line": 17,
+                    "col": 15,
+                    "offset": 798
+                  },
+                  "end": {
+                    "line": 17,
+                    "col": 23,
+                    "offset": 806
+                  },
+                  "abstract_content": "filePath",
+                  "propagated_value": {
+                    "svalue_start": {
+                      "line": 15,
+                      "col": 20,
+                      "offset": 768
+                    },
+                    "svalue_end": {
+                      "line": 15,
+                      "col": 33,
+                      "offset": 781
+                    },
+                    "svalue_abstract_content": "req.file.path"
+                  }
+                }
+              },
+              "lines": "  fs.readFile(filePath, (err, data) => {"
+            }
+          }
+        },
+        {
+          "ruleId": "app.opengrep-rules.python.lang.security.use-defused-xml",
+          "level": "note",
+          "message": {
+            "text": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_003.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 1,
+                  "endColumn": 35,
+                  "snippet": {
+                    "text": "import xml.etree.ElementTree as ET"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "metavars": {},
+              "lines": "import xml.etree.ElementTree as ET"
+            }
+          },
+          "relatedLocations": [
+            {
+              "id": 1,
+              "message": {
+                "text": "Reference: https://github.com/tiran/defusedxml"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://github.com/tiran/defusedxml"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "message": {
+                "text": "Reference: https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+              },
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-02-09T05:30:14.750492Z"
+        }
+      ]
+    }
+  ]
+}

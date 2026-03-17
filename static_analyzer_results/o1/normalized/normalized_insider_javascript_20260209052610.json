@@ -1,0 +1,167 @@
+{
+  "findings": [
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:26:10.631Z",
+      "file_path": "secrets_001.py",
+      "start_line": 11,
+      "end_line": 11,
+      "start_column": 9,
+      "end_column": 9,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the git code or repository, an attacker could decompile the application and obtain the credential. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 11,
+        "class": "secrets_001.py (11:9)",
+        "vul_id": "23c163cf040de64e06e09d58928c2a1f",
+        "method": "aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+        "column": 9,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "secrets_001.py (11:9)",
+        "recomendation": "Credentials must not be stored in the git code or repository, an attacker could decompile the application and obtain the credential. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:26:10.631Z",
+      "file_path": "secrets_003.py",
+      "start_line": 13,
+      "end_line": 13,
+      "start_column": 9,
+      "end_column": 9,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 13,
+        "class": "secrets_003.py (13:9)",
+        "vul_id": "c73bd52cd1a58d5921fefe4a91bc0aff",
+        "method": "password=\"demo123\"",
+        "column": 9,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "secrets_003.py (13:9)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:26:10.631Z",
+      "file_path": "sql_001.py",
+      "start_line": 11,
+      "end_line": 11,
+      "start_column": 9,
+      "end_column": 9,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 11,
+        "class": "sql_001.py (11:9)",
+        "vul_id": "ad0672601ec0420a91ad6a8544516afe",
+        "method": "password=\"your_password\",",
+        "column": 9,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "sql_001.py (11:9)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:26:10.631Z",
+      "file_path": "upload_003.js",
+      "start_line": 52,
+      "end_line": 52,
+      "start_column": 5,
+      "end_column": 5,
+      "rule_id": "CWE-79",
+      "title": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable",
+      "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "cvss": 3,
+        "cwe": "CWE-79",
+        "line": 52,
+        "class": "upload_003.js (52:5)",
+        "vul_id": "69c9521f8304bd83c0adc8417f460ae3",
+        "method": "res.send({ message: 'File uploaded successfully', filename: req.file.filename });",
+        "column": 5,
+        "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+        "classMessage": "upload_003.js (52:5)"
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:26:10.631Z",
+      "file_path": "xxe_002.js",
+      "start_line": 18,
+      "end_line": 18,
+      "start_column": 5,
+      "end_column": 5,
+      "rule_id": "CWE-35",
+      "title": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack",
+      "description": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack.",
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-35"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "cvss": 4,
+        "cwe": "CWE-35",
+        "line": 18,
+        "class": "xxe_002.js (18:5)",
+        "vul_id": "27b3c93fd6b0119214773bae31e8503f",
+        "method": "fs.readFile(req.file.path, 'utf8', (err, data) => {",
+        "column": 5,
+        "description": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack.",
+        "classMessage": "xxe_002.js (18:5)"
+      }
+    }
+  ]
+}

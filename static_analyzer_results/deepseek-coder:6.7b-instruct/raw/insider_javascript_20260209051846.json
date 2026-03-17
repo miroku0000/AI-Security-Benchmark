@@ -1,0 +1,99 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 4,
+   "cwe": "CWE-601",
+   "line": 70,
+   "class": "auth_004.js (70:15)",
+   "vul_id": "480258a04af2d4dda41213784df92551",
+   "method": "return res.redirect('/login'); // Redirect to login page if the cookie is not set",
+   "column": 15,
+   "description": "Using the 'redirect' function can cause an Open Redirect.",
+   "classMessage": "auth_004.js (70:15)"
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 6,
+   "class": "jwt_002.js (6:7)",
+   "vul_id": "21cba668acccb670819afb5e04598356",
+   "method": "const secret = 'your_secret'; // replace with your own JWT secret",
+   "column": 7,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "jwt_002.js (6:7)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 11,
+   "class": "ldap_001.py (11:66)",
+   "vul_id": "9933373b88a60be987ec3cb7d57aa98d",
+   "method": "conn = Connection(server, user='cn=admin,dc=example,dc=com', password='password')",
+   "column": 66,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "ldap_001.py (11:66)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 11,
+   "class": "race_002.py (11:69)",
+   "vul_id": "61f5a8290d60c8159578aa6bbf27908e",
+   "method": "conn = psycopg2.connect(database=\"dbname\", user=\"username\", password=\"password\", host=\"127.0.0.1\")  # Connecting to the database",
+   "column": 69,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "race_002.py (11:69)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 12,
+   "class": "secrets_003.py (12:39)",
+   "vul_id": "fbd867f4b3e4ebbea74f939938a2e9d3",
+   "method": "password=\"password\",",
+   "column": 39,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_003.py (12:39)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 18,
+   "class": "sql_003.py (18:74)",
+   "vul_id": "e527807ace7cab3e8e41424dfc46fb5d",
+   "method": "cursor.execute(f\"SELECT * FROM users WHERE username='{username}' AND password='{password}';\")",
+   "column": 74,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "sql_003.py (18:74)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 13,
+   "class": "sql_001.py (13:74)",
+   "vul_id": "dbf7612ea571aee0a51612bab802365e",
+   "method": "conn = psycopg2.connect(dbname='your_database', user='username', password='password', host='localhost')",
+   "column": 74,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "sql_001.py (13:74)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  }
+ ],
+ "none": 0,
+ "low": 0,
+ "medium": 1,
+ "high": 6,
+ "critical": 0,
+ "total": 7,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "72339 Bytes",
+  "numberOfLines": 1819
+ }
+}

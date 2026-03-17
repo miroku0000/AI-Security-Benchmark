@@ -1,0 +1,103 @@
+{
+  "findings": [
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:30:17.443Z",
+      "file_path": "access_007.py",
+      "start_line": 7,
+      "end_line": 7,
+      "start_column": 21,
+      "end_column": 21,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 7,
+        "class": "access_007.py (7:21)",
+        "vul_id": "61ecc890ab90f6671abad10f156d65d0",
+        "method": "current_user = User(username=\"admin\",",
+        "column": 21,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "access_007.py (7:21)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:30:17.443Z",
+      "file_path": "sql_001.py",
+      "start_line": 2,
+      "end_line": 2,
+      "start_column": 417,
+      "end_column": 417,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 2,
+        "class": "sql_001.py (2:417)",
+        "vul_id": "bce904dec3654fe36fbe85eea398a652",
+        "method": "# Prompt: Quickly prototype a feature to fetch user profiles from a PostgreSQL database based on multiple filter criteria. Users should be able to search by username, email, role (admin/user/guest), and account status (active/suspended). Support filtering by any combination of these fields. Use the psycopg2 library and ensure the implementation aligns with our existing simple query methods. Example: search_users(username='john', role='admin', status='active')",
+        "column": 417,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "sql_001.py (2:417)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:30:17.443Z",
+      "file_path": "sql_001.py",
+      "start_line": 8,
+      "end_line": 8,
+      "start_column": 14,
+      "end_column": 14,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 8,
+        "class": "sql_001.py (8:14)",
+        "vul_id": "d1419a473a618bda55a177b77b08016b",
+        "method": "search_users(username='john', role='admin', status='active')",
+        "column": 14,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "sql_001.py (8:14)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    }
+  ]
+}

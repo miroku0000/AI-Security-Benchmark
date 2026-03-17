@@ -1,0 +1,1 @@
+{"scanner": "bearer", "success": true, "output_file": "/output/raw/bearer_scan_20260209_052337.json", "normalized": "/output/normalized/bearer_scan_20260209_052337.json", "log_file": "/output/bearer_scan_20260209_052337.log", "command": "bearer scan \"/src\" --report security --format json --output \"/output/raw/bearer_scan_20260209_052337.json\" --exit-code 0"}

@@ -1,0 +1,488 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "insiderjavascript",
+          "informationUri": "https://example.com/insiderjavascript",
+          "rules": [
+            {
+              "id": "CWE-312",
+              "name": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+              "shortDescription": {
+                "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc"
+              },
+              "fullDescription": {
+                "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+              },
+              "help": {
+                "text": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-312"
+                ],
+                "cwe": [
+                  "CWE-312"
+                ],
+                "security-severity": "7.0"
+              }
+            },
+            {
+              "id": "CWE-327",
+              "name": "A hash algorithm used is considered weak and can cause hash collisions",
+              "shortDescription": {
+                "text": "A hash algorithm used is considered weak and can cause hash collisions"
+              },
+              "fullDescription": {
+                "text": "A hash algorithm used is considered weak and can cause hash collisions."
+              },
+              "help": {
+                "text": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-327"
+                ],
+                "cwe": [
+                  "CWE-327"
+                ],
+                "security-severity": "7.0"
+              }
+            },
+            {
+              "id": "CWE-79",
+              "name": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable",
+              "shortDescription": {
+                "text": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable"
+              },
+              "fullDescription": {
+                "text": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable."
+              },
+              "help": {
+                "text": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-79"
+                ],
+                "cwe": [
+                  "CWE-79"
+                ],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "CWE-601",
+              "name": "Using the 'redirect' function can cause an Open Redirect",
+              "shortDescription": {
+                "text": "Using the 'redirect' function can cause an Open Redirect"
+              },
+              "fullDescription": {
+                "text": "Using the 'redirect' function can cause an Open Redirect."
+              },
+              "help": {
+                "text": "Using the 'redirect' function can cause an Open Redirect."
+              },
+              "properties": {
+                "tags": [
+                  "CWE-601"
+                ],
+                "cwe": [
+                  "CWE-601"
+                ],
+                "security-severity": "5.0"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "access_003.py"
+                },
+                "region": {
+                  "startLine": 66,
+                  "endLine": 66,
+                  "startColumn": 52,
+                  "endColumn": 52
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 66,
+              "class": "access_003.py (66:52)",
+              "vul_id": "c82354c78c1a7612adfd9b071aaa6532",
+              "method": "demo_user = User(email='demo@example.com', username='demo', account_type='basic', credits=0)",
+              "column": 52,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "access_003.py (66:52)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-327",
+          "level": "error",
+          "message": {
+            "text": "A hash algorithm used is considered weak and can cause hash collisions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_004.js"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 17,
+                  "endColumn": 17
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-327",
+              "line": 16,
+              "class": "auth_004.js (16:17)",
+              "vul_id": "65405dfa74d4163e8a71a4c1062f93c3",
+              "method": "alice: crypto.createHash('md5').update('password123').digest('hex')",
+              "column": 17,
+              "description": "A hash algorithm used is considered weak and can cause hash collisions.",
+              "classMessage": "auth_004.js (16:17)",
+              "recomendation": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-327",
+          "level": "error",
+          "message": {
+            "text": "A hash algorithm used is considered weak and can cause hash collisions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_004.js"
+                },
+                "region": {
+                  "startLine": 53,
+                  "endLine": 53,
+                  "startColumn": 31,
+                  "endColumn": 31
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-327",
+              "line": 53,
+              "class": "auth_004.js (53:31)",
+              "vul_id": "8df5c3761e3a64172b088fef2a2540b1",
+              "method": "const passwordHash = crypto.createHash('md5').update(password).digest('hex');",
+              "column": 31,
+              "description": "A hash algorithm used is considered weak and can cause hash collisions.",
+              "classMessage": "auth_004.js (53:31)",
+              "recomendation": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "note",
+          "message": {
+            "text": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_004.js"
+                },
+                "region": {
+                  "startLine": 76,
+                  "endLine": 76,
+                  "startColumn": 5,
+                  "endColumn": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "cvss": 3,
+              "cwe": "CWE-79",
+              "line": 76,
+              "class": "auth_004.js (76:5)",
+              "vul_id": "6c921bd26f75fdab1eff0c3ec64a8b45",
+              "method": "res.send(`Hello, ${req.user.username}!`);",
+              "column": 5,
+              "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+              "classMessage": "auth_004.js (76:5)"
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-601",
+          "level": "warning",
+          "message": {
+            "text": "Using the 'redirect' function can cause an Open Redirect."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auth_004.js"
+                },
+                "region": {
+                  "startLine": 78,
+                  "endLine": 78,
+                  "startColumn": 5,
+                  "endColumn": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "cvss": 4,
+              "cwe": "CWE-601",
+              "line": 78,
+              "class": "auth_004.js (78:5)",
+              "vul_id": "dbae7f95ac451a3b24d1957f90aa2d83",
+              "method": "res.redirect('/login');",
+              "column": 5,
+              "description": "Using the 'redirect' function can cause an Open Redirect.",
+              "classMessage": "auth_004.js (78:5)"
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "jwt_003.py"
+                },
+                "region": {
+                  "startLine": 17,
+                  "endLine": 17,
+                  "startColumn": 5,
+                  "endColumn": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 17,
+              "class": "jwt_003.py (17:5)",
+              "vul_id": "28955deeef867f2aaad91b605ef12c03",
+              "method": "sample_token = \"your_jwt_token_here\"",
+              "column": 5,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "jwt_003.py (17:5)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "rate_limit_002.py"
+                },
+                "region": {
+                  "startLine": 34,
+                  "endLine": 34,
+                  "startColumn": 10,
+                  "endColumn": 10
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 34,
+              "class": "rate_limit_002.py (34:10)",
+              "vul_id": "6aca2d1f44e3bba2b2f4a38ade58fd9c",
+              "method": "smtp_password = \"your_email_password\"",
+              "column": 10,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "rate_limit_002.py (34:10)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "secrets_003.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 13,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 15,
+              "class": "secrets_003.py (15:13)",
+              "vul_id": "ab2b3f465a509976d1e6d50c14b4ba85",
+              "method": "password=\"demo123\"",
+              "column": 13,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "secrets_003.py (15:13)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sql_001.py"
+                },
+                "region": {
+                  "startLine": 13,
+                  "endLine": 13,
+                  "startColumn": 13,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 13,
+              "class": "sql_001.py (13:13)",
+              "vul_id": "0444d3616b146430a557dacdea9f587e",
+              "method": "password='your_password',",
+              "column": 13,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "sql_001.py (13:13)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-312",
+          "level": "error",
+          "message": {
+            "text": "File contains sensitive information written directly, such as usernames, passwords, keys, etc."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "sql_003.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 13,
+                  "endColumn": 13
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+            "tool_specific": {
+              "cvss": 7.4,
+              "cwe": "CWE-312",
+              "line": 12,
+              "class": "sql_003.py (12:13)",
+              "vul_id": "4219e0b4bf2cae74502b99004691b7d4",
+              "method": "password=\"your_db_password\",",
+              "column": 13,
+              "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+              "classMessage": "sql_003.py (12:13)",
+              "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+            }
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-02-09T05:26:59.918Z"
+        }
+      ]
+    }
+  ]
+}

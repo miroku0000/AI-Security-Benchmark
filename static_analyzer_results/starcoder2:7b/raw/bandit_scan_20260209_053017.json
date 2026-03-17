@@ -1,0 +1,477 @@
+{
+  "errors": [
+    {
+      "filename": "/src/access_005.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/access_008.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/auth_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/cmd_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/cmd_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/cmd_004.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/crypto_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/crypto_004.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/csrf_002.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/deserial_002.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/jwt_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/jwt_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/jwt_004.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/jwt_005.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/ldap_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/logic_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/path_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/race_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/race_002.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/rate_limit_002.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/redirect_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/secrets_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/secrets_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/sql_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/sql_004.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/ssrf_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/upload_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/xss_002.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/xxe_001.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/xxe_003.py",
+      "reason": "syntax error while parsing AST from file"
+    },
+    {
+      "filename": "/src/xxe_004.py",
+      "reason": "syntax error while parsing AST from file"
+    }
+  ],
+  "generated_at": "2026-02-09T05:30:17Z",
+  "metrics": {
+    "/src/access_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 11,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/access_003.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 13,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/access_005.py": {
+      "loc": 5,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/access_007.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 16,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/access_008.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/auth_001.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/auth_003.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 52,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/cmd_001.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/cmd_003.py": {
+      "loc": 4,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/cmd_004.py": {
+      "loc": 3,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/crypto_001.py": {
+      "loc": 4,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/crypto_003.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 9,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/crypto_004.py": {
+      "loc": 3,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/csrf_002.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/deserial_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/deserial_002.py": {
+      "loc": 41,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/jwt_001.py": {
+      "loc": 54,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/jwt_003.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/jwt_004.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/jwt_005.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/ldap_001.py": {
+      "loc": 3,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/logic_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/logic_003.py": {
+      "loc": 8,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/nosql_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 7,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/path_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/path_003.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/path_004.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/race_001.py": {
+      "loc": 14,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/race_002.py": {
+      "loc": 25,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/rate_limit_002.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/redirect_001.py": {
+      "loc": 12,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/secrets_001.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/secrets_003.py": {
+      "loc": 9,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/sql_001.py": {
+      "loc": 11,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/sql_003.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 9,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/sql_004.py": {
+      "loc": 32,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/ssrf_001.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 7,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/ssrf_003.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/upload_001.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/xss_002.py": {
+      "loc": 4,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/xxe_001.py": {
+      "loc": 2,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/xxe_003.py": {
+      "loc": 1,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "/src/xxe_004.py": {
+      "loc": 27,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "_totals": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 406,
+      "nosec": 0,
+      "skipped_tests": 0
+    }
+  },
+  "results": [
+    {
+      "code": "8 def get_content(url):\n9     response = requests.get(url)\n10 \n",
+      "col_offset": 15,
+      "end_col_offset": 32,
+      "filename": "/src/ssrf_001.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 400,
+        "link": "https://cwe.mitre.org/data/definitions/400.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Call to requests without timeout",
+      "line_number": 9,
+      "line_range": [
+        9
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b113_request_without_timeout.html",
+      "test_id": "B113",
+      "test_name": "request_without_timeout"
+    }
+  ]
+}

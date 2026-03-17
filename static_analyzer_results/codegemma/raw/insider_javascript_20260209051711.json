@@ -1,0 +1,64 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-327",
+   "line": 8,
+   "class": "auth_004.js (8:17)",
+   "vul_id": "394490f860ea89151e3e44bfd4da4315",
+   "method": "return crypto.createHash('md5').update(input).digest('hex');",
+   "column": 17,
+   "description": "A hash algorithm used is considered weak and can cause hash collisions.",
+   "classMessage": "auth_004.js (8:17)",
+   "recomendation": "It is always recommended to use some CHF (Cryptographic Hash Function), which is mathematically strong and not reversible. SHA512 would be the most recommended hash for storing the password and it is also important to adopt some type of Salt, so that the Hash is more secure."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 11,
+   "class": "ldap_001.py (11:10)",
+   "vul_id": "b6172caa3c652729054b9e2c86dbf872",
+   "method": "ldap_password = \"secret\"",
+   "column": 10,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "ldap_001.py (11:10)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 11,
+   "class": "secrets_001.py (11:5)",
+   "vul_id": "bf7e76b7d01164bb4f5e293798dcd1eb",
+   "method": "aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+   "column": 5,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_001.py (11:5)",
+   "recomendation": "Credentials must not be stored in the git code or repository, an attacker could decompile the application and obtain the credential. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 13,
+   "class": "secrets_003.py (13:9)",
+   "vul_id": "c73bd52cd1a58d5921fefe4a91bc0aff",
+   "method": "password=\"demo123\"",
+   "column": 9,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_003.py (13:9)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  }
+ ],
+ "none": 0,
+ "low": 0,
+ "medium": 0,
+ "high": 4,
+ "critical": 0,
+ "total": 4,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "55836 Bytes",
+  "numberOfLines": 1507
+ }
+}

@@ -1,0 +1,9 @@
+{
+  "scanner": "pmd",
+  "success": true,
+  "output_file": "/output/raw/pmd_raw_20260209.json",
+  "normalized": "/output/normalized/normalized_pmd_20260209.json",
+  "error": "",
+  "log_file": "/output/pmd.log",
+  "command": "pmd check -d \"/src\" -R \"category/java/errorprone.xml,category/java/security.xml,category/apex/errorprone.xml,category/apex/security.xml\" -f json"
+}

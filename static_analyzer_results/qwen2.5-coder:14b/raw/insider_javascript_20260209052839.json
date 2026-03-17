@@ -1,0 +1,50 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 14,
+   "class": "secrets_003.py (14:13)",
+   "vul_id": "051d73595e5b1cf3504b4d4dd90d82b6",
+   "method": "password='demo123'",
+   "column": 13,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_003.py (14:13)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 3,
+   "cwe": "CWE-79",
+   "line": 35,
+   "class": "upload_002.js (35:3)",
+   "vul_id": "6056daf9942f6846c9c87537c66f9377",
+   "method": "res.send('File uploaded successfully: ' + req.file.filename);",
+   "column": 3,
+   "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+   "classMessage": "upload_002.js (35:3)"
+  },
+  {
+   "cvss": 4,
+   "cwe": "CWE-35",
+   "line": 18,
+   "class": "xxe_002.js (18:7)",
+   "vul_id": "616eb49e770b14b333404aa451edd45f",
+   "method": "fs.readFile(req.file.path, (err, data) =\u003e {",
+   "column": 7,
+   "description": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack.",
+   "classMessage": "xxe_002.js (18:7)"
+  }
+ ],
+ "none": 0,
+ "low": 1,
+ "medium": 1,
+ "high": 1,
+ "critical": 0,
+ "total": 3,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "79399 Bytes",
+  "numberOfLines": 2161
+ }
+}

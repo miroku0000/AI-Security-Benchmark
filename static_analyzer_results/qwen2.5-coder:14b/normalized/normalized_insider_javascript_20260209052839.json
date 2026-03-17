@@ -1,0 +1,101 @@
+{
+  "findings": [
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:28:39.940Z",
+      "file_path": "secrets_003.py",
+      "start_line": 14,
+      "end_line": 14,
+      "start_column": 13,
+      "end_column": 13,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 14,
+        "class": "secrets_003.py (14:13)",
+        "vul_id": "051d73595e5b1cf3504b4d4dd90d82b6",
+        "method": "password='demo123'",
+        "column": 13,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "secrets_003.py (14:13)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:28:39.940Z",
+      "file_path": "upload_002.js",
+      "start_line": 35,
+      "end_line": 35,
+      "start_column": 3,
+      "end_column": 3,
+      "rule_id": "CWE-79",
+      "title": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable",
+      "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "cvss": 3,
+        "cwe": "CWE-79",
+        "line": 35,
+        "class": "upload_002.js (35:3)",
+        "vul_id": "6056daf9942f6846c9c87537c66f9377",
+        "method": "res.send('File uploaded successfully: ' + req.file.filename);",
+        "column": 3,
+        "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+        "classMessage": "upload_002.js (35:3)"
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:28:39.940Z",
+      "file_path": "xxe_002.js",
+      "start_line": 18,
+      "end_line": 18,
+      "start_column": 7,
+      "end_column": 7,
+      "rule_id": "CWE-35",
+      "title": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack",
+      "description": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack.",
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-35"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "cvss": 4,
+        "cwe": "CWE-35",
+        "line": 18,
+        "class": "xxe_002.js (18:7)",
+        "vul_id": "616eb49e770b14b333404aa451edd45f",
+        "method": "fs.readFile(req.file.path, (err, data) => {",
+        "column": 7,
+        "description": "User data passed untreated to the 'createReadStream' function can cause a Directory Traversal attack.",
+        "classMessage": "xxe_002.js (18:7)"
+      }
+    }
+  ]
+}

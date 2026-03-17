@@ -1,0 +1,1628 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "bandit",
+          "informationUri": "https://example.com/bandit",
+          "rules": [
+            {
+              "id": "B201",
+              "name": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary",
+              "shortDescription": {
+                "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary"
+              },
+              "fullDescription": {
+                "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+              },
+              "help": {
+                "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "7.0"
+              }
+            },
+            {
+              "id": "B105",
+              "name": "Possible hardcoded password: 'password'",
+              "shortDescription": {
+                "text": "Possible hardcoded password: 'password'"
+              },
+              "fullDescription": {
+                "text": "Possible hardcoded password: 'password'"
+              },
+              "help": {
+                "text": "Possible hardcoded password: 'password'"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B202",
+              "name": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+              "shortDescription": {
+                "text": "tarfile.extractall used without any validation. Please check and discard dangerous members."
+              },
+              "fullDescription": {
+                "text": "tarfile.extractall used without any validation. Please check and discard dangerous members."
+              },
+              "help": {
+                "text": "tarfile.extractall used without any validation. Please check and discard dangerous members."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "7.0"
+              }
+            },
+            {
+              "id": "B404",
+              "name": "Consider possible security implications associated with the subprocess module.",
+              "shortDescription": {
+                "text": "Consider possible security implications associated with the subprocess module."
+              },
+              "fullDescription": {
+                "text": "Consider possible security implications associated with the subprocess module."
+              },
+              "help": {
+                "text": "Consider possible security implications associated with the subprocess module."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B602",
+              "name": "subprocess call with shell=True identified, security issue.",
+              "shortDescription": {
+                "text": "subprocess call with shell=True identified, security issue."
+              },
+              "fullDescription": {
+                "text": "subprocess call with shell=True identified, security issue."
+              },
+              "help": {
+                "text": "subprocess call with shell=True identified, security issue."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "7.0"
+              }
+            },
+            {
+              "id": "B403",
+              "name": "Consider possible security implications associated with dill module.",
+              "shortDescription": {
+                "text": "Consider possible security implications associated with dill module."
+              },
+              "fullDescription": {
+                "text": "Consider possible security implications associated with dill module."
+              },
+              "help": {
+                "text": "Consider possible security implications associated with dill module."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B301",
+              "name": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+              "shortDescription": {
+                "text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue."
+              },
+              "fullDescription": {
+                "text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue."
+              },
+              "help": {
+                "text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "B106",
+              "name": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+              "shortDescription": {
+                "text": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'"
+              },
+              "fullDescription": {
+                "text": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'"
+              },
+              "help": {
+                "text": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B113",
+              "name": "Call to requests without timeout",
+              "shortDescription": {
+                "text": "Call to requests without timeout"
+              },
+              "fullDescription": {
+                "text": "Call to requests without timeout"
+              },
+              "help": {
+                "text": "Call to requests without timeout"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "B405",
+              "name": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.Elem",
+              "shortDescription": {
+                "text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.Elem"
+              },
+              "fullDescription": {
+                "text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+              },
+              "help": {
+                "text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B314",
+              "name": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etre",
+              "shortDescription": {
+                "text": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etre"
+              },
+              "fullDescription": {
+                "text": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.parse with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+              },
+              "help": {
+                "text": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.parse with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "B408",
+              "name": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with",
+              "shortDescription": {
+                "text": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with"
+              },
+              "fullDescription": {
+                "text": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+              },
+              "help": {
+                "text": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "3.0"
+              }
+            },
+            {
+              "id": "B318",
+              "name": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.",
+              "shortDescription": {
+                "text": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom."
+              },
+              "fullDescription": {
+                "text": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom.parseString with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+              },
+              "help": {
+                "text": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom.parseString with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+              },
+              "properties": {
+                "tags": [],
+                "security-severity": "5.0"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/access_007.py"
+                },
+                "region": {
+                  "startLine": 61,
+                  "endLine": 61,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                61
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'password'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_001.py"
+                },
+                "region": {
+                  "startLine": 33,
+                  "endLine": 33,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'password'",
+              "line_range": [
+                33
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'secret_key_here'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'secret_key_here'",
+              "line_range": [
+                9
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'password'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 24,
+                  "endLine": 24,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'password'",
+              "line_range": [
+                24
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/auth_003.py"
+                },
+                "region": {
+                  "startLine": 35,
+                  "endLine": 35,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                35
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B202",
+          "level": "error",
+          "message": {
+            "text": "tarfile.extractall used without any validation. Please check and discard dangerous members."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_001.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 14,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "tarfile_unsafe_members",
+              "test_id": "B202",
+              "issue_severity": "HIGH",
+              "issue_confidence": "HIGH",
+              "issue_text": "tarfile.extractall used without any validation. Please check and discard dangerous members.",
+              "line_range": [
+                14
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b202_tarfile_unsafe_members.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B404",
+          "level": "note",
+          "message": {
+            "text": "Consider possible security implications associated with the subprocess module."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_003.py"
+                },
+                "region": {
+                  "startLine": 6,
+                  "endLine": 6,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B404",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Consider possible security implications associated with the subprocess module.",
+              "line_range": [
+                6
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b404-import-subprocess"
+            }
+          }
+        },
+        {
+          "ruleId": "B602",
+          "level": "error",
+          "message": {
+            "text": "subprocess call with shell=True identified, security issue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_003.py"
+                },
+                "region": {
+                  "startLine": 33,
+                  "endLine": 33,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "subprocess_popen_with_shell_equals_true",
+              "test_id": "B602",
+              "issue_severity": "HIGH",
+              "issue_confidence": "HIGH",
+              "issue_text": "subprocess call with shell=True identified, security issue.",
+              "line_range": [
+                33
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b602_subprocess_popen_with_shell_equals_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B404",
+          "level": "note",
+          "message": {
+            "text": "Consider possible security implications associated with the subprocess module."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_004.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B404",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Consider possible security implications associated with the subprocess module.",
+              "line_range": [
+                5
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b404-import-subprocess"
+            }
+          }
+        },
+        {
+          "ruleId": "B602",
+          "level": "error",
+          "message": {
+            "text": "subprocess call with shell=True identified, security issue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_004.py"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 10,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "subprocess_popen_with_shell_equals_true",
+              "test_id": "B602",
+              "issue_severity": "HIGH",
+              "issue_confidence": "HIGH",
+              "issue_text": "subprocess call with shell=True identified, security issue.",
+              "line_range": [
+                10
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b602_subprocess_popen_with_shell_equals_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B602",
+          "level": "error",
+          "message": {
+            "text": "subprocess call with shell=True identified, security issue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/cmd_004.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "subprocess_popen_with_shell_equals_true",
+              "test_id": "B602",
+              "issue_severity": "HIGH",
+              "issue_confidence": "HIGH",
+              "issue_text": "subprocess call with shell=True identified, security issue.",
+              "line_range": [
+                15
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b602_subprocess_popen_with_shell_equals_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'your_secret_key_here'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/crypto_001.py"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 10,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'your_secret_key_here'",
+              "line_range": [
+                10
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'your_secret_key_here'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/crypto_001.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'your_secret_key_here'",
+              "line_range": [
+                15
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'secret_key_here'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/csrf_002.py"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 10,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'secret_key_here'",
+              "line_range": [
+                10
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/csrf_002.py"
+                },
+                "region": {
+                  "startLine": 41,
+                  "endLine": 41,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                41
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B403",
+          "level": "note",
+          "message": {
+            "text": "Consider possible security implications associated with dill module."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_001.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B403",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Consider possible security implications associated with dill module.",
+              "line_range": [
+                5
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b403-import-pickle"
+            }
+          }
+        },
+        {
+          "ruleId": "B301",
+          "level": "warning",
+          "message": {
+            "text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_001.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B301",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "HIGH",
+              "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+              "line_range": [
+                15
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b301-pickle"
+            }
+          }
+        },
+        {
+          "ruleId": "B403",
+          "level": "note",
+          "message": {
+            "text": "Consider possible security implications associated with pickle module."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_002.py"
+                },
+                "region": {
+                  "startLine": 6,
+                  "endLine": 6,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B403",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Consider possible security implications associated with pickle module.",
+              "line_range": [
+                6
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b403-import-pickle"
+            }
+          }
+        },
+        {
+          "ruleId": "B301",
+          "level": "warning",
+          "message": {
+            "text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/deserial_002.py"
+                },
+                "region": {
+                  "startLine": 26,
+                  "endLine": 26,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B301",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "HIGH",
+              "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+              "line_range": [
+                26
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b301-pickle"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'your_secret_key'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 10,
+                  "endLine": 10,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'your_secret_key'",
+              "line_range": [
+                10
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_001.py"
+                },
+                "region": {
+                  "startLine": 48,
+                  "endLine": 48,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                48
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'secret_key_here'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/jwt_005.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'secret_key_here'",
+              "line_range": [
+                8
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B105",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'password'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ldap_001.py"
+                },
+                "region": {
+                  "startLine": 30,
+                  "endLine": 30,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_string",
+              "test_id": "B105",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'password'",
+              "line_range": [
+                30
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/path_001.py"
+                },
+                "region": {
+                  "startLine": 15,
+                  "endLine": 15,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                15
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/path_004.py"
+                },
+                "region": {
+                  "startLine": 54,
+                  "endLine": 54,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                54
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/rate_limit_002.py"
+                },
+                "region": {
+                  "startLine": 64,
+                  "endLine": 64,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                64
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B106",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/secrets_001.py"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_funcarg",
+              "test_id": "B106",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'",
+              "line_range": [
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b106_hardcoded_password_funcarg.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B106",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'demo123'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/secrets_003.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_funcarg",
+              "test_id": "B106",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'demo123'",
+              "line_range": [
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b106_hardcoded_password_funcarg.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B106",
+          "level": "note",
+          "message": {
+            "text": "Possible hardcoded password: 'password'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/sql_001.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "hardcoded_password_funcarg",
+              "test_id": "B106",
+              "issue_severity": "LOW",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "Possible hardcoded password: 'password'",
+              "line_range": [
+                9,
+                10,
+                11,
+                12,
+                13,
+                14
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b106_hardcoded_password_funcarg.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B113",
+          "level": "warning",
+          "message": {
+            "text": "Call to requests without timeout"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/ssrf_001.py"
+                },
+                "region": {
+                  "startLine": 16,
+                  "endLine": 16,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "LOW",
+            "tool_specific": {
+              "test_name": "request_without_timeout",
+              "test_id": "B113",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "LOW",
+              "issue_text": "Call to requests without timeout",
+              "line_range": [
+                16
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b113_request_without_timeout.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/upload_001.py"
+                },
+                "region": {
+                  "startLine": 33,
+                  "endLine": 33,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                33
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B201",
+          "level": "error",
+          "message": {
+            "text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xss_002.py"
+                },
+                "region": {
+                  "startLine": 19,
+                  "endLine": 19,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "MEDIUM",
+            "tool_specific": {
+              "test_name": "flask_debug_true",
+              "test_id": "B201",
+              "issue_severity": "HIGH",
+              "issue_confidence": "MEDIUM",
+              "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+              "line_range": [
+                19
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+            }
+          }
+        },
+        {
+          "ruleId": "B405",
+          "level": "note",
+          "message": {
+            "text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_001.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B405",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called.",
+              "line_range": [
+                5
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b405-import-xml-etree"
+            }
+          }
+        },
+        {
+          "ruleId": "B314",
+          "level": "warning",
+          "message": {
+            "text": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.parse with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_001.py"
+                },
+                "region": {
+                  "startLine": 8,
+                  "endLine": 8,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B314",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.etree.ElementTree.parse to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.parse with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called",
+              "line_range": [
+                8
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b313-b320-xml-bad-elementtree"
+            }
+          }
+        },
+        {
+          "ruleId": "B405",
+          "level": "note",
+          "message": {
+            "text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_003.py"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B405",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called.",
+              "line_range": [
+                5
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b405-import-xml-etree"
+            }
+          }
+        },
+        {
+          "ruleId": "B314",
+          "level": "warning",
+          "message": {
+            "text": "Using xml.etree.ElementTree.fromstring to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.fromstring with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_003.py"
+                },
+                "region": {
+                  "startLine": 9,
+                  "endLine": 9,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B314",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.etree.ElementTree.fromstring to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.fromstring with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called",
+              "line_range": [
+                9
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b313-b320-xml-bad-elementtree"
+            }
+          }
+        },
+        {
+          "ruleId": "B408",
+          "level": "note",
+          "message": {
+            "text": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_004.py"
+                },
+                "region": {
+                  "startLine": 7,
+                  "endLine": 7,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B408",
+              "issue_severity": "LOW",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.dom.minidom to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called.",
+              "line_range": [
+                7
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b408-import-xml-minidom"
+            }
+          }
+        },
+        {
+          "ruleId": "B318",
+          "level": "warning",
+          "message": {
+            "text": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom.parseString with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/src/xxe_004.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "endLine": 12,
+                  "startColumn": 0,
+                  "endColumn": 0
+                }
+              }
+            }
+          ],
+          "properties": {
+            "confidence": "HIGH",
+            "tool_specific": {
+              "test_name": "blacklist",
+              "test_id": "B318",
+              "issue_severity": "MEDIUM",
+              "issue_confidence": "HIGH",
+              "issue_text": "Using xml.dom.minidom.parseString to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.dom.minidom.parseString with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called",
+              "line_range": [
+                12
+              ],
+              "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b313-b320-xml-bad-minidom"
+            }
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "endTimeUtc": "2026-02-09T05:24:33Z"
+        }
+      ]
+    }
+  ]
+}

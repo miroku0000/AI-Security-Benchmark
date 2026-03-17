@@ -1,0 +1,1 @@
+{"scanner":"scavenger","success":false,"output_file":"","normalized":"","error":"No results from SCAvenger.","log_file":"/output/scavenger-run.log","command":"cd /app/SCAvenger && SCAvenger -dir <dir> 2>/output/scavenger-run.log"}

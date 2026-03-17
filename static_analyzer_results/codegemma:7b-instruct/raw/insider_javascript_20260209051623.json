@@ -1,0 +1,28 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 8,
+   "class": "sql_001.py (8:73)",
+   "vul_id": "f901a833dba133e616ca5c988d629b52",
+   "method": "conn = psycopg2.connect(database=\"database_name\", user=\"user_name\", password=\"password\", host=\"host_name\")",
+   "column": 73,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "sql_001.py (8:73)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  }
+ ],
+ "none": 0,
+ "low": 0,
+ "medium": 0,
+ "high": 1,
+ "critical": 0,
+ "total": 1,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "55132 Bytes",
+  "numberOfLines": 1495
+ }
+}

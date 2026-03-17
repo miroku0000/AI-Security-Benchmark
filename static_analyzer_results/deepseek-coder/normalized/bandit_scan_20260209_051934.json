@@ -1,0 +1,94 @@
+{
+  "findings": [
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:19:34Z",
+      "file_path": "/src/access_008.py",
+      "start_line": 9,
+      "end_line": 9,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B105",
+      "title": "Possible hardcoded password: 'your-secret-key'",
+      "description": "Possible hardcoded password: 'your-secret-key'",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "hardcoded_password_string",
+        "test_id": "B105",
+        "issue_severity": "LOW",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "Possible hardcoded password: 'your-secret-key'",
+        "line_range": [
+          9
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:19:34Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 5,
+      "end_line": 5,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B403",
+      "title": "Consider possible security implications associated with pickle module.",
+      "description": "Consider possible security implications associated with pickle module.",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "blacklist",
+        "test_id": "B403",
+        "issue_severity": "LOW",
+        "issue_confidence": "HIGH",
+        "issue_text": "Consider possible security implications associated with pickle module.",
+        "line_range": [
+          5
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_imports.html#b403-import-pickle"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:19:34Z",
+      "file_path": "/src/deserial_001.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B301",
+      "title": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "description": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "blacklist",
+        "test_id": "B301",
+        "issue_severity": "MEDIUM",
+        "issue_confidence": "HIGH",
+        "issue_text": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+        "line_range": [
+          15
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/blacklists/blacklist_calls.html#b301-pickle"
+      }
+    }
+  ]
+}

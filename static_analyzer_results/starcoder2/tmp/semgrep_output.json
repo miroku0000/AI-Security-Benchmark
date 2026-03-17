@@ -1,0 +1,8 @@
+{
+  "scanner": "semgrep",
+  "success": true,
+  "output_file": "/output/raw/semgrep_scan_20260209_053105.json",
+  "normalized": "/output/normalized/semgrep_scan_20260209_053105.json",
+  "log_file": "/output/semgrep_scan_20260209_053105.log",
+  "command": "cd /src; semgrep --config auto  --output=/output/raw/semgrep_scan_20260209_053105.json --json  --no-git-ignore \"/src\""
+}

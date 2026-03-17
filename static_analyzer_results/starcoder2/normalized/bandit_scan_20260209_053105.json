@@ -1,0 +1,244 @@
+{
+  "findings": [
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/auth_003.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B105",
+      "title": "Possible hardcoded password: 'mysecret'",
+      "description": "Possible hardcoded password: 'mysecret'",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "hardcoded_password_string",
+        "test_id": "B105",
+        "issue_severity": "LOW",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "Possible hardcoded password: 'mysecret'",
+        "line_range": [
+          15
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/auth_003.py",
+      "start_line": 40,
+      "end_line": 40,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B105",
+      "title": "Possible hardcoded password: 's0m3cr4t'",
+      "description": "Possible hardcoded password: 's0m3cr4t'",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "hardcoded_password_string",
+        "test_id": "B105",
+        "issue_severity": "LOW",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "Possible hardcoded password: 's0m3cr4t'",
+        "line_range": [
+          40
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/auth_003.py",
+      "start_line": 41,
+      "end_line": 41,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B201",
+      "title": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary",
+      "description": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+      "severity": "HIGH",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "flask_debug_true",
+        "test_id": "B201",
+        "issue_severity": "HIGH",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+        "line_range": [
+          41
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/crypto_003.py",
+      "start_line": 10,
+      "end_line": 10,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B324",
+      "title": "Use of weak SHA1 hash for security. Consider usedforsecurity=False",
+      "description": "Use of weak SHA1 hash for security. Consider usedforsecurity=False",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "hashlib",
+        "test_id": "B324",
+        "issue_severity": "HIGH",
+        "issue_confidence": "HIGH",
+        "issue_text": "Use of weak SHA1 hash for security. Consider usedforsecurity=False",
+        "line_range": [
+          10
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b324_hashlib.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/path_004.py",
+      "start_line": 14,
+      "end_line": 14,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B113",
+      "title": "Call to requests without timeout",
+      "description": "Call to requests without timeout",
+      "severity": "MEDIUM",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "request_without_timeout",
+        "test_id": "B113",
+        "issue_severity": "MEDIUM",
+        "issue_confidence": "LOW",
+        "issue_text": "Call to requests without timeout",
+        "line_range": [
+          14
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b113_request_without_timeout.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/path_004.py",
+      "start_line": 18,
+      "end_line": 18,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B113",
+      "title": "Call to requests without timeout",
+      "description": "Call to requests without timeout",
+      "severity": "MEDIUM",
+      "confidence": "LOW",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "request_without_timeout",
+        "test_id": "B113",
+        "issue_severity": "MEDIUM",
+        "issue_confidence": "LOW",
+        "issue_text": "Call to requests without timeout",
+        "line_range": [
+          18
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b113_request_without_timeout.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/secrets_003.py",
+      "start_line": 15,
+      "end_line": 15,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B105",
+      "title": "Possible hardcoded password: '<PASSWORD>'",
+      "description": "Possible hardcoded password: '<PASSWORD>'",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "hardcoded_password_string",
+        "test_id": "B105",
+        "issue_severity": "LOW",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "Possible hardcoded password: '<PASSWORD>'",
+        "line_range": [
+          15
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html"
+      }
+    },
+    {
+      "tool_name": "bandit",
+      "scan_date": "2026-02-09T05:31:05Z",
+      "file_path": "/src/xss_002.py",
+      "start_line": 20,
+      "end_line": 20,
+      "start_column": 0,
+      "end_column": 0,
+      "rule_id": "B201",
+      "title": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary",
+      "description": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+      "severity": "HIGH",
+      "confidence": "MEDIUM",
+      "cwe_ids": [],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "test_name": "flask_debug_true",
+        "test_id": "B201",
+        "issue_severity": "HIGH",
+        "issue_confidence": "MEDIUM",
+        "issue_text": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+        "line_range": [
+          20
+        ],
+        "more_info": "https://bandit.readthedocs.io/en/1.9.3/plugins/b201_flask_debug_true.html"
+      }
+    }
+  ]
+}

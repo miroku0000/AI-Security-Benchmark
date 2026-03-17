@@ -1,0 +1,63 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 43,
+   "class": "crypto_004.py (43:5)",
+   "vul_id": "45dde256cddc668737b929cf93cef025",
+   "method": "password = \"your_secure_password\"  # Use a secure password",
+   "column": 5,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "crypto_004.py (43:5)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 15,
+   "class": "secrets_003.py (15:13)",
+   "vul_id": "ab2b3f465a509976d1e6d50c14b4ba85",
+   "method": "password=\"demo123\"",
+   "column": 13,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_003.py (15:13)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 12,
+   "class": "sql_001.py (12:13)",
+   "vul_id": "3e9494da1f0b8b8aa8ed62c517c562af",
+   "method": "password=\"your_password\",",
+   "column": 13,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "sql_001.py (12:13)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 3,
+   "cwe": "CWE-79",
+   "line": 27,
+   "class": "upload_002.js (27:3)",
+   "vul_id": "098ba27fd20b61b6aaa83e2b58d29b46",
+   "method": "res.send(`File uploaded successfully: ${req.file.filename}`);",
+   "column": 3,
+   "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+   "classMessage": "upload_002.js (27:3)"
+  }
+ ],
+ "none": 0,
+ "low": 1,
+ "medium": 0,
+ "high": 3,
+ "critical": 0,
+ "total": 4,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "73117 Bytes",
+  "numberOfLines": 1862
+ }
+}

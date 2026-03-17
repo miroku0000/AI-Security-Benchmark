@@ -1,0 +1,40 @@
+{
+ "vulnerabilities": [
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 13,
+   "class": "secrets_003.py (13:13)",
+   "vul_id": "c2dea53bc5db8df4a4e2fd96896948e3",
+   "method": "password=\"your_password\",",
+   "column": 13,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "secrets_003.py (13:13)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  },
+  {
+   "cvss": 7.4,
+   "cwe": "CWE-312",
+   "line": 12,
+   "class": "sql_001.py (12:13)",
+   "vul_id": "3e9494da1f0b8b8aa8ed62c517c562af",
+   "method": "password=\"your_password\",",
+   "column": 13,
+   "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+   "classMessage": "sql_001.py (12:13)",
+   "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+  }
+ ],
+ "none": 0,
+ "low": 0,
+ "medium": 0,
+ "high": 2,
+ "critical": 0,
+ "total": 2,
+ "sast": {
+  "averageCvss": 7.4,
+  "securityScore": 26,
+  "size": "59923 Bytes",
+  "numberOfLines": 1625
+ }
+}

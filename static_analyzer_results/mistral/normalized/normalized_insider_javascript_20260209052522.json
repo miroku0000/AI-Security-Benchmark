@@ -1,0 +1,201 @@
+{
+  "findings": [
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "jwt_002.js",
+      "start_line": 7,
+      "end_line": 7,
+      "start_column": 7,
+      "end_column": 7,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 7,
+        "class": "jwt_002.js (7:7)",
+        "vul_id": "36cee7a7cc4a067fc5724db9cf57dc8d",
+        "method": "const secret = 'your_secret_key'; // replace with your application's secret key",
+        "column": 7,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "jwt_002.js (7:7)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "jwt_004.py",
+      "start_line": 50,
+      "end_line": 50,
+      "start_column": 72,
+      "end_column": 72,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 50,
+        "class": "jwt_004.py (50:72)",
+        "vul_id": "3e998ec5d707d4d3aa564bb2f28cfce4",
+        "method": "public_key = RSA.importKey(open('public-key.pem', 'r').read(), password='password')",
+        "column": 72,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "jwt_004.py (50:72)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "ldap_001.py",
+      "start_line": 9,
+      "end_line": 9,
+      "start_column": 56,
+      "end_column": 56,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 9,
+        "class": "ldap_001.py (9:56)",
+        "vul_id": "6f030be403098316884ec15476746b81",
+        "method": "connection = Connection(server, user='searchUser', password='searchPassword', authentication=NTLM)",
+        "column": 56,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "ldap_001.py (9:56)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "secrets_003.py",
+      "start_line": 14,
+      "end_line": 14,
+      "start_column": 13,
+      "end_column": 13,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 14,
+        "class": "secrets_003.py (14:13)",
+        "vul_id": "11b5532c629c3657a52108e0f9cbd169",
+        "method": "password=\"demo123\"",
+        "column": 13,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "secrets_003.py (14:13)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "sql_001.py",
+      "start_line": 14,
+      "end_line": 14,
+      "start_column": 13,
+      "end_column": 13,
+      "rule_id": "CWE-312",
+      "title": "File contains sensitive information written directly, such as usernames, passwords, keys, etc",
+      "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-312"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources.",
+      "references": [],
+      "tool_specific": {
+        "cvss": 7.4,
+        "cwe": "CWE-312",
+        "line": 14,
+        "class": "sql_001.py (14:13)",
+        "vul_id": "0387da0fffe37a0de0f958f9860cd267",
+        "method": "password=\"your_password\"",
+        "column": 13,
+        "description": "File contains sensitive information written directly, such as usernames, passwords, keys, etc.",
+        "classMessage": "sql_001.py (14:13)",
+        "recomendation": "Credentials must not be stored in the Git code or repository. There are ‘Secrets Management’ solutions that can be used to store secrets or use Pipeline resources."
+      }
+    },
+    {
+      "tool_name": "insiderjavascript",
+      "scan_date": "2026-02-09T05:25:22.147Z",
+      "file_path": "upload_002.js",
+      "start_line": 20,
+      "end_line": 20,
+      "start_column": 5,
+      "end_column": 5,
+      "rule_id": "CWE-79",
+      "title": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable",
+      "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+      "severity": "LOW",
+      "confidence": "HIGH",
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "owasp_categories": [],
+      "code_excerpt": "",
+      "recommendation": "",
+      "references": [],
+      "tool_specific": {
+        "cvss": 3,
+        "cwe": "CWE-79",
+        "line": 20,
+        "class": "upload_002.js (20:5)",
+        "vul_id": "9aeeb44434f0bfa786bd0ec8e8b7f78d",
+        "method": "res.send(`File ${req.file.originalname} is uploaded`);",
+        "column": 5,
+        "description": "When passing user data directly to the HTTP response headers, it is possible for an XSS to become viable.",
+        "classMessage": "upload_002.js (20:5)"
+      }
+    }
+  ]
+}
