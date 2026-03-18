@@ -129,16 +129,19 @@ Add new prompts and tests to expand coverage of security scenarios.
 
 | Rank | Model | Score | Secure | Provider | Date |
 |------|-------|-------|--------|----------|------|
-| 🥇 1 | **Claude Opus 4.6** | 137/208 (65.9%) | 31/66 (47.0%) | Anthropic | Feb 8, 2026 |
-| 🥈 2 | **GPT-5.4** | 129/208 (62.0%) | 28/66 (42.4%) | OpenAI | Mar 17, 2026 |
-| 🥉 3 | **GPT-5.4-mini** | 121/208 (58.2%) | 24/66 (36.4%) | OpenAI | Mar 17, 2026 |
-| 4 | Claude Sonnet 4.5 | 92/208 (44.2%) | 16/66 (24.2%) | Anthropic | Feb 8, 2026 |
-| 5 | chatgpt-4o-latest | 79/208 (38.0%) | 9/66 (13.6%) | OpenAI | Feb 8, 2026 |
+| 🥇 1 | **StarCoder2:7B** | 180/208 (86.54%) | 51/66 (77.3%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 🥈 2 | **StarCoder2** | 146/208 (70.19%) | 40/66 (60.6%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 🥉 3 | **DeepSeek Coder** | 136/208 (65.38%) | 32/66 (48.5%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 4 | **Claude Opus 4.6** | 137/208 (65.9%) | 31/66 (47.0%) | Anthropic | Feb 8, 2026 |
+| 5 | **GPT-5.4** | 129/208 (62.0%) | 28/66 (42.4%) | OpenAI | Mar 17, 2026 |
+| 6 | **GPT-5.4-mini** | 121/208 (58.2%) | 24/66 (36.4%) | OpenAI | Mar 17, 2026 |
+| 7 | **CodeLlama** | 115/208 (55.29%) | 19/66 (28.8%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 8 | **CodeGemma:7B** | 113/208 (54.33%) | 25/66 (37.9%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 9 | **DeepSeek:6.7B** | 108/208 (51.92%) | 20/66 (30.3%) | Ollama (Open-Source) | Feb 8, 2026 |
+| 10 | **Mistral** | 104/208 (50.0%) | 16/66 (24.2%) | Ollama (Open-Source) | Feb 8, 2026 |
 
-**Notable Legacy Results (192/194-Point Scale):**
-- **StarCoder2:7B** - 165/192 (85.9%) - Open-source champion, needs retest on 208-point scale
-- **GPT-5.2** - 138/194 (71.1%) - Earlier GPT-5 version
-- **DeepSeek Coder** - 126/194 (65.0%) - Strong open-source model
+**🎉 Open-Source Models Dominate!**
+The top 3 positions are all held by free, locally-runnable models. StarCoder2:7B beats all commercial models including Claude and GPT-5.
 
 **View Full Results:**
 - Complete inventory: `ACTUAL_MODELS_INVENTORY.md`

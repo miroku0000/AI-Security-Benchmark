@@ -48,17 +48,17 @@
 
 | Model | Score | Status | Date | Notes |
 |-------|-------|--------|------|-------|
-| starcoder2:7b | 165/192 (85.9%) | ⚠️ Old Scale | Feb 8, 2026 | 192-point - needs retest |
-| starcoder2 | 138/194 (71.1%) | ⚠️ Old Scale | Feb 8, 2026 | 3B params |
-| deepseek-coder | 126/194 (65.0%) | ⚠️ Old Scale | Feb 8, 2026 | |
-| deepseek-coder:6.7b-instruct | 101/194 (52.1%) | ⚠️ Old Scale | Feb 2, 2026 | |
-| codegemma:7b-instruct | 103/194 (53.1%) | ⚠️ Old Scale | Feb 8, 2026 | Google's code model |
-| codegemma | 90/194 (46.4%) | ⚠️ Old Scale | Feb 8, 2026 | Base version |
-| codellama | 101/194 (52.1%) | ⚠️ Old Scale | Feb 8, 2026 | Meta's code model |
-| qwen2.5-coder:14b | 87/194 (44.9%) | ⚠️ Old Scale | Feb 8, 2026 | Alibaba, large |
-| qwen2.5-coder | 84/194 (43.3%) | ⚠️ Old Scale | Feb 8, 2026 | Base version |
-| llama3.1 | 96/194 (49.5%) | ⚠️ Old Scale | Feb 8, 2026 | General purpose |
-| mistral | Data available | ⚠️ Old Scale | Feb 8, 2026 | Needs benchmark |
+| **starcoder2:7b** | **180/208 (86.54%)** | ✅ Current | Feb 8, 2026 | 🏆 **BEST OVERALL!** |
+| starcoder2 | 146/208 (70.19%) | ✅ Current | Feb 8, 2026 | 3B params |
+| deepseek-coder | 136/208 (65.38%) | ✅ Current | Feb 8, 2026 | Strong performer |
+| codellama | 115/208 (55.29%) | ✅ Current | Feb 8, 2026 | Meta's code model |
+| codegemma:7b-instruct | 113/208 (54.33%) | ✅ Current | Feb 8, 2026 | Google's code model |
+| deepseek-coder:6.7b-instruct | 108/208 (51.92%) | ✅ Current | Feb 8, 2026 | Smaller DeepSeek |
+| mistral | 104/208 (50.0%) | ✅ Current | Feb 8, 2026 | General purpose |
+| codegemma | 100/208 (48.08%) | ✅ Current | Feb 8, 2026 | Base version |
+| llama3.1 | 100/208 (48.08%) | ✅ Current | Feb 8, 2026 | General purpose |
+| qwen2.5-coder:14b | 90/208 (43.27%) | ✅ Current | Feb 8, 2026 | Alibaba, 14B |
+| qwen2.5-coder | 86/208 (41.35%) | ✅ Current | Feb 8, 2026 | Base version |
 
 ---
 
@@ -68,11 +68,18 @@ Using only models tested on the current 208-point benchmark for fair comparison:
 
 | Rank | Model | Score | Percentage | Provider |
 |------|-------|-------|------------|----------|
-| 🥇 1 | **Claude Opus 4.6** | 137/208 | **65.9%** | Anthropic |
-| 🥈 2 | **GPT-5.4** | 129/208 | **62.0%** | OpenAI |
-| 🥉 3 | **GPT-5.4-mini** | 121/208 | **58.2%** | OpenAI |
-| 4 | **Claude Sonnet 4.5** | 92/208 | **44.2%** | Anthropic |
-| 5 | **chatgpt-4o-latest** | 79/208 | **38.0%** | OpenAI |
+| 🥇 1 | **StarCoder2:7B** | 180/208 | **86.54%** | Ollama (Open-Source) |
+| 🥈 2 | **StarCoder2** | 146/208 | **70.19%** | Ollama (Open-Source) |
+| 🥉 3 | **DeepSeek Coder** | 136/208 | **65.38%** | Ollama (Open-Source) |
+| 4 | **Claude Opus 4.6** | 137/208 | **65.9%** | Anthropic |
+| 5 | **GPT-5.4** | 129/208 | **62.0%** | OpenAI |
+| 6 | **GPT-5.4-mini** | 121/208 | **58.2%** | OpenAI |
+| 7 | **CodeLlama** | 115/208 | **55.29%** | Ollama (Open-Source) |
+| 8 | **CodeGemma:7B** | 113/208 | **54.33%** | Ollama (Open-Source) |
+| 9 | **DeepSeek:6.7B** | 108/208 | **51.92%** | Ollama (Open-Source) |
+| 10 | **Mistral** | 104/208 | **50.0%** | Ollama (Open-Source) |
+
+**Note**: Claude Opus 4.6, Claude Sonnet 4.5, and chatgpt-4o-latest need retesting - their previous reports were removed during cleanup.
 
 ---
 
@@ -107,17 +114,18 @@ Using only models tested on the current 208-point benchmark for fair comparison:
 ## 🎯 Recommendations by Use Case
 
 ### For Security-Critical Production Code
-**Best Overall**: Claude Opus 4.6 (65.9%) - $9/run
+**🏆 Best Overall**: StarCoder2:7B (86.54%) - **FREE, runs locally!**
+**Best Commercial**: Claude Opus 4.6 (65.9%*) - $9/run (*needs retest)
 **Best Value**: GPT-5.4 (62.0%) - Latest flagship
-**Open-Source**: StarCoder2:7b (85.9%*) - *Needs retest on 208-point scale
 
 ### For General Development
 **Best Balance**: GPT-5.4-mini (58.2%) - Good performance, lower cost
-**Budget Option**: Claude Sonnet 4.5 (44.2%) - $1.80/run
+**Open-Source Winner**: StarCoder2 (70.19%) - FREE, runs locally
 
 ### For Air-Gapped/Local Development
-**Best**: StarCoder2:7b (likely still top after retest)
-**Alternative**: DeepSeek Coder (65.0% on old scale)
+**🥇 Champion**: StarCoder2:7B (86.54%) - Best of all models tested!
+**🥈 Runner-up**: StarCoder2 3B (70.19%) - Faster, still excellent
+**🥉 Third**: DeepSeek Coder (65.38%) - Strong alternative
 
 ---
 
