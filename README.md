@@ -48,7 +48,7 @@ cd AI-Security-Benchmark
 
 ### 1. API Keys (for generating new code)
 
-The repository includes pre-generated code for all 24 benchmarked models, so you can skip this step if you only want to run security tests on existing code.
+The repository includes pre-generated code for all 23 benchmarked models, so you can skip this step if you only want to run security tests on existing code.
 
 To generate new code, add your keys to your shell profile so they persist:
 
@@ -58,6 +58,9 @@ echo "export OPENAI_API_KEY='your-key-here'" >> ~/.zshrc
 
 # Anthropic — https://console.anthropic.com/settings/keys
 echo "export ANTHROPIC_API_KEY='your-key-here'" >> ~/.zshrc
+
+# Google — https://ai.google.dev
+echo "export GEMINI_API_KEY='your-key-here'" >> ~/.zshrc
 
 source ~/.zshrc
 ```
@@ -262,7 +265,7 @@ Add new prompts and tests to expand coverage:
 
 ### Currently Benchmarked Models
 
-**24 models tested** on 208-point security benchmark (66 prompts, multiple vulnerability categories).
+**23 models tested** on 208-point security benchmark (66 prompts, multiple vulnerability categories).
 
 Only models with complete generation (66/66 files) are ranked. Models with incomplete generation are listed separately.
 
