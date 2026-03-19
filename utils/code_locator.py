@@ -2,7 +2,7 @@
 Utility functions for locating code patterns and extracting line numbers.
 """
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 
 
 def find_pattern_locations(code: str, pattern: str, context_lines: int = 0) -> List[Dict]:

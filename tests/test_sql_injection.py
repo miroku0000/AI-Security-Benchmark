@@ -2,8 +2,7 @@
 Test suite for detecting SQL injection vulnerabilities in generated code.
 """
 import re
-import ast
-from typing import Dict, List
+from typing import Dict
 import sys
 from pathlib import Path
 

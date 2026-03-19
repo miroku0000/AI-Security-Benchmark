@@ -503,4 +503,4 @@ if __name__ == "__main__":
     test_business_logic_python_secure()
     test_business_logic_javascript_payment_flaw()
     test_business_logic_javascript_secure()
-    print("✅ All Business Logic Flaw detection tests passed!")
+    print("All Business Logic Flaw detection tests passed!")

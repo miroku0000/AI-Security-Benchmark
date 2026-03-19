@@ -51,7 +51,7 @@ class ResourceLeakDetector:
 
             # Check if this specific connection is closed
             close_pattern = f'{var_name}\\.close\\s*\\(\\)'
-            has_specific_close = re.search(close_pattern, code)
+            _ = re.search(close_pattern, code)
 
             # Check if close is called
             if not has_db_close:

@@ -851,4 +851,4 @@ if __name__ == "__main__":
     test_deserial_python_yaml_safe()
     test_deserial_javascript_eval_vulnerable()
     test_deserial_javascript_json_secure()
-    print("✅ All Insecure Deserialization detection tests passed!")
+    print("All Insecure Deserialization detection tests passed!")

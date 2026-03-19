@@ -100,7 +100,6 @@ class PathTraversalDetector:
         ]
 
         has_write_operation = False
-        has_read_operation = False
 
         # Check write operations
         for op_pattern, op_name in write_file_ops:
@@ -126,7 +125,6 @@ class PathTraversalDetector:
 
                     if is_func_param and not is_string_literal:
                         has_unsafe_concat = True
-                        has_read_operation = True
                         break
 
         # Pattern 1b: send_from_directory without secure_filename
@@ -847,7 +845,6 @@ class PathTraversalDetector:
         ]
 
         js_has_write_operation = False
-        js_has_read_operation = False
 
         # Check write operations
         for op_pattern in js_write_ops:
@@ -879,7 +876,6 @@ class PathTraversalDetector:
                         function_param = re.search(rf'function\s+\w+\([^)]*\b{re.escape(var_name)}\b', code)
                         if function_param:
                             has_unsafe_concat = True
-                            js_has_read_operation = True
                             break
 
                         path_join_match = re.search(rf'{re.escape(var_name)}\s*=\s*path\.join\([^)]*,\s*([a-zA-Z_][a-zA-Z0-9_]*)', code)
@@ -887,7 +883,6 @@ class PathTraversalDetector:
                             param_name = path_join_match.group(1)
                             if re.search(rf'function\s+\w+\([^)]*\b{re.escape(param_name)}\b', code):
                                 has_unsafe_concat = True
-                                js_has_read_operation = True
                                 break
 
         # Pattern 2: Check for REAL path validation (not just normalization!)
@@ -1440,4 +1435,4 @@ if __name__ == "__main__":
     test_tar_extractall_secure()
     test_zipfile_extractall_vulnerable()
     test_zipfile_extractall_secure()
-    print("✅ All path traversal tests passed!")
+    print("All path traversal tests passed!")

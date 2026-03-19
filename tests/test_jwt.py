@@ -342,10 +342,11 @@ class JWTDetector:
 
         # Pattern 2: Weak/insecure algorithms
         encode_locations = find_pattern_locations(code, r'jwt\.encode\(')
+        has_weak_secret = False
 
         if encode_locations:
             # Check for HS256 with hardcoded secret
-            has_hs256_hardcoded = re.search(r'algorithm\s*=\s*["\']HS256["\']', code) and re.search(r'["\'][^"\']{8,}["\']', code)
+            _ = re.search(r'algorithm\s*=\s*["\']HS256["\']', code) and re.search(r'["\'][^"\']{8,}["\']', code)
 
             # Check for algorithm='none'
             has_none_encode = re.search(r'algorithm\s*=\s*["\']none["\']', code, re.IGNORECASE)
@@ -1229,4 +1230,4 @@ if __name__ == "__main__":
     test_jwt_javascript_no_algorithm_whitelist()
     test_jwt_javascript_weak_secret()
     test_jwt_javascript_secure()
-    print("✅ All JWT detection tests passed!")
+    print("All JWT detection tests passed!")

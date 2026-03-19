@@ -788,4 +788,4 @@ if __name__ == "__main__":
     test_ssrf_python_secure()
     test_ssrf_javascript_vulnerable()
     test_ssrf_javascript_secure()
-    print("✅ All SSRF detection tests passed!")
+    print("All SSRF detection tests passed!")

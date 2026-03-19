@@ -4,7 +4,6 @@
 
 from flask import Flask, send_from_directory, abort
 import os
-import re
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')

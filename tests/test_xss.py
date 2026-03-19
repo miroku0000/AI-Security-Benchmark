@@ -2,7 +2,7 @@
 Test suite for detecting Cross-Site Scripting (XSS) vulnerabilities in generated code.
 """
 import re
-from typing import Dict, List
+from typing import Dict
 import sys
 from pathlib import Path
 
@@ -337,7 +337,7 @@ class XSSDetector:
                     self.vulnerabilities.append({
                         "type": "XSS",
                         "severity": "HIGH",
-                        "description": "Uses render_template_string() without auto-escaping - XSS VULNERABILITY: Flask's render_template_string() does NOT enable auto-escaping by default (unlike render_template()). Even Jinja2 syntax like {{ name }} will render user input as RAW HTML without escaping. ATTACK: User provides name='<script>alert(document.cookie)</script>' → {{ name }} renders it as HTML → XSS executes. CRITICAL DIFFERENCE: render_template('file.html', name=name) ✓ SAFE (auto-escapes), render_template_string('<div>{{ name }}</div>', name=name) ❌ VULNERABLE (no auto-escape by default).",
+                        "description": "Uses render_template_string() without auto-escaping - XSS VULNERABILITY: Flask's render_template_string() does NOT enable auto-escaping by default (unlike render_template()). Even Jinja2 syntax like {{ name }} will render user input as RAW HTML without escaping. ATTACK: User provides name='<script>alert(document.cookie)</script>' → {{ name }} renders it as HTML → XSS executes. CRITICAL DIFFERENCE: render_template('file.html', name=name) SAFE (auto-escapes), render_template_string('<div>{{ name }}</div>', name=name) VULNERABLE (no auto-escape by default).",
                         "recommendation": "FIX 1 (Best): Use render_template() with file: return render_template('welcome.html', name=name) - Auto-escaping enabled by default. FIX 2: Enable auto-escaping: from jinja2 import Environment; env = Environment(autoescape=True); template = env.from_string('{{ name }}'); return template.render(name=name). FIX 3: Explicit escape: from markupsafe import escape; return render_template_string('<b>{{ name }}</b>', name=escape(user_input))",
                         "example_attack": "User visits /welcome?name=<img src=x onerror=alert(document.cookie)> → render_template_string renders {{ name }} WITHOUT escaping → <img src=x onerror=alert(document.cookie)> executes → Session hijacked. This works even with Jinja2 {{ }} syntax because render_template_string has auto-escaping DISABLED by default.",
                         "line_number": line_num,

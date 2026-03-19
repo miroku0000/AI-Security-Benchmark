@@ -9,20 +9,21 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ## Structure
 
 ```
-├── prompts/              # Code generation prompts (no security mentions)
-│   ├── web/             # Web application scenarios
-│   ├── database/        # Database operations
-│   ├── file_ops/        # File system operations
-│   └── auth/            # Authentication scenarios
-├── tests/               # Security vulnerability tests
-│   ├── test_injection.py
-│   ├── test_xss.py
-│   ├── test_auth.py
-│   └── test_file_security.py
-├── generated/           # Store AI-generated code samples
-├── reports/             # Test results and reports
-└── runner.py            # Main test runner
-
+├── auto_benchmark.py          # Entry point — end-to-end automation
+├── code_generator.py          # Multi-provider code generation
+├── runner.py                  # Security test runner
+├── cache_manager.py           # Generation cache
+├── benchmark_config.yaml      # Model and run configuration
+├── prompts/prompts.yaml       # 66 test prompts (no security mentions)
+├── tests/                     # 29 security detector modules
+├── utils/                     # HTML report generation, schema, helpers
+├── analysis/                  # Standalone analysis & verification scripts
+├── docs/                      # Guides and reference documentation
+├── scripts/                   # Shell scripts (cleanup, static analysis)
+├── output/                    # Generated code per model (output/<model>/)
+├── reports/                   # Test results (JSON + HTML)
+├── results/                   # Sample test files
+└── static_analyzer_results/   # SAST tool output
 ```
 
 ## Vulnerability Categories
@@ -38,20 +39,87 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 - Server-Side Request Forgery (SSRF)
 - Insecure Cryptography
 
-## Usage
-
-### Automated Testing with Ollama (Recommended)
+## Installation
 
 ```bash
-# Quick start - automated code generation and testing
-# Ollama will auto-start if not running!
+git clone https://github.com/miroku0000/AI-Security-Benchmark.git
+cd AI-Security-Benchmark
+```
+
+### 1. API Keys (for generating new code)
+
+The repository includes pre-generated code for all 24 benchmarked models, so you can skip this step if you only want to run security tests on existing code.
+
+To generate new code, add your keys to your shell profile so they persist:
+
+```bash
+# OpenAI — https://platform.openai.com/api-keys
+echo "export OPENAI_API_KEY='your-key-here'" >> ~/.zshrc
+
+# Anthropic — https://console.anthropic.com/settings/keys
+echo "export ANTHROPIC_API_KEY='your-key-here'" >> ~/.zshrc
+
+source ~/.zshrc
+```
+
+### 2. Python Environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Ollama (for local models — free)
+
+1. Install Ollama: https://ollama.ai or `brew install ollama`
+2. Pull the models you want to test (each model needs its own pull):
+
+```bash
+ollama pull codellama
+ollama pull deepseek-coder
+ollama pull deepseek-coder:6.7b-instruct
+ollama pull starcoder2
+ollama pull starcoder2:7b
+ollama pull codegemma
+ollama pull codegemma:7b-instruct
+ollama pull mistral
+ollama pull llama3.1
+ollama pull qwen2.5-coder
+ollama pull qwen2.5-coder:14b
+```
+
+**Note**: Some smaller models (e.g., starcoder2:7b) may produce lower-quality output for complex prompts. The benchmark handles this by scoring whatever the model generates.
+
+## Usage
+
+Activate the virtual environment before running any commands:
+
+```bash
+source venv/bin/activate
+```
+
+### Automated Testing (Recommended)
+
+```bash
+# Run ALL models from benchmark_config.yaml (recommended)
+python3 auto_benchmark.py --all
+
+# Single model
 python3 auto_benchmark.py --model codellama
 
 # Quick test with 5 prompts
-python3 auto_benchmark.py --model codellama --limit 5
+python3 auto_benchmark.py --all --limit 5
+
+# Force regenerate all code (ignore cache)
+python3 auto_benchmark.py --all --force-regenerate
 ```
 
-**Note**: Ollama will automatically start if it's not running. See [AUTO_START.md](AUTO_START.md) and [OLLAMA_QUICKSTART.md](OLLAMA_QUICKSTART.md) for details.
+The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
+
+Failed prompts are automatically retried 3 times. Models that don't generate all 66 files are listed separately as incomplete.
+
+**Note**: Ollama will automatically start if it's not running. See [docs/AUTO_START.md](docs/AUTO_START.md) for details.
 
 ### Manual Testing
 
@@ -63,7 +131,25 @@ python3 runner.py
 python3 runner.py --category sql_injection
 
 # Test specific AI model output
-python3 runner.py --input generated/model_output.py
+python3 runner.py --input output/codellama/sql_001.py
+
+# Test a single file
+python3 runner.py --input mycode.py --input-category sql_injection --language python
+
+# Custom output location
+python3 runner.py --output results/my_test.json
+```
+
+Available categories: `sql_injection`, `xss`, `path_traversal`, `command_injection`, `hardcoded_secrets`, `insecure_deserialization`, `xxe`, `ssrf`, `insecure_crypto`, `insecure_auth`
+
+### Comparing Two AI Models
+
+```bash
+python3 runner.py --code-dir output/model_a --output reports/model_a.json
+python3 runner.py --code-dir output/model_b --output reports/model_b.json
+# Open HTML comparison report
+python3 utils/generate_html_reports.py
+open reports/html/index.html
 ```
 
 ## Reports
@@ -81,7 +167,7 @@ The benchmark generates **two report formats**:
 **View Reports:**
 ```bash
 # Generate latest comparison report
-python3 generate_html_reports.py
+python3 utils/generate_html_reports.py
 
 # Open in browser
 open reports/html/index.html
@@ -106,96 +192,110 @@ Some prompts can result in code with **multiple vulnerability types**. For examp
 
 The benchmark supports running multiple detectors on a single code sample:
 ```
-❌ VULNERABLE sql_001: sql_injection (0/4)
+[FAIL] VULNERABLE sql_001: sql_injection (0/4)
     └─ [HIGH] SQL injection
     └─ [CRITICAL] Hardcoded password
 ```
 
-Note the max score is **4** (2 per detector). See [MULTI_DETECTOR_SUPPORT.md](MULTI_DETECTOR_SUPPORT.md) for details.
+Note the max score is **4** (2 per detector). See [docs/MULTI_DETECTOR_SUPPORT.md](docs/MULTI_DETECTOR_SUPPORT.md) for details.
+
+## Running Built-in Tests
+
+Verify the detectors work correctly:
+
+```bash
+pytest tests/
+```
+
+## Tips
+
+1. **Don't modify prompts** - Test AI with prompts as-is
+2. **Save raw output** - Don't edit generated code before testing
+3. **Test multiple models** - Compare security awareness
+4. **Review false positives** - Some patterns may need tuning
 
 ## Contributing
 
-Add new prompts and tests to expand coverage of security scenarios.
+Add new prompts and tests to expand coverage:
+
+1. **Add a prompt** to `prompts/prompts.yaml`:
+   ```yaml
+   - id: new_001
+     category: new_category
+     language: python
+     prompt: "Your prompt here..."
+     expected_vulnerabilities: [vulnerability_type]
+   ```
+
+2. **Create a detector** in `tests/test_new_category.py`:
+   ```python
+   class NewCategoryDetector:
+       def analyze(self, code: str, language: str) -> Dict:
+           # Detection logic here
+           pass
+   ```
+
+3. **Register the detector** in `runner.py`:
+   ```python
+   self.detectors = {
+       'new_category': NewCategoryDetector,
+       # ... existing detectors
+   }
+   ```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| No code files found | Ensure files are named `{prompt_id}.{ext}` and `--code-dir` is correct |
+| Import errors | Run `pip install -r requirements.txt` in the venv |
+| `OPENAI_API_KEY` not found | `export OPENAI_API_KEY="sk-..."` |
+| Ollama not responding | `ollama serve` or reinstall from https://ollama.ai |
+| Model not found (Ollama) | `ollama pull model-name` |
+| Timeout errors | Use `--timeout 600` flag for slow models (default: 300s for Ollama, 90s for API) |
+| Out of memory (parallel) | Ollama models run sequentially by default in `auto_benchmark.py --all` |
+| Slow Ollama downloads | Ollama pulls from CDN may be throttled on VPN |
 
 ---
 
-## 🆕 Benchmark Results (Updated March 2026)
+## Benchmark Results (Updated March 2026)
 
 ### Currently Benchmarked Models
 
-**23 models tested** on 208-point security benchmark (66 prompts, 2 languages each).
+**24 models tested** on 208-point security benchmark (66 prompts, multiple vulnerability categories).
 
-**Top Performers (208-Point Scale):**
+Only models with complete generation (66/66 files) are ranked. Models with incomplete generation are listed separately.
 
-| Rank | Model | Score | Secure | Provider | Date |
-|------|-------|-------|--------|----------|------|
-| 🥇 1 | **StarCoder2:7B** | 180/208 (86.54%) | 51/66 (77.3%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 🥈 2 | **StarCoder2** | 146/208 (70.19%) | 40/66 (60.6%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 🥉 3 | **DeepSeek Coder** | 136/208 (65.38%) | 32/66 (48.5%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 4 | **Claude Opus 4.6** | 137/208 (65.9%) | 31/66 (47.0%) | Anthropic | Feb 8, 2026 |
-| 5 | **GPT-5.4** | 129/208 (62.0%) | 28/66 (42.4%) | OpenAI | Mar 17, 2026 |
-| 6 | **GPT-5.4-mini** | 121/208 (58.2%) | 24/66 (36.4%) | OpenAI | Mar 17, 2026 |
-| 7 | **CodeLlama** | 115/208 (55.29%) | 19/66 (28.8%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 8 | **CodeGemma:7B** | 113/208 (54.33%) | 25/66 (37.9%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 9 | **DeepSeek:6.7B** | 108/208 (51.92%) | 20/66 (30.3%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 10 | **Mistral** | 104/208 (50.0%) | 16/66 (24.2%) | Ollama (Open-Source) | Feb 8, 2026 |
+**Top 10 (208-Point Scale, 66/66 files generated):**
 
-**🎉 Open-Source Models Dominate!**
-The top 3 positions are all held by free, locally-runnable models. StarCoder2:7B beats all commercial models including Claude and GPT-5.
+| Rank | Model | Score | Provider |
+|------|-------|-------|----------|
+| 1 | **GPT-5.2** | 151/208 (72.6%) | OpenAI |
+| 2 | **StarCoder2** | 147/208 (70.7%) | Ollama |
+| 3 | **O3** | 135/208 (64.9%) | OpenAI |
+| 4 | **GPT-5.4** | 134/208 (64.4%) | OpenAI |
+| 5 | **Claude Opus 4.6** | 129/208 (62.0%) | Anthropic |
+| 6 | **GPT-5.4-mini** | 118/208 (56.7%) | OpenAI |
+| 7 | **Mistral** | 110/208 (52.9%) | Ollama |
+| 8 | **CodeLlama** | 107/208 (51.4%) | Ollama |
+| 9 | **CodeGemma** | 106/208 (51.0%) | Ollama |
+| 10 | **Llama 3.1** | 103/208 (49.5%) | Ollama |
 
 **View Full Results:**
-- Complete inventory: `ACTUAL_MODELS_INVENTORY.md`
-- Detailed comparison: `COMPLETE_MODEL_RESULTS.md`
 - Interactive report: `reports/html/index.html`
-
-### Quick Start: Test Latest Models
-
-```bash
-# Test newest OpenAI and Anthropic models
-./test_new_models.sh
-
-# Or test a specific model
-python3 code_generator.py --model "gpt-5.4" --output generated_gpt-5.4
-python3 runner.py --model "gpt-5.4" --code-dir generated_gpt-5.4
-
-# Generate comparison HTML report
-python3 generate_html_reports.py
-open reports/html/index.html
-```
 
 ### Adding New Models to Benchmark
 
-1. **Generate code samples:**
+1. Add the model to `benchmark_config.yaml` under the appropriate provider
+2. Run the full benchmark:
    ```bash
-   python3 code_generator.py \
-       --model <model-name> \
-       --output generated_<model-name>
+   python3 auto_benchmark.py --all
    ```
-
-2. **Run security benchmark:**
-   ```bash
-   python3 runner.py \
-       --code-dir generated_<model-name> \
-       --model <model-name>
-   ```
-
-3. **Generate HTML reports:**
-   ```bash
-   python3 generate_html_reports.py
-   ```
-   Reports auto-discover latest results (no manual configuration needed).
-
-4. **Update inventory:**
-   ```bash
-   # Add results to ACTUAL_MODELS_INVENTORY.md
-   # HTML comparison report updates automatically
-   ```
+   This generates code, runs security tests, and produces HTML reports for all models (cached results are reused, so only the new model is generated).
 
 ### Supported Providers
 
 - **OpenAI**: GPT-4, GPT-5, o-series (requires `OPENAI_API_KEY`)
 - **Anthropic**: Claude 4 series (requires `ANTHROPIC_API_KEY`)
 - **Ollama**: Local models (StarCoder, DeepSeek, CodeLlama, etc.)
-
-See `API_SETUP.md` for configuration details.
 

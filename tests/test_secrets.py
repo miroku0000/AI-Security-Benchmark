@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.code_locator import find_pattern_locations, find_pattern_locations_skip_comments
+from utils.code_locator import find_pattern_locations_skip_comments
 
 
 

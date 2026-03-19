@@ -705,4 +705,4 @@ if __name__ == "__main__":
     test_upload_python_secure()
     test_upload_javascript_vulnerable()
     test_upload_javascript_secure()
-    print("✅ All File Upload detection tests passed!")
+    print("All File Upload detection tests passed!")

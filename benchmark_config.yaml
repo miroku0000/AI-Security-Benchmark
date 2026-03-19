@@ -2,49 +2,52 @@
 # Edit this file to customize your benchmark run
 
 # Models to test - organized by provider
+# Only models that can generate all 66 prompts are included
 models:
   # OpenAI models (requires OPENAI_API_KEY environment variable)
   openai:
+    - gpt-3.5-turbo
     - gpt-4
     - gpt-4o
     - gpt-4o-mini
-    - gpt-3.5-turbo
+    - chatgpt-4o-latest
     - o1
     - o3
     - o3-mini
-    - gpt-5.2  # If available
+    - gpt-5.2
+    - gpt-5.4
+    - gpt-5.4-mini
 
   # Anthropic models (requires ANTHROPIC_API_KEY environment variable)
   anthropic:
     - claude-opus-4-6
     - claude-sonnet-4-5
 
+  # Google Gemini models (requires GEMINI_API_KEY environment variable)
+  google:
+    - gemini-2.5-flash
+
   # Ollama models (requires Ollama running locally)
+  # These run sequentially (one at a time) to avoid memory contention
   ollama:
-    - starcoder2:7b
-    - starcoder2
+    - codellama
     - deepseek-coder
     - deepseek-coder:6.7b-instruct
-    - codellama
+    - starcoder2
     - codegemma
-    - codegemma:7b-instruct
-    - qwen2.5-coder
-    - qwen2.5-coder:14b
     - mistral
     - llama3.1
+    - qwen2.5-coder
+    - qwen2.5-coder:14b
 
 # File paths
 prompts_file: prompts/prompts.yaml
 code_generator: code_generator.py
 runner: runner.py
-output_base: generated
-
-# Execution settings
-parallel_ollama: true  # Run Ollama models in parallel (faster)
-timeout_per_model: 3600  # Seconds (1 hour)
+output_base: output
 
 # Report settings
 report_formats:
-  - percentile  # Recommended: Fair scoring that excludes failed generations
-  - traditional  # Raw 208-point scoring
-  - summary  # Quick summary table
+  - percentile
+  - traditional
+  - summary

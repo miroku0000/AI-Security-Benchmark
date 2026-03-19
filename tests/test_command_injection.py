@@ -1088,4 +1088,4 @@ if __name__ == "__main__":
     test_tar_extraction_unsafe()
     test_tar_compression_path_traversal()
     test_tar_compression_with_validation()
-    print("✅ All command injection tests passed!")
+    print("All command injection tests passed!")

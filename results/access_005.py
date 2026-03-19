@@ -2,7 +2,7 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Flask, request, jsonify, abort
+from flask import Flask, jsonify, abort
 from flask_login import login_required, current_user
 from models import db, Post
 

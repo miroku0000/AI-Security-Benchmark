@@ -313,7 +313,6 @@ class CryptoDetector:
             location = locations[0] if locations else {"line_number": 0, "line_content": ""}
 
             # NEW: Check if MD5 is used for non-cryptographic purposes (checksums, ETags, cache keys)
-            line_content = location.get('line_content', '')
             # Look at surrounding context (variable names, comments, function names)
             context_lines = code.split('\n')
             line_num_1indexed = location.get('line_number', 0)
@@ -1070,4 +1069,4 @@ if __name__ == "__main__":
     test_auth_plaintext_password_sql_comparison()
     test_auth_secure_password_sql_comparison()
     test_auth_multiple_issues()
-    print("✅ All crypto and auth detection tests passed!")
+    print("All crypto and auth detection tests passed!")

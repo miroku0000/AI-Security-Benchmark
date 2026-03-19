@@ -7,16 +7,18 @@ Supports multiple AI providers:
 - OpenAI (gpt-4o, gpt-4-turbo, o1, o3, etc.)
 - Anthropic Claude (claude-opus-4, claude-sonnet-4, etc.)
 """
+import logging
 import os
-import json
 import subprocess
 import yaml
 import argparse
 import time
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 from cache_manager import CacheManager
+
+logger = logging.getLogger(__name__)
 
 
 class CodeGenerator:
@@ -64,6 +66,10 @@ class CodeGenerator:
         if 'claude' in model_lower:
             return 'anthropic'
 
+        # Gemini models
+        if 'gemini' in model_lower:
+            return 'google'
+
         # Default to Ollama for everything else
         return 'ollama'
 
@@ -73,34 +79,47 @@ class CodeGenerator:
             try:
                 import openai
                 self.openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-                print(f"✅ OpenAI client initialized")
+                logger.info("OpenAI client initialized")
             except ImportError:
-                print("❌ OpenAI package not installed. Install with: pip install openai")
+                logger.error("OpenAI package not installed. Install with: pip install openai")
                 raise
             except Exception as e:
-                print(f"❌ Failed to initialize OpenAI: {e}")
-                print("Make sure OPENAI_API_KEY environment variable is set")
+                logger.error("Failed to initialize OpenAI: %s", e)
+                logger.error("Make sure OPENAI_API_KEY environment variable is set")
                 raise
 
         elif self.provider == 'anthropic':
             try:
                 import anthropic
                 self.anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-                print(f"✅ Anthropic client initialized")
+                logger.info("Anthropic client initialized")
             except ImportError:
-                print("❌ Anthropic package not installed. Install with: pip install anthropic")
+                logger.error("Anthropic package not installed. Install with: pip install anthropic")
                 raise
             except Exception as e:
-                print(f"❌ Failed to initialize Anthropic: {e}")
-                print("Make sure ANTHROPIC_API_KEY environment variable is set")
+                logger.error("Failed to initialize Anthropic: %s", e)
+                logger.error("Make sure ANTHROPIC_API_KEY environment variable is set")
+                raise
+
+        elif self.provider == 'google':
+            try:
+                from google import genai
+                self.google_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+                logger.info("Google Gemini client initialized")
+            except ImportError:
+                logger.error("Google GenAI package not installed. Install with: pip install google-genai")
+                raise
+            except Exception as e:
+                logger.error("Failed to initialize Google Gemini: %s", e)
+                logger.error("Make sure GEMINI_API_KEY environment variable is set")
                 raise
 
         elif self.provider == 'ollama':
             if not self.check_ollama():
-                print("⚠️  Ollama is not running")
-                print("Attempting to start Ollama automatically...")
+                logger.warning("Ollama is not running")
+                logger.info("Attempting to start Ollama automatically...")
                 if not self.start_ollama():
-                    print("\n❌ Could not start Ollama")
+                    logger.error("Could not start Ollama")
                     raise RuntimeError("Ollama not available")
 
     def check_ollama(self) -> bool:
@@ -127,12 +146,12 @@ class CodeGenerator:
             )
             time.sleep(3)
             if self.check_ollama():
-                print("✅ Ollama started successfully")
+                logger.info("Ollama started successfully")
                 return True
             time.sleep(2)
             return self.check_ollama()
         except Exception as e:
-            print(f"Failed to start Ollama: {e}")
+            logger.error("Failed to start Ollama: %s", e)
             return False
 
     def generate_code(self, prompt: str, language: str) -> Optional[str]:
@@ -143,6 +162,8 @@ class CodeGenerator:
             return self._generate_openai(prompt, language)
         elif self.provider == 'anthropic':
             return self._generate_anthropic(prompt, language)
+        elif self.provider == 'google':
+            return self._generate_google(prompt, language)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
 
@@ -166,16 +187,19 @@ Code:"""
 
             if result.returncode == 0:
                 code = result.stdout.strip()
+                if not code:
+                    logger.warning("Empty response from model")
+                    return None
                 return self._extract_code(code, language)
             else:
-                print(f"Error: {result.stderr}")
+                logger.error("Ollama error: %s", result.stderr)
                 return None
 
         except subprocess.TimeoutExpired:
-            print(f"Timeout generating code")
+            logger.warning("Timeout after %ds", self.timeout)
             return None
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error("Ollama generation error: %s", e)
             return None
 
     def _generate_openai(self, prompt: str, language: str) -> Optional[str]:
@@ -218,7 +242,7 @@ Provide only the code without explanations. Do not use markdown code blocks."""
             return self._extract_code(code, language)
 
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error("OpenAI generation error: %s", e)
             return None
 
     def _generate_anthropic(self, prompt: str, language: str) -> Optional[str]:
@@ -241,8 +265,57 @@ Provide only the code without explanations. Do not use markdown code blocks."""
             return self._extract_code(code, language)
 
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error("Anthropic generation error: %s", e)
             return None
+
+    def _generate_google(self, prompt: str, language: str) -> Optional[str]:
+        """Generate code using Google Gemini with 429 rate-limit handling."""
+        system_prompt = f"""You are an expert {language} programmer. Generate code based on user requirements.
+Provide only the code without explanations. Do not use markdown code blocks."""
+
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                response = self.google_client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config={
+                        "system_instruction": system_prompt,
+                        "temperature": self.temperature,
+                        "max_output_tokens": 4096,
+                    }
+                )
+
+                code = response.text.strip()
+                return self._extract_code(code, language)
+
+            except Exception as e:
+                error_str = str(e)
+
+                # Detect 429 rate limit errors
+                if '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str:
+                    # Check if it's a DAILY quota exhaustion (not recoverable by waiting a few seconds)
+                    if 'PerDay' in error_str or 'per_day' in error_str.lower():
+                        logger.error("DAILY QUOTA EXHAUSTED for %s", self.model)
+                        logger.error("Cannot generate more requests today. Stopping this model.")
+                        self._daily_quota_exhausted = True
+                        return None
+
+                    # Parse retryDelay from error if available
+                    retry_delay = 60  # default 60s
+                    delay_match = re.search(r'retryDelay.*?(\d+(?:\.\d+)?)\s*s', error_str)
+                    if delay_match:
+                        retry_delay = max(int(float(delay_match.group(1))) + 2, 5)
+
+                    logger.warning("Rate limited (429). Waiting %ds before retry %d/%d...", retry_delay, attempt+1, max_retries)
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error("Google generation error: %s", e)
+                    return None
+
+        logger.error("Failed after %d rate-limit retries", max_retries)
+        return None
 
     def _extract_code(self, response: str, language: str) -> str:
         """Extract code from response, handling markdown code blocks."""
@@ -266,8 +339,58 @@ Provide only the code without explanations. Do not use markdown code blocks."""
         # Return as-is if no markers found
         return response.strip()
 
-    def generate_from_prompts(self, prompts_file: str, output_dir: str, limit: Optional[int] = None):
-        """Generate code for all prompts in the file."""
+    def _generate_single_prompt(self, prompt_info: dict, output_path: Path, index: int, total: int) -> bool:
+        """Generate code for a single prompt. Returns True if successful."""
+        prompt_id = prompt_info['id']
+        prompt_text = prompt_info['prompt']
+        language = prompt_info.get('language', 'python')
+        category = prompt_info['category']
+
+        extensions = {'python': '.py', 'javascript': '.js'}
+        ext = extensions.get(language, '.txt')
+        output_file = output_path / f"{prompt_id}{ext}"
+
+        logger.info("[%d/%d] %s (%s, %s)...", index, total, prompt_id, category, language)
+
+        # Check cache if enabled
+        if self.use_cache and not self.force_regenerate:
+            if self.cache.is_cached(
+                self.model, prompt_id, prompt_text, language,
+                category, self.temperature, output_file
+            ):
+                logger.info("  Using cached (skipped)")
+                self.skipped_cached += 1
+                return True
+
+        code = self.generate_code(prompt_text, language)
+
+        if code:
+            with open(output_file, 'w') as f:
+                f.write(f"# Generated by {self.provider} ({self.model})\n")
+                f.write(f"# Prompt: {prompt_text}\n")
+                f.write(f"# Category: {category}\n\n")
+                f.write(code)
+
+            self.total_generated += 1
+            logger.info("  Saved to %s", output_file)
+
+            if self.use_cache:
+                self.cache.mark_generated(
+                    self.model, prompt_id, prompt_text, language,
+                    category, self.temperature, output_file, success=True
+                )
+            return True
+        else:
+            logger.error("  Failed to generate code for %s", prompt_id)
+            if self.use_cache:
+                self.cache.mark_generated(
+                    self.model, prompt_id, prompt_text, language,
+                    category, self.temperature, output_file, success=False
+                )
+            return False
+
+    def generate_from_prompts(self, prompts_file: str, output_dir: str, limit: Optional[int] = None, retries: int = 0):
+        """Generate code for all prompts in the file with optional retries for failures."""
         # Load prompts
         with open(prompts_file, 'r') as f:
             data = yaml.safe_load(f)
@@ -279,115 +402,110 @@ Provide only the code without explanations. Do not use markdown code blocks."""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        print(f"\n{'='*70}")
-        print(f"AI Code Generator")
-        print(f"{'='*70}")
-        print(f"Provider: {self.provider}")
-        print(f"Model: {self.model}")
-        print(f"Temperature: {self.temperature}")
-        print(f"Timeout: {self.timeout}s")
-        print(f"Caching: {'Enabled' if self.use_cache else 'Disabled'}")
+        logger.info("=" * 70)
+        logger.info("AI Code Generator")
+        logger.info("=" * 70)
+        logger.info("Provider: %s", self.provider)
+        logger.info("Model: %s", self.model)
+        logger.info("Temperature: %s", self.temperature)
+        logger.info("Timeout: %ds", self.timeout)
+        logger.info("Caching: %s", 'Enabled' if self.use_cache else 'Disabled')
         if self.force_regenerate:
-            print(f"Force Regenerate: Yes (ignoring cache)")
-        print(f"Total prompts: {len(prompts)}")
-        print(f"Output directory: {output_dir}")
-        print(f"{'='*70}\n")
+            logger.info("Force Regenerate: Yes (ignoring cache)")
+        if retries > 0:
+            logger.info("Retries: %d", retries)
+        logger.info("Total prompts: %d", len(prompts))
+        logger.info("Output directory: %s", output_dir)
+        logger.info("=" * 70)
 
+        # Track daily quota exhaustion for Google
+        self._daily_quota_exhausted = False
+
+        # First pass
+        failed_prompts = []
         for i, prompt_info in enumerate(prompts, 1):
-            prompt_id = prompt_info['id']
-            prompt_text = prompt_info['prompt']
-            language = prompt_info.get('language', 'python')
-            category = prompt_info['category']
+            # Stop early if daily quota is exhausted
+            if self._daily_quota_exhausted:
+                logger.error("Skipping %s -- daily quota exhausted", prompt_info['id'])
+                failed_prompts.append(prompt_info)
+                continue
 
-            # Determine file extension
-            extensions = {'python': '.py', 'javascript': '.js'}
-            ext = extensions.get(language, '.txt')
-            output_file = output_path / f"{prompt_id}{ext}"
+            success = self._generate_single_prompt(prompt_info, output_path, i, len(prompts))
+            if not success:
+                failed_prompts.append(prompt_info)
 
-            print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...", end=' ')
-
-            # Check cache if enabled
-            if self.use_cache and not self.force_regenerate:
-                if self.cache.is_cached(
-                    self.model,
-                    prompt_id,
-                    prompt_text,
-                    language,
-                    category,
-                    self.temperature,
-                    output_file
-                ):
-                    print(f"✓ Using cached (skipped)")
-                    self.skipped_cached += 1
-                    continue
-
-            print()  # New line before generation messages
-
-            # Generate code
-            code = self.generate_code(prompt_text, language)
-
-            if code:
-                # Save to file
-                with open(output_file, 'w') as f:
-                    f.write(f"# Generated by {self.provider} ({self.model})\n")
-                    f.write(f"# Prompt: {prompt_text}\n")
-                    f.write(f"# Category: {category}\n\n")
-                    f.write(code)
-
-                self.total_generated += 1
-                print(f"  ✓ Saved to {output_file}")
-
-                # Mark as generated in cache
-                if self.use_cache:
-                    self.cache.mark_generated(
-                        self.model,
-                        prompt_id,
-                        prompt_text,
-                        language,
-                        category,
-                        self.temperature,
-                        output_file,
-                        success=True
-                    )
-            else:
-                self.failed_generations.append(prompt_id)
-                print(f"  ✗ Failed to generate code")
-
-                # Mark as failed in cache
-                if self.use_cache:
-                    self.cache.mark_generated(
-                        self.model,
-                        prompt_id,
-                        prompt_text,
-                        language,
-                        category,
-                        self.temperature,
-                        output_file,
-                        success=False
-                    )
-
-            # Small delay to avoid rate limiting
-            if self.provider in ['openai', 'anthropic']:
-                time.sleep(1)  # Be nice to API rate limits
+            # Delay to avoid rate limiting
+            if self.provider == 'google':
+                time.sleep(3)  # Small delay; 429 handler does the real waiting
+            elif self.provider in ['openai', 'anthropic']:
+                time.sleep(1)
             else:
                 time.sleep(0.5)
 
+        # Retry failed prompts (skip if daily quota exhausted)
+        for retry_num in range(1, retries + 1):
+            if not failed_prompts:
+                break
+            if self._daily_quota_exhausted:
+                logger.error("Skipping retries -- daily quota exhausted for %s", self.model)
+                break
+
+            logger.info("=" * 70)
+            logger.info("Retry %d/%d -- %d failed prompts", retry_num, retries, len(failed_prompts))
+            logger.info("=" * 70)
+
+            # Clear failed cache entries so retries actually attempt generation
+            if self.use_cache:
+                for prompt_info in failed_prompts:
+                    self.cache.invalidate(
+                        self.model, prompt_info['id']
+                    )
+
+            still_failed = []
+            for i, prompt_info in enumerate(failed_prompts, 1):
+                if self._daily_quota_exhausted:
+                    logger.error("Skipping %s -- daily quota exhausted", prompt_info['id'])
+                    still_failed.append(prompt_info)
+                    continue
+
+                success = self._generate_single_prompt(prompt_info, output_path, i, len(failed_prompts))
+                if not success:
+                    still_failed.append(prompt_info)
+
+                if self.provider == 'google':
+                    time.sleep(3)
+                elif self.provider in ['openai', 'anthropic']:
+                    time.sleep(1)
+                else:
+                    time.sleep(0.5)
+
+            failed_prompts = still_failed
+
+        self.failed_generations = [p['id'] for p in failed_prompts]
+
         # Summary
         total_prompts = len(prompts)
-        print(f"\n{'='*70}")
-        print(f"Generation Summary")
-        print(f"{'='*70}")
-        print(f"Total prompts:        {total_prompts}")
-        print(f"Newly generated:      {self.total_generated}")
+        logger.info("=" * 70)
+        logger.info("Generation Summary")
+        logger.info("=" * 70)
+        logger.info("Total prompts:        %d", total_prompts)
+        logger.info("Newly generated:      %d", self.total_generated)
         if self.use_cache:
-            print(f"Skipped (cached):     {self.skipped_cached}")
-        print(f"Failed:               {len(self.failed_generations)}")
+            logger.info("Skipped (cached):     %d", self.skipped_cached)
         if self.failed_generations:
-            print(f"\nFailed prompts: {', '.join(self.failed_generations)}")
-        print(f"{'='*70}\n")
+            logger.error("Failed:               %d", len(self.failed_generations))
+            logger.error("Failed prompts: %s", ', '.join(self.failed_generations))
+        else:
+            logger.info("Failed:               0")
+        logger.info("=" * 70)
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)-8s %(message)s",
+    )
+
     parser = argparse.ArgumentParser(
         description="Generate code using AI models (Ollama, OpenAI, or Claude)",
         epilog="""
@@ -459,18 +577,29 @@ Examples:
         default=None,
         help='Timeout in seconds for each generation (default: 300s for Ollama, 90s for API models)'
     )
+    parser.add_argument(
+        '--retries',
+        type=int,
+        default=3,
+        help='Number of times to retry failed prompts (default: 3)'
+    )
 
     args = parser.parse_args()
 
     # Environment variable checks
     if any(x in args.model.lower() for x in ['gpt', 'chatgpt', 'o1', 'o3']) and not os.getenv('OPENAI_API_KEY'):
-        print("❌ OPENAI_API_KEY environment variable not set")
-        print("Set it with: export OPENAI_API_KEY='your-key-here'")
+        logger.error("OPENAI_API_KEY environment variable not set")
+        logger.error("Set it with: export OPENAI_API_KEY='your-key-here'")
         return 1
 
     if 'claude' in args.model.lower() and not os.getenv('ANTHROPIC_API_KEY'):
-        print("❌ ANTHROPIC_API_KEY environment variable not set")
-        print("Set it with: export ANTHROPIC_API_KEY='your-key-here'")
+        logger.error("ANTHROPIC_API_KEY environment variable not set")
+        logger.error("Set it with: export ANTHROPIC_API_KEY='your-key-here'")
+        return 1
+
+    if 'gemini' in args.model.lower() and not os.getenv('GEMINI_API_KEY'):
+        logger.error("GEMINI_API_KEY environment variable not set")
+        logger.error("Set it with: export GEMINI_API_KEY='your-key-here'")
         return 1
 
     try:
@@ -484,13 +613,12 @@ Examples:
         generator.generate_from_prompts(
             args.prompts,
             args.output,
-            limit=args.limit
+            limit=args.limit,
+            retries=args.retries
         )
         return 0
     except Exception as e:
-        print(f"\n❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("Fatal error: %s", e, exc_info=True)
         return 1
 
 

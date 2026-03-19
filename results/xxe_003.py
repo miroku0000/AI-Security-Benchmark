@@ -17,7 +17,7 @@ def validate_xml(file_path, schema_path=None):
     """
     try:
         tree = ET.parse(file_path)
-        root = tree.getroot()
+        _ = tree.getroot()
         
         if schema_path:
             import xmlschema

@@ -7,9 +7,12 @@ unnecessary regeneration when prompts haven't changed.
 """
 import json
 import hashlib
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, List
+
+logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -26,7 +29,7 @@ class CacheManager:
                 with open(self.cache_file, 'r') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
-                print(f"Warning: Could not load cache from {self.cache_file}, starting fresh")
+                logger.warning("Could not load cache from %s, starting fresh", self.cache_file)
                 return {}
         return {}
 
@@ -36,7 +39,7 @@ class CacheManager:
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
         except IOError as e:
-            print(f"Warning: Could not save cache: {e}")
+            logger.warning("Could not save cache: %s", e)
 
     def _compute_prompt_hash(self, prompt_text: str, language: str, category: str) -> str:
         """Compute hash of prompt for cache key."""
@@ -76,22 +79,22 @@ class CacheManager:
 
         # Check if prompt has changed
         if entry.get('prompt_hash') != current_hash:
-            print(f"  Prompt changed for {prompt_id}, will regenerate")
+            logger.info("Prompt changed for %s, will regenerate", prompt_id)
             return False
 
         # Check if temperature has changed
         if abs(entry.get('temperature', 0) - temperature) > 0.001:
-            print(f"  Temperature changed for {prompt_id}, will regenerate")
+            logger.info("Temperature changed for %s, will regenerate", prompt_id)
             return False
 
         # Check if output file exists
         if not output_file.exists():
-            print(f"  Output file missing for {prompt_id}, will regenerate")
+            logger.info("Output file missing for %s, will regenerate", prompt_id)
             return False
 
         # Check if model changed (different provider for same model name)
         if entry.get('provider') and entry['provider'] != self._detect_provider(model):
-            print(f"  Provider changed for {prompt_id}, will regenerate")
+            logger.info("Provider changed for %s, will regenerate", prompt_id)
             return False
 
         return True
@@ -153,13 +156,13 @@ class CacheManager:
         if cache_key in self.cache:
             del self.cache[cache_key]
             self._save_cache()
-            print(f"Invalidated cache for {cache_key}")
+            logger.info("Invalidated cache for %s", cache_key)
 
     def invalidate_all(self):
         """Clear entire cache."""
         self.cache = {}
         self._save_cache()
-        print("Cleared entire cache")
+        logger.info("Cleared entire cache")
 
     def invalidate_model(self, model: str):
         """Invalidate all cache entries for a specific model."""
@@ -167,7 +170,7 @@ class CacheManager:
         for key in keys_to_remove:
             del self.cache[key]
         self._save_cache()
-        print(f"Invalidated {len(keys_to_remove)} cache entries for model {model}")
+        logger.info("Invalidated %d cache entries for model %s", len(keys_to_remove), model)
 
     def get_stats(self) -> Dict:
         """Get cache statistics."""
@@ -208,24 +211,24 @@ class CacheManager:
         """Print cache statistics."""
         stats = self.get_stats()
 
-        print("\n" + "="*70)
-        print("GENERATION CACHE STATISTICS")
-        print("="*70)
-        print(f"Total Entries:    {stats['total_entries']}")
-        print(f"  Successful:     {stats['successful_generations']}")
-        print(f"  Failed:         {stats['failed_generations']}")
-        print(f"\nUnique Models:    {stats['model_count']}")
+        logger.info("\n%s", "="*70)
+        logger.info("GENERATION CACHE STATISTICS")
+        logger.info("%s", "="*70)
+        logger.info("Total Entries:    %d", stats['total_entries'])
+        logger.info("  Successful:     %d", stats['successful_generations'])
+        logger.info("  Failed:         %d", stats['failed_generations'])
+        logger.info("\nUnique Models:    %d", stats['model_count'])
         for model in stats['models']:
             count = sum(1 for e in self.cache.values() if e['model'] == model)
-            print(f"  - {model}: {count} prompts")
-        print(f"\nProviders:        {', '.join(stats['providers'])}")
-        print(f"Languages:        {', '.join(stats['languages'])}")
+            logger.info("  - %s: %d prompts", model, count)
+        logger.info("\nProviders:        %s", ', '.join(stats['providers']))
+        logger.info("Languages:        %s", ', '.join(stats['languages']))
 
         if stats['oldest_entry']:
-            print(f"\nOldest Entry:     {stats['oldest_entry']}")
+            logger.info("\nOldest Entry:     %s", stats['oldest_entry'])
         if stats['newest_entry']:
-            print(f"Newest Entry:     {stats['newest_entry']}")
-        print("="*70 + "\n")
+            logger.info("Newest Entry:     %s", stats['newest_entry'])
+        logger.info("%s\n", "="*70)
 
 
 def main():
@@ -274,17 +277,17 @@ def main():
 
     elif args.list:
         entries = cache.list_cached(args.model)
-        print(f"\nCached Entries: {len(entries)}")
-        print("="*70)
+        logger.info("\nCached Entries: %d", len(entries))
+        logger.info("%s", "="*70)
         for entry in entries:
-            print(f"{entry['model']:20} | {entry['prompt_id']:15} | {entry['language']:10} | {entry['generated_at']}")
+            logger.info("%s | %s | %s | %s", entry['model'].ljust(20), entry['prompt_id'].ljust(15), entry['language'].ljust(10), entry['generated_at'])
 
     elif args.clear:
         confirm = input("Clear entire cache? (yes/no): ")
         if confirm.lower() == 'yes':
             cache.invalidate_all()
         else:
-            print("Cancelled")
+            logger.info("Cancelled")
 
     elif args.clear_model:
         cache.invalidate_model(args.clear_model)

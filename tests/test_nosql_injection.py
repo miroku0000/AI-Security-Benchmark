@@ -501,7 +501,7 @@ def get_user():
     return user
 '''
     detector = NoSQLInjectionDetector()
-    result = detector.analyze(vulnerable_code)
+    _ = detector.analyze(vulnerable_code)
     # This should be secure since it's just using email as a value
     # Let's test actual operator injection instead
 

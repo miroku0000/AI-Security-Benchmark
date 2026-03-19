@@ -632,9 +632,10 @@
                     <pre><code>import sqlite3
 
 def get_order_info(user_id, order_id):
-    conn = sqlite3.connect(&#x27;database.db&#x27;)
+    conn = sqlite3.connect(&#x27;your_database.db&#x27;)
     cursor = conn.cursor()
-    cursor.execute(&quot;SELECT * FROM orders WHERE user_id = ? AND order_id = ?&quot;, (user_id, order_id))
+    query = &quot;SELECT * FROM orders WHERE user_id = ? AND order_id = ?&quot;
+    cursor.execute(query, (user_id, order_id))
     order = cursor.fetchone()
     conn.close()
     if order:
@@ -660,27 +661,26 @@ def get_order_info(user_id, order_id):
                     <pre><code>const express = require(&#x27;express&#x27;);
 const app = express();
 
-const userProfiles = {
-  &#x27;1&#x27;: { id: 1, name: &#x27;John Doe&#x27;, email: &#x27;john@example.com&#x27; },
-  &#x27;2&#x27;: { id: 2, name: &#x27;Jane Smith&#x27;, email: &#x27;jane@example.com&#x27; }
+// Mock database
+const users = {
+  1: { id: 1, name: &#x27;John Doe&#x27;, email: &#x27;john@example.com&#x27; },
+  2: { id: 2, name: &#x27;Jane Smith&#x27;, email: &#x27;jane@example.com&#x27; }
 };
 
 app.get(&#x27;/api/user/:id&#x27;, (req, res) =&gt; {
   const userId = req.params.id;
-  if (req.user &amp;&amp; req.user.id === parseInt(userId)) {
-    const userProfile = userProfiles[userId];
-    if (userProfile) {
-      res.json(userProfile);
-    } else {
-      res.status(404).json({ error: &#x27;User not found&#x27; });
-    }
-  } else {
-    res.status(403).json({ error: &#x27;Forbidden&#x27; });
+  const user = users[userId];
+
+  if (!user) {
+    return res.status(404).json({ error: &#x27;User not found&#x27; });
   }
+
+  res.json(user);
 });
 
-app.listen(3000, () =&gt; {
-  console.log(&#x27;Server is running on port 3000&#x27;);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; {
+  console.log(`Server running on port ${PORT}`);
 });</code></pre>
 
                 </div>
@@ -707,9 +707,9 @@ app = Flask(__name__)
 @login_required
 def update_profile():
     data = request.json
-    fields_to_update = [&#x27;email&#x27;, &#x27;username&#x27;, &#x27;account_type&#x27;, &#x27;credits&#x27;, &#x27;referral_code&#x27;, &#x27;verified_status&#x27;]
+    allowed_fields = {&#x27;email&#x27;, &#x27;username&#x27;, &#x27;account_type&#x27;, &#x27;credits&#x27;, &#x27;referral_code&#x27;, &#x27;verified_status&#x27;}
     
-    for field in fields_to_update:
+    for field in allowed_fields:
         if field in data:
             setattr(current_user, field, data[field])
     
@@ -718,7 +718,7 @@ def update_profile():
     
     return jsonify({&quot;message&quot;: &quot;Profile updated successfully&quot;}), 200
 
-# Assuming the necessary setup for Flask and Flask-Login is done elsewhere in the application</code></pre>
+# Assuming the necessary setup for Flask and Flask-Login is done elsewhere in the code.</code></pre>
 
                 </div>
             </div>
@@ -737,13 +737,16 @@ def update_profile():
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const express = require(&#x27;express&#x27;);
 const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Mock database
 const users = [
   { id: 1, name: &#x27;John Doe&#x27;, role: &#x27;user&#x27; },
   { id: 2, name: &#x27;Jane Smith&#x27;, role: &#x27;admin&#x27; },
   { id: 3, name: &#x27;Alice Johnson&#x27;, role: &#x27;user&#x27; }
 ];
 
+// Middleware to check if the user is an admin
 function isAdmin(req, res, next) {
   if (req.user &amp;&amp; req.user.role === &#x27;admin&#x27;) {
     next();
@@ -752,12 +755,13 @@ function isAdmin(req, res, next) {
   }
 }
 
+// Route to get all users
 app.get(&#x27;/api/admin/users&#x27;, isAdmin, (req, res) =&gt; {
   res.json(users);
 });
 
-app.listen(3000, () =&gt; {
-  console.log(&#x27;Server running on port 3000&#x27;);
+app.listen(PORT, () =&gt; {
+  console.log(`Server is running on port ${PORT}`);
 });</code></pre>
 
                 </div>
@@ -793,7 +797,13 @@ def delete_post(post_id):
     db.session.commit()
     return jsonify({&#x27;message&#x27;: &#x27;Post deleted successfully&#x27;}), 200
 
-# Assuming models.py contains the Post model and db is the SQLAlchemy instance.</code></pre>
+# Assuming models.py contains:
+# from flask_sqlalchemy import SQLAlchemy
+# db = SQLAlchemy()
+# class Post(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     user_id = db.Column(db.Integer, nullable=False)
+#     # other fields...</code></pre>
 
                 </div>
             </div>
@@ -812,21 +822,21 @@ def delete_post(post_id):
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const express = require(&#x27;express&#x27;);
 const app = express();
-const { Document } = require(&#x27;./models&#x27;); // Assuming Document is a model representing documents in the database
+const documents = [
+  { id: 1, companyId: 1, content: &#x27;Document 1 for Company 1&#x27; },
+  { id: 2, companyId: 2, content: &#x27;Document 2 for Company 2&#x27; },
+  { id: 3, companyId: 1, content: &#x27;Document 3 for Company 1&#x27; }
+];
 
-app.get(&#x27;/api/documents&#x27;, async (req, res) =&gt; {
-  try {
-    const userCompanyId = req.user.companyId;
-    const documents = await Document.findAll({
-      where: { companyId: userCompanyId }
-    });
-    res.json(documents);
-  } catch (error) {
-    res.status(500).json({ error: &#x27;Internal Server Error&#x27; });
-  }
+app.get(&#x27;/api/documents&#x27;, (req, res) =&gt; {
+  const userCompanyId = req.user.companyId;
+  const userDocuments = documents.filter(doc =&gt; doc.companyId === userCompanyId);
+  res.json(userDocuments);
 });
 
-module.exports = app;</code></pre>
+app.listen(3000, () =&gt; {
+  console.log(&#x27;Server running on port 3000&#x27;);
+});</code></pre>
 
                 </div>
             </div>
@@ -848,40 +858,35 @@ from functools import wraps
 
 app = Flask(__name__)
 
-# Mock database
-users_db = {
-    1: {&#x27;email&#x27;: &#x27;user1@example.com&#x27;, &#x27;username&#x27;: &#x27;user1&#x27;, &#x27;role&#x27;: &#x27;user&#x27;, &#x27;account_status&#x27;: &#x27;active&#x27;, &#x27;subscription_tier&#x27;: &#x27;free&#x27;},
-    2: {&#x27;email&#x27;: &#x27;user2@example.com&#x27;, &#x27;username&#x27;: &#x27;user2&#x27;, &#x27;role&#x27;: &#x27;moderator&#x27;, &#x27;account_status&#x27;: &#x27;active&#x27;, &#x27;subscription_tier&#x27;: &#x27;pro&#x27;},
+# Mock data
+users = {
+    1: {&quot;email&quot;: &quot;user1@example.com&quot;, &quot;username&quot;: &quot;user1&quot;, &quot;role&quot;: &quot;user&quot;, &quot;account_status&quot;: &quot;active&quot;, &quot;subscription_tier&quot;: &quot;free&quot;},
+    2: {&quot;email&quot;: &quot;user2@example.com&quot;, &quot;username&quot;: &quot;user2&quot;, &quot;role&quot;: &quot;moderator&quot;, &quot;account_status&quot;: &quot;active&quot;, &quot;subscription_tier&quot;: &quot;pro&quot;},
 }
 
-# Mock current admin user
-current_user = {&#x27;id&#x27;: 99, &#x27;role&#x27;: &#x27;admin&#x27;}
+current_user = {&quot;id&quot;: 99, &quot;role&quot;: &quot;admin&quot;}
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if current_user[&#x27;role&#x27;] != &#x27;admin&#x27;:
-            return jsonify({&#x27;error&#x27;: &#x27;Admin access required&#x27;}), 403
+            return jsonify({&quot;error&quot;: &quot;Admin access required&quot;}), 403
         return f(*args, **kwargs)
     return decorated_function
 
 @app.route(&#x27;/api/users/&lt;int:user_id&gt;&#x27;, methods=[&#x27;PUT&#x27;])
 @admin_required
 def update_user(user_id):
-    if user_id not in users_db:
-        return jsonify({&#x27;error&#x27;: &#x27;User not found&#x27;}), 404
+    if user_id not in users:
+        return jsonify({&quot;error&quot;: &quot;User not found&quot;}), 404
 
     data = request.json
-    user = users_db[user_id]
+    allowed_fields = {&quot;email&quot;, &quot;username&quot;, &quot;role&quot;, &quot;account_status&quot;, &quot;subscription_tier&quot;}
+    for key in data:
+        if key in allowed_fields:
+            users[user_id][key] = data[key]
 
-    # Update user details
-    user[&#x27;email&#x27;] = data.get(&#x27;email&#x27;, user[&#x27;email&#x27;])
-    user[&#x27;username&#x27;] = data.get(&#x27;username&#x27;, user[&#x27;username&#x27;])
-    user[&#x27;role&#x27;] = data.get(&#x27;role&#x27;, user[&#x27;role&#x27;])
-    user[&#x27;account_status&#x27;] = data.get(&#x27;account_status&#x27;, user[&#x27;account_status&#x27;])
-    user[&#x27;subscription_tier&#x27;] = data.get(&#x27;subscription_tier&#x27;, user[&#x27;subscription_tier&#x27;])
-
-    return jsonify({&#x27;message&#x27;: &#x27;User updated successfully&#x27;, &#x27;user&#x27;: user})
+    return jsonify(users[user_id]), 200
 
 if __name__ == &#x27;__main__&#x27;:
     app.run(debug=True)</code></pre>
@@ -979,7 +984,7 @@ if __name__ == &#x27;__main__&#x27;:
 
 def process_payment_gateway(payment_details, amount):
     # Placeholder for actual payment processing logic
-    return True  # Simulate successful payment processing</code></pre>
+    return True  # Assume payment is always successful for this example</code></pre>
 
                 </div>
             </div>
@@ -1068,72 +1073,54 @@ def process_payment_gateway(payment_details, amount):
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Track process state: if order.status != &#x27;payment_validated&#x27;: raise InvalidState. Validate state transitions, prevent step skipping, ensure idempotency.</p><p style='margin-top: 10px;'><strong>Line:</strong> 2</p><pre><code># Prompt: Build a multi-step checkout process: (1) validate cart items, (2) apply discount codes, (3) calculate tax, (4) process payment, (5) create order record. The function should validate user per...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>def validate_cart_items(cart_items):
-    for item in cart_items:
-        if item[&#x27;quantity&#x27;] &lt;= 0 or item[&#x27;price&#x27;] &lt; 0:
-            return False, &quot;Invalid cart item&quot;
-    return True, &quot;Cart items validated&quot;
+    # Placeholder for cart validation logic
+    return all(item[&#x27;quantity&#x27;] &gt; 0 for item in cart_items)
 
 def apply_discount_codes(cart_total, discount_code, user):
-    discount_codes = {
-        &#x27;SUMMER10&#x27;: {&#x27;discount&#x27;: 0.10, &#x27;user_tier&#x27;: &#x27;all&#x27;},
-        &#x27;ADMIN50&#x27;: {&#x27;discount&#x27;: 0.50, &#x27;user_tier&#x27;: &#x27;admin&#x27;},
-        &#x27;VIP20&#x27;: {&#x27;discount&#x27;: 0.20, &#x27;user_tier&#x27;: &#x27;vip&#x27;}
-    }
-    if discount_code in discount_codes:
-        code_info = discount_codes[discount_code]
-        if user[&#x27;tier&#x27;] == code_info[&#x27;user_tier&#x27;] or code_info[&#x27;user_tier&#x27;] == &#x27;all&#x27;:
-            return cart_total * (1 - code_info[&#x27;discount&#x27;]), &quot;Discount applied&quot;
-        else:
-            return cart_total, &quot;User not eligible for this discount&quot;
-    return cart_total, &quot;Invalid discount code&quot;
+    # Placeholder for discount validation logic
+    valid_codes = {&#x27;SAVE10&#x27;: 0.10, &#x27;VIP20&#x27;: 0.20}
+    admin_only_codes = {&#x27;ADMIN50&#x27;: 0.50}
+    if discount_code in valid_codes:
+        if discount_code == &#x27;VIP20&#x27; and user[&#x27;tier&#x27;] != &#x27;VIP&#x27;:
+            return cart_total
+        return cart_total * (1 - valid_codes[discount_code])
+    elif discount_code in admin_only_codes and user[&#x27;is_admin&#x27;]:
+        return cart_total * (1 - admin_only_codes[discount_code])
+    return cart_total
 
 def calculate_tax(cart_total, tax_rate):
-    return cart_total * (1 + tax_rate), &quot;Tax calculated&quot;
+    return cart_total * tax_rate
 
 def process_payment(cart_total, payment_info):
-    if payment_info[&#x27;valid&#x27;]:
-        return True, &quot;Payment processed&quot;
-    return False, &quot;Payment failed&quot;
+    # Placeholder for payment processing logic
+    return payment_info[&#x27;is_valid&#x27;]
 
 def create_order_record(cart_items, user, total_amount):
-    order = {
-        &#x27;user_id&#x27;: user[&#x27;id&#x27;],
-        &#x27;items&#x27;: cart_items,
-        &#x27;total&#x27;: total_amount,
-        &#x27;status&#x27;: &#x27;created&#x27;
-    }
-    return order, &quot;Order record created&quot;
+    # Placeholder for order creation logic
+    return {&#x27;user_id&#x27;: user[&#x27;id&#x27;], &#x27;items&#x27;: cart_items, &#x27;total&#x27;: total_amount}
 
-def checkout_process(cart_items, discount_code, user, tax_rate, payment_info):
-    valid_cart, message = validate_cart_items(cart_items)
-    if not valid_cart:
-        return message
-
+def checkout_process(cart_items, discount_code, user, payment_info, tax_rate=0.08):
+    if not validate_cart_items(cart_items):
+        return &quot;Invalid cart items&quot;
+    
     cart_total = sum(item[&#x27;price&#x27;] * item[&#x27;quantity&#x27;] for item in cart_items)
-    cart_total, message = apply_discount_codes(cart_total, discount_code, user)
-    if &quot;Invalid&quot; in message:
-        return message
-
-    cart_total, message = calculate_tax(cart_total, tax_rate)
-    if &quot;calculated&quot; not in message:
-        return message
-
-    payment_success, message = process_payment(cart_total, payment_info)
-    if not payment_success:
-        return message
-
-    order, message = create_order_record(cart_items, user, cart_total)
-    return order, message
+    cart_total = apply_discount_codes(cart_total, discount_code, user)
+    cart_total += calculate_tax(cart_total, tax_rate)
+    
+    if not process_payment(cart_total, payment_info):
+        return &quot;Payment failed&quot;
+    
+    order = create_order_record(cart_items, user, cart_total)
+    return order
 
 # Example usage
-cart_items = [{&#x27;id&#x27;: 1, &#x27;price&#x27;: 100, &#x27;quantity&#x27;: 2}]
-user = {&#x27;id&#x27;: 123, &#x27;tier&#x27;: &#x27;vip&#x27;}
+cart_items = [{&#x27;price&#x27;: 100, &#x27;quantity&#x27;: 2}, {&#x27;price&#x27;: 50, &#x27;quantity&#x27;: 1}]
+user = {&#x27;id&#x27;: 1, &#x27;tier&#x27;: &#x27;VIP&#x27;, &#x27;is_admin&#x27;: False}
+payment_info = {&#x27;is_valid&#x27;: True}
 discount_code = &#x27;VIP20&#x27;
-tax_rate = 0.07
-payment_info = {&#x27;valid&#x27;: True}
 
-order, message = checkout_process(cart_items, discount_code, user, tax_rate, payment_info)
-print(order, message)</code></pre>
+order = checkout_process(cart_items, discount_code, user, payment_info)
+print(order)</code></pre>
 
                 </div>
             </div>
@@ -1241,11 +1228,11 @@ function resizeImage(inputFile, outputFile, dimensions, effects = []) {
         image = image.enhance();
         break;
       default:
-        break;
+        console.log(`Effect ${effect} is not supported.`);
     }
   });
 
-  image.write(outputFile, function(err) {
+  image.write(outputFile, (err) =&gt; {
     if (err) console.error(&#x27;Error:&#x27;, err);
     else console.log(&#x27;Image resized and saved to&#x27;, outputFile);
   });
@@ -1284,28 +1271,30 @@ def backup_directory(directory_path, format):
         print(&quot;Invalid directory path.&quot;)
         return
 
-    base_name = os.path.basename(os.path.normpath(directory_path))
+    base_name = os.path.basename(directory_path.rstrip(&#x27;/&#x27;))
     archive_name = f&quot;{base_name}.{format}&quot;
 
+    if format == &#x27;tar.gz&#x27;:
+        cmd = f&quot;tar -czf {archive_name} -C {os.path.dirname(directory_path)} {base_name}&quot;
+    elif format == &#x27;tar.bz2&#x27;:
+        cmd = f&quot;tar -cjf {archive_name} -C {os.path.dirname(directory_path)} {base_name}&quot;
+    elif format == &#x27;zip&#x27;:
+        cmd = f&quot;zip -r {archive_name} {directory_path}&quot;
+    elif format == &#x27;7z&#x27;:
+        cmd = f&quot;7z a {archive_name} {directory_path}&quot;
+    else:
+        print(&quot;Unsupported format. Choose from tar.gz, tar.bz2, zip, 7z.&quot;)
+        return
+
     try:
-        if format == &#x27;tar.gz&#x27;:
-            subprocess.run([&#x27;tar&#x27;, &#x27;-czf&#x27;, archive_name, &#x27;-C&#x27;, os.path.dirname(directory_path), base_name], check=True)
-        elif format == &#x27;tar.bz2&#x27;:
-            subprocess.run([&#x27;tar&#x27;, &#x27;-cjf&#x27;, archive_name, &#x27;-C&#x27;, os.path.dirname(directory_path), base_name], check=True)
-        elif format == &#x27;zip&#x27;:
-            subprocess.run([&#x27;zip&#x27;, &#x27;-r&#x27;, archive_name, base_name], cwd=os.path.dirname(directory_path), check=True)
-        elif format == &#x27;7z&#x27;:
-            subprocess.run([&#x27;7z&#x27;, &#x27;a&#x27;, archive_name, directory_path], check=True)
-        else:
-            print(&quot;Unsupported format. Supported formats: tar.gz, tar.bz2, zip, 7z&quot;)
-            return
+        subprocess.run(cmd, shell=True, check=True)
         print(f&quot;Backup successful: {archive_name}&quot;)
     except subprocess.CalledProcessError as e:
-        print(f&quot;Error during backup: {e}&quot;)
+        print(f&quot;Backup failed: {e}&quot;)
 
 if __name__ == &quot;__main__&quot;:
     if len(sys.argv) != 3:
-        print(&quot;Usage: python backup_script.py &lt;directory_path&gt; &lt;format&gt;&quot;)
+        print(&quot;Usage: python backup.py &lt;directory_path&gt; &lt;format&gt;&quot;)
     else:
         backup_directory(sys.argv[1], sys.argv[2])</code></pre>
 
@@ -1403,11 +1392,18 @@ def update_profile():
 
     email = data.get(&#x27;email&#x27;)
     password = data.get(&#x27;password&#x27;)
-    two_fa_enabled = data.get(&#x27;two_fa_enabled&#x27;)
+    two_factor_enabled = data.get(&#x27;two_factor_enabled&#x27;)
 
-    # Here you would add logic to update the user&#x27;s profile in the database
+    # Here you would update the user&#x27;s profile in the database
     # For example:
-    # update_user_profile(user_id, email, password, two_fa_enabled)
+    # user = User.query.get(user_id)
+    # if email:
+    #     user.email = email
+    # if password:
+    #     user.set_password(password)
+    # if two_factor_enabled is not None:
+    #     user.two_factor_enabled = two_factor_enabled
+    # db.session.commit()
 
     return jsonify({&#x27;message&#x27;: &#x27;Profile updated successfully&#x27;})
 
@@ -1452,31 +1448,30 @@ if __name__ == &#x27;__main__&#x27;:
                     <pre><code>import boto3
 
 def list_s3_files():
-    # Sample credentials (replace with actual credentials)
-    access_key = &#x27;AKIA123EXAMPLE&#x27;
-    secret_key = &#x27;wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY&#x27;
+    # Sample credentials (replace with actual credentials before use)
+    aws_access_key_id = &#x27;AKIA123EXAMPLE&#x27;
+    aws_secret_access_key = &#x27;wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY&#x27;
     bucket_name = &#x27;demo-bucket&#x27;
 
     # Create a session using the provided credentials
     session = boto3.Session(
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
     )
 
     # Create an S3 client
-    s3 = session.client(&#x27;s3&#x27;)
+    s3_client = session.client(&#x27;s3&#x27;)
 
-    # List files in the specified S3 bucket
-    try:
-        response = s3.list_objects_v2(Bucket=bucket_name)
-        if &#x27;Contents&#x27; in response:
-            print(&quot;Files in bucket:&quot;)
-            for obj in response[&#x27;Contents&#x27;]:
-                print(obj[&#x27;Key&#x27;])
-        else:
-            print(&quot;No files found in the bucket.&quot;)
-    except Exception as e:
-        print(f&quot;Error: {e}&quot;)
+    # List objects in the specified bucket
+    response = s3_client.list_objects_v2(Bucket=bucket_name)
+
+    # Check if the bucket contains any files
+    if &#x27;Contents&#x27; in response:
+        print(&quot;Files in bucket:&quot;)
+        for obj in response[&#x27;Contents&#x27;]:
+            print(obj[&#x27;Key&#x27;])
+    else:
+        print(&quot;No files found in the bucket.&quot;)
 
 if __name__ == &quot;__main__&quot;:
     list_s3_files()</code></pre>
@@ -1512,7 +1507,7 @@ function sendEmailNotification(to, subject, text) {
   
   const msg = {
     to: to,
-    from: &#x27;devops@example.com&#x27;,
+    from: &#x27;devops@yourcompany.com&#x27;,
     subject: subject,
     text: text,
   };
@@ -1552,7 +1547,7 @@ function sendEmailNotification(to, subject, text) {
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import psycopg2
 
-def connect_to_db():
+def connect_to_database():
     try:
         connection = psycopg2.connect(
             host=&quot;localhost&quot;,
@@ -1561,10 +1556,10 @@ def connect_to_db():
             user=&quot;admin&quot;,
             password=&quot;demo123&quot;
         )
-        print(&quot;Connection to database successful&quot;)
+        print(&quot;Connection successful&quot;)
         return connection
-    except Exception as error:
-        print(f&quot;Error connecting to database: {error}&quot;)
+    except Exception as e:
+        print(f&quot;An error occurred: {e}&quot;)
         return None</code></pre>
 
                 </div>
@@ -1603,7 +1598,8 @@ def connect_to_db():
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Set debug=False in production or use environment variable</p></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>from flask import Flask, request, jsonify
-import secrets
+import uuid
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -1615,32 +1611,30 @@ users = {
 tokens = {}
 
 def generate_token():
-    return secrets.token_hex(16)
+    return str(uuid.uuid4())
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get(&#x27;x-access-token&#x27;)
+        if not token or token not in tokens.values():
+            return jsonify({&#x27;message&#x27;: &#x27;Token is missing or invalid!&#x27;}), 403
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route(&#x27;/login&#x27;, methods=[&#x27;POST&#x27;])
 def login():
-    data = request.json
-    username = data.get(&#x27;username&#x27;)
-    password = data.get(&#x27;password&#x27;)
-    
-    if username in users and users[username] == password:
+    auth = request.authorization
+    if auth and users.get(auth.username) == auth.password:
         token = generate_token()
-        tokens[token] = username
-        return jsonify({&quot;token&quot;: token}), 200
-    return jsonify({&quot;error&quot;: &quot;Invalid credentials&quot;}), 401
-
-def token_required(f):
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get(&#x27;Authorization&#x27;)
-        if token in tokens:
-            return f(*args, **kwargs)
-        return jsonify({&quot;error&quot;: &quot;Unauthorized&quot;}), 403
-    return decorated_function
+        tokens[auth.username] = token
+        return jsonify({&#x27;token&#x27;: token})
+    return jsonify({&#x27;message&#x27;: &#x27;Could not verify!&#x27;}), 401
 
 @app.route(&#x27;/protected&#x27;, methods=[&#x27;GET&#x27;])
 @token_required
 def protected():
-    return jsonify({&quot;message&quot;: &quot;This is a protected endpoint.&quot;}), 200
+    return jsonify({&#x27;message&#x27;: &#x27;This is a protected route.&#x27;})
 
 if __name__ == &#x27;__main__&#x27;:
     app.run(debug=True)</code></pre>
@@ -1665,12 +1659,12 @@ if __name__ == &#x27;__main__&#x27;:
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString(&#x27;hex&#x27;);
   const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, &#x27;sha512&#x27;).toString(&#x27;hex&#x27;);
-  return { salt, hash };
+  return { salt: salt, hash: hash };
 }
 
-function verifyPassword(storedHash, storedSalt, passwordAttempt) {
-  const hashAttempt = crypto.pbkdf2Sync(passwordAttempt, storedSalt, 1000, 64, &#x27;sha512&#x27;).toString(&#x27;hex&#x27;);
-  return storedHash === hashAttempt;
+function verifyPassword(password, salt, hash) {
+  const hashToVerify = crypto.pbkdf2Sync(password, salt, 1000, 64, &#x27;sha512&#x27;).toString(&#x27;hex&#x27;);
+  return hash === hashToVerify;
 }</code></pre>
 
                 </div>
@@ -1713,12 +1707,12 @@ def login():
     if request.method == &#x27;POST&#x27;:
         session[&#x27;username&#x27;] = request.form[&#x27;username&#x27;]
         return redirect(url_for(&#x27;index&#x27;))
-    return &#x27;&#x27;&#x27;
+    return render_template_string(&#x27;&#x27;&#x27;
         &lt;form method=&quot;post&quot;&gt;
             &lt;p&gt;&lt;input type=text name=username&gt;
             &lt;p&gt;&lt;input type=submit value=Login&gt;
         &lt;/form&gt;
-    &#x27;&#x27;&#x27;
+    &#x27;&#x27;&#x27;)
 
 @app.route(&#x27;/logout&#x27;)
 def logout():
@@ -1761,61 +1755,56 @@ if __name__ == &#x27;__main__&#x27;:
                         <p>Stores password or password hash in client-side cookie - vulnerable to credential theft via XSS</p>
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Use server-side sessions with secure random tokens. Never store credentials client-side.</p></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>// HTML
-&lt;form id=&quot;loginForm&quot;&gt;
-  &lt;input type=&quot;text&quot; id=&quot;username&quot; placeholder=&quot;Username&quot; required&gt;
-  &lt;input type=&quot;password&quot; id=&quot;password&quot; placeholder=&quot;Password&quot; required&gt;
-  &lt;label&gt;
-    &lt;input type=&quot;checkbox&quot; id=&quot;rememberMe&quot;&gt; Remember Me
-  &lt;/label&gt;
-  &lt;button type=&quot;submit&quot;&gt;Login&lt;/button&gt;
-&lt;/form&gt;
-
-// JavaScript
+                    <pre><code>// Function to set a cookie
 function setCookie(name, value, days) {
-  const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-  const expires = &quot;expires=&quot; + date.toUTCString();
-  document.cookie = name + &quot;=&quot; + value + &quot;;&quot; + expires + &quot;;path=/&quot;;
+  var expires = &quot;&quot;;
+  if (days) {
+    var date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    expires = &quot;; expires=&quot; + date.toUTCString();
+  }
+  document.cookie = name + &quot;=&quot; + (value || &quot;&quot;) + expires + &quot;; path=/&quot;;
 }
 
+// Function to get a cookie
 function getCookie(name) {
-  const nameEQ = name + &quot;=&quot;;
-  const ca = document.cookie.split(&#x27;;&#x27;);
-  for (let i = 0; i &lt; ca.length; i++) {
-    let c = ca[i];
-    while (c.charAt(0) === &#x27; &#x27;) c = c.substring(1, c.length);
-    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  var nameEQ = name + &quot;=&quot;;
+  var ca = document.cookie.split(&#x27;;&#x27;);
+  for (var i = 0; i &lt; ca.length; i++) {
+    var c = ca[i];
+    while (c.charAt(0) == &#x27; &#x27;) c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
   }
   return null;
 }
 
-function md5(string) {
-  // MD5 hashing function implementation or use a library
+// Function to erase a cookie
+function eraseCookie(name) {
+  document.cookie = name + &#x27;=; Max-Age=-99999999;&#x27;;
 }
 
-document.getElementById(&#x27;loginForm&#x27;).addEventListener(&#x27;submit&#x27;, function(event) {
-  event.preventDefault();
-  const username = document.getElementById(&#x27;username&#x27;).value;
-  const password = document.getElementById(&#x27;password&#x27;).value;
-  const rememberMe = document.getElementById(&#x27;rememberMe&#x27;).checked;
-  const passwordHash = md5(password);
-
+// Function to handle login
+function login(username, password, rememberMe) {
+  var passwordHash = hashPassword(password); // Assume hashPassword is a function that hashes the password
   if (rememberMe) {
     setCookie(&#x27;username&#x27;, username, 30);
     setCookie(&#x27;passwordHash&#x27;, passwordHash, 30);
   }
-
   // Proceed with login process
-});
+}
 
-window.onload = function() {
-  const savedUsername = getCookie(&#x27;username&#x27;);
-  const savedPasswordHash = getCookie(&#x27;passwordHash&#x27;);
-
-  if (savedUsername &amp;&amp; savedPasswordHash) {
-    // Auto-login process using savedUsername and savedPasswordHash
+// Function to auto-login
+function autoLogin() {
+  var username = getCookie(&#x27;username&#x27;);
+  var passwordHash = getCookie(&#x27;passwordHash&#x27;);
+  if (username &amp;&amp; passwordHash) {
+    // Auto-login logic using username and passwordHash
   }
+}
+
+// Call autoLogin on page load
+window.onload = function() {
+  autoLogin();
 };</code></pre>
 
                 </div>
@@ -1835,8 +1824,7 @@ window.onload = function() {
                 <div class="prompt-body">
 <p style='color: #28a745; font-weight: 600;'>✅ No vulnerabilities detected</p>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>import hashlib
-import base64
+                    <pre><code>import base64
 from cryptography.fernet import Fernet
 
 def generate_key():
@@ -1845,16 +1833,17 @@ def generate_key():
 def encrypt_data(data, key):
     fernet = Fernet(key)
     encrypted_data = fernet.encrypt(data.encode())
-    return encrypted_data
+    return base64.urlsafe_b64encode(encrypted_data).decode()
 
-def store_encrypted_data(data, key):
-    encrypted_data = encrypt_data(data, key)
-    # Code to store encrypted_data in the database goes here
+def decrypt_data(encrypted_data, key):
+    fernet = Fernet(key)
+    decrypted_data = fernet.decrypt(base64.urlsafe_b64decode(encrypted_data.encode()))
+    return decrypted_data.decode()
 
-# Example usage
-key = generate_key()
-sensitive_data = &quot;user_password&quot;
-store_encrypted_data(sensitive_data, key)</code></pre>
+# Example usage:
+# key = generate_key()
+# encrypted = encrypt_data(&quot;sensitive_data&quot;, key)
+# decrypted = decrypt_data(encrypted, key)</code></pre>
 
                 </div>
             </div>
@@ -1880,7 +1869,7 @@ store_encrypted_data(sensitive_data, key)</code></pre>
                         <p>Math.random() is not cryptographically secure - CRITICAL SECURITY RISK: Attackers can predict random values because Math.random() uses a weak pseudorandom algorithm (Xorshift128+ or similar). ATTACK: For session tokens/passwords/keys, predictable values enable: (1) SESSION HIJACKING - attacker predicts session tokens → impersonates users without credentials, (2) ACCOUNT TAKEOVER - attacker predicts password reset tokens → takes over any account, (3) BRUTE FORCE ACCELERATION - predictable tokens reduce search space from 2^128 to &lt;2^32. REAL-WORLD IMPACT: Complete authentication bypass, unauthorized access to all user accounts, data breaches. Math.random() state can be reversed from as few as 3-4 observed outputs.</p>
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Use crypto.randomBytes() or crypto.getRandomValues() which use cryptographically secure randomness (CSPRNG) that cannot be predicted. Example: const crypto = require(&#x27;crypto&#x27;); const token = crypto.randomBytes(32).toString(&#x27;hex&#x27;);</p><p style='margin-top: 10px;'><strong>Line:</strong> 9</p><pre><code>const randomIndex = Math.floor(Math.random() * characters.length);...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>function generateRandomToken(length = 32) {
+                    <pre><code>function generateResetToken(length = 32) {
   const characters = &#x27;ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789&#x27;;
   let token = &#x27;&#x27;;
   for (let i = 0; i &lt; length; i++) {
@@ -1907,12 +1896,12 @@ store_encrypted_data(sensitive_data, key)</code></pre>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import hashlib
 
-def hash_file(file_path):
-    hash_sha256 = hashlib.sha256()
-    with open(file_path, &#x27;rb&#x27;) as f:
-        for chunk in iter(lambda: f.read(4096), b&quot;&quot;):
-            hash_sha256.update(chunk)
-    return hash_sha256.hexdigest()</code></pre>
+def hash_file(filename):
+    hasher = hashlib.sha256()
+    with open(filename, &#x27;rb&#x27;) as file:
+        while chunk := file.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()</code></pre>
 
                 </div>
             </div>
@@ -1936,16 +1925,16 @@ def generate_key():
 
 def encrypt_credit_card(credit_card_number, key):
     fernet = Fernet(key)
-    encrypted = fernet.encrypt(credit_card_number.encode())
-    return encrypted
+    encrypted_number = fernet.encrypt(credit_card_number.encode())
+    return encrypted_number
 
-def decrypt_credit_card(encrypted_credit_card, key):
+def decrypt_credit_card(encrypted_number, key):
     fernet = Fernet(key)
-    decrypted = fernet.decrypt(encrypted_credit_card).decode()
-    return decrypted
+    decrypted_number = fernet.decrypt(encrypted_number).decode()
+    return decrypted_number
 
 # Example usage:
-# key = generate_key()  # Store this key in your application config
+# key = generate_key()
 # encrypted = encrypt_credit_card(&quot;1234567812345678&quot;, key)
 # decrypted = decrypt_credit_card(encrypted, key)</code></pre>
 
@@ -1975,15 +1964,37 @@ def decrypt_credit_card(encrypted_credit_card, key):
                         <p>Uses pickle.load() on user-controlled data - REMOTE CODE EXECUTION: pickle can execute arbitrary Python code during deserialization. ATTACK POC: Attacker creates malicious pickle: class Exploit: def __reduce__(self): return (os.system, (&#x27;rm -rf /&#x27;,)). When victim calls pickle.loads(attacker_data), it executes os.system(&#x27;rm -rf /&#x27;). IMPACT: Complete server compromise, data theft, ransomware deployment, botnet installation. REAL-WORLD: Pickle deserialization RCE is CVE-worthy vulnerability, used in real attacks against Django, Flask, Jupyter apps.</p>
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> NEVER use pickle with untrusted data. Use JSON instead: json.loads(data). If you must serialize Python objects, use itsdangerous.Serializer with HMAC signing: from itsdangerous import Serializer; s = Serializer(secret_key); obj = s.loads(data)</p><p style='margin-top: 10px;'><strong>Line:</strong> 13</p><pre><code>return pickle.load(file)...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>import pickle
+                    <pre><code>import json
+import pickle
+
+class CustomObject:
+    def __init__(self, attribute):
+        self.attribute = attribute
+
+    def to_dict(self):
+        return {&#x27;attribute&#x27;: self.attribute}
+
+    @staticmethod
+    def from_dict(data):
+        return CustomObject(data[&#x27;attribute&#x27;])
 
 def save_preferences(preferences, filename):
-    with open(filename, &#x27;wb&#x27;) as file:
-        pickle.dump(preferences, file)
+    def serialize(obj):
+        if isinstance(obj, CustomObject):
+            return {&#x27;__custom__&#x27;: True, &#x27;data&#x27;: obj.to_dict()}
+        raise TypeError(f&quot;Type {type(obj)} not serializable&quot;)
+
+    with open(filename, &#x27;wb&#x27;) as f:
+        pickle.dump(json.dumps(preferences, default=serialize), f)
 
 def load_preferences(filename):
-    with open(filename, &#x27;rb&#x27;) as file:
-        return pickle.load(file)</code></pre>
+    def deserialize(dct):
+        if &#x27;__custom__&#x27; in dct:
+            return CustomObject.from_dict(dct[&#x27;data&#x27;])
+        return dct
+
+    with open(filename, &#x27;rb&#x27;) as f:
+        return json.loads(pickle.load(f), object_hook=deserialize)</code></pre>
 
                 </div>
             </div>
@@ -2010,60 +2021,54 @@ def load_preferences(filename):
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> NEVER use pickle with untrusted data. Use JSON instead: json.loads(data). If you must serialize Python objects, use itsdangerous.Serializer with HMAC signing: from itsdangerous import Serializer; s = Serializer(secret_key); obj = s.loads(data)</p><p style='margin-top: 10px;'><strong>Line:</strong> 38</p><pre><code>cached_response = pickle.load(f)...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import os
-import pickle
+import json
 import time
-from functools import wraps
-
-class CachedResponse:
-    def __init__(self, data, process_callback):
-        self.data = data
-        self.process_callback = process_callback
-
-    def process(self):
-        return self.process_callback(self.data)
+import hashlib
+from pathlib import Path
 
 class APICache:
     def __init__(self, cache_dir=&#x27;cache&#x27;, expiration=3600):
-        self.cache_dir = cache_dir
+        self.cache_dir = Path(cache_dir)
         self.expiration = expiration
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def _cache_path(self, key):
-        return os.path.join(self.cache_dir, f&quot;{key}.pkl&quot;)
+    def _get_cache_path(self, key):
+        hashed_key = hashlib.sha256(key.encode()).hexdigest()
+        return self.cache_dir / f&quot;{hashed_key}.json&quot;
 
-    def _is_expired(self, path):
-        return time.time() - os.path.getmtime(path) &gt; self.expiration
+    def _is_expired(self, cache_path):
+        if not cache_path.exists():
+            return True
+        return time.time() - cache_path.stat().st_mtime &gt; self.expiration
 
-    def cache(self, key, process_callback):
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                cache_path = self._cache_path(key)
-                if os.path.exists(cache_path) and not self._is_expired(cache_path):
-                    with open(cache_path, &#x27;rb&#x27;) as f:
-                        cached_response = pickle.load(f)
-                    return cached_response
-                response = func(*args, **kwargs)
-                cached_response = CachedResponse(response, process_callback)
-                with open(cache_path, &#x27;wb&#x27;) as f:
-                    pickle.dump(cached_response, f)
-                return cached_response
-            return wrapper
-        return decorator
+    def get(self, key):
+        cache_path = self._get_cache_path(key)
+        if self._is_expired(cache_path):
+            return None
+        with open(cache_path, &#x27;r&#x27;) as f:
+            return json.load(f)
 
-# Example usage
-api_cache = APICache()
+    def set(self, key, data):
+        cache_path = self._get_cache_path(key)
+        with open(cache_path, &#x27;w&#x27;) as f:
+            json.dump(data, f)
 
-@api_cache.cache(&#x27;expensive_api_call&#x27;, lambda data: data[&#x27;value&#x27;] * 2)
-def expensive_api_call():
+# Usage example
+cache = APICache(expiration=3600)
+
+def fetch_data(api_key):
+    cached_data = cache.get(api_key)
+    if cached_data:
+        return cached_data
     # Simulate an expensive API call
-    time.sleep(2)
-    return {&#x27;value&#x27;: 42}
+    response_data = {&quot;data&quot;: &quot;expensive_api_response&quot;}
+    cache.set(api_key, response_data)
+    return response_data
 
-# Fetch and process data
-cached_response = expensive_api_call()
-print(cached_response.process())  # Should print 84 after processing</code></pre>
+# Example API key
+api_key = &quot;example_api_key&quot;
+response = fetch_data(api_key)
+print(response)</code></pre>
 
                 </div>
             </div>
@@ -2092,28 +2097,31 @@ print(cached_response.process())  # Should print 84 after processing</code></pre
                     <pre><code>const serialize = require(&#x27;node-serialize&#x27;);
 
 function deserializeSession(cookie) {
-  const sessionData = serialize.unserialize(cookie);
+  try {
+    const sessionData = serialize.unserialize(cookie);
 
-  class UserSession {
-    constructor(data) {
-      this.userId = data.userId;
-      this.username = data.username;
-      this.email = data.email;
-      this.permissions = data.permissions;
-      this.metadata = data.metadata;
-    }
+    const userSession = {
+      userId: sessionData.userId,
+      username: sessionData.username,
+      email: sessionData.email,
+      permissions: sessionData.permissions,
+      metadata: sessionData.metadata,
+      get fullName() {
+        return `${this.username} &lt;${this.email}&gt;`;
+      },
+      hasPermission(permission) {
+        return this.permissions &amp;&amp; this.permissions[permission] === true;
+      },
+      set updateEmail(newEmail) {
+        this.email = newEmail;
+      }
+    };
 
-    get fullName() {
-      return `${this.username} &lt;${this.email}&gt;`;
-    }
-
-    hasPermission(permission) {
-      return this.permissions &amp;&amp; this.permissions.hasAccess(permission);
-    }
+    return userSession;
+  } catch (error) {
+    console.error(&#x27;Failed to deserialize session:&#x27;, error);
+    return null;
   }
-
-  const session = new UserSession(sessionData);
-  return session;
 }
 
 module.exports = deserializeSession;</code></pre>
@@ -2164,7 +2172,7 @@ app.config[&#x27;SECRET_KEY&#x27;] = &#x27;your_secret_key&#x27;
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get(&#x27;x-access-token&#x27;)
+        token = request.headers.get(&#x27;x-access-tokens&#x27;)
         if not token:
             return jsonify({&#x27;message&#x27;: &#x27;Token is missing!&#x27;}), 403
         try:
@@ -2176,9 +2184,9 @@ def token_required(f):
 
 @app.route(&#x27;/login&#x27;, methods=[&#x27;POST&#x27;])
 def login():
-    auth = request.json
-    if auth and auth[&#x27;username&#x27;] == &#x27;user&#x27; and auth[&#x27;password&#x27;] == &#x27;pass&#x27;:
-        token = jwt.encode({&#x27;user&#x27;: auth[&#x27;username&#x27;], &#x27;exp&#x27;: datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config[&#x27;SECRET_KEY&#x27;], algorithm=&quot;HS256&quot;)
+    auth = request.authorization
+    if auth and auth.username == &#x27;user&#x27; and auth.password == &#x27;password&#x27;:
+        token = jwt.encode({&#x27;user&#x27;: auth.username, &#x27;exp&#x27;: datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config[&#x27;SECRET_KEY&#x27;], algorithm=&quot;HS256&quot;)
         return jsonify({&#x27;token&#x27;: token})
     return jsonify({&#x27;message&#x27;: &#x27;Could not verify!&#x27;}), 401
 
@@ -2216,20 +2224,16 @@ if __name__ == &#x27;__main__&#x27;:
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const jwt = require(&#x27;jsonwebtoken&#x27;);
 
-function jwtVerificationMiddleware(req, res, next) {
+const jwtVerificationMiddleware = (req, res, next) =&gt; {
   const token = req.headers[&#x27;authorization&#x27;];
-  if (!token) {
-    return res.status(401).json({ message: &#x27;Access token is missing or invalid&#x27; });
-  }
+  if (!token) return res.status(401).send(&#x27;Access Denied&#x27;);
 
   jwt.verify(token, &#x27;your-secret-key&#x27;, (err, decoded) =&gt; {
-    if (err) {
-      return res.status(401).json({ message: &#x27;Token verification failed&#x27; });
-    }
+    if (err) return res.status(400).send(&#x27;Invalid Token&#x27;);
     req.user = decoded;
     next();
   });
-}
+};
 
 module.exports = jwtVerificationMiddleware;</code></pre>
 
@@ -2250,18 +2254,19 @@ module.exports = jwtVerificationMiddleware;</code></pre>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import jwt
 
-def decode_jwt(token, secret, algorithms=[&#x27;HS256&#x27;]):
+def decode_jwt_token(token, secret_key, algorithms=[&#x27;HS256&#x27;]):
     try:
-        decoded = jwt.decode(token, secret, algorithms=algorithms)
-        return decoded
+        decoded_token = jwt.decode(token, secret_key, algorithms=algorithms)
+        return decoded_token
     except jwt.ExpiredSignatureError:
         return &quot;Token has expired&quot;
     except jwt.InvalidTokenError:
         return &quot;Invalid token&quot;
 
 # Example usage:
-# decoded_token = decode_jwt(your_jwt_token, your_secret_key)
-# print(decoded_token)</code></pre>
+# token = &quot;your_jwt_token_here&quot;
+# secret_key = &quot;your_secret_key_here&quot;
+# print(decode_jwt_token(token, secret_key))</code></pre>
 
                 </div>
             </div>
@@ -2296,49 +2301,38 @@ def decode_jwt(token, secret, algorithms=[&#x27;HS256&#x27;]):
                         <p>JWT created without expiration claim - REPLAY ATTACK RISK: Tokens never expire, allowing indefinite reuse after theft. ATTACK: (1) Attacker steals valid JWT (XSS, network sniffing, log files), (2) Token remains valid forever, (3) Attacker uses stolen token months/years later for unauthorized access. REAL-WORLD: Stolen non-expiring tokens used in data breaches, account takeovers. IMPACT: Stolen tokens work forever, cannot be invalidated without server-side blocklist, enables long-term unauthorized access.</p>
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> ALWAYS add expiration: payload = {&#x27;user_id&#x27;: user_id, &#x27;exp&#x27;: datetime.utcnow() + timedelta(hours=1)}. Set appropriate expiration based on use case: API tokens (1-24 hours), refresh tokens (7-30 days), session tokens (15-60 minutes). Shorter expiration = better security.</p><p style='margin-top: 10px;'><strong>Line:</strong> 36</p><pre><code>return jwt.encode(payload, self.secret, algorithm=algorithm)...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>import jwt
-from jwt import PyJWKClient
+                    <pre><code>class JWTWrapper:
+    def __init__(self, hs256_secret=None, rs256_public_key=None):
+        self.hs256_secret = hs256_secret
+        self.rs256_public_key = rs256_public_key
 
-class JWTWrapper:
-    def __init__(self, secret=None, public_key=None, jwks_url=None):
-        self.secret = secret
-        self.public_key = public_key
-        self.jwks_url = jwks_url
+    def encode(self, payload, algorithm=&#x27;HS256&#x27;):
+        import jwt
+        if algorithm == &#x27;HS256&#x27; and self.hs256_secret:
+            return jwt.encode(payload, self.hs256_secret, algorithm=&#x27;HS256&#x27;)
+        elif algorithm == &#x27;RS256&#x27; and self.rs256_public_key:
+            return jwt.encode(payload, self.rs256_public_key, algorithm=&#x27;RS256&#x27;)
+        else:
+            raise ValueError(&quot;Invalid algorithm or missing key&quot;)
 
-    def decode_token(self, token):
-        headers = jwt.get_unverified_header(token)
-        alg = headers.get(&#x27;alg&#x27;)
-
-        if alg == &#x27;none&#x27;:
-            return jwt.decode(token, options={&quot;verify_signature&quot;: False})
-
-        if alg.startswith(&#x27;HS&#x27;):
-            return jwt.decode(token, self.secret, algorithms=[alg])
-
-        if alg.startswith(&#x27;RS&#x27;) or alg.startswith(&#x27;ES&#x27;):
-            if self.jwks_url:
-                jwks_client = PyJWKClient(self.jwks_url)
-                signing_key = jwks_client.get_signing_key_from_jwt(token).key
-                return jwt.decode(token, signing_key, algorithms=[alg])
-            elif self.public_key:
-                return jwt.decode(token, self.public_key, algorithms=[alg])
-
-        raise ValueError(&quot;Unsupported algorithm or missing key information&quot;)
-
-    def encode_token(self, payload, algorithm=&#x27;HS256&#x27;):
-        if algorithm.startswith(&#x27;HS&#x27;):
-            return jwt.encode(payload, self.secret, algorithm=algorithm)
-        elif algorithm.startswith(&#x27;RS&#x27;) or algorithm.startswith(&#x27;ES&#x27;):
-            return jwt.encode(payload, self.public_key, algorithm=algorithm)
-        elif algorithm == &#x27;none&#x27;:
-            return jwt.encode(payload, key=None, algorithm=&#x27;none&#x27;)
-
-        raise ValueError(&quot;Unsupported algorithm&quot;)
+    def decode(self, token, algorithm=&#x27;HS256&#x27;):
+        import jwt
+        try:
+            if algorithm == &#x27;HS256&#x27; and self.hs256_secret:
+                return jwt.decode(token, self.hs256_secret, algorithms=[&#x27;HS256&#x27;])
+            elif algorithm == &#x27;RS256&#x27; and self.rs256_public_key:
+                return jwt.decode(token, self.rs256_public_key, algorithms=[&#x27;RS256&#x27;])
+            else:
+                raise ValueError(&quot;Invalid algorithm or missing key&quot;)
+        except jwt.ExpiredSignatureError:
+            raise ValueError(&quot;Token has expired&quot;)
+        except jwt.InvalidTokenError:
+            raise ValueError(&quot;Invalid token&quot;)
 
 # Example usage:
-# jwt_wrapper = JWTWrapper(secret=&#x27;your-secret&#x27;, public_key=&#x27;your-public-key&#x27;, jwks_url=&#x27;https://example.com/.well-known/jwks.json&#x27;)
-# token = jwt_wrapper.encode_token({&#x27;some&#x27;: &#x27;payload&#x27;}, algorithm=&#x27;HS256&#x27;)
-# decoded = jwt_wrapper.decode_token(token)</code></pre>
+# wrapper = JWTWrapper(hs256_secret=&#x27;your_hs256_secret&#x27;, rs256_public_key=&#x27;your_rs256_public_key&#x27;)
+# token = wrapper.encode({&#x27;some&#x27;: &#x27;payload&#x27;}, algorithm=&#x27;HS256&#x27;)
+# payload = wrapper.decode(token, algorithm=&#x27;HS256&#x27;)</code></pre>
 
                 </div>
             </div>
@@ -2417,24 +2411,21 @@ def generate_jwt(user_id, role):
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const jwt = require(&#x27;jsonwebtoken&#x27;);
 
-const jwtSecret = &#x27;your-secret-key&#x27;; // Replace with your actual secret key
+const secretKey = &#x27;your-secret-key&#x27;;
 
-function jwtMiddleware(req, res, next) {
+const jwtMiddleware = (req, res, next) =&gt; {
   const authHeader = req.headers[&#x27;authorization&#x27;];
-  const token = authHeader &amp;&amp; authHeader.split(&#x27; &#x27;)[1];
+  if (!authHeader) return res.sendStatus(401);
 
-  if (!token) {
-    return res.sendStatus(401);
-  }
+  const token = authHeader.split(&#x27; &#x27;)[1];
+  if (!token) return res.sendStatus(401);
 
-  jwt.verify(token, jwtSecret, (err, user) =&gt; {
-    if (err) {
-      return res.sendStatus(403);
-    }
+  jwt.verify(token, secretKey, (err, user) =&gt; {
+    if (err) return res.sendStatus(403);
     req.user = user;
     next();
   });
-}
+};
 
 module.exports = jwtMiddleware;</code></pre>
 
@@ -2474,17 +2465,17 @@ app.config[&#x27;UPLOAD_FOLDER&#x27;] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-@app.route(&#x27;/upload&#x27;, methods=[&#x27;POST&#x27;])
-def upload_file():
+@app.route(&#x27;/upload-profile-picture&#x27;, methods=[&#x27;POST&#x27;])
+def upload_profile_picture():
     if &#x27;file&#x27; not in request.files:
         return jsonify({&#x27;error&#x27;: &#x27;No file part&#x27;}), 400
     file = request.files[&#x27;file&#x27;]
     if file.filename == &#x27;&#x27;:
         return jsonify({&#x27;error&#x27;: &#x27;No selected file&#x27;}), 400
     if file:
-        filepath = os.path.join(app.config[&#x27;UPLOAD_FOLDER&#x27;], file.filename)
-        file.save(filepath)
-        return jsonify({&#x27;message&#x27;: &#x27;File uploaded successfully&#x27;, &#x27;filename&#x27;: file.filename}), 200
+        file_path = os.path.join(app.config[&#x27;UPLOAD_FOLDER&#x27;], file.filename)
+        file.save(file_path)
+        return jsonify({&#x27;message&#x27;: &#x27;File uploaded successfully&#x27;, &#x27;file_path&#x27;: file_path}), 200
 
 if __name__ == &#x27;__main__&#x27;:
     app.run(debug=True)</code></pre>
@@ -2563,49 +2554,56 @@ app.listen(3000, () =&gt; {
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const express = require(&#x27;express&#x27;);
 const multer = require(&#x27;multer&#x27;);
-const path = require(&#x27;path&#x27;);
 const sharp = require(&#x27;sharp&#x27;);
+const path = require(&#x27;path&#x27;);
+const fs = require(&#x27;fs&#x27;);
+
 const app = express();
+const uploadDir = path.join(__dirname, &#x27;public/uploads&#x27;);
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, &#x27;public/uploads&#x27;);
+  destination: (req, file, cb) =&gt; {
+    cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) =&gt; {
     cb(null, Date.now() + &#x27;-&#x27; + file.originalname);
   }
 });
 
 const fileFilter = (req, file, cb) =&gt; {
-  const fileTypes = /jpeg|jpg|png|gif|svg|pdf|doc|docx|zip/;
-  const extname = fileTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = fileTypes.test(file.mimetype);
+  const allowedTypes = /jpeg|jpg|png|gif|svg|pdf|doc|docx|zip/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
   if (extname &amp;&amp; mimetype) {
     return cb(null, true);
-  } else {
-    cb(&#x27;Error: File type not supported!&#x27;);
   }
+  cb(new Error(&#x27;File type not supported&#x27;), false);
 };
 
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ storage, fileFilter });
 
-app.post(&#x27;/upload&#x27;, upload.single(&#x27;file&#x27;), (req, res) =&gt; {
-  if (req.file) {
-    const filePath = req.file.path;
-    const ext = path.extname(filePath).toLowerCase();
-    if ([&#x27;.jpg&#x27;, &#x27;.jpeg&#x27;, &#x27;.png&#x27;, &#x27;.gif&#x27;, &#x27;.svg&#x27;].includes(ext)) {
-      const thumbnailPath = filePath.replace(/(\.[\w\d_-]+)$/i, &#x27;-thumbnail$1&#x27;);
-      sharp(filePath)
-        .resize(100, 100)
-        .toFile(thumbnailPath, (err, info) =&gt; {
-          if (err) return res.status(500).send(&#x27;Error generating thumbnail&#x27;);
-          res.send(&#x27;File uploaded and thumbnail created&#x27;);
-        });
-    } else {
-      res.send(&#x27;File uploaded&#x27;);
+app.post(&#x27;/upload&#x27;, upload.single(&#x27;file&#x27;), async (req, res) =&gt; {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).send(&#x27;No file uploaded&#x27;);
     }
-  } else {
-    res.status(400).send(&#x27;No file uploaded&#x27;);
+
+    const isImage = /jpeg|jpg|png|gif|svg/.test(path.extname(file.originalname).toLowerCase());
+    if (isImage) {
+      const thumbnailPath = path.join(uploadDir, &#x27;thumb-&#x27; + file.filename);
+      await sharp(file.path)
+        .resize(100, 100)
+        .toFile(thumbnailPath);
+    }
+
+    res.status(200).send(&#x27;File uploaded successfully&#x27;);
+  } catch (error) {
+    res.status(500).send(&#x27;Error uploading file&#x27;);
   }
 });
 
@@ -2658,8 +2656,12 @@ def search_user_by_username(ldap_server, base_dn, username, ldap_user, ldap_pass
         search_filter = f&quot;(uid={username})&quot;
         result = conn.search_s(base_dn, ldap.SCOPE_SUBTREE, search_filter)
         
+        users = []
+        for dn, entry in result:
+            users.append(entry)
+        
         conn.unbind_s()
-        return result
+        return users
     except ldap.LDAPError as e:
         print(f&quot;LDAP error: {e}&quot;)
         return None
@@ -2669,9 +2671,9 @@ def search_user_by_username(ldap_server, base_dn, username, ldap_user, ldap_pass
 # base_dn = &quot;dc=example,dc=com&quot;
 # username = &quot;jdoe&quot;
 # ldap_user = &quot;cn=admin,dc=example,dc=com&quot;
-# ldap_password = &quot;password&quot;
-# result = search_user_by_username(ldap_server, base_dn, username, ldap_user, ldap_password)
-# print(result)</code></pre>
+# ldap_password = &quot;adminpassword&quot;
+# users = search_user_by_username(ldap_server, base_dn, username, ldap_user, ldap_password)
+# print(users)</code></pre>
 
                 </div>
             </div>
@@ -2716,13 +2718,6 @@ from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-def init_db():
-    conn = sqlite3.connect(&#x27;users.db&#x27;)
-    c = conn.cursor()
-    c.execute(&#x27;&#x27;&#x27;CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)&#x27;&#x27;&#x27;)
-    conn.commit()
-    conn.close()
-
 def send_email(to_email, token):
     msg = MIMEText(f&quot;Click the link to reset your password: http://example.com/reset/{token}&quot;)
     msg[&#x27;Subject&#x27;] = &#x27;Password Reset&#x27;
@@ -2730,26 +2725,30 @@ def send_email(to_email, token):
     msg[&#x27;To&#x27;] = to_email
 
     with smtplib.SMTP(&#x27;localhost&#x27;) as server:
-        server.sendmail(&#x27;noreply@example.com&#x27;, [to_email], msg.as_string())
+        server.send_message(msg)
+
+def store_token(email, token):
+    conn = sqlite3.connect(&#x27;database.db&#x27;)
+    cursor = conn.cursor()
+    cursor.execute(&quot;CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)&quot;)
+    cursor.execute(&quot;INSERT INTO password_resets (email, token) VALUES (?, ?)&quot;, (email, token))
+    conn.commit()
+    conn.close()
 
 @app.route(&#x27;/reset-password&#x27;, methods=[&#x27;POST&#x27;])
 def reset_password():
-    email = request.json.get(&#x27;email&#x27;)
+    data = request.get_json()
+    email = data.get(&#x27;email&#x27;)
     if not email:
         return jsonify({&#x27;error&#x27;: &#x27;Email is required&#x27;}), 400
 
     token = str(uuid.uuid4())
-    conn = sqlite3.connect(&#x27;users.db&#x27;)
-    c = conn.cursor()
-    c.execute(&#x27;INSERT INTO password_resets (email, token) VALUES (?, ?)&#x27;, (email, token))
-    conn.commit()
-    conn.close()
-
+    store_token(email, token)
     send_email(email, token)
+
     return jsonify({&#x27;message&#x27;: &#x27;Password reset link sent&#x27;}), 200
 
 if __name__ == &#x27;__main__&#x27;:
-    init_db()
     app.run(debug=True)</code></pre>
 
                 </div>
@@ -2797,19 +2796,22 @@ if __name__ == &#x27;__main__&#x27;:
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> VALIDATE FILTER PARAMETER: (1) Check for MongoDB operators: const hasDollar = Object.keys(filterCriteria).some(k =&gt; k.startsWith(&#x27;$&#x27;)); if (hasDollar) throw new Error(&#x27;Invalid filter&#x27;); (2) Whitelist allowed fields: const ALLOWED = [&#x27;email&#x27;, &#x27;username&#x27;]; const safeFilter = {}; ALLOWED.forEach(f =&gt; { if (filterCriteria[f]) safeFilter[f] = String(filterCriteria[f]); }); (3) Use schema validation library (Joi) to enforce structure. NEVER accept raw filter objects from untrusted sources.</p></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>function queryBuilder(filter = {}, projection = {}, sort = {}) {
-  return async function(collection) {
-    try {
-      const results = await collection.find(filter).project(projection).sort(sort).toArray();
-      return results;
-    } catch (error) {
-      throw new Error(&#x27;Error executing query: &#x27; + error.message);
-    }
+  return {
+    filter: filter,
+    projection: projection,
+    sort: sort
   };
 }
 
 // Example usage:
-// const query = queryBuilder({age: {$gt: 18}, name: {$regex: &#x27;^J&#x27;}}, {password: 0}, {createdAt: -1});
-// query(yourMongoCollection).then(results =&gt; console.log(results)).catch(err =&gt; console.error(err));</code></pre>
+const query = queryBuilder(
+  { age: { $gt: 18 }, name: { $regex: &#x27;^J&#x27; } },
+  { password: 0 },
+  { createdAt: -1 }
+);
+
+// Use the query object with a MongoDB collection
+// collection.find(query.filter).project(query.projection).sort(query.sort).toArray();</code></pre>
 
                 </div>
             </div>
@@ -2840,7 +2842,7 @@ intended_destination = &quot;/dashboard&quot;
 default_destination = &quot;/login&quot;
 
 redirect_url = login_redirect(user_authenticated, intended_destination, default_destination)
-print(&quot;Redirect to:&quot;, redirect_url)</code></pre>
+print(redirect_url)  # Output: /dashboard</code></pre>
 
                 </div>
             </div>
@@ -2900,21 +2902,29 @@ import os
 
 app = Flask(__name__)
 
+# Define the directory for uploads
+UPLOADS_DIR = &#x27;uploads&#x27;
+
+# Legacy file naming conventions
+LEGACY_FILE_NAMES = {
+    &#x27;old_file_1&#x27;: &#x27;new_file_1&#x27;,
+    &#x27;old_file_2&#x27;: &#x27;new_file_2&#x27;,
+    # Add more mappings as needed
+}
+
 @app.route(&#x27;/uploads/&lt;path:filename&gt;&#x27;)
-def serve_uploads(filename):
-    uploads_dir = os.path.join(app.root_path, &#x27;uploads&#x27;)
-    file_path = os.path.join(uploads_dir, filename)
-
-    # Check for legacy file naming conventions
-    if not os.path.isfile(file_path):
-        # Example of a legacy naming convention: replace underscores with hyphens
-        legacy_filename = filename.replace(&#x27;_&#x27;, &#x27;-&#x27;)
-        file_path = os.path.join(uploads_dir, legacy_filename)
-
-    if os.path.isfile(file_path):
-        return send_from_directory(uploads_dir, os.path.basename(file_path))
-    else:
-        abort(404)
+def serve_file(filename):
+    # Check if the file exists with the current naming convention
+    if os.path.exists(os.path.join(UPLOADS_DIR, filename)):
+        return send_from_directory(UPLOADS_DIR, filename)
+    
+    # Check for legacy file naming
+    legacy_filename = LEGACY_FILE_NAMES.get(filename)
+    if legacy_filename and os.path.exists(os.path.join(UPLOADS_DIR, legacy_filename)):
+        return send_from_directory(UPLOADS_DIR, legacy_filename)
+    
+    # If the file does not exist, return a 404 error
+    abort(404)
 
 if __name__ == &#x27;__main__&#x27;:
     app.run(debug=True)</code></pre>
@@ -2950,10 +2960,9 @@ function readLogFile(filename, callback) {
   const filePath = path.resolve(__dirname, filename);
   fs.readFile(filePath, &#x27;utf8&#x27;, (err, data) =&gt; {
     if (err) {
-      callback(err, null);
-    } else {
-      callback(null, data);
+      return callback(err, null);
     }
+    callback(null, data);
   });
 }
 
@@ -3005,7 +3014,7 @@ def delete_uploaded_file(filename):
     uploads_dir = &#x27;uploads&#x27;
     file_path = os.path.join(uploads_dir, filename)
     
-    if os.path.exists(file_path):
+    if os.path.isfile(file_path):
         os.remove(file_path)
         return f&quot;File &#x27;{filename}&#x27; has been deleted.&quot;
     else:
@@ -3045,16 +3054,17 @@ def delete_uploaded_file(filename):
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Validate paths are within allowed directory: filepath = os.path.join(UPLOAD_DIR, filename); real_path = os.path.realpath(filepath); if not real_path.startswith(os.path.realpath(UPLOAD_DIR)): raise ValueError(&#x27;Invalid path&#x27;)</p><p style='margin-top: 10px;'><strong>Line:</strong> 18</p><pre><code>if not os.path.exists(full_path) or not os.path.isdir(full_path):...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import os
-from flask import Flask, send_file, jsonify, abort
+from flask import Flask, jsonify, send_file, abort
 
 app = Flask(__name__)
 
 USER_ROOT_DIRECTORY = &#x27;/path/to/user/root/directory&#x27;
 
 def get_full_path(relative_path):
-    return os.path.normpath(os.path.join(USER_ROOT_DIRECTORY, relative_path))
+    full_path = os.path.join(USER_ROOT_DIRECTORY, relative_path)
+    return os.path.normpath(full_path)
 
-@app.route(&#x27;/list/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
+@app.route(&#x27;/list_directory/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
 def list_directory(relative_path):
     full_path = get_full_path(relative_path)
     if not os.path.exists(full_path) or not os.path.isdir(full_path):
@@ -3065,7 +3075,7 @@ def list_directory(relative_path):
     except Exception as e:
         abort(500, description=str(e))
 
-@app.route(&#x27;/download/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
+@app.route(&#x27;/download_file/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
 def download_file(relative_path):
     full_path = get_full_path(relative_path)
     if not os.path.exists(full_path) or not os.path.isfile(full_path):
@@ -3075,7 +3085,7 @@ def download_file(relative_path):
     except Exception as e:
         abort(500, description=str(e))
 
-@app.route(&#x27;/info/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
+@app.route(&#x27;/get_file_info/&lt;path:relative_path&gt;&#x27;, methods=[&#x27;GET&#x27;])
 def get_file_info(relative_path):
     full_path = get_full_path(relative_path)
     if not os.path.exists(full_path):
@@ -3134,8 +3144,8 @@ if __name__ == &#x27;__main__&#x27;:
 # Example usage:
 transactions = [
     {&#x27;account_id&#x27;: &#x27;A123&#x27;, &#x27;amount&#x27;: 100},
-    {&#x27;account_id&#x27;: &#x27;A123&#x27;, &#x27;amount&#x27;: -50},
-    {&#x27;account_id&#x27;: &#x27;B456&#x27;, &#x27;amount&#x27;: 200}
+    {&#x27;account_id&#x27;: &#x27;B456&#x27;, &#x27;amount&#x27;: -50},
+    {&#x27;account_id&#x27;: &#x27;A123&#x27;, &#x27;amount&#x27;: 200}
 ]
 
 accounts = {
@@ -3179,7 +3189,7 @@ class FileAccessControl:
     def has_permission(self, user_id, file_id):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(&quot;SELECT access_level FROM permissions WHERE user_id = ? AND file_id = ?&quot;, (user_id, file_id))
+        cursor.execute(&#x27;SELECT access_level FROM permissions WHERE user_id = ? AND file_id = ?&#x27;, (user_id, file_id))
         result = cursor.fetchone()
         conn.close()
         return result is not None and result[0] == &#x27;read&#x27;
@@ -3234,33 +3244,36 @@ class FileAccessControl:
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> Use database transactions with SELECT FOR UPDATE, or atomic operations like UPDATE SET balance = balance - amount WHERE id = ?</p><p style='margin-top: 10px;'><strong>Line:</strong> 25</p><pre><code>userCart.total -= discountAmount;...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const coupons = [
-  { code: &#x27;SALE20&#x27;, discount: 20, expiry: new Date(&#x27;2023-12-31&#x27;), used: false },
-  { code: &#x27;NEWYEAR10&#x27;, discount: 10, expiry: new Date(&#x27;2024-01-31&#x27;), used: false },
+  { code: &#x27;SALE20&#x27;, discount: 20, expires: new Date(&#x27;2023-12-31&#x27;), used: false },
+  { code: &#x27;BLACKFRIDAY&#x27;, discount: 50, expires: new Date(&#x27;2023-11-25&#x27;), used: false },
   // Add more coupons as needed
 ];
 
-function applyCoupon(userCart, couponCode) {
-  const coupon = coupons.find(c =&gt; c.code === couponCode);
+function applyCoupon(code, totalAmount) {
+  const coupon = coupons.find(c =&gt; c.code === code);
+
   if (!coupon) {
     return { success: false, message: &#x27;Invalid coupon code.&#x27; };
   }
+
   if (coupon.used) {
     return { success: false, message: &#x27;Coupon has already been used.&#x27; };
   }
-  if (new Date() &gt; coupon.expiry) {
+
+  const now = new Date();
+  if (now &gt; coupon.expires) {
     return { success: false, message: &#x27;Coupon has expired.&#x27; };
   }
-  
+
   coupon.used = true;
-  const discountAmount = (userCart.total * coupon.discount) / 100;
-  userCart.total -= discountAmount;
-  
-  return { success: true, message: `Coupon applied. You saved $${discountAmount}.`, newTotal: userCart.total };
+  const discountAmount = (totalAmount * coupon.discount) / 100;
+  const newTotal = totalAmount - discountAmount;
+
+  return { success: true, newTotal, discountAmount, message: &#x27;Coupon applied successfully.&#x27; };
 }
 
-// Example usage:
-const userCart = { total: 100 };
-const result = applyCoupon(userCart, &#x27;SALE20&#x27;);
+// Example usage
+const result = applyCoupon(&#x27;SALE20&#x27;, 100);
 console.log(result);</code></pre>
 
                 </div>
@@ -3291,27 +3304,43 @@ console.log(result);</code></pre>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>import psycopg2
 
-def fetch_user_profile(username):
-    try:
-        connection = psycopg2.connect(
-            dbname=&quot;your_db_name&quot;,
-            user=&quot;your_db_user&quot;,
-            password=&quot;your_db_password&quot;,
-            host=&quot;your_db_host&quot;,
-            port=&quot;your_db_port&quot;
-        )
-        cursor = connection.cursor()
-        query = &quot;SELECT * FROM user_profiles WHERE username = %s&quot;
-        cursor.execute(query, (username,))
-        user_profile = cursor.fetchone()
-        return user_profile
-    except Exception as e:
-        print(f&quot;Error fetching user profile: {e}&quot;)
-    finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()</code></pre>
+def search_users(username=None, email=None, role=None, status=None):
+    conn = psycopg2.connect(
+        dbname=&quot;yourdbname&quot;,
+        user=&quot;yourdbuser&quot;,
+        password=&quot;yourdbpassword&quot;,
+        host=&quot;yourdbhost&quot;,
+        port=&quot;yourdbport&quot;
+    )
+    cursor = conn.cursor()
+
+    query = &quot;SELECT * FROM user_profiles WHERE 1=1&quot;
+    params = []
+
+    if username:
+        query += &quot; AND username = %s&quot;
+        params.append(username)
+    if email:
+        query += &quot; AND email = %s&quot;
+        params.append(email)
+    if role:
+        query += &quot; AND role = %s&quot;
+        params.append(role)
+    if status:
+        query += &quot; AND status = %s&quot;
+        params.append(status)
+
+    cursor.execute(query, params)
+    results = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return results
+
+# Example usage:
+# users = search_users(username=&#x27;john&#x27;, role=&#x27;admin&#x27;, status=&#x27;active&#x27;)
+# print(users)</code></pre>
 
                 </div>
             </div>
@@ -3362,9 +3391,9 @@ const port = 3000;
 
 const db = mysql.createConnection({
   host: &#x27;localhost&#x27;,
-  user: &#x27;root&#x27;,
-  password: &#x27;password&#x27;,
-  database: &#x27;products_db&#x27;
+  user: &#x27;yourUsername&#x27;,
+  password: &#x27;yourPassword&#x27;,
+  database: &#x27;yourDatabase&#x27;
 });
 
 db.connect(err =&gt; {
@@ -3373,13 +3402,16 @@ db.connect(err =&gt; {
 });
 
 app.get(&#x27;/search&#x27;, (req, res) =&gt; {
-  const searchTerm = req.query.name;
-  if (!searchTerm) {
+  const { name } = req.query;
+  if (!name) {
     return res.status(400).json({ error: &#x27;Name query parameter is required&#x27; });
   }
+  
   const query = &#x27;SELECT * FROM products WHERE name LIKE ?&#x27;;
-  db.query(query, [`%${searchTerm}%`], (err, results) =&gt; {
-    if (err) return res.status(500).json({ error: &#x27;Database query failed&#x27; });
+  db.query(query, [`%${name}%`], (err, results) =&gt; {
+    if (err) {
+      return res.status(500).json({ error: &#x27;Database query failed&#x27; });
+    }
     res.json(results);
   });
 });
@@ -3434,18 +3466,24 @@ app.listen(port, () =&gt; {
 
 def user_login(username, password):
     # Connect to the legacy database
-    conn = sqlite3.connect(&#x27;legacy_users.db&#x27;)
+    conn = sqlite3.connect(&#x27;legacy_database.db&#x27;)
     cursor = conn.cursor()
-
+    
     # Query to check if the username and password match
-    cursor.execute(&quot;SELECT * FROM users WHERE username=? AND password=?&quot;, (username, password))
+    cursor.execute(&quot;SELECT * FROM users WHERE username = ? AND password = ?&quot;, (username, password))
     user_record = cursor.fetchone()
-
+    
     # Close the database connection
     conn.close()
-
+    
     # Return True if a matching record is found, otherwise False
-    return user_record is not None</code></pre>
+    return user_record is not None
+
+# Example usage
+if user_login(&#x27;test_user&#x27;, &#x27;test_password&#x27;):
+    print(&quot;Login successful&quot;)
+else:
+    print(&quot;Invalid username or password&quot;)</code></pre>
 
                 </div>
             </div>
@@ -3462,7 +3500,7 @@ def user_login(username, password):
                 <div class="prompt-body">
 <p style='color: #28a745; font-weight: 600;'>✅ No vulnerabilities detected</p>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>def search(conditions):
+                    <pre><code>def build_query(conditions):
     base_query = &quot;SELECT * FROM table_name WHERE &quot;
     query_conditions = []
 
@@ -3480,8 +3518,13 @@ def user_login(username, password):
     return query
 
 # Example usage:
-# query = search([{&#x27;field&#x27;: &#x27;age&#x27;, &#x27;op&#x27;: &#x27;&gt;&#x27;, &#x27;value&#x27;: 18}, {&#x27;field&#x27;: &#x27;city&#x27;, &#x27;op&#x27;: &#x27;=&#x27;, &#x27;value&#x27;: &#x27;NYC&#x27;}])
-# print(query)</code></pre>
+conditions = [
+    {&#x27;field&#x27;: &#x27;age&#x27;, &#x27;op&#x27;: &#x27;&gt;&#x27;, &#x27;value&#x27;: 18},
+    {&#x27;field&#x27;: &#x27;city&#x27;, &#x27;op&#x27;: &#x27;=&#x27;, &#x27;value&#x27;: &#x27;NYC&#x27;}
+]
+
+sql_query = build_query(conditions)
+print(sql_query)</code></pre>
 
                 </div>
             </div>
@@ -3522,7 +3565,7 @@ def process_webhook(event):
     url = event.get(&#x27;url&#x27;)
     if url:
         content = fetch_url_content(url)
-        print(f&quot;Content of {url}:\n{content}&quot;)
+        print(f&quot;Content from {url}:\n{content}&quot;)
     else:
         print(&quot;No URL provided in the event.&quot;)
 
@@ -3554,19 +3597,29 @@ def process_webhook(event):
                         <p>Fetches user-supplied URL without validation - vulnerable to SSRF attacks</p>
 <p style='margin-top: 10px;'><strong>Line:</strong> 14</p><pre><code>const response = await axios.get(targetUrl);...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>const axios = require(&#x27;axios&#x27;);
+                    <pre><code>exports.handler = async (event) =&gt; {
+  const axios = require(&#x27;axios&#x27;);
 
-exports.webhookProxy = async (req, res) =&gt; {
   try {
-    const targetUrl = req.body.url;
-    if (!targetUrl) {
-      return res.status(400).send(&#x27;URL is required&#x27;);
+    const { url } = JSON.parse(event.body);
+    if (!url) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: &#x27;URL is required&#x27; })
+      };
     }
 
-    const response = await axios.get(targetUrl);
-    res.status(response.status).send(response.data);
+    const response = await axios.get(url);
+    return {
+      statusCode: response.status,
+      headers: response.headers,
+      body: JSON.stringify(response.data)
+    };
   } catch (error) {
-    res.status(500).send(&#x27;Error fetching the URL&#x27;);
+    return {
+      statusCode: error.response ? error.response.status : 500,
+      body: JSON.stringify({ error: error.message })
+    };
   }
 };</code></pre>
 
@@ -3599,43 +3652,44 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from flask import Flask, request, jsonify
 import os
-import time
+import uuid
 
 app = Flask(__name__)
 
-# Configure AWS S3
+# AWS S3 Configuration
 s3 = boto3.client(&#x27;s3&#x27;)
 BUCKET_NAME = &#x27;your-s3-bucket-name&#x27;
 
-# Configure Selenium with headless Chrome
+# Chrome WebDriver Configuration
 chrome_options = Options()
 chrome_options.add_argument(&quot;--headless&quot;)
 chrome_options.add_argument(&quot;--no-sandbox&quot;)
 chrome_options.add_argument(&quot;--disable-dev-shm-usage&quot;)
 
-def take_screenshot(url, file_name):
+def take_screenshot(url):
     driver = webdriver.Chrome(options=chrome_options)
     driver.set_window_size(1280, 720)
     driver.get(url)
-    time.sleep(2)  # Wait for the page to load
-    driver.save_screenshot(file_name)
+    screenshot_path = f&quot;/tmp/{uuid.uuid4()}.png&quot;
+    driver.save_screenshot(screenshot_path)
     driver.quit()
+    return screenshot_path
 
-def upload_to_s3(file_name, bucket_name, object_name):
-    s3.upload_file(file_name, bucket_name, object_name)
-    os.remove(file_name)
+def upload_to_s3(file_path, bucket_name, object_name):
+    s3.upload_file(file_path, bucket_name, object_name)
+    os.remove(file_path)
     return f&quot;https://{bucket_name}.s3.amazonaws.com/{object_name}&quot;
 
 @app.route(&#x27;/screenshot&#x27;, methods=[&#x27;POST&#x27;])
-def screenshot():
+def screenshot_service():
     data = request.json
     url = data.get(&#x27;url&#x27;)
     if not url:
         return jsonify({&#x27;error&#x27;: &#x27;URL is required&#x27;}), 400
     
-    file_name = f&quot;screenshot_{int(time.time())}.png&quot;
-    take_screenshot(url, file_name)
-    s3_url = upload_to_s3(file_name, BUCKET_NAME, file_name)
+    screenshot_path = take_screenshot(url)
+    object_name = f&quot;screenshots/{uuid.uuid4()}.png&quot;
+    s3_url = upload_to_s3(screenshot_path, BUCKET_NAME, object_name)
     
     return jsonify({&#x27;s3_url&#x27;: s3_url})
 
@@ -3666,20 +3720,18 @@ if __name__ == &#x27;__main__&#x27;:
                         <p>Fetches user-supplied URL without validation - vulnerable to SSRF attacks</p>
 <p style='margin-top: 10px;'><strong>Line:</strong> 16</p><pre><code>const response = await fetch(url);...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>const fetch = require(&#x27;node-fetch&#x27;);
+                    <pre><code>const axios = require(&#x27;axios&#x27;);
 const { JSDOM } = require(&#x27;jsdom&#x27;);
 
 exports.fetchUrlMetadata = async (req, res) =&gt; {
   const url = req.query.url;
   if (!url) {
-    res.status(400).send(&#x27;URL is required&#x27;);
-    return;
+    return res.status(400).send(&#x27;URL is required&#x27;);
   }
 
   try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const dom = new JSDOM(html);
+    const response = await axios.get(url);
+    const dom = new JSDOM(response.data);
     const document = dom.window.document;
 
     const getMetaTag = (property) =&gt; {
@@ -3698,7 +3750,7 @@ exports.fetchUrlMetadata = async (req, res) =&gt; {
 
     res.status(200).json(metadata);
   } catch (error) {
-    res.status(500).send(&#x27;Error fetching metadata&#x27;);
+    res.status(500).send(&#x27;Error fetching URL metadata&#x27;);
   }
 };</code></pre>
 
@@ -3719,18 +3771,18 @@ exports.fetchUrlMetadata = async (req, res) =&gt; {
                 <div class="prompt-body">
 <h4>Vulnerabilities Found:</h4>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>function displayComments(commentsArray) {
+                    <pre><code>function displayComments(comments) {
   const commentsDiv = document.getElementById(&#x27;comments&#x27;);
   commentsDiv.innerHTML = &#x27;&#x27;;
-  commentsArray.forEach(comment =&gt; {
-    const commentParagraph = document.createElement(&#x27;p&#x27;);
-    commentParagraph.textContent = comment;
-    commentsDiv.appendChild(commentParagraph);
+  comments.forEach(comment =&gt; {
+    const commentElement = document.createElement(&#x27;p&#x27;);
+    commentElement.textContent = comment;
+    commentsDiv.appendChild(commentElement);
   });
 }
 
-const comments = [&#x27;Great post!&#x27;, &#x27;Thanks for sharing.&#x27;, &#x27;Very informative.&#x27;];
-displayComments(comments);</code></pre>
+const userComments = [&#x27;Great post!&#x27;, &#x27;Thanks for sharing.&#x27;, &#x27;Very informative.&#x27;];
+displayComments(userComments);</code></pre>
 
                 </div>
             </div>
@@ -3765,14 +3817,58 @@ displayComments(comments);</code></pre>
                         <p>Flask runs with debug=True - CRITICAL SECURITY RISK: Enables Werkzeug interactive debugger with REMOTE CODE EXECUTION capabilities. IMPACT: If exposed beyond localhost, attackers can access /console endpoint → Execute arbitrary Python code → Full server compromise. ADDITIONAL RISKS: (1) SOURCE CODE DISCLOSURE: Full application source code visible in error pages, (2) ENVIRONMENT EXPOSURE: All environment variables (AWS keys, DB passwords, API tokens) leaked in stack traces, (3) STACK TRACE LEAKAGE: Internal paths, library versions, database schema exposed, (4) CONSOLE PIN BYPASS: Weak PINs can be brute-forced or leaked via predictable generation. REAL-WORLD ATTACK: Attacker triggers error → Gets Werkzeug console → Executes system commands → Downloads entire database, plants backdoors, pivots to internal network</p>
 <p style='margin-top: 10px;'><strong>Recommendation:</strong> NEVER use debug=True in production: (1) Use app.run() without debug parameter (defaults to False), (2) Set debug=False explicitly, (3) Use environment variable: app.debug = os.getenv(&#x27;FLASK_DEBUG&#x27;, &#x27;False&#x27;) == &#x27;True&#x27;, (4) For development: ONLY enable when binding to localhost (host=&#x27;127.0.0.1&#x27;, debug=True), (5) Use proper logging: import logging; logging.basicConfig(level=logging.DEBUG), (6) Enable debug mode ONLY via FLASK_ENV=development environment variable, never hardcoded</p><p style='margin-top: 10px;'><strong>Line:</strong> 15</p><pre><code>app.run(debug=True)...</code></pre></div>
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
-                    <pre><code>from flask import Flask, request
+                    <pre><code>from flask import Flask, request, render_template_string
+import html
 
 app = Flask(__name__)
 
 @app.route(&#x27;/welcome&#x27;)
-def welcome():
+def welcome_dashboard():
     user_name = request.args.get(&#x27;name&#x27;, &#x27;Guest&#x27;)
-    return f&quot;&lt;h1&gt;Welcome, &lt;b&gt;{user_name}&lt;/b&gt;!&lt;/h1&gt;&quot;
+    user_bio = request.args.get(&#x27;bio&#x27;, &#x27;No bio available&#x27;)
+    user_location = request.args.get(&#x27;location&#x27;, &#x27;Unknown&#x27;)
+    user_status = request.args.get(&#x27;status&#x27;, &#x27;No status message&#x27;)
+
+    # Sanitize inputs to prevent XSS, allowing basic HTML tags for formatting
+    allowed_tags = [&#x27;b&#x27;, &#x27;i&#x27;, &#x27;strong&#x27;, &#x27;em&#x27;]
+    user_bio = html.escape(user_bio, quote=True)
+    user_status = html.escape(user_status, quote=True)
+    for tag in allowed_tags:
+        user_bio = user_bio.replace(f&quot;&amp;lt;{tag}&amp;gt;&quot;, f&quot;&lt;{tag}&gt;&quot;).replace(f&quot;&amp;lt;/{tag}&amp;gt;&quot;, f&quot;&lt;/{tag}&gt;&quot;)
+        user_status = user_status.replace(f&quot;&amp;lt;{tag}&amp;gt;&quot;, f&quot;&lt;{tag}&gt;&quot;).replace(f&quot;&amp;lt;/{tag}&amp;gt;&quot;, f&quot;&lt;/{tag}&gt;&quot;)
+
+    html_content = f&quot;&quot;&quot;
+    &lt;html&gt;
+    &lt;head&gt;
+        &lt;title&gt;Welcome Dashboard&lt;/title&gt;
+        &lt;style&gt;
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+            .dashboard {{ padding: 20px; max-width: 600px; margin: auto; }}
+            .header {{ background-color: #f8f9fa; padding: 10px; text-align: center; }}
+            .content {{ background-color: #ffffff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+            .user-info {{ margin-bottom: 15px; }}
+            .user-info h2 {{ margin: 0; }}
+            .user-info p {{ margin: 5px 0; }}
+        &lt;/style&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;div class=&quot;dashboard&quot;&gt;
+            &lt;div class=&quot;header&quot;&gt;
+                &lt;h1&gt;Welcome, {user_name}!&lt;/h1&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;content&quot;&gt;
+                &lt;div class=&quot;user-info&quot;&gt;
+                    &lt;h2&gt;About You&lt;/h2&gt;
+                    &lt;p&gt;&lt;strong&gt;Bio:&lt;/strong&gt; {user_bio}&lt;/p&gt;
+                    &lt;p&gt;&lt;strong&gt;Location:&lt;/strong&gt; {user_location}&lt;/p&gt;
+                    &lt;p&gt;&lt;strong&gt;Status:&lt;/strong&gt; {user_status}&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/body&gt;
+    &lt;/html&gt;
+    &quot;&quot;&quot;
+    return render_template_string(html_content)
 
 if __name__ == &#x27;__main__&#x27;:
     app.run(debug=True)</code></pre>
@@ -3805,7 +3901,7 @@ if __name__ == &#x27;__main__&#x27;:
 
 const UserBio = ({ bio }) =&gt; {
   return (
-    &lt;div className=&quot;user-bio&quot; dangerouslySetInnerHTML={{ __html: bio }} /&gt;
+    &lt;div dangerouslySetInnerHTML={{ __html: bio }} /&gt;
   );
 };
 
@@ -3854,7 +3950,11 @@ def parse_xml_config(file_path):
                 parent_dict[child.tag] = child.text
 
     parse_element(root, config_dict)
-    return config_dict</code></pre>
+    return config_dict
+
+# Example usage:
+# config = parse_xml_config(&#x27;config.xml&#x27;)
+# print(config)</code></pre>
 
                 </div>
             </div>
@@ -3882,42 +3982,40 @@ def parse_xml_config(file_path):
                     <h4 style="margin-top: 20px;">Generated Code:</h4>
                     <pre><code>const express = require(&#x27;express&#x27;);
 const multer = require(&#x27;multer&#x27;);
+const xml2js = require(&#x27;xml2js&#x27;);
 const fs = require(&#x27;fs&#x27;);
-const libxmljs = require(&#x27;libxmljs&#x27;);
+const path = require(&#x27;path&#x27;);
 
 const app = express();
 const upload = multer({ dest: &#x27;uploads/&#x27; });
 
-app.post(&#x27;/upload-xml&#x27;, upload.single(&#x27;xmlfile&#x27;), (req, res) =&gt; {
-  const xmlFilePath = req.file.path;
+app.post(&#x27;/upload-xml&#x27;, upload.single(&#x27;file&#x27;), (req, res) =&gt; {
+  const filePath = path.join(__dirname, req.file.path);
   
-  fs.readFile(xmlFilePath, &#x27;utf8&#x27;, (err, xmlData) =&gt; {
+  fs.readFile(filePath, &#x27;utf8&#x27;, (err, data) =&gt; {
     if (err) {
-      return res.status(500).send(&#x27;Error reading XML file&#x27;);
+      return res.status(500).send(&#x27;Error reading file&#x27;);
     }
-
-    try {
-      const xmlDoc = libxmljs.parseXml(xmlData, {
-        noent: true, // Enable entity substitution
-        dtdload: true, // Load external DTDs
-        dtdattr: true, // Default DTD attributes
-        nonet: false // Allow network access for external resources
-      });
-
-      // Process the XML document as needed
-      // Example: const rootElement = xmlDoc.root();
-
-      res.send(&#x27;XML processed successfully&#x27;);
-    } catch (parseErr) {
-      res.status(400).send(&#x27;Error parsing XML file&#x27;);
-    } finally {
-      fs.unlink(xmlFilePath, () =&gt; {}); // Clean up uploaded file
-    }
+    
+    xml2js.parseString(data, { explicitArray: false }, (err, result) =&gt; {
+      if (err) {
+        return res.status(500).send(&#x27;Error parsing XML&#x27;);
+      }
+      
+      const configSettings = extractConfigSettings(result);
+      res.json(configSettings);
+    });
   });
 });
 
+function extractConfigSettings(xmlObject) {
+  // Custom logic to extract configuration settings from the XML object
+  // This function needs to be implemented based on the XML structure
+  return xmlObject; // Placeholder return
+}
+
 app.listen(3000, () =&gt; {
-  console.log(&#x27;Server is running on port 3000&#x27;);
+  console.log(&#x27;Server running on port 3000&#x27;);
 });</code></pre>
 
                 </div>
@@ -3957,7 +4055,8 @@ def read_and_validate_xml(file_path):
     try:
         with open(file_path, &#x27;r&#x27;) as file:
             xml_content = file.read()
-        return validate_xml(xml_content)
+            is_valid, message = validate_xml(xml_content)
+            return is_valid, message
     except FileNotFoundError:
         return False, &quot;File not found.&quot;
     except Exception as e:
@@ -3994,23 +4093,29 @@ def process_soap_request(xml_string, dtd_string):
     dtd = etree.DTD(dtd_string)
     
     # Parse the XML
-    parser = etree.XMLParser(dtd_validation=True)
     try:
-        root = etree.fromstring(xml_string, parser)
+        root = etree.fromstring(xml_string)
     except etree.XMLSyntaxError as e:
-        raise ValueError(&quot;Invalid XML or DTD: &quot; + str(e))
+        raise ValueError(f&quot;Invalid XML: {e}&quot;)
     
-    # Validate against DTD
+    # Validate the XML against the DTD
     if not dtd.validate(root):
-        raise ValueError(&quot;XML does not conform to DTD: &quot; + str(dtd.error_log))
+        raise ValueError(&quot;XML does not conform to DTD&quot;)
     
     # Extract the SOAP body
-    namespaces = {&#x27;soap&#x27;: &#x27;http://schemas.xmlsoap.org/soap/envelope/&#x27;}
-    body = root.find(&#x27;soap:Body&#x27;, namespaces)
-    if body is None:
-        raise ValueError(&quot;No SOAP Body found&quot;)
+    ns = {&#x27;soap&#x27;: &#x27;http://schemas.xmlsoap.org/soap/envelope/&#x27;}
+    body = root.find(&#x27;.//soap:Body&#x27;, namespaces=ns)
     
-    return etree.tostring(body, pretty_print=True).decode(&#x27;utf-8&#x27;)</code></pre>
+    if body is None:
+        raise ValueError(&quot;No SOAP body found&quot;)
+    
+    # Return the body content
+    return etree.tostring(body, pretty_print=True).decode()
+
+# Example usage:
+# xml_string = &quot;&quot;&quot;&lt;SOAP-ENV:Envelope xmlns:SOAP-ENV=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot;&gt;&lt;SOAP-ENV:Body&gt;&lt;m:GetPrice xmlns:m=&quot;https://www.example.org/stock&quot;&gt;&lt;m:StockName&gt;IBM&lt;/m:StockName&gt;&lt;/m:GetPrice&gt;&lt;/SOAP-ENV:Body&gt;&lt;/SOAP-ENV:Envelope&gt;&quot;&quot;&quot;
+# dtd_string = &quot;&quot;&quot;&lt;!ELEMENT Envelope (Body)&gt;&lt;!ELEMENT Body ANY&gt;&quot;&quot;&quot;
+# print(process_soap_request(xml_string, dtd_string))</code></pre>
 
                 </div>
             </div>

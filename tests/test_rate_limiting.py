@@ -57,9 +57,6 @@ class RateLimitingDetector:
 
                 if is_sensitive and not has_rate_limit:
                     # Extract method if specified
-                    methods_match = re.search(r'methods\s*=\s*\[([^\]]+)\]', route)
-                    methods = methods_match.group(1) if methods_match else 'GET'
-
                     # Get line number for the route
                     line_num = code[:route_pos].count('\n') + 1
 

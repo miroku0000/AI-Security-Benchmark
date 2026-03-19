@@ -365,4 +365,4 @@ if __name__ == "__main__":
     test_csrf_python_secure()
     test_csrf_javascript_vulnerable()
     test_csrf_javascript_secure()
-    print("✅ All CSRF detection tests passed!")
+    print("All CSRF detection tests passed!")
