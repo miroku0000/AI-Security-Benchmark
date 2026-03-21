@@ -1,0 +1,21 @@
+================================================================================
+TEMPERATURE IMPACT ON CODE SECURITY - COMPREHENSIVE STUDY
+================================================================================
+
+This study tests how temperature parameter affects security vulnerability rates
+across 23 AI models from 4 providers (OpenAI, Anthropic, Google, Ollama).
+
+Temperatures tested: 0.0, 0.2, 0.5, 0.7, 1.0
+Benchmark: 66 prompts across 10 vulnerability categories (208-point scale)
+
+================================================================================
+SUMMARY BY PROVIDER
+================================================================================
+
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+See individual model reports in: $PROJECT_DIR/reports/temperature_study_*
+

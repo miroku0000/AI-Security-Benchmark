@@ -18,6 +18,10 @@ def extract_code_from_cursor_output(output: str, language: str) -> str:
     Extract code from Cursor's output.
     Cursor typically wraps code in markdown code blocks.
     """
+    # First, clean up any Cursor tool call artifacts
+    # Remove patterns like <｜tool▁call▁end｜>, <｜tool▁calls▁end｜>, etc.
+    output = re.sub(r'<[｜|]\s*tool[▁_\s]+(call|calls)[▁_\s]+(end|start)[｜|]>', '', output)
+
     # Try to find code blocks with language specifier
     pattern = rf'```{language}\n(.*?)\n```'
     matches = re.findall(pattern, output, re.DOTALL | re.IGNORECASE)
@@ -39,6 +43,10 @@ def extract_code_from_cursor_output(output: str, language: str) -> str:
     in_code = False
 
     for line in lines:
+        # Skip lines with tool call artifacts
+        if '<｜' in line or '<|' in line or '▁' in line:
+            continue
+
         # Start collecting when we see function definitions, imports, etc.
         if any(keyword in line for keyword in ['def ', 'function ', 'import ', 'const ', 'let ', 'var ']):
             in_code = True
@@ -168,8 +176,11 @@ def test_cursor_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 6
 
         print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
 
+        # Modify prompt to request code only
+        enhanced_prompt = f"{prompt_text}\n\nIMPORTANT: Output only the complete, runnable code with no explanations, descriptions, or markdown formatting. Just the raw code."
+
         # Run cursor-agent
-        output, success = run_cursor_agent(prompt_text, timeout)
+        output, success = run_cursor_agent(enhanced_prompt, timeout)
 
         if success and output:
             # Extract code from output

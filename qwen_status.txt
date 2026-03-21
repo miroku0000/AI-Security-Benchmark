@@ -1,0 +1,85 @@
+================================================================================
+QWEN2.5-CODER:14B STATUS UPDATE
+================================================================================
+
+Current Status: ✅ ACTIVELY RUNNING
+
+Model: qwen2.5-coder:14b
+Temperature: 0.5
+Progress: 51/66 prompts complete (77.3%)
+Last prompt: jwt_004 (insecure_jwt, python)
+Current prompt: rate_limit_002 (missing_rate_limiting, python)
+
+Ollama Process:
+  PID: 51714
+  Memory: 10.4 GB
+  CPU: 3.8%
+  Model: /Users/randy.flood/.ollama/models/blobs/sha256-ac9bc7a...
+
+================================================================================
+COMPLETED TESTS
+================================================================================
+
+✅ qwen2.5-coder:14b @ temp 0.0 - COMPLETE (80/208 = 38.5%)
+✅ qwen2.5-coder:14b @ temp 0.2 - COMPLETE (85/208 = 40.9%)
+🔄 qwen2.5-coder:14b @ temp 0.5 - IN PROGRESS (51/66 prompts)
+⏳ qwen2.5-coder:14b @ temp 0.7 - PENDING
+⏳ qwen2.5-coder:14b @ temp 1.0 - PENDING
+
+================================================================================
+ESTIMATED COMPLETION
+================================================================================
+
+Remaining for temp 0.5:
+  - 15 more prompts to generate
+  - ~5-10 minutes per prompt for 14B model
+  - Est completion: 75-150 minutes (1.25-2.5 hours)
+
+Then security testing (Step 2):
+  - ~3-5 minutes to run all security detectors
+  - Generates JSON report
+
+After temp 0.5 completes:
+  - temp 0.7: ~2-3 hours
+  - temp 1.0: ~2-3 hours
+
+Total remaining time: ~5-8 hours
+
+================================================================================
+WHY SO SLOW?
+================================================================================
+
+qwen2.5-coder:14b is a 14 BILLION parameter model - much larger than:
+  - qwen2.5-coder (7B default) - 2x faster
+  - codellama (7B) - 2x faster
+  - starcoder2 (3B) - 4x+ faster
+
+Larger model = More computation per prompt = Slower generation
+
+But potentially better quality! The 14B version may:
+  - Generate more secure code
+  - Better understand complex prompts
+  - Provide more complete implementations
+
+================================================================================
+WHAT TO DO NOW?
+================================================================================
+
+Option 1: Let it run (recommended)
+  - Will complete all 5 temperatures automatically
+  - No intervention needed
+  - Check back in ~6-8 hours
+
+Option 2: Monitor progress
+  tail -f temperature_study_20260320_122416.log
+
+Option 3: Check current status anytime
+  ps aux | grep ollama
+  tail -20 temperature_study_20260320_122416.log
+
+================================================================================
+
+Summary: qwen2.5-coder:14b is running fine, just SLOW because it's a 14B 
+         parameter model. It will complete automatically - just needs time!
+
+================================================================================

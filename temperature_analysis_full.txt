@@ -1,0 +1,238 @@
+================================================================================
+TEMPERATURE STUDY RESULTS ANALYSIS
+================================================================================
+Total reports found: 72
+
+================================================================================
+RESULTS BY MODEL
+================================================================================
+
+claude-opus-4-6
+--------------------------------------------------------------------------------
+  Temp 0.0: 131/208 (63.0%)
+  Temp 0.5: 135/208 (64.9%)
+  Temp 0.7: 125/208 (60.1%)
+  Temp 1.0: 140/208 (67.3%)
+  Variation: 7.2 percentage points (range: 60.1% - 67.3%)
+  Average: 63.8%
+
+claude-sonnet-4-5
+--------------------------------------------------------------------------------
+  Temp 0.0: 89/208 (42.8%)
+  Temp 0.5: 92/208 (44.2%)
+  Temp 0.7: 84/208 (40.4%)
+  Temp 1.0: 92/208 (44.2%)
+  Variation: 3.8 percentage points (range: 40.4% - 44.2%)
+  Average: 42.9%
+
+codegemma
+--------------------------------------------------------------------------------
+  Temp 0.0: 101/208 (48.6%)
+  Temp 0.5: 110/208 (52.9%)
+  Temp 0.7: 107/208 (51.4%)
+  Temp 1.0: 96/208 (46.2%)
+  Variation: 6.7 percentage points (range: 46.2% - 52.9%)
+  Average: 49.8%
+
+codellama
+--------------------------------------------------------------------------------
+  Temp 0.0: 122/208 (58.7%)
+  Temp 0.5: 112/208 (53.8%)
+  Temp 0.7: 111/208 (53.4%)
+  Temp 1.0: 123/208 (59.1%)
+  Variation: 5.8 percentage points (range: 53.4% - 59.1%)
+  Average: 56.2%
+
+deepseek-coder
+--------------------------------------------------------------------------------
+  Temp 0.0: 143/208 (68.8%)
+  Temp 0.5: 141/208 (67.8%)
+  Temp 0.7: 150/208 (72.1%)
+  Temp 1.0: 152/208 (73.1%)
+  Variation: 5.3 percentage points (range: 67.8% - 73.1%)
+  Average: 70.4%
+
+deepseek-coder_6.7b-instruct
+--------------------------------------------------------------------------------
+  Temp 0.0: 108/208 (51.9%)
+  Temp 0.5: 107/208 (51.4%)
+  Temp 0.7: 99/208 (47.6%)
+  Temp 1.0: 96/208 (46.2%)
+  Variation: 5.8 percentage points (range: 46.2% - 51.9%)
+  Average: 49.3%
+
+gemini-2.5-flash
+--------------------------------------------------------------------------------
+  Temp 0.0: 121/208 (58.2%)
+  Temp 0.5: 114/208 (54.8%)
+  Temp 0.7: 124/208 (59.6%)
+  Temp 1.0: 123/208 (59.1%)
+  Variation: 4.8 percentage points (range: 54.8% - 59.6%)
+  Average: 57.9%
+
+gpt-3.5-turbo
+--------------------------------------------------------------------------------
+  Temp 0.0: 92/208 (44.2%)
+  Temp 0.5: 92/208 (44.2%)
+  Temp 0.7: 96/208 (46.2%)
+  Temp 1.0: 95/208 (45.7%)
+  Variation: 1.9 percentage points (range: 44.2% - 46.2%)
+  Average: 45.1%
+
+gpt-4
+--------------------------------------------------------------------------------
+  Temp 0.0: 91/208 (43.8%)
+  Temp 0.5: 95/208 (45.7%)
+  Temp 0.7: 87/208 (41.8%)
+  Temp 1.0: 96/208 (46.2%)
+  Variation: 4.3 percentage points (range: 41.8% - 46.2%)
+  Average: 44.4%
+
+gpt-4o
+--------------------------------------------------------------------------------
+  Temp 0.0: 91/208 (43.8%)
+  Temp 0.5: 94/208 (45.2%)
+  Temp 0.7: 98/208 (47.1%)
+  Temp 1.0: 93/208 (44.7%)
+  Variation: 3.4 percentage points (range: 43.8% - 47.1%)
+  Average: 45.2%
+
+gpt-4o-mini
+--------------------------------------------------------------------------------
+  Temp 0.0: 98/208 (47.1%)
+  Temp 0.5: 90/208 (43.3%)
+  Temp 0.7: 98/208 (47.1%)
+  Temp 1.0: 97/208 (46.6%)
+  Variation: 3.8 percentage points (range: 43.3% - 47.1%)
+  Average: 46.0%
+
+gpt-5.2
+--------------------------------------------------------------------------------
+  Temp 0.0: 153/208 (73.6%)
+  Temp 0.5: 147/208 (70.7%)
+  Temp 0.7: 149/208 (71.6%)
+  Variation: 2.9 percentage points (range: 70.7% - 73.6%)
+  Average: 72.0%
+
+gpt-5.4
+--------------------------------------------------------------------------------
+  Temp 0.0: 129/208 (62.0%)
+  Temp 0.5: 123/208 (59.1%)
+  Temp 0.7: 129/208 (62.0%)
+  Temp 1.0: 121/208 (58.2%)
+  Variation: 3.8 percentage points (range: 58.2% - 62.0%)
+  Average: 60.3%
+
+gpt-5.4-mini
+--------------------------------------------------------------------------------
+  Temp 0.0: 114/208 (54.8%)
+  Temp 0.5: 127/208 (61.1%)
+  Temp 0.7: 121/208 (58.2%)
+  Temp 1.0: 127/208 (61.1%)
+  Variation: 6.2 percentage points (range: 54.8% - 61.1%)
+  Average: 58.8%
+
+llama3.1
+--------------------------------------------------------------------------------
+  Temp 0.0: 102/208 (49.0%)
+  Temp 0.5: 101/208 (48.6%)
+  Temp 0.7: 109/208 (52.4%)
+  Temp 1.0: 110/208 (52.9%)
+  Variation: 4.3 percentage points (range: 48.6% - 52.9%)
+  Average: 50.7%
+
+mistral
+--------------------------------------------------------------------------------
+  Temp 0.0: 104/208 (50.0%)
+  Temp 0.5: 104/208 (50.0%)
+  Temp 0.7: 101/208 (48.6%)
+  Temp 1.0: 93/208 (44.7%)
+  Variation: 5.3 percentage points (range: 44.7% - 50.0%)
+  Average: 48.3%
+
+qwen2.5-coder
+--------------------------------------------------------------------------------
+  Temp 0.0: 92/208 (44.2%)
+  Temp 0.5: 96/208 (46.2%)
+  Temp 0.7: 91/208 (43.8%)
+  Temp 1.0: 88/208 (42.3%)
+  Variation: 3.8 percentage points (range: 42.3% - 46.2%)
+  Average: 44.1%
+
+starcoder2
+--------------------------------------------------------------------------------
+  Temp 0.0: 132/208 (63.5%)
+  Temp 0.5: 149/208 (71.6%)
+  Temp 0.7: 156/208 (75.0%)
+  Temp 1.0: 168/208 (80.8%)
+  Variation: 17.3 percentage points (range: 63.5% - 80.8%)
+  Average: 72.7%
+
+================================================================================
+TEMPERATURE SENSITIVITY RANKING
+================================================================================
+(Models with largest variation across temperatures)
+
+Rank   Model                               Variation    Range                     Tests
+--------------------------------------------------------------------------------
+1      starcoder2                            17.3 pp     63.5% -  80.8%    4 temps
+2      claude-opus-4-6                        7.2 pp     60.1% -  67.3%    4 temps
+3      codegemma                              6.7 pp     46.2% -  52.9%    4 temps
+4      gpt-5.4-mini                           6.2 pp     54.8% -  61.1%    4 temps
+5      codellama                              5.8 pp     53.4% -  59.1%    4 temps
+6      deepseek-coder_6.7b-instruct           5.8 pp     46.2% -  51.9%    4 temps
+7      mistral                                5.3 pp     44.7% -  50.0%    4 temps
+8      deepseek-coder                         5.3 pp     67.8% -  73.1%    4 temps
+9      gemini-2.5-flash                       4.8 pp     54.8% -  59.6%    4 temps
+10     llama3.1                               4.3 pp     48.6% -  52.9%    4 temps
+11     gpt-4                                  4.3 pp     41.8% -  46.2%    4 temps
+12     gpt-5.4                                3.8 pp     58.2% -  62.0%    4 temps
+13     qwen2.5-coder                          3.8 pp     42.3% -  46.2%    4 temps
+14     claude-sonnet-4-5                      3.8 pp     40.4% -  44.2%    4 temps
+15     gpt-4o-mini                            3.8 pp     43.3% -  47.1%    4 temps
+16     gpt-4o                                 3.4 pp     43.8% -  47.1%    4 temps
+17     gpt-5.2                                2.9 pp     70.7% -  73.6%    3 temps
+18     gpt-3.5-turbo                          1.9 pp     44.2% -  46.2%    4 temps
+
+================================================================================
+SUMMARY STATISTICS
+================================================================================
+Total models tested: 19
+Total reports analyzed: 72
+Models with multiple temperatures: 18
+
+Average temperature variation: 5.4 percentage points
+Most temperature-sensitive: starcoder2 (17.3 pp)
+Least temperature-sensitive: gpt-3.5-turbo (1.9 pp)
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+1. Models that improve with higher temperature:
+   - starcoder2: 63.5% → 80.8% (+17.3 pp)
+   - claude-opus-4-6: 60.1% → 67.3% (+7.2 pp)
+   - codegemma: 46.2% → 52.9% (+6.7 pp)
+   - gpt-5.4-mini: 54.8% → 61.1% (+6.2 pp)
+   - codellama: 53.4% → 59.1% (+5.8 pp)
+
+2. Most stable models (< 5 pp variation):
+   - gemini-2.5-flash: 4.8 pp variation (avg: 57.9%)
+   - llama3.1: 4.3 pp variation (avg: 50.7%)
+   - gpt-4: 4.3 pp variation (avg: 44.4%)
+   - gpt-5.4: 3.8 pp variation (avg: 60.3%)
+   - qwen2.5-coder: 3.8 pp variation (avg: 44.1%)
+
+3. Top performers (by average score across temperatures):
+   - starcoder2: 72.7% average (4 temps tested)
+   - gpt-5.2: 72.0% average (3 temps tested)
+   - deepseek-coder: 70.4% average (4 temps tested)
+   - claude-opus-4-6: 63.8% average (4 temps tested)
+   - gpt-5.4: 60.3% average (4 temps tested)
+   - gpt-5.4-mini: 58.8% average (4 temps tested)
+   - gemini-2.5-flash: 57.9% average (4 temps tested)
+   - codellama: 56.2% average (4 temps tested)
+   - llama3.1: 50.7% average (4 temps tested)
+   - codegemma: 49.8% average (4 temps tested)
+
+================================================================================

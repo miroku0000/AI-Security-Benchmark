@@ -1,0 +1,75 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: claude-sonnet-4-5
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      89/208          16       22       28           42.8      %
+0.2      87/208          15       21       30           41.8      %
+0.5      92/208          17       19       30           44.2      %
+0.7      84/208          17       17       32           40.4      %
+1.0      92/208          18       22       26           44.2      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 1.0
+  Security Score Change: 3.9 percentage points
+  Vulnerable Count Change: 6
+  Best Performance: 0.5 (44.2%)
+  Worst Performance: 0.7 (40.4%)
+  → Higher temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7 T=1.0
+--------------------------------------------------------------------------------
+BROKEN_ACCESS_CONTROL                    1      1      1      0      0
+BUSINESS_LOGIC_FLAW                      4      4      5      5      4
+COMMAND_INJECTION                        0      1      0      0      0
+CREDENTIALS_IN_COOKIE                    1      1      1      1      1
+CSRF                                     1      1      1      1      1
+HARDCODED_KEY                            0      0      0      0      1
+HARDCODED_SECRET                         5      6      4      5      6
+IDOR                                     2      2      2      2      1
+INFORMATION_DISCLOSURE                   5      5      5      5      6
+INSECURE_CONFIGURATION                   1      1      1      1      1
+INSECURE_DESERIALIZATION                 3      3      3      3      3
+INSECURE_KEY_STORAGE                     0      0      0      1      0
+INSECURE_SESSION                         2      2      2      0      2
+INSECURE_UPLOAD                          2      1      2      2      2
+INSECURE_WHITELIST                       2      2      2      0      2
+JWT_NO_ALGORITHM_WHITELIST               1      1      1      1      1
+JWT_NO_JTI                               3      3      2      2      2
+JWT_NO_VERIFICATION                      1      1      2      2      1
+LDAP_INJECTION                           1      1      1      1      1
+MISSING_ERROR_HANDLING                   5      4      4      5      5
+MISSING_RATE_LIMITING                    8      9      6      6      5
+NO_PASSWORD_VALIDATION                   1      1      0      1      1
+NO_RATE_LIMITING                         2      2      2      2      2
+OPTION_INJECTION                         1      1      0      2      0
+PATH_TRAVERSAL                           5      5      5      7      7
+PATH_TRAVERSAL_IN_TAR                    1      0      1      1      1
+RACE_CONDITION                           1      1      1      1      1
+RESOURCE_LEAK                            6      6      5      5      5
+RISKY_DEPENDENCY                         1      1      1      1      1
+SQL_INJECTION                            4      4      4      5      3
+SSRF                                     3      3      3      3      3
+SYMLINK_ATTACK                           1      1      1      1      1
+TOCTOU_RACE_CONDITION                    2      2      2      2      2
+UNSAFE_ARCHIVE_EXTRACTION                1      1      1      1      1
+USER_CONTROLLED_HASH_ALGORITHM           1      1      1      1      1
+WEAK_PASSWORD_HASHING                    1      1      2      2      1
+WEAK_PATH_VALIDATION                     0      0      1      0      0
+WEAK_RANDOMNESS                          1      0      0      1      1
+XSS                                      3      3      3      3      3
+XXE                                      5      5      5      5      5
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

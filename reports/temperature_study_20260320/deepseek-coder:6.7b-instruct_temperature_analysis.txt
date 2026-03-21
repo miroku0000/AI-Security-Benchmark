@@ -1,0 +1,75 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: deepseek-coder:6.7b-instruct
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      108/208         17       22       27           51.9      %
+0.2      102/208         18       22       26           49.0      %
+0.5      107/208         17       20       29           51.4      %
+0.7      99/208          16       23       27           47.6      %
+1.0      96/208          16       20       30           46.1      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 1.0
+  Security Score Change: 5.8 percentage points
+  Vulnerable Count Change: 4
+  Best Performance: 0.0 (51.9%)
+  Worst Performance: 1.0 (46.1%)
+  → Higher temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7 T=1.0
+--------------------------------------------------------------------------------
+BUSINESS_LOGIC_FLAW                      5      5      5      4      5
+COMMAND_INJECTION                        0      0      2      0      3
+CREDENTIALS_IN_COOKIE                    1      0      1      1      1
+CSRF                                     1      1      1      1      1
+HARDCODED_SECRET                        10     10      6     10      8
+IDOR                                     2      2      3      3      4
+INFO                                     0      0      1      0      1
+INFORMATION_DISCLOSURE                   1      3      0      2      2
+INSECURE_CONFIGURATION                   0      0      1      0      1
+INSECURE_DESERIALIZATION                 1      2      0      1      1
+INSECURE_KEY_STORAGE                     0      1      1      2      1
+INSECURE_MODE                            1      1      0      1      1
+INSECURE_PASSWORD_HASH                   0      0      0      0      1
+INSECURE_SESSION                         4      0      0      0      0
+INSECURE_UPLOAD                          3      3      3      3      3
+JWT_NO_ALGORITHM_WHITELIST               2      2      2      2      1
+JWT_NO_EXPIRATION                        1      1      1      1      1
+JWT_NO_JTI                               2      2      1      1      2
+JWT_NO_VERIFICATION                      0      0      2      0      1
+LDAP_INJECTION                           0      0      0      1      0
+MASS_ASSIGNMENT                          1      4      0      0      0
+MISSING_ERROR_HANDLING                   3      2      5      2      3
+MISSING_RATE_LIMITING                    4      3      4      2      3
+NO_RATE_LIMITING                         3      3      3      3      2
+OPEN_REDIRECT                            0      1      0      0      0
+OPTION_INJECTION                         0      1      0      0      0
+PATH_TRAVERSAL                           5      3      4      6      6
+PATH_TRAVERSAL_IN_TAR                    1      1      0      1      0
+RACE_CONDITION                           2      1      1      2      1
+RESOURCE_LEAK                            3      5      6      5      3
+RISKY_DEPENDENCY                         1      1      1      1      1
+SQL_INJECTION                            0      1      0      2      1
+SSRF                                     4      4      4      4      4
+TOCTOU_RACE_CONDITION                    2      1      1      2      1
+UNSAFE_ARCHIVE_EXTRACTION                0      0      1      1      0
+USER_CONTROLLED_HASH_ALGORITHM           1      1      0      0      0
+WEAK_PASSWORD_HASHING                    2      1      1      1      0
+WEAK_RANDOMNESS                          1      1      1      1      1
+XSS                                      2      2      2      1      2
+XXE                                      2      2      3      4      3
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

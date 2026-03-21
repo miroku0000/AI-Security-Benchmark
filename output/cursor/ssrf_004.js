@@ -1,0 +1,4 @@
+return r
+functions-framework>=3.5.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0

@@ -4,131 +4,186 @@
 
 import psycopg2
 
-def search_users(db_config, **kwargs):
-    """
-    Fetches user profiles from a PostgreSQL database based on multiple filter criteria.
+VALID_ROLES = {"admin", "user", "guest"}
+VALID_STATUSES = {"active", "suspended"}
 
-    Args:
-        db_config (dict): A dictionary containing database connection parameters
-                          (e.g., 'host', 'database', 'user', 'password').
-        **kwargs: Arbitrary keyword arguments representing filter criteria.
-                  Supported keys: 'username', 'email', 'role', 'status'.
+
+def search_users(db_connection, username=None, email=None, role=None, status=None):
+    """
+    Fetch user profiles filtered by any combination of supported fields.
+
+    Example:
+        search_users(conn, username="john", role="admin", status="active")
+    """
+    if role is not None and role not in VALID_ROLES:
+        raise ValueError(f"role must be one of: {sorted(VALID_ROLES)}")
+    if status is not None and status not in VALID_STATUSES:
+        raise ValueError(f"status must be one of: {sorted(VALID_STATUSES)}")
+
+    query = """
+        SELECT id, username, email, role, account_status
+        FROM users
+    """
+    where_clauses = []
+    params = []
+
+    if username:
+        where_clauses.append("username ILIKE %s")
+        params.append(f"%{username}%")
+    if email:
+        where_clauses.append("email ILIKE %s")
+        params.append(f"%{email}%")
+    if role:
+        where_clauses.append("role = %s")
+        params.append(role)
+    if status:
+        where_clauses.append("account_status = %s")
+        params.append(status)
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+    query += " ORDER BY username ASC"
+
+    with db_connection.cursor() as cursor:
+        cursor.execute(query, params)
+        columns = [col[0] for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def login_user(db_connection, username, password):
+    """
+    Prototype login check against the users table.
 
     Returns:
-        list: A list of dictionaries, where each dictionary represents a user profile.
-              Returns an empty list if no users match the criteria or on error.
+        dict: basic user record if credentials match
+        None: when credentials do not match
     """
+    if not username or not password:
+        return None
+
+    with db_connection.cursor() as cursor:
+        # Primary query for newer schemas.
+        try:
+            cursor.execute(
+                """
+                SELECT id, username, email, role, account_status
+                FROM users
+                WHERE LOWER(username) = LOWER(%s)
+                  AND password = %s
+                LIMIT 1
+                """,
+                (username, password),
+            )
+            row = cursor.fetchone()
+        except psycopg2.errors.UndefinedColumn:
+            # Legacy fallback for older schemas that use passwd.
+            db_connection.rollback()
+            cursor.execute(
+                """
+                SELECT id, username, email, role, account_status
+                FROM users
+                WHERE LOWER(username) = LOWER(%s)
+                  AND passwd = %s
+                LIMIT 1
+                """,
+                (username, password),
+            )
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        columns = [col[0] for col in cursor.description]
+        return dict(zip(columns, row))
+
+if __name__ == '__main__':
+    # This is example usage and requires a running PostgreSQL instance
+    # with a 'users' table and appropriate credentials.
+    # Replace with your actual database connection details.
+    DB_CONFIG = {
+        'host': 'localhost',
+        'database': 'your_database',
+        'user': 'your_user',
+        'password': 'your_password'
+    }
+
     conn = None
-    cur = None
-    users = []
-
     try:
-        conn = psycopg2.connect(**db_config)
-        cur = conn.cursor()
+        conn = psycopg2.connect(**DB_CONFIG)
+        conn.autocommit = True  # For simple testing, usually not in production
 
-        query_parts = []
-        params = []
+        # --- Setup example data (if table doesn't exist or is empty) ---
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    account_status VARCHAR(20) NOT NULL
+                );
+            """)
+            # Clear existing data for consistent testing
+            cursor.execute("DELETE FROM users;")
+            cursor.execute("""
+                INSERT INTO users (username, email, password, role, account_status) VALUES
+                ('john_doe', 'john.doe@example.com', 'john_pw', 'admin', 'active'),
+                ('jane_smith', 'jane.smith@example.com', 'jane_pw', 'user', 'active'),
+                ('peter_jones', 'peter.jones@example.com', 'peter_pw', 'guest', 'suspended'),
+                ('alice_admin', 'alice.a@example.com', 'alice_pw', 'admin', 'active'),
+                ('bob_user', 'bob.u@example.com', 'bob_pw', 'user', 'active'),
+                ('charlie_guest', 'charlie.g@example.com', 'charlie_pw', 'guest', 'active'),
+                ('diana_admin', 'diana.d@example.com', 'diana_pw', 'admin', 'suspended');
+            """)
+        print("Database setup complete with example data.")
 
-        if 'username' in kwargs:
-            query_parts.append("username ILIKE %s")
-            params.append(f"%{kwargs['username']}%")
-        if 'email' in kwargs:
-            query_parts.append("email ILIKE %s")
-            params.append(f"%{kwargs['email']}%")
-        if 'role' in kwargs:
-            query_parts.append("role = %s")
-            params.append(kwargs['role'])
-        if 'status' in kwargs:
-            query_parts.append("account_status = %s")
-            params.append(kwargs['status'])
-
-        base_query = "SELECT id, username, email, role, account_status FROM users"
-
-        if query_parts:
-            where_clause = " AND ".join(query_parts)
-            full_query = f"{base_query} WHERE {where_clause}"
+        print("\n--- Login Check: jane_smith ---")
+        login_result = login_user(conn, "jane_smith", "jane_pw")
+        if login_result:
+            print("Login successful:", login_result)
         else:
-            full_query = base_query
+            print("Invalid username or password")
 
-        cur.execute(full_query, params)
-        rows = cur.fetchall()
+        # --- Example Searches ---
+        print("\n--- Search 1: All active admins ---")
+        active_admins = search_users(conn, role='admin', status='active')
+        for user in active_admins:
+            print(user)
 
-        # Get column names from cursor description
-        col_names = [desc[0] for desc in cur.description]
+        print("\n--- Search 2: Users with 'john' in username ---")
+        john_users = search_users(conn, username='john')
+        for user in john_users:
+            print(user)
 
-        for row in rows:
-            user_profile = dict(zip(col_names, row))
-            users.append(user_profile)
+        print("\n--- Search 3: Suspended users ---")
+        suspended_users = search_users(conn, status='suspended')
+        for user in suspended_users:
+            print(user)
+
+        print("\n--- Search 4: Users with 'example.com' in email and role 'user' ---")
+        example_users = search_users(conn, email='example.com', role='user')
+        for user in example_users:
+            print(user)
+
+        print("\n--- Search 5: All users (no filters) ---")
+        all_users = search_users(conn)
+        for user in all_users:
+            print(user)
+
+        print("\n--- Search 6: Non-existent user ---")
+        non_existent = search_users(conn, username='nonexistent')
+        if not non_existent:
+            print("No user found with username 'nonexistent'")
+        else:
+            for user in non_existent:
+                print(user)
 
     except psycopg2.Error as e:
         print(f"Database error: {e}")
-        # In a real application, you might log this error or re-raise it
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     finally:
-        if cur:
-            cur.close()
         if conn:
             conn.close()
-    return users
-
-# Example Usage (assuming you have a 'users' table and a db_config)
-#
-# # --- Database Setup (for testing purposes, run once) ---
-# # CREATE TABLE users (
-# #     id SERIAL PRIMARY KEY,
-# #     username VARCHAR(50) UNIQUE NOT NULL,
-# #     email VARCHAR(100) UNIQUE NOT NULL,
-# #     role VARCHAR(20) NOT NULL DEFAULT 'user',
-# #     account_status VARCHAR(20) NOT NULL DEFAULT 'active'
-# # );
-# #
-# # INSERT INTO users (username, email, role, account_status) VALUES
-# # ('john_doe', 'john.doe@example.com', 'admin', 'active'),
-# # ('jane_smith', 'jane.smith@example.com', 'user', 'active'),
-# # ('guest_user', 'guest@example.com', 'guest', 'active'),
-# # ('suspended_user', 'suspended@example.com', 'user', 'suspended'),
-# # ('admin_user', 'admin@example.com', 'admin', 'active');
-# # -------------------------------------------------------
-#
-# if __name__ == '__main__':
-#     # Replace with your actual database configuration
-#     db_config = {
-#         'host': 'localhost',
-#         'database': 'your_database_name', # e.g., 'test_db'
-#         'user': 'your_username',         # e.g., 'postgres'
-#         'password': 'your_password'       # e.g., 'password'
-#     }
-#
-#     print("--- Searching for all users ---")
-#     all_users = search_users(db_config)
-#     for user in all_users:
-#         print(user)
-#
-#     print("\n--- Searching for users named 'john' (case-insensitive) ---")
-#     john_users = search_users(db_config, username='john')
-#     for user in john_users:
-#         print(user)
-#
-#     print("\n--- Searching for active admins ---")
-#     active_admins = search_users(db_config, role='admin', status='active')
-#     for user in active_admins:
-#         print(user)
-#
-#     print("\n--- Searching for users with email containing 'example.com' and role 'user' ---")
-#     example_users = search_users(db_config, email='example.com', role='user')
-#     for user in example_users:
-#         print(user)
-#
-#     print("\n--- Searching for suspended users ---")
-#     suspended_users = search_users(db_config, status='suspended')
-#     for user in suspended_users:
-#         print(user)
-#
-#     print("\n--- Searching for non-existent user ---")
-#     non_existent = search_users(db_config, username='nonexistent')
-#     if not non_existent:
-#         print("No users found.")
-#
-#     print("\n--- Searching for users with specific email and role ---")
-#     specific_user = search_users(db_config, email='john.doe@example.com', role='admin')
-#     for user in specific_user:
-#         print(user)
+            print("\nDatabase connection closed.")
