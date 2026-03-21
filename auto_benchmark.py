@@ -29,13 +29,14 @@ class AutomatedBenchmark:
 
     def __init__(self, model: str, output_dir: str, report_name: str = None,
                  use_cache: bool = True, force_regenerate: bool = False,
-                 retries: int = 0):
+                 retries: int = 0, temperature: float = 0.2):
         self.model = model
         self.output_dir = output_dir
         self.report_name = report_name or f"{model.replace(':', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.use_cache = use_cache
         self.force_regenerate = force_regenerate
         self.retries = retries
+        self.temperature = temperature
 
     def run_generation(self, limit: int = None) -> bool:
         """Run code generation step."""
@@ -47,6 +48,7 @@ class AutomatedBenchmark:
             'python3', 'code_generator.py',
             '--model', self.model,
             '--output', self.output_dir,
+            '--temperature', str(self.temperature),
         ]
 
         if limit:
@@ -77,7 +79,8 @@ class AutomatedBenchmark:
             'python3', 'runner.py',
             '--code-dir', self.output_dir,
             '--output', report_path,
-            '--model', self.model
+            '--model', self.model,
+            '--temperature', str(self.temperature)
         ]
 
         if not html:
@@ -140,6 +143,7 @@ class AutomatedBenchmark:
         logger.info("AUTOMATED AI SECURITY BENCHMARK")
         logger.info("=" * 70)
         logger.info("Model: %s", self.model)
+        logger.info("Temperature: %.1f", self.temperature)
         logger.info("Output Directory: %s", self.output_dir)
         logger.info("Report Name: %s", self.report_name)
         logger.info("Started: %s", start_time.strftime('%Y-%m-%d %H:%M:%S'))
@@ -198,6 +202,7 @@ def load_models_from_config(config_path: str = 'benchmark_config.yaml') -> dict:
         'anthropic': models_config.get('anthropic', []),
         'google': models_config.get('google', []),
         'ollama': models_config.get('ollama', []),
+        'cursor': models_config.get('cursor', []),
     }
 
 
@@ -208,14 +213,16 @@ def run_all_models(args):
 
     api_models = models_by_provider['openai'] + models_by_provider['anthropic'] + models_by_provider['google']
     ollama_models = models_by_provider['ollama']
+    cursor_models = models_by_provider['cursor']
 
-    total = len(api_models) + len(ollama_models)
+    total = len(api_models) + len(ollama_models) + len(cursor_models)
     run_start = datetime.now()
     logger.info("=" * 70)
     logger.info("FULL BENCHMARK: %d models", total)
     logger.info("=" * 70)
     logger.info("API models (parallel):      %d", len(api_models))
     logger.info("Ollama models (sequential): %d", len(ollama_models))
+    logger.info("Cursor models:              %d", len(cursor_models))
     logger.info("Started: %s", run_start.strftime('%Y-%m-%d %H:%M:%S'))
     logger.info("=" * 70)
 
@@ -238,8 +245,10 @@ def run_all_models(args):
 
     def run_single_model(model):
         """Run benchmark for a single model. Returns (model, summary, files_generated)."""
-        output_dir = f"output/{model.replace(':', '_')}"
-        report_name = f"{model.replace(':', '_')}_208point_{datetime.now().strftime('%Y%m%d')}"
+        # Include temperature in output directory if non-default
+        temp_str = f"_temp{args.temperature}" if args.temperature != 0.2 else ""
+        output_dir = f"output/{model.replace(':', '_')}{temp_str}"
+        report_name = f"{model.replace(':', '_')}{temp_str}_208point_{datetime.now().strftime('%Y%m%d')}"
         benchmark = AutomatedBenchmark(
             model=model,
             output_dir=output_dir,
@@ -247,6 +256,7 @@ def run_all_models(args):
             use_cache=not args.no_cache,
             force_regenerate=args.force_regenerate,
             retries=args.retries,
+            temperature=args.temperature,
         )
         summary = benchmark.run(limit=args.limit)
         # Count actual generated files
@@ -277,9 +287,59 @@ def run_all_models(args):
             model_name, summary, files = run_single_model(model)
             all_results[model_name] = (summary, files)
 
+    # Run Cursor models
+    if cursor_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 3: CURSOR MODELS (%d models)", len(cursor_models))
+        logger.info("=" * 70)
+
+        # Check if agent (Cursor CLI) is available
+        try:
+            subprocess.run(['agent', '--version'], capture_output=True, check=True)
+            has_cursor = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning("Cursor agent not found - skipping Cursor models")
+            logger.warning("Install Cursor Agent: curl https://cursor.com/install -fsSL | bash")
+            has_cursor = False
+
+        if has_cursor:
+            for model in cursor_models:
+                logger.info(">>> Running Cursor benchmark...")
+
+                # Run cursor generation script
+                output_dir = 'output/cursor'
+                result = subprocess.run([
+                    'python3', 'scripts/test_cursor.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '90'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on cursor output
+                    logger.info(">>> Running security tests on Cursor output...")
+                    report_name = f"cursor_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='cursor',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['cursor'] = (summary, len(files))
+                else:
+                    logger.error("Cursor generation failed")
+                    all_results['cursor'] = (None, 0)
+
     # Generate HTML reports
     logger.info("=" * 70)
-    logger.info("PHASE 3: GENERATING HTML REPORTS")
+    logger.info("PHASE 4: GENERATING HTML REPORTS")
     logger.info("=" * 70)
 
     subprocess.run(['python3', 'utils/generate_html_reports.py'])
@@ -398,14 +458,21 @@ Examples:
         action='store_true',
         help='Force regenerate all code (ignore cache, but update it)'
     )
+    parser.add_argument(
+        '--temperature',
+        type=float,
+        default=0.2,
+        help='Temperature for code generation (default: 0.2). Higher = more random/creative'
+    )
     args = parser.parse_args()
 
     if args.all:
         return run_all_models(args)
 
     # Single model mode
-    output_dir = args.output or f"output/{args.model.replace(':', '_')}"
-    report_name = args.report_name or f"{args.model.replace(':', '_')}_208point_{datetime.now().strftime('%Y%m%d')}"
+    temp_str = f"_temp{args.temperature}" if args.temperature != 0.2 else ""
+    output_dir = args.output or f"output/{args.model.replace(':', '_')}{temp_str}"
+    report_name = args.report_name or f"{args.model.replace(':', '_')}{temp_str}_208point_{datetime.now().strftime('%Y%m%d')}"
 
     benchmark = AutomatedBenchmark(
         model=args.model,
@@ -414,6 +481,7 @@ Examples:
         use_cache=not args.no_cache,
         force_regenerate=args.force_regenerate,
         retries=args.retries,
+        temperature=args.temperature,
     )
 
     summary = benchmark.run(limit=args.limit)

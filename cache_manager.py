@@ -46,8 +46,11 @@ class CacheManager:
         content = f"{prompt_text}|{language}|{category}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _get_cache_key(self, model: str, prompt_id: str) -> str:
-        """Generate cache key for model + prompt."""
+    def _get_cache_key(self, model: str, prompt_id: str, temperature: float = None) -> str:
+        """Generate cache key for model + prompt + temperature."""
+        if temperature is not None and temperature != 0.2:
+            # Include temperature in key for non-default values
+            return f"{model}::temp{temperature}::{prompt_id}"
         return f"{model}::{prompt_id}"
 
     def is_cached(
@@ -69,7 +72,7 @@ class CacheManager:
         - Temperature matches
         - Output file exists
         """
-        cache_key = self._get_cache_key(model, prompt_id)
+        cache_key = self._get_cache_key(model, prompt_id, temperature)
 
         if cache_key not in self.cache:
             return False
@@ -132,7 +135,7 @@ class CacheManager:
             output_file: Path to generated code file
             success: Whether generation was successful
         """
-        cache_key = self._get_cache_key(model, prompt_id)
+        cache_key = self._get_cache_key(model, prompt_id, temperature)
         prompt_hash = self._compute_prompt_hash(prompt_text, language, category)
 
         self.cache[cache_key] = {
@@ -150,13 +153,31 @@ class CacheManager:
 
         self._save_cache()
 
-    def invalidate(self, model: str, prompt_id: str):
-        """Invalidate cache entry for a specific model + prompt."""
-        cache_key = self._get_cache_key(model, prompt_id)
-        if cache_key in self.cache:
-            del self.cache[cache_key]
-            self._save_cache()
-            logger.info("Invalidated cache for %s", cache_key)
+    def invalidate(self, model: str, prompt_id: str, temperature: float = None):
+        """
+        Invalidate cache entry for a specific model + prompt.
+        If temperature is None, invalidates all temperature variants for this prompt.
+        """
+        if temperature is not None:
+            # Invalidate specific temperature
+            cache_key = self._get_cache_key(model, prompt_id, temperature)
+            if cache_key in self.cache:
+                del self.cache[cache_key]
+                self._save_cache()
+                logger.info("Invalidated cache for %s", cache_key)
+        else:
+            # Invalidate all temperatures for this prompt
+            # Match both "model::prompt_id" and "model::temp*::prompt_id"
+            keys_to_remove = [
+                k for k in self.cache.keys()
+                if k.startswith(f"{model}::") and k.endswith(f"::{prompt_id}")
+                or k == f"{model}::{prompt_id}"
+            ]
+            for key in keys_to_remove:
+                del self.cache[key]
+            if keys_to_remove:
+                self._save_cache()
+                logger.info("Invalidated %d cache entries for %s::%s", len(keys_to_remove), model, prompt_id)
 
     def invalidate_all(self):
         """Clear entire cache."""

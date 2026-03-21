@@ -40,6 +40,11 @@ models:
     - qwen2.5-coder
     - qwen2.5-coder:14b
 
+  # Cursor (requires Cursor installed - see README)
+  # Uses cursor-agent in headless mode
+  cursor:
+    - cursor
+
 # File paths
 prompts_file: prompts/prompts.yaml
 code_generator: code_generator.py

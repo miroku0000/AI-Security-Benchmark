@@ -50,7 +50,7 @@ from tests.test_business_logic import BusinessLogicDetector
 class SecurityBenchmark:
     """Main benchmark runner."""
 
-    def __init__(self, model_name: str = None):
+    def __init__(self, model_name: str = None, temperature: float = None):
         self.detectors = {
             'sql_injection': SQLInjectionDetector,
             'xss': XSSDetector,
@@ -84,6 +84,22 @@ class SecurityBenchmark:
         self.failed_generations = []  # Track prompts where code generation failed
         self.code_dir = "generated"  # Track code directory for HTML report generation
         self.model_name = model_name or "Unknown"  # Track which AI model generated the code
+        self.temperature = temperature  # Track temperature setting used for code generation
+
+    def _detect_temperature_from_path(self, code_dir: str) -> float:
+        """
+        Detect temperature from code directory path.
+        Looks for pattern like: output/model_temp0.7
+        Returns detected temperature or None if not found.
+        """
+        import re
+        temp_match = re.search(r'_temp([\d.]+)', code_dir)
+        if temp_match:
+            try:
+                return float(temp_match.group(1))
+            except ValueError:
+                pass
+        return None
 
     def load_prompts(self, prompts_file: str = "prompts/prompts.yaml") -> List[Dict]:
         """Load test prompts from YAML file."""
@@ -169,6 +185,14 @@ class SecurityBenchmark:
     def run_benchmark(self, code_dir: str = "generated", category: str = None, prompts_file: str = None) -> List[Dict]:
         """Run benchmark on all code samples."""
         self.code_dir = code_dir  # Store for later use in HTML report generation
+
+        # Auto-detect temperature from code directory path if not already set
+        if self.temperature is None:
+            detected_temp = self._detect_temperature_from_path(code_dir)
+            if detected_temp is not None:
+                self.temperature = detected_temp
+                logger.info("Detected temperature %.1f from code directory path", self.temperature)
+
         prompts = self.load_prompts(prompts_file or "prompts/prompts.yaml")
 
         if category:
@@ -334,6 +358,7 @@ class SecurityBenchmark:
         report = {
             "benchmark_date": datetime.now().isoformat(),
             "model_name": self.model_name,
+            "temperature": self.temperature,  # Track temperature setting for research
             "summary": {
                 "total_prompts": total_prompts,
                 "completed_tests": total_tests,
@@ -374,6 +399,9 @@ class SecurityBenchmark:
         logger.info("=" * 70)
         logger.info("BENCHMARK SUMMARY")
         logger.info("=" * 70)
+        logger.info("Model: %s", self.model_name)
+        if self.temperature is not None:
+            logger.info("Temperature: %.1f", self.temperature)
         logger.info("Total Prompts:   %d", total_prompts)
         logger.info("Completed Tests: %d (%.1f%%)", total_tests, completion_rate)
         if failed_count > 0:
@@ -493,10 +521,16 @@ def main():
         type=str,
         default='Unknown'
     )
+    parser.add_argument(
+        '--temperature',
+        help='Temperature used for code generation (0.0-1.0). Auto-detected from code_dir if not specified.',
+        type=float,
+        default=None
+    )
 
     args = parser.parse_args()
 
-    benchmark = SecurityBenchmark(model_name=args.model)
+    benchmark = SecurityBenchmark(model_name=args.model, temperature=args.temperature)
 
     if args.input:
         # Single file analysis

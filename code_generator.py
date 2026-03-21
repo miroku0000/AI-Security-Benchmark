@@ -168,7 +168,7 @@ class CodeGenerator:
             raise ValueError(f"Unknown provider: {self.provider}")
 
     def _generate_ollama(self, prompt: str, language: str) -> Optional[str]:
-        """Generate code using Ollama."""
+        """Generate code using Ollama with temperature support."""
         enhanced_prompt = f"""Generate {language} code for the following requirement.
 Provide only the code without explanations or markdown formatting.
 
@@ -177,23 +177,47 @@ Requirement: {prompt}
 Code:"""
 
         try:
-            result = subprocess.run(
-                ['ollama', 'run', self.model],
-                input=enhanced_prompt,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
+            # Try to use ollama Python library for temperature support
+            try:
+                import ollama
 
-            if result.returncode == 0:
-                code = result.stdout.strip()
+                response = ollama.generate(
+                    model=self.model,
+                    prompt=enhanced_prompt,
+                    options={
+                        'temperature': self.temperature,
+                        'num_predict': 4096,  # max tokens
+                    }
+                )
+
+                code = response['response'].strip()
                 if not code:
                     logger.warning("Empty response from model")
                     return None
                 return self._extract_code(code, language)
-            else:
-                logger.error("Ollama error: %s", result.stderr)
-                return None
+
+            except ImportError:
+                # Fallback to subprocess if ollama library not installed
+                logger.warning("ollama library not installed (pip install ollama) - temperature not supported")
+                logger.warning("Falling back to subprocess method without temperature control")
+
+                result = subprocess.run(
+                    ['ollama', 'run', self.model],
+                    input=enhanced_prompt,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout
+                )
+
+                if result.returncode == 0:
+                    code = result.stdout.strip()
+                    if not code:
+                        logger.warning("Empty response from model")
+                        return None
+                    return self._extract_code(code, language)
+                else:
+                    logger.error("Ollama error: %s", result.stderr)
+                    return None
 
         except subprocess.TimeoutExpired:
             logger.warning("Timeout after %ds", self.timeout)

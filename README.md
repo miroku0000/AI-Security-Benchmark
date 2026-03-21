@@ -9,21 +9,21 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ## Structure
 
 ```
-├── auto_benchmark.py          # Entry point — end-to-end automation
-├── code_generator.py          # Multi-provider code generation
-├── runner.py                  # Security test runner
-├── cache_manager.py           # Generation cache
-├── benchmark_config.yaml      # Model and run configuration
-├── prompts/prompts.yaml       # 66 test prompts (no security mentions)
-├── tests/                     # 29 security detector modules
-├── utils/                     # HTML report generation, schema, helpers
-├── analysis/                  # Standalone analysis & verification scripts
-├── docs/                      # Guides and reference documentation
-├── scripts/                   # Shell scripts (cleanup, static analysis)
-├── output/                    # Generated code per model (output/<model>/)
-├── reports/                   # Test results (JSON + HTML)
-├── results/                   # Sample test files
-└── static_analyzer_results/   # SAST tool output
+├── auto_benchmark.py                    # Entry point — end-to-end automation
+├── code_generator.py                    # Multi-provider code generation
+├── runner.py                            # Security test runner
+├── cache_manager.py                     # Generation cache
+├── benchmark_config.yaml                # Model and run configuration
+├── prompts/prompts.yaml                 # 66 test prompts (no security mentions)
+├── tests/                               # 29 security detector modules
+├── utils/                               # HTML report generation, schema, helpers
+├── analysis/                            # Analysis scripts (temperature impact, etc.)
+├── docs/                                # Guides and reference documentation
+├── scripts/                             # Shell scripts (cleanup, static analysis)
+├── output/                              # Generated code per model (output/<model>/)
+├── reports/                             # Test results (JSON + HTML)
+├── results/                             # Sample test files
+└── static_analyzer_results/             # SAST tool output
 ```
 
 ## Vulnerability Categories
@@ -92,7 +92,43 @@ ollama pull qwen2.5-coder
 ollama pull qwen2.5-coder:14b
 ```
 
+**Temperature Support**: Ollama models now support temperature parameter! The `ollama` Python library is included in `requirements.txt`. If not installed via requirements, the benchmark falls back to command-line mode (without temperature control).
+
 **Note**: Some smaller models (e.g., starcoder2:7b) may produce lower-quality output for complex prompts. The benchmark handles this by scoring whatever the model generates.
+
+### 4. Cursor Agent (AI coding assistant — optional)
+
+Cursor Agent is an AI-powered CLI tool for automated code generation:
+
+**Install Cursor Agent:**
+```bash
+# Install the Cursor Agent CLI
+curl https://cursor.com/install -fsSL | bash
+
+# Add to PATH (already done by installer, but verify):
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify installation
+agent --version
+```
+
+**Run Cursor Benchmark:**
+```bash
+# Quick test (5 prompts)
+python3 scripts/test_cursor.py --limit 5
+
+# Full benchmark (all 66 prompts)
+python3 scripts/test_cursor.py
+
+# With custom timeout
+python3 scripts/test_cursor.py --timeout 120
+
+# Test the generated code
+python3 runner.py --code-dir output/cursor
+```
+
+The benchmark will automatically test Cursor if it's installed. Results appear in the HTML reports alongside other models.
 
 ## Usage
 
@@ -116,6 +152,9 @@ python3 auto_benchmark.py --all --limit 5
 
 # Force regenerate all code (ignore cache)
 python3 auto_benchmark.py --all --force-regenerate
+
+# Test at different temperature (for research)
+python3 auto_benchmark.py --model gpt-4o --temperature 0.7
 ```
 
 The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
@@ -154,6 +193,22 @@ python3 runner.py --code-dir output/model_b --output reports/model_b.json
 python3 utils/generate_html_reports.py
 open reports/html/index.html
 ```
+
+### Temperature Testing (Research)
+
+Test how temperature affects security in generated code:
+
+```bash
+# Test model at different temperatures
+python3 auto_benchmark.py --model gpt-4o --temperature 0.2  # Baseline (default)
+python3 auto_benchmark.py --model gpt-4o --temperature 0.7  # Higher creativity
+python3 auto_benchmark.py --model gpt-4o --temperature 1.0  # Maximum randomness
+
+# Analyze temperature impact
+python3 analysis/analyze_temperature_impact.py --model gpt-4o
+```
+
+**See [docs/TEMPERATURE_TESTING.md](docs/TEMPERATURE_TESTING.md) for complete guide.**
 
 ## Reports
 
