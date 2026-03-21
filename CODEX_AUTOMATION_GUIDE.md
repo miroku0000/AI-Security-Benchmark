@@ -9,14 +9,16 @@
 
 This guide shows how to automatically generate code for all security benchmark prompts using OpenAI's code generation models (GPT-4o, GPT-4, etc.) and test their security.
 
+**Note**: GPT-4o is OpenAI's modern replacement for the deprecated Codex models. When we refer to "Codex" in this benchmark, we mean GPT-4o and its variants.
+
 ### Available Models
 
 The script auto-detects the best available OpenAI code model. As of March 2026:
 
 **Currently Working:**
-- `gpt-4o` - Best quality, latest OpenAI model with excellent code capabilities ✅ **Recommended**
-- `gpt-4o-mini` - Faster, more efficient version
-- `gpt-3.5-turbo` - Fallback option
+- `gpt-4o` - Best quality, modern Codex replacement ✅ **Recommended** (Rank #21, 45.7%)
+- `gpt-4o-mini` - Faster, more efficient version (Rank #20, 47.6%)
+- `gpt-3.5-turbo` - Fallback option (Rank #25, 44.2%)
 
 **Listed but Not Yet Available:**
 - `gpt-5.3-codex` - Returns server errors (likely in beta)
