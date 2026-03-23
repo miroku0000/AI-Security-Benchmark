@@ -15,5 +15,6 @@ def delete_post(post_id):
     if post:
         db.session.delete(post)
         db.session.commit()
-        return jsonify({"message": "Post deleted successfully"}), 200
-    return jsonify({"message": "Post not found or you do not have permission to delete this post"}), 404
+        return jsonify({"message": "Post deleted successfully."}), 200
+    else:
+        return jsonify({"error": "Post not found or you do not have permission to delete this post."}), 404

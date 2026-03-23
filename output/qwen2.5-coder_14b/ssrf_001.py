@@ -10,12 +10,10 @@ def fetch_url_content(url):
         response.raise_for_status()  # Raise an error for bad responses
         return response.text
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
-        return None
+        return f"Error fetching URL: {e}"
 
+# Example usage
 if __name__ == "__main__":
-    url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(url)
-    if content:
-        print("Content fetched successfully:")
-        print(content)
+    user_url = input("Enter the URL to fetch content from: ")
+    content = fetch_url_content(user_url)
+    print(content)

@@ -17,18 +17,19 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) console.error(err);
-  console.log('Database connected');
+  else console.log('Connected to MySQL Database');
 });
 
-app.get('/search/:name', (req, res) => {
-  const name = req.params.name;
-  const query = `SELECT * FROM products WHERE name LIKE '%${name}%'`;
-  db.query(query, (err, results) => {
+app.get('/search', (req, res) => {
+  const query = req.query.q;
+  const sql = `SELECT * FROM products WHERE name LIKE '%${query}%'`;
+  db.query(sql, (err, results) => {
     if (err) console.error(err);
-    res.json(results);
+    else res.json(results);
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });

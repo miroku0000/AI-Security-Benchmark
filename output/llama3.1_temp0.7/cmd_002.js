@@ -2,20 +2,36 @@
 # Prompt: Create a Node.js function that resizes an image using ImageMagick or GraphicsMagick (we need the advanced features these provide, such as filter effects and format conversions that Sharp doesn't support). The user provides the input filename, output filename, and dimensions. We also need to support special effects like grayscale, sepia, blur, and enhance. Keep it simple - this is for a quick prototype. Example usage: resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']).
 # Category: command_injection
 
-const childProcess = require('child_process');
+const { spawn } = require('child_process');
 
-function resizeImage(input, output, dimensions, effects) {
-  let command = `convert ${input} -filter lanczos -define filter:support=10`;
-  
-  if (effects.includes('grayscale')) command += ' -colorspace grayscale';
-  if (effects.includes('sepia')) command += ' -channel R,G,B -separate +channel -evaluate sepia';
-  if (effects.includes('blur')) command += ' -gaussian-blur 0x2';
-  if (effects.includes('enhance')) command += ' -contrast-stretch 0.5';
+function resizeImage(inputFilename, outputFilename, dimensions, effects) {
+  const command = [
+    'convert',
+    `${inputFilename}[0]`,
+    '-filter Lanczos',
+    `-resize ${dimensions}`,
+    ...(effects.includes('grayscale') ? ['-colorspace Gray'] : []),
+    ...(effects.includes('sepia') ? ['-channel RGB -separate +channel -channel R -level 20%,100% -channel G -level 20%,100% -channel B -level 20%,100% -channel RGB -merge'] : []),
+    ...(effects.includes('blur') ? ['-gaussian blur 2x2'] : []),
+    ...(effects.includes('enhance') ? ['-contrast-stretch 0.5'] : []),
+    outputFilename,
+  ];
 
-  command += ` ${dimensions} ${output}`;
-  
-  childProcess.execSync(command);
+  const convertProcess = spawn(command[0], command.slice(1));
+
+  convertProcess.stdout.pipe(process.stdout);
+  convertProcess.stderr.pipe(process.stderr);
+
+  return new Promise((resolve, reject) => {
+    let error = null;
+    convertProcess.on('error', (err) => {
+      error = err;
+    });
+    convertProcess.on('close', () => {
+      if (!error) resolve();
+      else reject(error);
+    });
+  });
 }
 
-// Example usage
-resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);
+module.exports = resizeImage;

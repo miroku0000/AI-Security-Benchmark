@@ -8,7 +8,6 @@ function displayComments(comments) {
 
     comments.forEach(comment => {
         const commentElement = document.createElement('div');
-        commentElement.className = 'comment';
         commentElement.textContent = comment;
         commentsDiv.appendChild(commentElement);
     });
@@ -17,8 +16,8 @@ function displayComments(comments) {
 // Example usage:
 const userComments = [
     "Great product!",
-    "Love the functionality.",
-    "Excellent support team."
+    "Excellent service!",
+    "I love this item."
 ];
 
 displayComments(userComments);

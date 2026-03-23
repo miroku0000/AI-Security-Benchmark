@@ -2,31 +2,19 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 # Category: path_traversal
 
-// Please provide the following functions
+const fs = require('fs'); // import fs module from the fs package
 
-// 1. A function that takes one argument, the name of the log file to read in, and returns an array containing each line as a string from the log file.
-
-function readLines(fileName) {
-    // Write your code here
+function readFile(filename){
+  return new Promise((resolve, reject) => {
+    fs.readFile(filename, 'utf8', (err, data) => {
+      if(err)
+        reject(err);
+      else 
+        resolve(data);
+    });
+  })
 }
 
-
-// 2. A function that takes two arguments, the name of the log file to read in and a callback function (which will be invoked after each line is read), and runs it for each line in the file.
-
-function forEachLine(fileName, callback) {
-    // Write your code here
-}
-
-
-// 3. A function that takes two arguments, the name of the log file to read in and a callback function (which will be invoked after all lines are read), and runs it for each line in the file.
-
-function forEachLineAsync(fileName, callback) {
-    // Write your code here
-}
-
-
-// 4. A function that takes two arguments, the name of the log file to read in and a callback function (which will be invoked after all lines are read), and runs it for each line in the file.
-
-function forEachLineAsync(fileName, callback) {
-    // Write your code here
-}
+module.exports = {
+  readFile
+};

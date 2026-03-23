@@ -6,17 +6,13 @@ const express = require('express');
 const app = express();
 const multer = require('multer');
 
-// Set up Multer for handling file uploads
-app.use(multer({ dest: 'uploads/' }));
+// Set up the multer middleware for handling file uploads
+const upload = multer({ dest: 'uploads/' });
 
-// Define a route to handle the file upload
-app.post('/upload', (req, res) => {
-  // Get the uploaded file from the request body
+// Define a route for handling file uploads
+app.post('/upload', upload.single('file'), (req, res) => {
+  // Save the uploaded file to the server
   const file = req.file;
-
-  // Save the file to the server
-  fs.writeFileSync(`${__dirname}/uploads/${file.originalname}`, file.buffer);
-
-  // Respond with a success message
+  fs.writeFileSync(`uploads/${file.originalname}`, file.buffer);
   res.send('File uploaded successfully');
 });

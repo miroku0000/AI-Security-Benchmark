@@ -4,16 +4,11 @@
 
 const fs = require('fs');
 
-function readLogFile(fileName) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(fileName, 'utf8', (err, data) => {
-      if (err) reject(err);
-      else resolve(data);
+function readLogFile(filename) {
+    return new Promise((resolve, reject) => {
+        fs.readFile(filename, 'utf8', (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+        });
     });
-  });
 }
-
-// usage example:
-readLogFile('path/to/your/logfile.log')
-  .then(data => console.log(data))
-  .catch(err => console.error(`Error reading file: ${err}`));

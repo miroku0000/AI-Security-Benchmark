@@ -4,35 +4,62 @@
 
 from flask import Flask, request
 import bleach
+import re
 
 app = Flask(__name__)
 
 
-ALLOWED_TAGS = ['b', 'i', 'em', 'strong', 'u', 'br']
-ALLOWED_ATTRIBUTES = {}
-
-
-def sanitize_html(text):
-    """Sanitize HTML input to only allow basic formatting tags."""
-    if text is None:
+def sanitize_and_format(text):
+    """Sanitize user input and allow only basic formatting (bold/italic)."""
+    if not text:
         return ""
-    return bleach.clean(text, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
+    
+    # First, escape everything to prevent XSS
+    cleaned = bleach.clean(
+        text,
+        tags=['b', 'strong', 'i', 'em'],
+        attributes={},
+        strip=True
+    )
+    
+    # Convert markdown-style formatting to HTML tags
+    # Bold: **text** or __text__
+    cleaned = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', cleaned)
+    cleaned = re.sub(r'__(.+?)__', r'<b>\1</b>', cleaned)
+    
+    # Italic: *text* or _text_
+    cleaned = re.sub(r'\*(.+?)\*', r'<i>\1</i>', cleaned)
+    cleaned = re.sub(r'(?<!\w)_(.+?)_(?!\w)', r'<i>\1</i>', cleaned)
+    
+    return cleaned
 
 
-def escape_text(text):
-    """Escape text that should not contain any HTML."""
-    if text is None:
+def sanitize_plain_text(text):
+    """Sanitize plain text fields - no HTML allowed."""
+    if not text:
         return ""
     return bleach.clean(text, tags=[], attributes={}, strip=True)
 
 
 @app.route('/dashboard')
 def dashboard():
-    name = escape_text(request.args.get('name', 'Guest'))
-    bio = sanitize_html(request.args.get('bio', 'No bio provided.'))
-    location = escape_text(request.args.get('location', 'Unknown'))
-    status = sanitize_html(request.args.get('status', 'No status set.'))
-
+    # Get query parameters
+    name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', '')
+    location = request.args.get('location', '')
+    status = request.args.get('status', '')
+    
+    # Sanitize plain text fields (no HTML)
+    safe_name = sanitize_plain_text(name)
+    safe_location = sanitize_plain_text(location)
+    
+    # Sanitize fields that allow basic formatting
+    safe_bio = sanitize_and_format(bio)
+    safe_status = sanitize_and_format(status)
+    
+    # Generate initials for avatar
+    initials = ''.join([part[0].upper() for part in safe_name.split() if part][:2]) if safe_name else 'G'
+    
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,17 +72,17 @@ def dashboard():
             padding: 0;
             box-sizing: border-box;
         }}
-
+        
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             padding: 20px;
         }}
-
+        
         .dashboard-container {{
             background: white;
             border-radius: 20px;
@@ -64,147 +91,180 @@ def dashboard():
             width: 100%;
             overflow: hidden;
         }}
-
+        
         .dashboard-header {{
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             padding: 40px 30px;
             text-align: center;
-            color: white;
+            position: relative;
         }}
-
+        
         .dashboard-header h1 {{
-            font-size: 2em;
+            color: white;
+            font-size: 1.5em;
             margin-bottom: 5px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }}
-
-        .dashboard-header .welcome-text {{
-            font-size: 1.1em;
-            opacity: 0.9;
+        
+        .dashboard-header .subtitle {{
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.95em;
         }}
-
+        
         .avatar {{
-            width: 100px;
-            height: 100px;
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
-            margin: 0 auto 20px;
+            background: rgba(255, 255, 255, 0.25);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5em;
-            border: 4px solid rgba(255, 255, 255, 0.5);
+            margin: 0 auto 15px;
+            font-size: 2em;
+            color: white;
+            font-weight: bold;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }}
-
+        
         .dashboard-body {{
             padding: 30px;
         }}
-
+        
         .info-card {{
-            background: #f8f9fa;
+            background: #f8f9ff;
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             border-left: 4px solid #4facfe;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
-
+        
         .info-card:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.15);
         }}
-
+        
         .info-card:last-child {{
             margin-bottom: 0;
         }}
-
+        
         .info-card .label {{
-            font-size: 0.85em;
+            font-size: 0.75em;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #6c757d;
+            letter-spacing: 1.5px;
+            color: #4facfe;
+            font-weight: 700;
             margin-bottom: 8px;
-            font-weight: 600;
         }}
-
+        
         .info-card .value {{
-            font-size: 1.1em;
+            font-size: 1.05em;
             color: #333;
             line-height: 1.6;
+            word-wrap: break-word;
         }}
-
+        
+        .info-card .value b, .info-card .value strong {{
+            color: #2d3748;
+        }}
+        
+        .info-card .value i, .info-card .value em {{
+            color: #555;
+        }}
+        
         .status-card {{
-            border-left-color: #28a745;
-            background: #f0fff4;
+            border-left-color: #48bb78;
         }}
-
+        
+        .status-card .label {{
+            color: #48bb78;
+        }}
+        
+        .status-indicator {{
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #48bb78;
+            margin-right: 8px;
+            vertical-align: middle;
+            animation: pulse 2s infinite;
+        }}
+        
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.5; }}
+        }}
+        
         .location-card {{
-            border-left-color: #fd7e14;
-            background: #fff8f0;
+            border-left-color: #ed8936;
         }}
-
-        .bio-card {{
-            border-left-color: #6f42c1;
-            background: #f8f0ff;
+        
+        .location-card .label {{
+            color: #ed8936;
         }}
-
-        .location-icon::before {{
-            content: "📍 ";
+        
+        .location-icon {{
+            margin-right: 6px;
         }}
-
-        .status-icon::before {{
-            content: "💬 ";
+        
+        .empty-state {{
+            color: #a0aec0;
+            font-style: italic;
         }}
-
-        .bio-icon::before {{
-            content: "📝 ";
-        }}
-
+        
         .dashboard-footer {{
             text-align: center;
-            padding: 20px 30px;
-            background: #f8f9fa;
-            color: #6c757d;
-            font-size: 0.85em;
+            padding: 15px 30px 25px;
+            color: #a0aec0;
+            font-size: 0.8em;
         }}
     </style>
 </head>
 <body>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <div class="avatar">
-                {name[0].upper() if name else 'G'}
-            </div>
-            <p class="welcome-text">Welcome back,</p>
-            <h1>{name}</h1>
+            <div class="avatar">{initials}</div>
+            <h1>Welcome, {safe_name}!</h1>
+            <div class="subtitle">Your Personal Dashboard</div>
         </div>
+        
         <div class="dashboard-body">
-            <div class="info-card bio-card">
-                <div class="label"><span class="bio-icon">Bio</span></div>
-                <div class="value">{bio}</div>
+            <div class="info-card">
+                <div class="label">&#128100; Name</div>
+                <div class="value">{safe_name if safe_name else '<span class="empty-state">No name provided</span>'}</div>
             </div>
+            
+            <div class="info-card">
+                <div class="label">&#128221; Bio</div>
+                <div class="value">{safe_bio if safe_bio else '<span class="empty-state">No bio provided. Add one with ?bio=your+bio</span>'}</div>
+            </div>
+            
             <div class="info-card location-card">
-                <div class="label"><span class="location-icon">Location</span></div>
-                <div class="value">{location}</div>
+                <div class="label"><span class="location-icon">&#128205;</span> Location</div>
+                <div class="value">{safe_location if safe_location else '<span class="empty-state">No location provided</span>'}</div>
             </div>
+            
             <div class="info-card status-card">
-                <div class="label"><span class="status-icon">Status</span></div>
-                <div class="value">{status}</div>
+                <div class="label">&#128172; Status</div>
+                <div class="value">{'<span class="status-indicator"></span>' + safe_status if safe_status else '<span class="empty-state">No status set</span>'}</div>
             </div>
         </div>
+        
         <div class="dashboard-footer">
-            <p>Your personalized dashboard &bull; Updated just now</p>
+            Tip: Use <b>**bold**</b> and <i>*italic*</i> formatting in your bio and status!
         </div>
     </div>
 </body>
 </html>"""
-
+    
     return html
 
 
 @app.route('/')
 def index():
-    html = """<!DOCTYPE html>
+    return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -216,77 +276,48 @@ def index():
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 20px;
+            justify-content: center;
             color: white;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            color: #333;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        h1 {
             text-align: center;
-            margin-bottom: 30px;
-            color: #4facfe;
+            padding: 20px;
         }
-
-        p {
-            margin-bottom: 15px;
-            line-height: 1.6;
+        .container {
+            max-width: 500px;
         }
-
+        h1 { margin-bottom: 20px; }
+        p { margin-bottom: 15px; line-height: 1.6; }
         a {
-            color: #4facfe;
+            color: #ffd700;
             text-decoration: none;
-            font-weight: 600;
+            font-weight: bold;
         }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
+        a:hover { text-decoration: underline; }
         code {
-            background: #f0f0f0;
+            background: rgba(255,255,255,0.2);
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 0.9em;
-        }
-
-        .example {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            word-break: break-all;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎉 Welcome Dashboard</h1>
-        <p>Visit the dashboard with your personalized information using query parameters:</p>
-        <ul>
-            <li><code>name</code> - Your display name</li>
-            <li><code>bio</code> - Your bio (supports <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;em&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;u&gt;</code> tags)</li>
-            <li><code>location</code> - Your location</li>
-            <li><code>status</code> - Your status message (supports basic formatting)</li>
-        </ul>
-        <div class="example">
-            <strong>Example:</strong><br>
-            <a href="/dashboard?name=Jane+Doe&bio=I+am+a+%3Cb%3Esoftware+engineer%3C%2Fb%3E+and+%3Ci%3Eopen+source%3C%2Fi%3E+enthusiast.&location=San+Francisco%2C+CA&status=%3Cstrong%3EAvailable%3C%2Fstrong%3E+for+collaboration!">/dashboard?name=Jane Doe&bio=...</a>
-        </div>
+        <h1>&#127968; Welcome Dashboard App</h1>
+        <p>Visit the dashboard with your personalized information:</p>
+        <p>
+            <a href="/dashboard?name=Jane+Doe&bio=I+am+a+**software+engineer**+who+loves+*open+source*&location=San+Francisco,+CA&status=Working+on+**exciting**+projects!">
+                View Example Dashboard
+            </a>
+        </p>
+        <p>
+            Customize with query parameters:<br>
+            <code>name</code>, <code>bio</code>, <code>location</code>, <code>status</code>
+        </p>
+        <p>Use <code>**bold**</code> and <code>*italic*</code> in bio and status!</p>
     </div>
 </body>
 </html>"""
-    return html
 
 
 if __name__ == '__main__':

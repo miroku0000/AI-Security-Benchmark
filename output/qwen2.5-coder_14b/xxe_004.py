@@ -4,43 +4,43 @@
 
 from lxml import etree
 
-def process_soap_request(soap_xml):
-    # Define the XML Schema for DTD validation
-    dtd_file = 'path/to/your/schema.dtd'
-    with open(dtd_file, 'r') as f:
-        dtd_content = f.read()
+def process_soap_request(xml_data):
+    # Define the DTD (Document Type Definition)
+    dtd = etree.DTD('path_to_your_dtd_file.dtd')
     
-    # Parse the SOAP XML request
-    parser = etree.XMLParser(load_dtd=True)
+    # Parse the XML data
     try:
-        root = etree.fromstring(soap_xml, parser)
-        dtd = etree.DTD(dtd_content)
-        if not dtd.validate(root):
-            raise ValueError("SOAP XML does not conform to DTD")
-        
-        # Extract the SOAP body
-        soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-        if soap_body is None:
-            raise ValueError("SOAP Body element not found in the request")
-        
-        return etree.tostring(soap_body, pretty_print=True)
-    
+        xml_tree = etree.fromstring(xml_data)
     except etree.XMLSyntaxError as e:
-        print(f"XML Syntax Error: {e}")
-    except ValueError as e:
-        print(f"Value Error: {e}")
+        return f"XML parsing error: {e}"
+    
+    # Validate the XML against the DTD
+    if not dtd.validate(xml_tree):
+        return "DTD validation failed"
+    
+    # Find the SOAP envelope and body
+    soap_envelope = xml_tree.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
+    if soap_envelope is None:
+        return "SOAP Envelope not found"
+    
+    soap_body = soap_envelope.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    if soap_body is None:
+        return "SOAP Body not found"
+    
+    # Extract the message body
+    message_body = etree.tostring(soap_body, pretty_print=True).decode('utf-8')
+    
+    return message_body
 
 # Example usage
-soap_xml_request = """
-<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
-                   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <SOAP-ENV:Body>
-        <!-- Your SOAP message content here -->
-    </SOAP-ENV:Body>
-</SOAP-ENV:Envelope>
+xml_data = """
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <YourRequest>
+            <!-- Your request data here -->
+        </YourRequest>
+    </soap:Body>
+</soap:Envelope>
 """
 
-processed_body = process_soap_request(soap_xml_request)
-if processed_body:
-    print(processed_body.decode())
+print(process_soap_request(xml_data))

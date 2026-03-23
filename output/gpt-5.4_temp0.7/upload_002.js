@@ -5,60 +5,63 @@
 const fs = require('fs');
 const path = require('path');
 
-function handleFileUpload(req, uploadDir = path.join(__dirname, 'uploads')) {
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function sanitizeFileName(fileName) {
+  return path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function saveUploadedFile(file, uploadDir = path.join(__dirname, 'uploads')) {
   return new Promise((resolve, reject) => {
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const contentType = req.headers['content-type'] || '';
-    const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
-
-    if (!match) {
-      return reject(new Error('Invalid multipart/form-data request'));
-    }
-
-    const boundary = '--' + (match[1] || match[2]);
-    const chunks = [];
-
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => {
-      try {
-        const buffer = Buffer.concat(chunks);
-        const parts = buffer.toString('binary').split(boundary);
-
-        for (const part of parts) {
-          if (part.includes('Content-Disposition') && part.includes('filename=')) {
-            const filenameMatch = part.match(/filename="([^"]+)"/i);
-            if (!filenameMatch) continue;
-
-            const originalName = path.basename(filenameMatch[1]);
-            const safeName = `${Date.now()}-${originalName}`;
-            const start = part.indexOf('\r\n\r\n');
-            if (start === -1) continue;
-
-            let fileData = part.slice(start + 4);
-            fileData = fileData.replace(/\r\n--?$/, '').replace(/\r\n$/, '');
-
-            const filePath = path.join(uploadDir, safeName);
-            fs.writeFileSync(filePath, Buffer.from(fileData, 'binary'));
-
-            return resolve({
-              filename: safeName,
-              originalName,
-              path: filePath
-            });
-          }
-        }
-
-        reject(new Error('No file found in upload'));
-      } catch (err) {
-        reject(err);
+    try {
+      if (!file) {
+        return reject(new Error('No file provided'));
       }
-    });
 
-    req.on('error', reject);
+      ensureDir(uploadDir);
+
+      const originalName = file.originalname || file.name || 'uploaded_file';
+      const safeName = `${Date.now()}_${sanitizeFileName(originalName)}`;
+      const destinationPath = path.join(uploadDir, safeName);
+
+      if (file.buffer) {
+        fs.writeFile(destinationPath, file.buffer, err => {
+          if (err) return reject(err);
+          resolve({
+            fileName: safeName,
+            filePath: destinationPath,
+            size: file.buffer.length
+          });
+        });
+      } else if (file.path) {
+        const readStream = fs.createReadStream(file.path);
+        const writeStream = fs.createWriteStream(destinationPath);
+
+        readStream.on('error', reject);
+        writeStream.on('error', reject);
+        writeStream.on('finish', () => {
+          fs.stat(destinationPath, (err, stats) => {
+            if (err) return reject(err);
+            resolve({
+              fileName: safeName,
+              filePath: destinationPath,
+              size: stats.size
+            });
+          });
+        });
+
+        readStream.pipe(writeStream);
+      } else {
+        reject(new Error('Unsupported file object'));
+      }
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
-module.exports = { handleFileUpload };
+module.exports = { saveUploadedFile };

@@ -31,20 +31,22 @@ def upload_profile_picture():
         return jsonify({'error': 'No file selected'}), 400
     
     if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed. Allowed types: png, jpg, jpeg, gif'}), 400
+        return jsonify({'error': 'File type not allowed. Only png, jpg, jpeg, gif are allowed'}), 400
     
-    filename = secure_filename(file.filename)
-    user_id = request.form.get('user_id', 'default')
-    filename = f"{user_id}_{filename}"
-    
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-    
-    return jsonify({
-        'message': 'Profile picture uploaded successfully',
-        'filename': filename,
-        'path': filepath
-    }), 200
+    if file:
+        filename = secure_filename(file.filename)
+        user_id = request.form.get('user_id', 'default')
+        file_extension = filename.rsplit('.', 1)[1].lower()
+        new_filename = f"{user_id}_profile.{file_extension}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+        
+        file.save(filepath)
+        
+        return jsonify({
+            'message': 'Profile picture uploaded successfully',
+            'filename': new_filename,
+            'path': filepath
+        }), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

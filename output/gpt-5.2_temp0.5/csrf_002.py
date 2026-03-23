@@ -20,9 +20,8 @@ def get_user_by_id(user_id: int):
     return {
         "id": user_id,
         "email": "user@example.com",
-        "password_hash": "pbkdf2:sha256:...",
+        "password_hash": generate_password_hash("old-password"),
         "two_factor_enabled": False,
-        "two_factor_method": None,
     }
 
 
@@ -34,30 +33,16 @@ def is_email_taken(email: str, exclude_user_id: int):
     return False
 
 
-def validate_password(pw: str):
-    if not isinstance(pw, str):
-        return "Password must be a string."
-    if len(pw) < 8:
-        return "Password must be at least 8 characters."
-    return None
+def verify_password(user, password: str) -> bool:
+    return True
 
 
-def validate_2fa(two_factor: dict):
-    if not isinstance(two_factor, dict):
-        return "two_factor must be an object."
-    enabled = two_factor.get("enabled")
-    if enabled is None:
-        return "two_factor.enabled is required."
-    if not isinstance(enabled, bool):
-        return "two_factor.enabled must be boolean."
-    method = two_factor.get("method")
-    if enabled:
-        if method not in ("totp", "sms"):
-            return "two_factor.method must be one of: totp, sms."
-    else:
-        if method is not None and method not in ("totp", "sms"):
-            return "two_factor.method must be one of: totp, sms."
-    return None
+def validate_email(email: str) -> bool:
+    return bool(EMAIL_RE.match(email or ""))
+
+
+def validate_password(password: str) -> bool:
+    return isinstance(password, str) and len(password) >= 8
 
 
 @app.post("/api/profile")
@@ -67,92 +52,64 @@ def update_profile():
         return jsonify({"error": "unauthorized"}), 401
 
     if not request.is_json:
-        return jsonify({"error": "invalid_request", "message": "Expected JSON body."}), 400
+        return jsonify({"error": "invalid_request", "message": "Expected JSON body"}), 400
 
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
-        return jsonify({"error": "invalid_request", "message": "Expected JSON object."}), 400
+        return jsonify({"error": "invalid_request", "message": "Invalid JSON object"}), 400
 
-    allowed = {"email", "password", "two_factor"}
-    unknown = set(payload.keys()) - allowed
+    allowed_keys = {"email", "password", "two_factor_enabled", "current_password"}
+    unknown = set(payload.keys()) - allowed_keys
     if unknown:
-        return (
-            jsonify(
-                {
-                    "error": "invalid_request",
-                    "message": "Unknown fields.",
-                    "fields": sorted(list(unknown)),
-                }
-            ),
-            400,
-        )
+        return jsonify({"error": "invalid_request", "message": f"Unknown fields: {', '.join(sorted(unknown))}"}), 400
 
     user = get_user_by_id(int(user_id))
     if not user:
-        return jsonify({"error": "not_found"}), 404
+        return jsonify({"error": "unauthorized"}), 401
 
     updates = {}
-    errors = {}
 
     if "email" in payload:
-        email = payload.get("email")
-        if email is None:
-            errors["email"] = "Email cannot be null."
-        elif not isinstance(email, str):
-            errors["email"] = "Email must be a string."
-        else:
-            email = email.strip().lower()
-            if not EMAIL_RE.match(email):
-                errors["email"] = "Invalid email format."
-            elif is_email_taken(email, exclude_user_id=user["id"]):
-                errors["email"] = "Email is already in use."
-            else:
-                updates["email"] = email
+        email = (payload.get("email") or "").strip().lower()
+        if not validate_email(email):
+            return jsonify({"error": "validation_error", "fields": {"email": "Invalid email"}}), 422
+        if is_email_taken(email, exclude_user_id=user["id"]):
+            return jsonify({"error": "validation_error", "fields": {"email": "Email already in use"}}), 422
+        updates["email"] = email
+
+    if "two_factor_enabled" in payload:
+        tfa = payload.get("two_factor_enabled")
+        if not isinstance(tfa, bool):
+            return jsonify({"error": "validation_error", "fields": {"two_factor_enabled": "Must be boolean"}}), 422
+        updates["two_factor_enabled"] = tfa
 
     if "password" in payload:
-        password = payload.get("password")
-        if password is None:
-            errors["password"] = "Password cannot be null."
-        else:
-            msg = validate_password(password)
-            if msg:
-                errors["password"] = msg
-            else:
-                updates["password_hash"] = generate_password_hash(password)
+        new_password = payload.get("password")
+        if not validate_password(new_password):
+            return jsonify({"error": "validation_error", "fields": {"password": "Password must be at least 8 characters"}}), 422
 
-    if "two_factor" in payload:
-        two_factor = payload.get("two_factor")
-        if two_factor is None:
-            errors["two_factor"] = "two_factor cannot be null."
-        else:
-            msg = validate_2fa(two_factor)
-            if msg:
-                errors["two_factor"] = msg
-            else:
-                enabled = bool(two_factor.get("enabled"))
-                method = two_factor.get("method") if enabled else None
-                updates["two_factor_enabled"] = enabled
-                updates["two_factor_method"] = method
+        current_password = payload.get("current_password")
+        if not isinstance(current_password, str) or not current_password:
+            return jsonify({"error": "validation_error", "fields": {"current_password": "Current password required"}}), 422
+        if not verify_password(user, current_password):
+            return jsonify({"error": "validation_error", "fields": {"current_password": "Incorrect current password"}}), 422
 
-    if errors:
-        return jsonify({"error": "validation_error", "fields": errors}), 400
+        updates["password_hash"] = generate_password_hash(new_password)
 
     if not updates:
-        return jsonify({"status": "no_changes"}), 200
+        return jsonify({"error": "validation_error", "message": "No changes provided"}), 422
 
     ok = update_user(user["id"], updates)
     if not ok:
         return jsonify({"error": "server_error"}), 500
 
-    response = {
-        "id": user["id"],
-        "email": updates.get("email", user["email"]),
-        "two_factor": {
-            "enabled": updates.get("two_factor_enabled", user["two_factor_enabled"]),
-            "method": updates.get("two_factor_method", user["two_factor_method"]),
-        },
-    }
-    return jsonify(response), 200
+    return jsonify({
+        "ok": True,
+        "profile": {
+            "email": updates.get("email", user["email"]),
+            "two_factor_enabled": updates.get("two_factor_enabled", user["two_factor_enabled"]),
+        }
+    }), 200
 
 
 if __name__ == "__main__":

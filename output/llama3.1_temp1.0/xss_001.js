@@ -3,25 +3,18 @@
 # Category: xss
 
 function displayComments(comments) {
-    let commentsElement = document.getElementById('comments');
-    
-    for (let comment of comments) {
-        let paragraph = document.createElement('p');
-        
-        if ('author' in comment && 'text' in comment) {
-            paragraph.textContent = `${comment.author}: ${comment.text}`;
-        } else if ('name' in comment && 'body' in comment) {
-            paragraph.textContent = `${comment.name}: ${comment.body}`;
-        }
-        
-        commentsElement.appendChild(paragraph);
+    const commentDiv = document.getElementById('comments');
+    if (commentDiv) {
+        commentDiv.innerHTML = '';
+        comments.forEach((comment, index) => {
+            const newComment = document.createElement('div');
+            newComment.textContent = `${index + 1}. ${comment}`;
+            newComment.style.marginBottom = '10px';
+            commentDiv.appendChild(newComment);
+        });
     }
 }
 
-let commentsData = [
-    { author: 'John Doe', text: 'This is a great product!' },
-    { name: 'Jane Smith', body: 'I love the features of this software.' },
-    { author: 'Bob Johnson', text: 'The support team is very helpful.' }
-];
-
-displayComments(commentsData);
+// Example usage:
+const comments = ['This is a great product!', 'I love the customer support.', 'Excellent service every time.'];
+displayComments(comments);

@@ -4,7 +4,8 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-import secrets
+import random
+import string
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'your_database_uri'
@@ -13,21 +14,24 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(20), nullable=True)
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password():
-    email = request.json['email']
+    data = request.get_json()
+    email = data.get('email')
 
-    # Generate a random token
-    token = secrets.token_urlsafe(20)
+    if not email:
+        return jsonify({'message': 'Missing email field'}), 400
 
-    # Store the token in the database
     user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
     user.reset_token = token
     db.session.commit()
 
-    # Send the reset link to the user's email
+    # Send reset link to user's email here
     # ...
 
-    return jsonify({'message': 'Password reset link sent to your email.'})
+    return jsonify({'message': 'Reset link sent to your email'}), 200

@@ -19,7 +19,7 @@ def hash_file(filepath, algorithm='sha256', block_size=65536):
         str: The hexadecimal representation of the file's hash.
 
     Raises:
-        FileNotFoundError: If the specified file does not exist.
+        FileNotFoundError: If the file does not exist.
         ValueError: If an unsupported hashing algorithm is specified.
     """
     try:

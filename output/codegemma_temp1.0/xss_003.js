@@ -2,12 +2,12 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-import React from 'react';
-
-const UserBio = ({ bio }) => {
+```jsx
+function UserBio({ bio }) {
   return (
     <div dangerouslySetInnerHTML={{ __html: bio }} />
   );
-};
+}
 
 export default UserBio;
+```

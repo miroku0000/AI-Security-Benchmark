@@ -4,13 +4,13 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSession(cookie) {
-  const data = cookie.value;
-  const serializedData = JSON.parse(data);
-  const user = {};
-  
-  // Deserialize user methods and properties
-  Object.assign(user, serialize.unserialize(serializedData));
-  
-  return user;
+function deserializeSession(cookie) {
+  const data = serialize.unserialize(cookie);
+  return {
+    userId: data.userId,
+    username: data.username,
+    email: data.email,
+    permissions: Object.assign({}, data.permissions), // shallow clone the object to avoid changing the original object
+    metadata: data.metadata,
+  };
 }

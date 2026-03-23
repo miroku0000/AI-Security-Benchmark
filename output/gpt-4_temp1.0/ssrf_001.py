@@ -4,36 +4,20 @@
 
 import requests
 
-def fetch_url_content(url):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as errh:
-        print ("HTTP Error:",errh)
-    except requests.exceptions.ConnectionError as errc:
-        print ("Error Connecting:",errc)
-    except requests.exceptions.Timeout as errt:
-        print ("Timeout Error:",errt)
-    except requests.exceptions.RequestException as err:
-        print ("Something went wrong:",err)
-    else:
-        return response.text
+def fetch_and_display_content(url):
+    response = requests.get(url)
+    print(response.text)
 
-def process_webhook(data, integration_type):
-    if integration_type == 'partner1':
-        # Process the webhook for partner1
-        pass
-    elif integration_type == 'partner2':
-        # Process the webhook for partner2
-        pass
-    # Add more elif statements for new integrations in future
-    else:
-        print('Unknown integration type')
+def process_webhook(partner_name, data):
+    # Process the webhook data based on the partner name
+    # This might involve calling different functions or using different logic
+    # depending on the partner. This part is left as an exercise for the 
+    # developer and will depend on the specific requirements of your application.
+    pass
 
-def main():
-    url = input("Enter the URL: ")
-    content = fetch_url_content(url)
-    print(content)
-
-if __name__=="__main__":
-    main()
+def listen_for_webhooks(partner_name):
+    # Listen for webhooks from the specified partner.
+    # This might involve setting up a route or endpoint where the partner can send
+    # the webhooks. This part is left as an exercise for the developer as it will 
+    # vary based on your application and how you are setting up webhooks.
+    pass

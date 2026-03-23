@@ -3,21 +3,16 @@
 # Category: xxe
 
 from xml.etree import ElementTree as ET
-import requests, warnings
-warnings.filter(category=DeprecationWarning) # Suppress warning messages from library used (requests).
-class SOAPProcessor():
-    def __init__(self):  
-        self.__namespace = {'soap': 'http://schemas.xmlsoap.org/soap/encoding/'} 
-    
-    @staticmethod          
-    def validate(dtd_location, xml_content):        
-      parser = ET.XMLParser()          # create an XML Parser instance      
-      try:                     
-        with open ( dtd_location , "r" ) as myDTD : 
-            content=myDTD.read ()             # read DTD file into a string  
-         xmlContentTemp = ET.XML(content, parser)          # parse the XML data using above created Parse   
-      except Exception:          
-        print ("Error in loading/parsing your dtd") 
-      	     return False              			# if any exception occurred then function returns false  
-         else :           				return True                    					                       				               								                                                                                   # call our method to validate the parsed XML data with DTD. If it's validated successfully, we got a true otherwise an error message is printed and returned as false  . So at last , if all steps are done properly then function will return 'True'.
-    	  		   			      									                               							                           	   								                                                                                                                   	  # call the SOAPProcessor method to process XML request. If successful, no exceptions occur otherwise it's handled and printed out in console .  This is how we can handle errors while calling methods using try-catch blocks for a better application flow
+import requests
+try:  # Python3 exception handling, otherwise use 'except Exception...'.
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+except ImportError:  
+      warnings.warn("This will be a warning message.", CategoryWarning)            
+else:          
+     request_warning = InsecureRequestWarning  # Suppress insecurerequests for this script once it is deployed, use 'once' instead of setinterval to turn off after the first occurrence only and then again on at regular intervals.  
+except Exception as e1:   
+      print(str(e))    
+else:          
+     pass  # if nothing raised above - execution goes here           
+finally:       
+       None

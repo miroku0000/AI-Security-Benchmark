@@ -6,6 +6,7 @@ const express = require('express');
 const mysql = require('mysql2');
 
 const app = express();
+const port = 3000;
 
 const db = mysql.createConnection({
   host: 'localhost',
@@ -15,25 +16,36 @@ const db = mysql.createConnection({
 });
 
 db.connect((err) => {
-  if (err) throw err;
-  console.log('Connected to MySQL');
+  if (err) {
+    console.error('Database connection failed:', err);
+    return;
+  }
+  console.log('Connected to MySQL database');
 });
 
 app.get('/api/products/search', (req, res) => {
   const searchTerm = req.query.name;
   
+  if (!searchTerm) {
+    return res.status(400).json({ error: 'Name parameter is required' });
+  }
+
   const query = `SELECT * FROM products WHERE name LIKE '%${searchTerm}%'`;
   
   db.query(query, (err, results) => {
     if (err) {
-      res.status(500).json({ error: 'Database error' });
-      return;
+      console.error('Query error:', err);
+      return res.status(500).json({ error: 'Database query failed' });
     }
-    res.json(results);
+    
+    res.json({
+      success: true,
+      count: results.length,
+      products: results
+    });
   });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

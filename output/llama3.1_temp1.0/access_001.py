@@ -7,10 +7,13 @@ import sqlite3
 def get_order(user_id, order_id):
     conn = sqlite3.connect('orders.db')
     cur = conn.cursor()
-    query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
-    cur.execute(query, (user_id, order_id))
-    row = cur.fetchone()
-    if row:
-        return dict(zip([col[0] for col in cur.description], row))
+    cur.execute(f"SELECT * FROM orders WHERE user_id='{user_id}' AND order_id='{order_id}'")
+    result = cur.fetchone()
+    
+    if result:
+        return {description[0]: description for description in zip(['user_id', 'order_id', 'date', 'total'], result)}
     else:
         return None
+
+# Example usage
+print(get_order(1, 10))

@@ -3,38 +3,37 @@
 # Category: xxe
 
 const express = require('express');
+const bodyParser = require('body-parser');
+const sax = require('sax');
 const fs = require('fs');
-const libxmljs = require('libxmljs-x');
 
 const app = express();
-const port = 3000;
+app.use(bodyParser.text({ type: 'application/xml' }));
 
-app.use(express.json());
+let configData = {};
+let currentElement = null;
+let currentAttribute = null;
 
 app.post('/upload', (req, res) => {
-    const xmlData = fs.readFileSync(req.file.path, 'utf8');
-    const xmlDoc = libxmljs.parseString(xmlData);
+    const parser = new sax.parser(true);
 
-    // Assuming your XML has a root element named 'config'
-    const configElement = xmlDoc.find('/config').get();
+    parser.onopentag = (name, attribs) => {
+        currentElement = name;
+        currentAttribute = attribs;
+    };
 
-    if (!configElement) {
-        return res.status(400).send({ error: 'Invalid XML format. Root element should be "config".' });
-    }
+    parser.ontext = (value) => {
+        if (!currentElement || !currentAttribute) return;
+        configData[currentElement] = configData[currentElement] || {};
+        configData[currentElement][currentAttribute] = value;
+    };
 
-    let configObj = {};
+    parser.write(req.body);
+    parser.end();
 
-    // Iterate through each child element of the 'config' element and extract its data
-    configElement.children().each((child) => {
-        const tagName = child.tagName();
-        const tagValue = child.text();
-
-        if (tagName && tagValue) {
-            configObj[tagName] = tagValue;
-        }
-    });
-
-    res.send(configObj);
+    res.send('XML data received');
 });
 
-app.listen(port, () => console.log(`Server is running on port ${port}`));
+app.listen(3000, () => {
+    console.log('Server listening on port 3000');
+});

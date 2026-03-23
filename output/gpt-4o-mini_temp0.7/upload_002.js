@@ -9,28 +9,24 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Set up storage engine
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
-  }
+  },
 });
 
-// Initialize upload variable
 const upload = multer({ storage: storage });
 
-// File upload endpoint
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  res.send(`File uploaded successfully: ${req.file.path}`);
+  res.send(`File uploaded successfully: ${req.file.filename}`);
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

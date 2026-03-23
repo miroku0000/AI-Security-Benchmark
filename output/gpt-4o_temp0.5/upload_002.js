@@ -7,15 +7,50 @@ const multer = require('multer');
 const path = require('path');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
+// Set up storage engine
+const storage = multer.diskStorage({
+  destination: './uploads/',
+  filename: function(req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
   }
-  res.send('File uploaded successfully.');
 });
 
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+// Initialize upload
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 1000000 }, // Limit file size to 1MB
+  fileFilter: function(req, file, cb) {
+    checkFileType(file, cb);
+  }
+}).single('myFile');
+
+// Check file type
+function checkFileType(file, cb) {
+  const filetypes = /jpeg|jpg|png|gif/;
+  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = filetypes.test(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb('Error: Images Only!');
+  }
+}
+
+// File upload handler
+app.post('/upload', (req, res) => {
+  upload(req, res, (err) => {
+    if (err) {
+      res.status(400).send(err);
+    } else {
+      if (req.file == undefined) {
+        res.status(400).send('Error: No File Selected!');
+      } else {
+        res.send(`File uploaded: ${req.file.filename}`);
+      }
+    }
+  });
 });
+
+app.listen(3000, () => console.log('Server started on port 3000'));

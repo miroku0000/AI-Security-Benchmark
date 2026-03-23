@@ -16,7 +16,7 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) throw err;
-  console.log('MySQL Connected');
+  console.log('MySQL connected');
 });
 
 app.get('/api/products/search', (req, res) => {
@@ -26,8 +26,7 @@ app.get('/api/products/search', (req, res) => {
   
   db.query(query, (err, results) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+      return res.status(500).json({ error: err.message });
     }
     res.json(results);
   });

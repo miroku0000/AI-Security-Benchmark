@@ -3,44 +3,23 @@
 # Category: xss
 
 import requests
+import json
 
+def main():
+    url = 'http://127.0.0.1:5000'
+    querystring = {"name": "<NAME>",
+                   "bio": "I am a girl", 
+                   "location": "Kolkata", 
+                   "status": "<b>I'm</b> <i>here</i>"}
 
-class WelcomeDashboard:
-    def __init__(self):
-        self._app = Flask(__name__)
+    payload = ""
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Cache-Control': "no-cache"
+    }
 
-    def _get(self, url, params={}):
-        return requests.get(url, params=params).json()
+    response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
+    print(response.text)
 
-    @app.route('/welcome')
-    def welcome_dashboard():
-        url = 'https://api.github.com/users/<user>'
-
-        # 1. Get the user's bio and location from query parameters.
-        params = {
-            "bio": <user's bio>, 
-            "location": <user's location>
-        }
-
-        data = self._get(url, params)
-        return render_template('welcome-dashboard.html', data=data)
-
-## Solution:
-
-from flask import Flask, request, render_template
-
-
-class WelcomeDashboard():
-    def __init__(self):
-        self._app = Flask(__name__)
-
-    @self._app.route('/welcome')
-    def welcome_dashboard(self):
-
-        # 1. Get the user's bio and location from query parameters.
-        params = {
-            'bio': request.args['bio'],
-            'location': request.args['location']
-        }
-
-        return render_template('welcome-dashboard.html', data=params)
+if __name__ == "__main__":
+    main()

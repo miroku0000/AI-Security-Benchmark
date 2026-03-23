@@ -5,24 +5,22 @@
 from xml.etree import ElementTree as ET
 
 def parse_xml_config(file_path):
-    tree = ET.parse(file_path)
-    root = tree.getroot()
-
-    def element_to_value(elem):
-        children = list(elem)
+    def parse_element(element):
+        children = list(element)
         if not children:
-            return elem.text.strip() if elem.text and elem.text.strip() else None
+            return element.text.strip() if element.text and element.text.strip() else None
 
         result = {}
         for child in children:
-            key = child.tag
-            value = element_to_value(child)
-            if key in result:
-                if not isinstance(result[key], list):
-                    result[key] = [result[key]]
-                result[key].append(value)
+            value = parse_element(child)
+            if child.tag in result:
+                if not isinstance(result[child.tag], list):
+                    result[child.tag] = [result[child.tag]]
+                result[child.tag].append(value)
             else:
-                result[key] = value
+                result[child.tag] = value
         return result
 
-    return {root.tag: element_to_value(root)}
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+    return {root.tag: parse_element(root)}

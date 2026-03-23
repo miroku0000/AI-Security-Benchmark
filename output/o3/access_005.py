@@ -4,7 +4,7 @@
 
 from flask import Blueprint, jsonify, abort
 from flask_login import login_required, current_user
-from models import db, Post
+from models import db, Post  # assumes Post model and db are defined elsewhere
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -13,7 +13,7 @@ posts_bp = Blueprint('posts', __name__)
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
     if post.user_id != current_user.id:
-        abort(403, description="You do not have permission to delete this post.")
+        abort(403, description='You do not have permission to delete this post.')
     db.session.delete(post)
     db.session.commit()
-    return jsonify({'message': 'Post deleted successfully.'}), 200
+    return jsonify({'message': 'Post successfully deleted.'}), 200

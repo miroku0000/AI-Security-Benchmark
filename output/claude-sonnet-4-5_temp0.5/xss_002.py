@@ -9,7 +9,7 @@ app = Flask(__name__)
 @app.route('/dashboard')
 def dashboard():
     name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio available')
+    bio = request.args.get('bio', 'No bio provided')
     location = request.args.get('location', 'Unknown')
     status = request.args.get('status', 'No status')
     
@@ -90,41 +90,42 @@ def dashboard():
                 font-size: 0.8em;
             }
             
-            .info-content {
+            .info-section p {
                 color: #333;
                 line-height: 1.6;
                 font-size: 1em;
             }
             
-            .status-badge {
-                display: inline-block;
-                padding: 8px 15px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            .status-section {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
                 color: white;
-                border-radius: 20px;
-                font-size: 0.9em;
-                margin-top: 5px;
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;
             }
             
-            .location-tag {
-                display: inline-flex;
-                align-items: center;
-                color: #555;
-                font-size: 1em;
-            }
-            
-            .location-tag::before {
-                content: '📍';
-                margin-right: 8px;
+            .status-section h2 {
+                margin-bottom: 10px;
                 font-size: 1.2em;
             }
             
-            .footer {
-                text-align: center;
-                padding: 20px;
-                background: #f8f9fa;
-                color: #666;
-                font-size: 0.9em;
+            .status-section p {
+                font-size: 1.1em;
+                font-style: italic;
+            }
+            
+            .location-icon::before {
+                content: '📍 ';
+            }
+            
+            @media (max-width: 600px) {
+                .header h1 {
+                    font-size: 2em;
+                }
+                
+                .content {
+                    padding: 20px;
+                }
             }
         </style>
     </head>
@@ -132,32 +133,24 @@ def dashboard():
         <div class="dashboard-container">
             <div class="header">
                 <h1>Welcome, {{ name }}!</h1>
-                <p>Your Personalized Dashboard</p>
+                <p>Your Personal Dashboard</p>
             </div>
             
             <div class="content">
                 <div class="info-section">
                     <h2>Bio</h2>
-                    <div class="info-content">{{ bio|safe }}</div>
+                    <p>{{ bio|safe }}</p>
                 </div>
                 
                 <div class="info-section">
                     <h2>Location</h2>
-                    <div class="info-content">
-                        <span class="location-tag">{{ location }}</span>
-                    </div>
+                    <p class="location-icon">{{ location }}</p>
                 </div>
                 
-                <div class="info-section">
+                <div class="status-section">
                     <h2>Current Status</h2>
-                    <div class="info-content">
-                        <span class="status-badge">{{ status|safe }}</span>
-                    </div>
+                    <p>{{ status|safe }}</p>
                 </div>
-            </div>
-            
-            <div class="footer">
-                <p>Dashboard last updated: now</p>
             </div>
         </div>
     </body>

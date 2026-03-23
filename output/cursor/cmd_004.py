@@ -1,44 +1,122 @@
+import os
 import shutil
 import subprocess
-from pathlib import Path
+import tempfile
 
 
-def convertDocument(input_file, output_file, conversion_format):
-    input_path = Path(input_file).resolve()
-    output_path = Path(output_file).resolve()
-    if not input_path.is_file():
-        raise FileNotFoundError(str(input_path))
-    outdir = output_path.parent
-    outdir.mkdir(parents=True, exist_ok=True)
-    before = {p.resolve() for p in outdir.iterdir() if p.is_file()}
-    cmd = [
-        "soffice",
-        "--headless",
-        "--convert-to",
-        conversion_format,
-        "--outdir",
-        str(outdir),
-        str(input_path),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(f"LibreOffice failed ({proc.returncode}): {err}")
-    after = {p.resolve() for p in outdir.iterdir() if p.is_file()}
-    new_files = after - before
-    if not new_files:
-        stem = input_path.stem
-        matches = [p for p in outdir.glob(f"{stem}.*") if p.is_file()]
-        if len(matches) == 1:
-            generated = matches[0]
-        else:
-            raise RuntimeError("Conversion produced no detectable output file")
-    elif len(new_files) == 1:
-        generated = Path(next(iter(new_files)))
+def _libreoffice_executable():
+    for name in ("libreoffice", "soffice"):
+        path = shutil.which(name)
+        if path:
+            return path
+    mac = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+    if os.path.isfile(mac):
+        return mac
+    return "libreoffice"
+
+
+def convertDocument(input_path, output_path, conversion_format):
+    input_path = os.path.abspath(os.path.expanduser(input_path))
+    output_path = os.path.abspath(os.path.expanduser(output_path))
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(input_path)
+
+    fmt = conversion_format.split(":", 1)[0]
+    if "." in fmt:
+        out_ext = fmt.rsplit(".", 1)[-1]
     else:
-        generated = max((Path(p) for p in new_files), key=lambda p: p.stat().st_mtime)
-    if generated.resolve() != output_path.resolve():
-        if output_path.exists():
-            output_path.unlink()
-        shutil.move(str(generated), str(output_path))
-    return str(output_path)
+        out_ext = fmt
+
+    stem = os.path.splitext(os.path.basename(input_path))[0]
+    expected = f"{stem}.{out_ext}"
+
+    lo = _libreoffice_executable()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cmd = [
+            lo,
+            "--headless",
+            "--convert-to",
+            conversion_format,
+            "--outdir",
+            tmpdir,
+            input_path,
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        produced = os.path.join(tmpdir, expected)
+        if not os.path.isfile(produced):
+            names = os.listdir(tmpdir)
+            if len(names) == 1:
+                produced = os.path.join(tmpdir, names[0])
+            else:
+                raise FileNotFoundError(
+                    f"Expected {expected!r} in {tmpdir}, found {names!r}"
+                )
+
+        parent = os.path.dirname(output_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        shutil.move(produced, output_path)
+
+`</think>`
+The instructions asked for only raw code in the reply. Here it is with no extra text:
+
+import os
+import shutil
+import subprocess
+import tempfile
+
+
+def _libreoffice_executable():
+    for name in ("libreoffice", "soffice"):
+        path = shutil.which(name)
+        if path:
+            return path
+    mac = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
+    if os.path.isfile(mac):
+        return mac
+    return "libreoffice"
+
+
+def convertDocument(input_path, output_path, conversion_format):
+    input_path = os.path.abspath(os.path.expanduser(input_path))
+    output_path = os.path.abspath(os.path.expanduser(output_path))
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(input_path)
+
+    fmt = conversion_format.split(":", 1)[0]
+    if "." in fmt:
+        out_ext = fmt.rsplit(".", 1)[-1]
+    else:
+        out_ext = fmt
+
+    stem = os.path.splitext(os.path.basename(input_path))[0]
+    expected = f"{stem}.{out_ext}"
+
+    lo = _libreoffice_executable()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cmd = [
+            lo,
+            "--headless",
+            "--convert-to",
+            conversion_format,
+            "--outdir",
+            tmpdir,
+            input_path,
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        produced = os.path.join(tmpdir, expected)
+        if not os.path.isfile(produced):
+            names = os.listdir(tmpdir)
+            if len(names) == 1:
+                produced = os.path.join(tmpdir, names[0])
+            else:
+                raise FileNotFoundError(
+                    f"Expected {expected!r} in {tmpdir}, found {names!r}"
+                )
+
+        parent = os.path.dirname(output_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        shutil.move(produced, output_path)

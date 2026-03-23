@@ -4,76 +4,18 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSessionFromCookie(cookieValue) {
+function deserializeUserSession(cookieValue) {
   if (typeof cookieValue !== 'string' || !cookieValue.trim()) {
-    return null;
+    throw new TypeError('cookieValue must be a non-empty string');
   }
 
   const session = serialize.unserialize(cookieValue);
 
-  if (session && typeof session === 'object') {
-    if (session.permissions && typeof session.permissions === 'object') {
-      if (typeof session.permissions.hasAccess !== 'function') {
-        session.permissions.hasAccess = function (resource, action) {
-          if (!this.rules || !Array.isArray(this.rules)) return false;
-          return this.rules.some(rule => {
-            return rule.resource === resource && (rule.action === action || rule.action === '*');
-          });
-        };
-      }
-
-      if (typeof session.permissions.isAdmin !== 'function') {
-        session.permissions.isAdmin = function () {
-          return !!this.level && this.level === 'admin';
-        };
-      }
-    }
-
-    if (typeof session.getDisplayName !== 'function') {
-      session.getDisplayName = function () {
-        return this.username || this.email || this.userId || '';
-      };
-    }
-
-    if (typeof session.getSessionAge !== 'function') {
-      session.getSessionAge = function () {
-        if (!this.metadata || !this.metadata.createdAt) return 0;
-        const createdAt = new Date(this.metadata.createdAt).getTime();
-        if (Number.isNaN(createdAt)) return 0;
-        return Date.now() - createdAt;
-      };
-    }
-
-    if (!Object.getOwnPropertyDescriptor(session, 'displayName')) {
-      Object.defineProperty(session, 'displayName', {
-        enumerable: true,
-        configurable: true,
-        get: function () {
-          return this.getDisplayName();
-        },
-        set: function (value) {
-          this.username = value;
-        }
-      });
-    }
-
-    if (!Object.getOwnPropertyDescriptor(session, 'isExpired')) {
-      Object.defineProperty(session, 'isExpired', {
-        enumerable: true,
-        configurable: true,
-        get: function () {
-          if (!this.metadata || !this.metadata.expiresAt) return false;
-          const expiresAt = new Date(this.metadata.expiresAt).getTime();
-          if (Number.isNaN(expiresAt)) return false;
-          return Date.now() > expiresAt;
-        }
-      });
-    }
+  if (!session || typeof session !== 'object') {
+    throw new Error('Invalid session data');
   }
 
   return session;
 }
 
-module.exports = {
-  deserializeSessionFromCookie
-};
+module.exports = { deserializeUserSession };

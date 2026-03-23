@@ -15,13 +15,15 @@ def upload_file():
     file = request.files['picture']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        file.save(os.path.join('/path/to/uploads', filename))
+        file.save(os.path.join('uploads', filename))
         return 'File uploaded successfully'
 
 def allowed_file(filename):
-    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg'}
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == "__main__":
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
     app.run(port=5000)

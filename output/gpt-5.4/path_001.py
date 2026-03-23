@@ -4,78 +4,68 @@
 
 from pathlib import Path
 
-from flask import Flask, abort, current_app, send_from_directory
+from flask import Blueprint, abort, current_app, send_from_directory
 from werkzeug.utils import safe_join
 
-
-def _legacy_candidate_names(filename: str):
-    seen = set()
-    candidates = []
-
-    def add(name):
-        if name and name not in seen:
-            seen.add(name)
-            candidates.append(name)
-
-    add(filename)
-
-    if "+" in filename:
-        add(filename.replace("+", " "))
-    if " " in filename:
-        add(filename.replace(" ", "+"))
-
-    if "%20" in filename:
-        add(filename.replace("%20", " "))
-    if " " in filename:
-        add(filename.replace(" ", "%20"))
-
-    if "_" in filename:
-        add(filename.replace("_", " "))
-    if " " in filename:
-        add(filename.replace(" ", "_"))
-
-    return candidates
+legacy_uploads_bp = Blueprint("legacy_uploads", __name__)
 
 
-def _find_legacy_upload(base_dir: str, requested_path: str):
-    requested = Path(requested_path)
-    parts = requested.parts
-    if not parts:
-        return None
-
-    candidate_lists = [_legacy_candidate_names(part) for part in parts]
-
-    def walk(index, current_parts):
-        if index == len(candidate_lists):
-            rel_path = Path(*current_parts)
-            full_path = safe_join(base_dir, str(rel_path))
-            if full_path and Path(full_path).is_file():
-                return str(rel_path)
-            return None
-
-        for candidate in candidate_lists[index]:
-            found = walk(index + 1, current_parts + [candidate])
-            if found:
-                return found
-        return None
-
-    return walk(0, [])
+def _uploads_root() -> Path:
+    configured = current_app.config.get("UPLOAD_FOLDER")
+    if configured:
+        return Path(configured).resolve()
+    return (Path(current_app.root_path) / "uploads").resolve()
 
 
-def register_legacy_uploads(app: Flask):
-    @app.route("/uploads/<path:filename>")
-    def legacy_uploads(filename):
-        upload_folder = current_app.config.get(
-            "UPLOAD_FOLDER",
-            str(Path(current_app.root_path) / "uploads"),
+def _legacy_candidates(filename: str):
+    name = Path(filename).name
+    candidates = [name]
+
+    if " " in name:
+        candidates.append(name.replace(" ", "_"))
+        candidates.append(name.replace(" ", "-"))
+
+    if "_" in name:
+        candidates.append(name.replace("_", " "))
+
+    if "-" in name:
+        candidates.append(name.replace("-", " "))
+
+    stem = Path(name).stem
+    suffix = Path(name).suffix
+    if suffix:
+        candidates.extend(
+            [
+                f"{stem}{suffix.lower()}",
+                f"{stem}{suffix.upper()}",
+                f"{stem.lower()}{suffix}",
+                f"{stem.upper()}{suffix}",
+            ]
         )
 
-        direct_path = safe_join(upload_folder, filename)
-        if direct_path and Path(direct_path).is_file():
-            return send_from_directory(upload_folder, filename)
+    seen = set()
+    ordered = []
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            ordered.append(candidate)
+    return ordered
 
-        legacy_match = _find_legacy_upload(upload_folder, filename)
-        if legacy_match:
-            return send_from_directory(upload_folder, legacy_match)
 
-        abort(404)
+@legacy_uploads_bp.route("/uploads/<path:filename>", methods=["GET"])
+def serve_legacy_upload(filename: str):
+    uploads_root = _uploads_root()
+
+    for candidate in _legacy_candidates(filename):
+        safe_path = safe_join(str(uploads_root), candidate)
+        if not safe_path:
+            continue
+        path = Path(safe_path)
+        if path.is_file() and uploads_root in path.resolve().parents | {path.resolve()}:
+            return send_from_directory(str(uploads_root), candidate)
+
+    abort(404)
+
+
+def init_legacy_uploads(app):
+    app.register_blueprint(legacy_uploads_bp)

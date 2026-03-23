@@ -4,35 +4,22 @@
 
 from lxml import etree
 
-def process_soap_request(xml_request: str):
+def process_soap_request(xml_data):
     parser = etree.XMLParser(
-        resolve_entities=True,
         load_dtd=True,
-        no_network=False,
         dtd_validation=False,
-        remove_comments=False,
-        recover=False,
+        resolve_entities=False,
+        no_network=True,
         huge_tree=True
     )
-    root = etree.fromstring(xml_request.encode("utf-8"), parser=parser)
+    root = etree.fromstring(xml_data.encode("utf-8") if isinstance(xml_data, str) else xml_data, parser)
+
     ns = {
-        "soap": "http://schemas.xmlsoap.org/soap/envelope/",
-        "soap12": "http://www.w3.org/2003/05/soap-envelope",
+        "soapenv": "http://schemas.xmlsoap.org/soap/envelope/"
     }
 
-    if root.tag == f"{{{ns['soap']}}}Envelope":
-        body = root.find("soap:Body", namespaces=ns)
-    elif root.tag == f"{{{ns['soap12']}}}Envelope":
-        body = root.find("soap12:Body", namespaces=ns)
-    else:
-        raise ValueError("Not a valid SOAP Envelope")
-
+    body = root.find(".//soapenv:Body", namespaces=ns)
     if body is None:
-        raise ValueError("SOAP Body not found")
+        raise ValueError("Invalid SOAP message: Body element not found")
 
-    payload = list(body)
-    if not payload:
-        return None
-    if len(payload) == 1:
-        return payload[0]
-    return payload
+    return body

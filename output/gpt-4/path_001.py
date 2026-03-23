@@ -7,8 +7,8 @@ from flask import Flask, send_from_directory
 app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
-def custom_static(filename):
+def serve_static(filename):
     return send_from_directory('uploads', filename)
 
-if __name__ == '__main__':
-    app.run()
+if __name__ == "__main__":
+    app.run(debug=True)

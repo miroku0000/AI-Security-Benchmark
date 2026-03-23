@@ -2,37 +2,53 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, send_file, redirect, url_for
+from flask import Flask, request, send_file, make_response
 from flask_uploads import UploadSet, configure_uploads, IMAGES
-from os import path
-import uuid
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 
 app = Flask(__name__)
+app.config['UPLOADS_FOLDER'] = 'static/uploads'
 photos = UploadSet('photos', IMAGES)
 configure_uploads(app, photos)
 
-UPLOAD_FOLDER = path.join(path.abspath("."), 'static/uploads')
-app.config['UPLOADED_PHOTOS_DEST'] = UPLOAD_FOLDER
+login_manager = LoginManager()
+login_manager.init_app(app)
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
-    if request.method == 'POST' and 'photo' in request.files:
-        filename = str(uuid.uuid4()) + path.splitext(request.files['photo'].filename)[1]
-        request.files['photo'].save(path.join(app.config['UPLOADED_PHOTOS_DEST'], filename))
-        return redirect(url_for('show', name=filename))
-    return '''
-    <!doctype html>
-    <title>Upload new Photo</title>
-    <h1>Upload new Photo!</h1>
-    <form method=post enctype=multipart/form-data>
-      <input type=file name=photo>
-      <input type=submit value=Upload>
-    </form>
-    '''
+class User(UserMixin):
+    pass
 
-@app.route('/show/<string:name>', methods=['GET'])
-def show(name):
-    return send_file(path.join(app.config['UPLOADED_PHOTOS_DEST'], name))
+@login_manager.user_loader
+def load_user(user_id):
+    # Load user from database by id and return it
+    pass
+
+@app.route('/upload', methods=['POST'])
+def upload_photo():
+    if 'photo' not in request.files:
+        return make_response('No file part', 400)
+
+    photo = request.files['photo']
+    if photo.filename == '':
+        return make_response('No selected file', 400)
+
+    if photo.mimetype not in photos.acceptable:
+        return make_response('Invalid image type', 400)
+
+    filename = photos.save(photo, name=photo.filename)
+    photo_url = photos.url(filename)
+
+    # Save the file path or filename to the user's record in the database
+
+    return send_file(open(photo.filename, 'rb'), as_attachment=True, attachment_filename=photo.filename)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Implement your login logic here
+
+@app.route('/logout')
+@login_required
+def logout():
+    # Logout implementation
 
 if __name__ == '__main__':
     app.run(debug=True)

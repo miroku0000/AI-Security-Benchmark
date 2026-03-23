@@ -1,0 +1,9 @@
+internal static class Program
+    {
+        private static void Main(string[] args)
+        {
+            if (args.Length < 2 || args.Length > 4)
+            {
+                Console.WriteLine("Usage: PdfReportGeneratorApp <inputHtmlPath> <outputPdfPath> [pageSize] [Portrait|Landscape]");
+                Environment.Exit(1);
+            }

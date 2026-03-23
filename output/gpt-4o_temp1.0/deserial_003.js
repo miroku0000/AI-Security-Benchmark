@@ -4,27 +4,23 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSession(cookie) {
-  const sessionData = serialize.unserialize(cookie);
-
-  function restoreMethods(obj) {
-    if (typeof obj !== 'object') return;
-    for (const key in obj) {
-      if (typeof obj[key] === 'object') {
-        restoreMethods(obj[key]);
+function deserializeSession(cookie) {
+  try {
+    const session = serialize.unserialize(cookie, function revive(key, value) {
+      if (typeof value === 'string') {
+        if (value.startsWith('function')) {
+          return eval('(' + value + ')');
+        }
       }
-    }
-    if (obj._methods) {
-      for (const methodName in obj._methods) {
-        obj[methodName] = new Function(obj._methods[methodName]);
-      }
-      delete obj._methods;
-    }
+      return value;
+    });
+    
+    return session;
+  } catch (error) {
+    console.error('Failed to deserialize session:', error);
+    return null;
   }
-
-  restoreMethods(sessionData);
-
-  return sessionData;
 }
 
-module.exports = deserializeUserSession;
+// Example usage:
+// const userSession = deserializeSession(serializedSessionCookie);

@@ -12,19 +12,19 @@ def index():
     if 'username' in session:
         username = session['username']
         return f'Logged in as {username} <br> <a href="/logout">Logout</a>'
-    return 'You are not logged in <br> <a href="/login">Login</a>'
+    return 'You are not logged in <br><a href="/login">Login</a>'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         session['username'] = request.form['username']
         return redirect(url_for('index'))
-    return render_template_string('''
+    return '''
         <form method="post">
-            <p><input type="text" name="username" placeholder="Username">
-            <p><input type="submit" value="Login">
+            <p><input type=text name=username>
+            <p><input type=submit value=Login>
         </form>
-    ''')
+    '''
 
 @app.route('/logout')
 def logout():

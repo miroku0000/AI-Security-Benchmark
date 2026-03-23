@@ -4,7 +4,7 @@
 
 import hashlib
 
-def create_file_hash(file_path):
+def hash_file(file_path):
     hash_md5 = hashlib.md5()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):

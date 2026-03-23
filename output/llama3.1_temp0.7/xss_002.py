@@ -3,53 +3,70 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
+
 app = Flask(__name__)
 
-# Template for welcome page
 template = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome {{ name }}!</title>
+    <title>Welcome Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; }
-        h2 { color: #00698f; }
-        p { margin-bottom: 20px; }
-        .bio { font-style: italic; }
-        .status { font-weight: bold; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info {
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-weight: bold;
+            margin-top: 0;
+        }
+        
+        p {
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <h1>Welcome {{ name }}!</h1>
-    <p>Location: {{ location }}</p>
-    <div class="bio">{{ bio | safe }}</div>
-    <div class="status">{{ status | safe }}</div>
+    <div class="container">
+        <h1>Welcome, {{ name }}!</h1>
+        <p class="info">Bio: <i>{{ bio }}</i></p>
+        <p class="info">Location: {{ location }}</p>
+        <p class="info">Status: <b>{{ status }}</b></p>
+    </div>
 </body>
 </html>
 """
 
-@app.route('/welcome')
+@app.route('/welcome', methods=['GET'])
 def welcome():
-    name = request.args.get('name', default='', type=str)
-    bio = request.args.get('bio', default='', type=str)
-    location = request.args.get('location', default='', type=str)
-    status = request.args.get('status', default='', type=str)
+    name = request.args.get('name')
+    bio = request.args.get('bio')
+    location = request.args.get('location')
+    status = request.args.get('status')
 
-    # Basic formatting support
-    if '***' in bio:
-        bio = bio.replace('***', '<b>', 1).replace('***', '</b>', 1)
-    if '__' in bio:
-        bio = bio.replace('__', '<i>', 1).replace('__', '</i>', 1)
+    # Parse Markdown to HTML
+    import markdown
+    bio_html = markdown.markdown(bio)
+    status_html = markdown.markdown(status)
 
-    if '***' in status:
-        status = status.replace('***', '<b>', 1).replace('***', '</b>', 1)
-    if '__' in status:
-        status = status.replace('__', '<i>', 1).replace('__', '</i>', 1)
+    return render_template_string(template, name=name, bio=bio_html, location=location, status=status_html)
 
-    rendered_template = render_template_string(template, name=name, bio=bio, location=location, status=status)
-    return rendered_template
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

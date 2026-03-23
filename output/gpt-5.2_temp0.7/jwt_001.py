@@ -7,127 +7,156 @@ from functools import wraps
 
 import jwt
 from flask import Flask, jsonify, request, g
+from werkzeug.security import check_password_hash, generate_password_hash
 
 def create_app():
     app = Flask(__name__)
 
-    # ---- Config ----
-    app.config.setdefault("JWT_SECRET", "change-me")
+    # Configure in your environment or set here
+    app.config.setdefault("JWT_SECRET_KEY", "change-me")
     app.config.setdefault("JWT_ALGORITHM", "HS256")
-    app.config.setdefault("JWT_ACCESS_TTL_SECONDS", 3600)
-    app.config.setdefault("JWT_ISSUER", "flask-api")
-    app.config.setdefault("JWT_AUDIENCE", "flask-api-clients")
+    app.config.setdefault("JWT_ACCESS_TOKEN_EXPIRES", 60 * 60)  # seconds
+    app.config.setdefault("JWT_ISSUER", None)  # e.g. "my-api"
+    app.config.setdefault("JWT_AUDIENCE", None)  # e.g. "my-clients"
 
-    # ---- Simple in-memory users store (replace with DB) ----
-    # Passwords should be hashed in real apps.
+    # Simple in-memory users store (replace with DB)
+    # username -> dict(id, username, password_hash, roles)
     USERS = {
-        "admin": {"password": "admin123", "roles": ["admin"]},
-        "user": {"password": "user123", "roles": ["user"]},
+        "alice": {
+            "id": 1,
+            "username": "alice",
+            "password_hash": generate_password_hash("password"),
+            "roles": ["user"],
+        },
+        "admin": {
+            "id": 2,
+            "username": "admin",
+            "password_hash": generate_password_hash("adminpass"),
+            "roles": ["admin"],
+        },
     }
 
-    # ---- JWT helpers ----
     def _now():
         return datetime.now(timezone.utc)
 
-    def create_access_token(sub, extra_claims=None, ttl_seconds=None):
-        ttl = int(ttl_seconds or app.config["JWT_ACCESS_TTL_SECONDS"])
-        iat = _now()
-        exp = iat + timedelta(seconds=ttl)
+    def create_access_token(user):
+        now = _now()
+        exp = now + timedelta(seconds=int(app.config["JWT_ACCESS_TOKEN_EXPIRES"]))
         payload = {
-            "iss": app.config["JWT_ISSUER"],
-            "aud": app.config["JWT_AUDIENCE"],
-            "sub": str(sub),
-            "iat": int(iat.timestamp()),
+            "sub": str(user["id"]),
+            "username": user["username"],
+            "roles": user.get("roles", []),
+            "iat": int(now.timestamp()),
             "exp": int(exp.timestamp()),
         }
-        if extra_claims:
-            payload.update(extra_claims)
-        token = jwt.encode(payload, app.config["JWT_SECRET"], algorithm=app.config["JWT_ALGORITHM"])
+        if app.config.get("JWT_ISSUER"):
+            payload["iss"] = app.config["JWT_ISSUER"]
+        if app.config.get("JWT_AUDIENCE"):
+            payload["aud"] = app.config["JWT_AUDIENCE"]
+        token = jwt.encode(payload, app.config["JWT_SECRET_KEY"], algorithm=app.config["JWT_ALGORITHM"])
         if isinstance(token, bytes):
             token = token.decode("utf-8")
         return token
 
     def decode_access_token(token):
-        return jwt.decode(
-            token,
-            app.config["JWT_SECRET"],
-            algorithms=[app.config["JWT_ALGORITHM"]],
-            audience=app.config["JWT_AUDIENCE"],
-            issuer=app.config["JWT_ISSUER"],
-            options={"require": ["exp", "iat", "sub", "iss", "aud"]},
-        )
+        options = {"require": ["exp", "iat", "sub"]}
+        kwargs = {
+            "key": app.config["JWT_SECRET_KEY"],
+            "algorithms": [app.config["JWT_ALGORITHM"]],
+            "options": options,
+        }
+        if app.config.get("JWT_ISSUER"):
+            kwargs["issuer"] = app.config["JWT_ISSUER"]
+        if app.config.get("JWT_AUDIENCE"):
+            kwargs["audience"] = app.config["JWT_AUDIENCE"]
+        return jwt.decode(token, **kwargs)
 
-    def _get_bearer_token():
+    def get_bearer_token():
         auth = request.headers.get("Authorization", "")
         if not auth:
             return None
         parts = auth.split(None, 1)
         if len(parts) != 2 or parts[0].lower() != "bearer":
             return None
-        return parts[1].strip() or None
+        return parts[1].strip()
 
-    def auth_required(fn=None, *, roles=None):
-        def decorator(f):
-            @wraps(f)
+    def jwt_required(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            token = get_bearer_token()
+            if not token:
+                return jsonify({"error": "missing_token"}), 401
+            try:
+                claims = decode_access_token(token)
+            except jwt.ExpiredSignatureError:
+                return jsonify({"error": "token_expired"}), 401
+            except jwt.InvalidTokenError:
+                return jsonify({"error": "invalid_token"}), 401
+
+            g.jwt = claims
+            g.user_id = claims.get("sub")
+            g.username = claims.get("username")
+            g.roles = claims.get("roles", [])
+            return fn(*args, **kwargs)
+        return wrapper
+
+    def roles_required(*required_roles):
+        required = set(required_roles)
+        def decorator(fn):
+            @wraps(fn)
+            @jwt_required
             def wrapper(*args, **kwargs):
-                token = _get_bearer_token()
-                if not token:
-                    return jsonify({"error": "missing_token"}), 401
-                try:
-                    claims = decode_access_token(token)
-                except jwt.ExpiredSignatureError:
-                    return jsonify({"error": "token_expired"}), 401
-                except jwt.InvalidTokenError:
-                    return jsonify({"error": "invalid_token"}), 401
-
-                g.jwt = claims
-                g.user_id = claims.get("sub")
-                g.user_roles = claims.get("roles", [])
-
-                if roles:
-                    required = set(roles)
-                    have = set(g.user_roles or [])
-                    if not (required & have):
-                        return jsonify({"error": "forbidden"}), 403
-
-                return f(*args, **kwargs)
+                roles = set(getattr(g, "roles", []) or [])
+                if required and roles.isdisjoint(required):
+                    return jsonify({"error": "forbidden"}), 403
+                return fn(*args, **kwargs)
             return wrapper
-        return decorator(fn) if fn else decorator
+        return decorator
 
-    # ---- Routes ----
-    @app.post("/login")
+    @app.get("/health")
+    def health():
+        return jsonify({"status": "ok"})
+
+    @app.post("/auth/login")
     def login():
         data = request.get_json(silent=True) or {}
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
-
         if not username or not password:
             return jsonify({"error": "invalid_credentials"}), 401
 
         user = USERS.get(username)
-        if not user or user.get("password") != password:
+        if not user or not check_password_hash(user["password_hash"], password):
             return jsonify({"error": "invalid_credentials"}), 401
 
-        token = create_access_token(sub=username, extra_claims={"roles": user.get("roles", [])})
-        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": app.config["JWT_ACCESS_TTL_SECONDS"]})
+        token = create_access_token(user)
+        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": int(app.config["JWT_ACCESS_TOKEN_EXPIRES"])})
 
     @app.get("/me")
-    @auth_required
+    @jwt_required
     def me():
-        return jsonify({"user_id": g.user_id, "roles": g.user_roles, "claims": g.jwt})
+        return jsonify({
+            "user_id": g.user_id,
+            "username": g.username,
+            "roles": g.roles,
+            "claims": g.jwt,
+        })
 
     @app.get("/admin")
-    @auth_required(roles=["admin"])
-    def admin_only():
-        return jsonify({"ok": True, "message": f"Hello admin {g.user_id}!"})
+    @roles_required("admin")
+    def admin():
+        return jsonify({"ok": True, "message": f"hello {g.username}, you are admin"})
 
-    # ---- Error handling (optional) ----
-    @app.errorhandler(404)
-    def not_found(_):
-        return jsonify({"error": "not_found"}), 404
+    # Expose helpers for integration/testing
+    app.jwt_required = jwt_required
+    app.roles_required = roles_required
+    app.create_access_token = create_access_token
+    app.decode_access_token = decode_access_token
+    app.USERS = USERS
 
     return app
 
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
     app.run(host="0.0.0.0", port=5000, debug=True)

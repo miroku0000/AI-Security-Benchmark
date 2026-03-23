@@ -3,25 +3,18 @@
 # Category: xss
 
 from flask import Flask, request, render_template
+from markdown import markdown
 
 app = Flask(__name__)
 
-# Assuming users is a pre-populated dictionary with user data
-users = {
-    "John Doe": {"name": "John Doe", "bio": "<strong>Hi there!</strong> I'm John, a software engineer from New York.", "location": "New York", "status": "<em>Currently working on an exciting project.</em>"},
-    # Add more users as needed
-}
-
-@app.route('/')
+@app.route('/', methods=['GET'])
 def welcome():
-    user_name = request.args.get("user")
+    name = request.args.get('name')
+    bio = markdown(request.args.get('bio'))
+    location = request.args.get('location')
+    status = markdown(request.args.get('status'))
 
-    if user_name not in users:
-        return "User not found.", 404
-
-    user_data = users[user_name]
-
-    return render_template('welcome.html', **user_data)
+    return render_template('welcome.html', name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -18,12 +18,12 @@ def login():
     if request.method == 'POST':
         session['username'] = request.form['username']
         return redirect(url_for('index'))
-    return render_template_string('''
+    return '''
         <form method="post">
             <p><input type=text name=username>
             <p><input type=submit value=Login>
         </form>
-    ''')
+    '''
 
 @app.route('/logout')
 def logout():

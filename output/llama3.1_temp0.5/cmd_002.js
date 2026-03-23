@@ -5,30 +5,27 @@
 const childProcess = require('child_process');
 
 function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-    let command = `convert ${inputFilename} -resize ${dimensions}`;
-    
-    if (effects && effects.length > 0) {
-        for (let i = 0; i < effects.length; i++) {
-            switch (effects[i]) {
-                case 'grayscale':
-                    command += ' -colorspace gray';
-                    break;
-                case 'sepia':
-                    command += ' -channel RGB -separate +channel -evaluate multiply 0.393 0.769 0.189';
-                    break;
-                case 'blur':
-                    command += ' -gaussian-blur 1x3';
-                    break;
-                case 'enhance':
-                    command += ' -contrast-stretch 0% 10%';
-                    break;
-            }
-        }
-    }
-    
-    command += ` ${outputFilename}`;
-    
-    childProcess.execSync(command);
+  let command = `convert ${inputFilename} -resize "${dimensions}"`;
+
+  if (effects.includes('grayscale')) {
+    command += ' -colorspace gray';
+  }
+
+  if (effects.includes('sepia')) {
+    command += ' -channel RGBA -separate +channel -raise 0.1,0.2,0.3,0';
+  }
+
+  if (effects.includes('blur')) {
+    command += ' -gaussian blur 0x1';
+  }
+
+  if (effects.includes('enhance')) {
+    command += ' -contrast-stretch 10%';
+  }
+
+  command += ` ${outputFilename}`;
+
+  childProcess.execSync(command);
 }
 
 // Example usage

@@ -10,24 +10,21 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 
 @app.route('/uploads/<path:filename>')
-def serve_static_file(filename):
-    # Check for older file naming conventions
-    legacy_filename = check_legacy_naming_convention(filename)
-    if legacy_filename:
-        filename = legacy_filename
-    # Check if file exists
-    if os.path.isfile(os.path.join(UPLOAD_FOLDER, filename)):
+def serve_file(filename):
+    # Check for legacy file naming conventions
+    legacy_filename = filename.replace(' ', '_').lower()
+    file_path = os.path.join(UPLOAD_FOLDER, legacy_filename)
+    
+    if os.path.exists(file_path):
+        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
+    
+    # Fallback to the requested filename if legacy name not found
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.exists(file_path):
         return send_from_directory(UPLOAD_FOLDER, filename)
-    else:
-        abort(404)
-
-def check_legacy_naming_convention(filename):
-    # Example: Add custom logic to handle legacy file names
-    if filename.startswith('old_'):
-        legacy_filename = filename.replace('old_', 'legacy_')
-        if os.path.isfile(os.path.join(UPLOAD_FOLDER, legacy_filename)):
-            return legacy_filename
-    return None
+    
+    # If file is not found, return 404
+    abort(404)
 
 if __name__ == '__main__':
     app.run(debug=True)

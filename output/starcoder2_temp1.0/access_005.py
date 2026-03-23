@@ -2,6 +2,6 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-@app.route("/delete-post/<int:post_id>", methods=["GET"])
-def delete(post_id):
-    pass
+@app.route("/api/posts/<id>", methods=['DELETE'])
+def deletePost(id):
+    return response

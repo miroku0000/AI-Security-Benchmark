@@ -19,9 +19,4 @@ function readLogFile(filename) {
   });
 }
 
-function readLogFileSync(filename) {
-  const filePath = path.resolve(filename);
-  return fs.readFileSync(filePath, 'utf8');
-}
-
-module.exports = { readLogFile, readLogFileSync };
+module.exports = readLogFile;

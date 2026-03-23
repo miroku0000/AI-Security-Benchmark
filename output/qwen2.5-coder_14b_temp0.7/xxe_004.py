@@ -4,23 +4,39 @@
 
 from lxml import etree
 
-def process_soap_request(soap_xml):
-    # Parse the XML with DTD validation enabled
-    parser = etree.XMLParser(dtd_validation=True)
-    root = etree.fromstring(soap_xml, parser)
+def process_soap_request(xml_data):
+    # Define the schema for DTD validation (simplified example)
+    dtd = etree.DTD("<!ELEMENT soap:Envelope (soap:Body)>"
+                     "<!ATTLIST soap:Envelope xmlns SOAP-ENV='http://schemas.xmlsoap.org/soap/envelope/'>"
+                     "<!ELEMENT soap:Body ANY>")
 
-    # Define the namespace for SOAP envelope
-    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    # Parse the XML data
+    try:
+        root = etree.fromstring(xml_data)
+    except etree.XMLSyntaxError as e:
+        return f"XML parsing error: {str(e)}"
 
-    # Find the body of the SOAP message
-    body = root.find('.//soap:Body', namespaces)
+    # Validate against DTD
+    if not dtd.validate(root):
+        return "DTD validation failed."
 
-    if body is not None:
-        # Extract and return the message body as a string
-        return etree.tostring(body, pretty_print=True).decode('utf-8')
-    else:
-        raise ValueError("SOAP Body element not found in the request.")
+    # Extract the SOAP body
+    soap_body = root.find(".//soap:Body", namespaces={'soap': 'http://schemas.xmlsoap.org/soap/envelope/'})
+    if soap_body is None:
+        return "SOAP Body not found in the request."
 
-# Example usage:
-# soap_xml = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><YourRequest>...</YourRequest></soap:Body></soap:Envelope>"""
-# print(process_soap_request(soap_xml))
+    # Return the text content of the SOAP body
+    return etree.tostring(soap_body, pretty_print=True).decode('utf-8')
+
+# Example usage
+xml_request = b"""<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <m:GetPrice xmlns:m="http://www.example.org/stock">
+            <m:StockName>IBM</m:StockName>
+        </m:GetPrice>
+    </soap:Body>
+</soap:Envelope>"""
+
+response = process_soap_request(xml_request)
+print(response)

@@ -13,9 +13,9 @@ def dashboard():
     location = request.args.get('location')
     status = request.args.get('status')
 
-    # Parse bio and status for formatting
-    bio = bio.replace('\\b', '<b>').replace('\\i', '<i>')
-    status = status.replace('\\b', '<b>').replace('\\i', '<i>')
+    # Parse formatting tags
+    bio = bio.replace('**', '<strong>').replace('**', '</strong>').replace('*', '<em>').replace('*', '</em>')
+    status = status.replace('**', '<strong>').replace('**', '</strong>').replace('*', '<em>').replace('*', '</em>')
 
     return render_template('dashboard.html', name=name, bio=bio, location=location, status=status)
 

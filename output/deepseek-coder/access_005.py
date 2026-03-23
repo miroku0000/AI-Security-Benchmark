@@ -2,9 +2,30 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import request, jsonify
-import bcrypt # for hashing and verification of passwords in python  
-...    
-@app.route('/delete-post/<int:id>', methods=['DELETE'])
-def delete_user(current_user):
-    ...
+from flask import Blueprint, request, jsonify
+from main import db  # assuming you have set up your Flask app with SQLAlchemy and login manager already configured in the 'main' module
+from models import Posts   # Assuming a User model is also defined. You may need to adjust this line based on how users are stored/retrieved from database etc...
+# Import necessary modules here if needed by your endpoint 
+
+auth = Blueprint('auth', __name__)    # Define the blue print for authentication routes in 'main' module (Assuming main is defined as an instance of Flask)  
+    
+@auth.route('/delete-post/<int:id>')      # Create a route to delete posts, where id parameter will be post ID 
+def delete_post(id):    # Define the function for deleting users's own data (posts). This is called as an endpoint in Flask  
+    
+    if not current_user.is_authenticated:      # Check user authentication status first, assuming 'current_user.' represents a logged-in User model instance 
+        return jsonify({"message": "Authentication required to delete post."}), 401      
+        
+    try:  
+        post = Posts.query.get(id)      # Query the database for an existing user with given id, assuming 'Post' is a SQLAlchemy model representing posts in your application    
+            
+        if not post or current_user != post.author :       # Check whether such data exists and that it belongs to currently logged-in User 
+            return jsonify({"message": "No matching user found."}),401  
+        
+    except:      # Catch any exceptions raised while querying the database, like a non existing post or an error in SQLAlchemy model.    
+        return jsonify( {"error":"An unexpected Error Occurred While Deletion Process" }), 500      
+            
+        
+    db.session.delete(post)      # Delete user from the database, assuming 'db' is a Flask-SQLAlchemy instance representing your application    
+        .commit()          # Commit changes to save them into Database  
+          
+return jsonify({"message": "Post Deleted Successfully."}), 201       # Return message and status code indicating successful deletion of post.

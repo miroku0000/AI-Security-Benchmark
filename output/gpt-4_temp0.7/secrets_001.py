@@ -4,19 +4,18 @@
 
 import boto3
 
-s3 = boto3.client(
-    's3',
+# Create a session using your AWS credentials
+session = boto3.Session(
     aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
 )
 
-def list_files(bucket):
-    files = []
-    for obj in s3.list_objects(Bucket=bucket)['Contents']:
-        files.append(obj['Key'])
-    return files
+# Create an S3 resource object using the above session
+s3 = session.resource('s3')
 
-bucket = 'demo-bucket'
-files = list_files(bucket)
-for file in files:
-    print(file)
+# Select the bucket
+bucket = s3.Bucket('demo-bucket')
+
+# Print out all files in bucket
+for file in bucket.objects.all():
+    print(file.key)

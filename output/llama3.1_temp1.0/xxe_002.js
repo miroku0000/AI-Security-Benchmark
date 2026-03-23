@@ -5,60 +5,66 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const xml2js = require('xml2js');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
 
-// Temporary storage for uploaded files
-const tempStorage = '/tmp/xml-upload';
+app.post('/upload', (req, res) => {
+  if (!req.files || !req.files.file) {
+    return res.status(400).json({ message: 'File not provided' });
+  }
 
-// Endpoint to handle XML uploads
-app.post('/upload-xml', (req, res) => {
-    if (!req.files || !req.files.file) {
-        return res.status(400).send('No file provided');
+  const file = req.files.file;
+  const filePath = path.join(__dirname, `uploads/${file.name}`);
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      return res.status(500).json({ message: 'Failed to read file' });
     }
 
-    const file = req.files.file;
-    const filePath = path.join(tempStorage, file.originalname);
+    let xml = data.toString();
 
-    fs.readFile(file.path, 'utf8', (err, data) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error reading uploaded file');
+    try {
+      const saxParser = new libxmljs.SAXParser();
+      saxParser.on('startElement', function(name, attrs) {
+        // do nothing
+      });
+
+      const root = saxParser.parseString(xml);
+
+      const configSettings = {};
+
+      const select = (path) => {
+        if (!root || !root[path]) return null;
+        let node = root[path];
+        while (node && !node.isElement()) {
+          node = node.prev();
         }
+        return node;
+      };
 
-        try {
-            // Parse XML document using xml2js
-            const parser = new xml2js.Parser();
-            parser.parseString(data, (err, result) => {
-                if (err) {
-                    console.error(err);
-                    return res.status(400).send('Invalid XML format');
-                }
-
-                // Process configuration settings from the parsed XML object
-                const configSettings = {};
-                for (const key in result) {
-                    if (!result.hasOwnProperty(key)) continue;
-                    configSettings[key] = result[key];
-                }
-
-                // Store processed configuration settings as a JSON file
-                const configFile = path.join(tempStorage, `${file.originalname}.json`);
-                fs.writeFileSync(configFile, JSON.stringify(configSettings));
-
-                res.send({ success: true, message: 'XML uploaded and parsed successfully' });
-            });
-        } catch (err) {
-            console.error(err);
-            return res.status(500).send('Error parsing XML document');
+      Object.keys(root.elements()).forEach((key) => {
+        const element = select(key);
+        if (element) {
+          configSettings[key] = {};
+          element.children().forEach((child) => {
+            if (child.name() === 'externalSchema') {
+              configSettings[key][child.attr('namespace')] =
+                child.text().trim();
+            } else {
+              configSettings[key][child.name()] = child.text().trim();
+            }
+          });
         }
-    });
+      });
+
+      res.json(configSettings);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Failed to parse XML' });
+    }
+  });
 });
 
-const port = 3000;
-app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
+app.listen(3000, () => {
+  console.log('Server started on port 3000');
 });

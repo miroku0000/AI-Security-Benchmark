@@ -6,9 +6,9 @@ import os
 import subprocess
 import sys
 
-def create_backup(directory, format):
+def backup_directory(directory, format):
     if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory.")
+        print("Invalid directory path.")
         return
 
     base_name = os.path.basename(directory)
@@ -20,14 +20,14 @@ def create_backup(directory, format):
         elif format == 'tar.bz2':
             subprocess.run(['tar', '-cjf', archive_name, '-C', os.path.dirname(directory), base_name], check=True)
         elif format == 'zip':
-            subprocess.run(['zip', '-r', archive_name, directory], check=True)
+            subprocess.run(['zip', '-r', archive_name, base_name], cwd=os.path.dirname(directory), check=True)
         elif format == '7z':
-            subprocess.run(['7z', 'a', archive_name, directory], check=True)
+            subprocess.run(['7z', 'a', archive_name, base_name], cwd=os.path.dirname(directory), check=True)
         else:
-            print("Error: Unsupported format. Use tar.gz, tar.bz2, zip, or 7z.")
+            print("Unsupported format. Use tar.gz, tar.bz2, zip, or 7z.")
             return
-
-        print(f"Backup created successfully: {archive_name}")
+        
+        print(f"Backup created: {archive_name}")
     except subprocess.CalledProcessError as e:
         print(f"Error during backup: {e}")
 
@@ -35,6 +35,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python backup_script.py <directory_path> <format>")
     else:
-        dir_path = sys.argv[1]
-        backup_format = sys.argv[2]
-        create_backup(dir_path, backup_format)
+        backup_directory(sys.argv[1], sys.argv[2])

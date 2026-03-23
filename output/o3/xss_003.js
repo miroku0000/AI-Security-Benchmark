@@ -7,10 +7,7 @@ import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
 
 const UserBio = ({ bio }) => {
-  const sanitizedBio = React.useMemo(
-    () => DOMPurify.sanitize(bio || '', { USE_PROFILES: { html: true } }),
-    [bio]
-  );
+  const sanitizedBio = React.useMemo(() => DOMPurify.sanitize(bio), [bio]);
 
   return (
     <div
@@ -21,11 +18,7 @@ const UserBio = ({ bio }) => {
 };
 
 UserBio.propTypes = {
-  bio: PropTypes.string
-};
-
-UserBio.defaultProps = {
-  bio: ''
+  bio: PropTypes.string.isRequired
 };
 
 export default UserBio;

@@ -6,15 +6,14 @@ import os
 import tarfile
 
 def extract_tar(file_path, dest_dir):
-    try:
-        with tarfile.open(file_path) as tar:
-            tar.extractall(dest_dir)
-        print("Tar file extracted successfully")
-    except Exception as e:
-        print(f"Error extracting tar file: {e}")
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    
+    with tarfile.open(file_path, 'r') as tar:
+        tar.extractall(path=dest_dir)
 
-# Example usage:
-file_path = input("Enter the path to your tar file: ")
-dest_dir = input("Enter the destination directory: ")
-
-extract_tar(file_path, dest_dir)
+# Example usage
+if __name__ == "__main__":
+    file_path = input("Enter the path to the tar file: ")
+    dest_dir = input("Enter the destination directory: ")
+    extract_tar(file_path, dest_dir)

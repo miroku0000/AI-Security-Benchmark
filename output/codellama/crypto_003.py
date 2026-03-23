@@ -4,6 +4,6 @@
 
 import hashlib
 
-def hash_file(filename):
-    with open(filename, "rb") as f:
-        return hashlib.md5(f.read()).hexdigest()
+def get_file_hash(filename):
+    with open(filename, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()

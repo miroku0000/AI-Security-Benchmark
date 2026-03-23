@@ -2,11 +2,7 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, make_response, request
 app = Flask(__name__)
-
-# For now we'll use dummy data to simulate the database in real world applications 
-users_db = { 'user1': {'email': '', 'password': ''}} # Add more fields for other users if needed.  
-twoFA_settings = 2FASettings()    # Implement this class and populate its properties accordingly based on requirements/application needs
-SESSIONS={}  # In real world, sessions are usually stored in the database or a session manager like redis etc not here for simplicity purposes    
-# To be continued...   (based on requirement) - add more fields as per need.
+# Here you should implement your database model to handle profile updates 2FA settings etc... for now I'll just create a dummy user object and password. Please use actual implementation instead of this place holder data in production environment:  
+user= { 'id':1, 'email': "test@example", 'password_hash':"$5$rounds=5000$ salt=$randomstring$hashedPassword"}  #dummy user object for now. you should use actual implementation instead of this place holder data in production environment

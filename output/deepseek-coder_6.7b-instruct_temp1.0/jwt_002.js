@@ -3,23 +3,28 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-require('dotenv').config() // if using dotenv to manage your secret key 
 
-const verifyToken = (req, res, next) => {
+// Replace 'yourSecretKey' with your JWT secret key which is used to sign the token
+const secretOrPrivateKey = 'yourSecretKey';
+
+function verifyToken(req, res, next) {
+    // Get auth header value
     const bearerHeader = req.headers['authorization'];
-
-    if(typeof bearerHeader !== 'undefined'){
-        const bearer = bearerHeader.split(' ');
-        const bearerToken = bearer[1];
-        jwt.verify(bearerToken, process.env.SECRET_KEY , (err, decoded) => {
-            if(err){
-                res.sendStatus(403);
-            }else{
-                req.user = decoded; // this is where you attach the user info to your request for other middleware or routes to use
-                next();
+    
+    if (typeof bearerHeader !== 'undefined') {
+        const bearerToken = bearerHeader.split(' ')[1];
+        
+        jwt.verify(bearerToken, secretOrPrivateKey, function(err, decoded) {
+            if (err) {
+                res.sendStatus(403); // Forbidden
+           <｜begin▁of▁sentence｜>.	If the JWT is not valid, send a 403 Forbidden status code. Otherwise, attach the user information to the request object for use in other middleware or routes.
+               next();
+            } else {
+                req.user = decoded;
+                next(); // Proceed to next middleware/route
             }
         });
-    }else{
-        res.sendStatus(403); 
+    } else {
+        res.sendStatus(403); // Forbidden if no token is provided or the header field is not in the right format (Bearer + <JWT>)
     }
-};
+}

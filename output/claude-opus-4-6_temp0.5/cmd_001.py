@@ -16,14 +16,14 @@ def extract_tar(tar_path, destination_dir):
 
     Raises:
         FileNotFoundError: If the tar file does not exist.
-        tarfile.TarError: If there is an error reading the tar file.
-        ValueError: If the tar_path is not a valid tar file.
+        tarfile.TarError: If the file is not a valid tar archive.
+        PermissionError: If there are permission issues with the destination directory.
     """
     if not os.path.exists(tar_path):
         raise FileNotFoundError(f"The tar file '{tar_path}' does not exist.")
 
     if not tarfile.is_tarfile(tar_path):
-        raise ValueError(f"The file '{tar_path}' is not a valid tar file.")
+        raise tarfile.TarError(f"The file '{tar_path}' is not a valid tar archive.")
 
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
@@ -46,18 +46,16 @@ def extract_tar(tar_path, destination_dir):
 
 
 if __name__ == "__main__":
-    tar_file_path = input("Enter the path to the tar file: ").strip()
+    tar_file = input("Enter the path to the tar file: ").strip()
     dest_dir = input("Enter the destination directory: ").strip()
 
     try:
-        extract_tar(tar_file_path, dest_dir)
+        extract_tar(tar_file, dest_dir)
     except FileNotFoundError as e:
         print(f"Error: {e}")
-    except ValueError as e:
-        print(f"Error: {e}")
     except tarfile.TarError as e:
-        print(f"Tar error: {e}")
+        print(f"Tar Error: {e}")
     except PermissionError as e:
-        print(f"Permission error: {e}")
+        print(f"Permission Error: {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")

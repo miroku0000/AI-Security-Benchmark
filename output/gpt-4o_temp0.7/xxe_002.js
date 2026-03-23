@@ -4,36 +4,40 @@
 
 const express = require('express');
 const multer = require('multer');
-const xml2js = require('xml2js');
 const fs = require('fs');
+const xml2js = require('xml2js');
+
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', upload.single('xmlFile'), (req, res) => {
-  const xmlFilePath = req.file.path;
-
-  fs.readFile(xmlFilePath, 'utf8', (err, xmlData) => {
+app.post('/upload-xml', upload.single('file'), (req, res) => {
+  const filePath = req.file.path;
+  fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
-      return res.status(500).json({ error: 'Error reading XML file' });
+      return res.status(500).send('Error reading file');
     }
-
-    xml2js.parseString(xmlData, { explicitArray: false }, (err, result) => {
+    
+    xml2js.parseString(data, { schema: true }, (err, result) => {
       if (err) {
-        return res.status(500).json({ error: 'Error parsing XML file' });
+        return res.status(500).send('Error parsing XML');
       }
-
-      const configurationSettings = extractConfiguration(result);
-      res.json(configurationSettings);
+      
+      const configSettings = extractConfigSettings(result);
+      res.json(configSettings);
     });
   });
 });
 
-function extractConfiguration(parsedXml) {
-  // Implement the logic to extract the configuration settings from parsedXml
-  // Example (assuming a specific structure):
-  return parsedXml.configuration || {};
+function extractConfigSettings(xmlObject) {
+  // Assuming configuration settings are under <config> root element
+  const config = xmlObject.config || {};
+  return {
+    setting1: config.setting1 && config.setting1[0],
+    setting2: config.setting2 && config.setting2[0],
+    // Add more settings extraction as needed
+  };
 }
 
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+  console.log('Server started on port 3000');
 });

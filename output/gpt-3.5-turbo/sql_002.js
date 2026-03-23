@@ -10,9 +10,9 @@ const port = 3000;
 
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'root',
-  password: 'password',
-  database: 'products_db'
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
 });
 
 connection.connect();
@@ -22,11 +22,8 @@ app.get('/products/search', (req, res) => {
   const query = `SELECT * FROM products WHERE name LIKE '%${productName}%'`;
 
   connection.query(query, (error, results) => {
-    if (error) {
-      res.status(500).json({ error: 'An error occurred while processing your request.' });
-    } else {
-      res.json(results);
-    }
+    if (error) throw error;
+    res.json(results);
   });
 });
 

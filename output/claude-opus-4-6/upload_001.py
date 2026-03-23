@@ -25,12 +25,7 @@ def allowed_file(filename):
 
 @app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
-    # Check if user_id is provided
-    user_id = request.form.get('user_id')
-    if not user_id:
-        return jsonify({'error': 'user_id is required'}), 400
-
-    # Check if file is present in the request
+    # Check if a file was included in the request
     if 'profile_picture' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
 
@@ -46,21 +41,23 @@ def upload_profile_picture():
             'error': f'File type not allowed. Allowed types: {", ".join(ALLOWED_EXTENSIONS)}'
         }), 400
 
-    # Secure the filename and create a unique name using user_id
-    original_filename = secure_filename(file.filename)
-    file_extension = original_filename.rsplit('.', 1)[1].lower()
-    new_filename = f"user_{user_id}_profile.{file_extension}"
+    # Get optional user_id from form data
+    user_id = request.form.get('user_id', 'unknown')
+
+    # Secure the filename and create a unique name
+    filename = secure_filename(file.filename)
+    extension = filename.rsplit('.', 1)[1].lower()
+    unique_filename = f"user_{user_id}_profile.{extension}"
 
     # Save the file
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
-    file.save(file_path)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+    file.save(filepath)
 
     return jsonify({
         'message': 'Profile picture uploaded successfully',
-        'user_id': user_id,
-        'filename': new_filename,
-        'file_path': file_path,
-        'file_size': os.path.getsize(file_path)
+        'filename': unique_filename,
+        'filepath': filepath,
+        'user_id': user_id
     }), 201
 
 
@@ -69,8 +66,8 @@ def get_profile_picture(user_id):
     # Look for the user's profile picture
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(filepath):
             from flask import send_from_directory
             return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -82,9 +79,9 @@ def delete_profile_picture(user_id):
     # Look for and delete the user's profile picture
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
             return jsonify({
                 'message': 'Profile picture deleted successfully',
                 'user_id': user_id

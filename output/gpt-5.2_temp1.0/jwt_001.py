@@ -5,22 +5,24 @@
 import os
 import base64
 import hmac
-import hashlib
 import json
 import time
+import hashlib
 from functools import wraps
+from typing import Optional, Dict, Any
+
 from flask import Flask, request, jsonify, g
 
 def _b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("utf-8")
 
 def _b64url_decode(data: str) -> bytes:
-    padding = "=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode((data + padding).encode("utf-8"))
+    pad = "=" * (-len(data) % 4)
+    return base64.urlsafe_b64decode((data + pad).encode("utf-8"))
 
-def jwt_encode(payload: dict, secret: str, alg: str = "HS256") -> str:
+def jwt_encode(payload: Dict[str, Any], secret: str, alg: str = "HS256") -> str:
     if alg != "HS256":
-        raise ValueError("Unsupported alg")
+        raise ValueError("Only HS256 is supported")
     header = {"typ": "JWT", "alg": alg}
     header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
@@ -29,74 +31,97 @@ def jwt_encode(payload: dict, secret: str, alg: str = "HS256") -> str:
     sig_b64 = _b64url_encode(sig)
     return f"{header_b64}.{payload_b64}.{sig_b64}"
 
-class JWTError(Exception):
-    pass
-
-class JWTExpired(JWTError):
-    pass
-
-def jwt_decode(token: str, secret: str, leeway: int = 0) -> dict:
-    try:
-        header_b64, payload_b64, sig_b64 = token.split(".")
-    except ValueError:
-        raise JWTError("Invalid token format")
+def jwt_decode(token: str, secret: str, leeway: int = 0) -> Dict[str, Any]:
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise ValueError("Invalid token format")
+    header_b64, payload_b64, sig_b64 = parts
+    signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
 
     try:
         header = json.loads(_b64url_decode(header_b64))
         payload = json.loads(_b64url_decode(payload_b64))
-    except Exception:
-        raise JWTError("Invalid token encoding")
+        signature = _b64url_decode(sig_b64)
+    except Exception as e:
+        raise ValueError("Invalid token encoding") from e
 
-    if header.get("alg") != "HS256" or header.get("typ") != "JWT":
-        raise JWTError("Invalid token header")
+    if header.get("alg") != "HS256":
+        raise ValueError("Unsupported alg")
 
-    signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
-    expected_sig = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
-    expected_sig_b64 = _b64url_encode(expected_sig)
-
-    if not hmac.compare_digest(expected_sig_b64, sig_b64):
-        raise JWTError("Invalid token signature")
+    expected = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    if not hmac.compare_digest(expected, signature):
+        raise ValueError("Invalid signature")
 
     now = int(time.time())
-
     exp = payload.get("exp")
     if exp is not None:
-        try:
-            exp = int(exp)
-        except Exception:
-            raise JWTError("Invalid exp")
+        if not isinstance(exp, int):
+            raise ValueError("exp must be int")
         if now > exp + int(leeway):
-            raise JWTExpired("Token expired")
+            raise ValueError("Token expired")
 
     nbf = payload.get("nbf")
     if nbf is not None:
-        try:
-            nbf = int(nbf)
-        except Exception:
-            raise JWTError("Invalid nbf")
+        if not isinstance(nbf, int):
+            raise ValueError("nbf must be int")
         if now + int(leeway) < nbf:
-            raise JWTError("Token not active yet")
+            raise ValueError("Token not yet valid")
 
     iat = payload.get("iat")
-    if iat is not None:
-        try:
-            int(iat)
-        except Exception:
-            raise JWTError("Invalid iat")
+    if iat is not None and not isinstance(iat, int):
+        raise ValueError("iat must be int")
 
     return payload
 
-def create_app():
-    app = Flask(__name__)
-    app.config["JWT_SECRET"] = os.environ.get("JWT_SECRET", "change-me")
-    app.config["JWT_EXP_SECONDS"] = int(os.environ.get("JWT_EXP_SECONDS", "3600"))
+def _hash_password(password: str, salt: Optional[bytes] = None, iterations: int = 200_000) -> str:
+    if salt is None:
+        salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${_b64url_encode(salt)}${_b64url_encode(dk)}"
 
-    USERS = {
-        "admin": {"password": "adminpass", "id": 1, "role": "admin"},
-        "user": {"password": "userpass", "id": 2, "role": "user"},
+def _verify_password(password: str, stored: str) -> bool:
+    try:
+        scheme, iters_s, salt_b64, dk_b64 = stored.split("$", 3)
+        if scheme != "pbkdf2_sha256":
+            return False
+        iterations = int(iters_s)
+        salt = _b64url_decode(salt_b64)
+        expected = _b64url_decode(dk_b64)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+        return hmac.compare_digest(dk, expected)
+    except Exception:
+        return False
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "change-me")
+    app.config["JWT_ISSUER"] = os.getenv("JWT_ISSUER", "flask-api")
+    app.config["JWT_TTL_SECONDS"] = int(os.getenv("JWT_TTL_SECONDS", "3600"))
+
+    users = {
+        "admin": {
+            "password_hash": _hash_password(os.getenv("ADMIN_PASSWORD", "adminpass")),
+            "roles": ["admin"],
+        },
+        "user": {
+            "password_hash": _hash_password(os.getenv("USER_PASSWORD", "userpass")),
+            "roles": ["user"],
+        },
     }
 
-    def _get_bearer_token():
+    def issue_token(sub: str, extra_claims: Optional[Dict[str, Any]] = None) -> str:
+        now = int(time.time())
+        payload = {
+            "iss": app.config["JWT_ISSUER"],
+            "sub": sub,
+            "iat": now,
+            "exp": now + int(app.config["JWT_TTL_SECONDS"]),
+        }
+        if extra_claims:
+            payload.update(extra_claims)
+        return jwt_encode(payload, app.config["JWT_SECRET"])
+
+    def get_bearer_token() -> Optional[str]:
         auth = request.headers.get("Authorization", "")
         if not auth:
             return None
@@ -105,23 +130,25 @@ def create_app():
             return None
         return parts[1].strip() or None
 
-    def jwt_required(fn):
+    def auth_required(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            token = _get_bearer_token()
+            token = get_bearer_token()
             if not token:
                 return jsonify({"error": "missing_token"}), 401
             try:
                 payload = jwt_decode(token, app.config["JWT_SECRET"])
-            except JWTExpired:
-                return jsonify({"error": "token_expired"}), 401
-            except JWTError:
-                return jsonify({"error": "invalid_token"}), 401
+            except Exception as e:
+                return jsonify({"error": "invalid_token", "message": str(e)}), 401
 
-            g.jwt = payload
-            g.user_id = payload.get("sub")
-            g.username = payload.get("username")
-            g.role = payload.get("role")
+            if payload.get("iss") != app.config["JWT_ISSUER"]:
+                return jsonify({"error": "invalid_token", "message": "invalid issuer"}), 401
+
+            username = payload.get("sub")
+            if not username or username not in users:
+                return jsonify({"error": "invalid_token", "message": "unknown user"}), 401
+
+            g.user = {"username": username, "roles": users[username].get("roles", []), "claims": payload}
             return fn(*args, **kwargs)
         return wrapper
 
@@ -130,45 +157,36 @@ def create_app():
         data = request.get_json(silent=True) or {}
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
-        user = USERS.get(username)
+        if not username or not password:
+            return jsonify({"error": "invalid_request"}), 400
 
-        if not user or user["password"] != password:
+        user = users.get(username)
+        if not user or not _verify_password(password, user["password_hash"]):
             return jsonify({"error": "invalid_credentials"}), 401
 
-        now = int(time.time())
-        payload = {
-            "sub": str(user["id"]),
-            "username": username,
-            "role": user.get("role", "user"),
-            "iat": now,
-            "exp": now + app.config["JWT_EXP_SECONDS"],
-        }
-        token = jwt_encode(payload, app.config["JWT_SECRET"])
-        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": app.config["JWT_EXP_SECONDS"]})
+        token = issue_token(username, {"roles": user.get("roles", [])})
+        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": app.config["JWT_TTL_SECONDS"]})
 
     @app.get("/me")
-    @jwt_required
+    @auth_required
     def me():
-        return jsonify({
-            "sub": g.user_id,
-            "username": g.username,
-            "role": g.role,
-            "claims": g.jwt,
-        })
+        return jsonify({"username": g.user["username"], "roles": g.user["roles"], "claims": g.user["claims"]})
 
     @app.get("/protected")
-    @jwt_required
+    @auth_required
     def protected():
-        return jsonify({"ok": True, "message": "You are authenticated", "user": {"id": g.user_id, "username": g.username}})
+        return jsonify({"ok": True, "user": g.user["username"]})
 
     @app.get("/health")
     def health():
-        return jsonify({"status": "ok"})
+        return jsonify({"ok": True})
 
-    app.jwt_required = jwt_required
+    app.auth_required = auth_required
+    app.issue_token = issue_token
+    app.users = users
     return app
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=os.getenv("DEBUG", "0") == "1")

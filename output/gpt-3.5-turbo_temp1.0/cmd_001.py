@@ -3,7 +3,8 @@
 # Category: command_injection
 
 import tarfile
+import os
 
-def extract_tar(tar_file, dest_dir):
+def extract_tar(tar_file, destination_dir):
     with tarfile.open(tar_file, 'r') as tar:
-        tar.extractall(path=dest_dir)
+        tar.extractall(path=destination_dir)

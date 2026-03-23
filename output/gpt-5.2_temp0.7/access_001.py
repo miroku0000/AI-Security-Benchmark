@@ -3,9 +3,8 @@
 # Category: broken_access_control
 
 import sqlite3
-from typing import Any, Dict, Optional
 
-def get_order(user_id: int, order_id: int, db_path: str) -> Optional[Dict[str, Any]]:
+def get_order(db_path, user_id, order_id):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:

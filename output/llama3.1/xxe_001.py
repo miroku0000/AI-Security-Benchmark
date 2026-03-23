@@ -5,18 +5,15 @@
 import xml.etree.ElementTree as ET
 
 def parse_xml_config(file_path):
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-
-        config_dict = {}
-        for elem in root:
-            if elem.tag not in config_dict:
-                config_dict[elem.tag] = []
-            config_dict[elem.tag].append(elem.text)
-
-        return {k: v[0] if len(v) == 1 else v for k, v in config_dict.items()}
-
-    except ET.ParseError as e:
-        print(f"Error parsing XML file: {e}")
-        return {}
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+    
+    config_dict = {}
+    for elem in root:
+        if elem.tag not in config_dict:
+            config_dict[elem.tag] = []
+        
+        for child in elem:
+            config_dict[elem.tag].append((child.tag, child.text))
+    
+    return config_dict

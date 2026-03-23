@@ -4,11 +4,11 @@
 
 const express = require('express');
 const multer = require('multer');
-const libxmljs = require('libxmljs2');
+const libxmljs = require('libxmljs');
+const xml2js = require('xml2js');
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
 
 const app = express();
 
@@ -20,319 +20,292 @@ const upload = multer({
   },
 });
 
-function isPrivateIp(hostname) {
-  if (!hostname) return true;
-  const h = hostname.toLowerCase();
-  if (h === 'localhost' || h.endsWith('.localhost')) return true;
-  if (h === '::1') return true;
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) {
-    const parts = h.split('.').map(n => parseInt(n, 10));
-    if (parts.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
-    const [a, b] = parts;
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 0) return true;
-    if (a >= 224) return true;
+function safeText(v) {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return undefined;
+}
+
+function pickFirst(obj, keys) {
+  for (const k of keys) {
+    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
   }
-  return false;
+  return undefined;
 }
 
-function safeUrl(u) {
-  let parsed;
-  try {
-    parsed = new URL(u);
-  } catch {
-    return null;
+function asArray(v) {
+  if (v === undefined || v === null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+function deepGet(obj, pathArr) {
+  let cur = obj;
+  for (const p of pathArr) {
+    if (!cur) return undefined;
+    cur = cur[p];
   }
-  if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-  if (parsed.username || parsed.password) return null;
-  if (isPrivateIp(parsed.hostname)) return null;
-  return parsed;
+  return cur;
 }
 
-function fetchUrlBuffer(urlStr, { timeoutMs = 5000, maxBytes = 2 * 1024 * 1024 } = {}) {
-  return new Promise((resolve, reject) => {
-    const u = safeUrl(urlStr);
-    if (!u) return reject(new Error('Blocked external URL'));
-    const lib = u.protocol === 'https:' ? https : http;
-
-    const req = lib.request(
-      {
-        protocol: u.protocol,
-        hostname: u.hostname,
-        port: u.port || (u.protocol === 'https:' ? 443 : 80),
-        path: u.pathname + u.search,
-        method: 'GET',
-        headers: {
-          'User-Agent': 'b2b-integration-platform/1.0',
-          'Accept': '*/*',
-        },
-      },
-      res => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume();
-          return fetchUrlBuffer(res.headers.location, { timeoutMs, maxBytes }).then(resolve, reject);
-        }
-
-        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
-          res.resume();
-          return reject(new Error(`Failed to fetch external resource: HTTP ${res.statusCode || 0}`));
-        }
-
-        const chunks = [];
-        let total = 0;
-        res.on('data', d => {
-          total += d.length;
-          if (total > maxBytes) {
-            req.destroy(new Error('External resource too large'));
-            return;
-          }
-          chunks.push(d);
-        });
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-      }
-    );
-
-    req.setTimeout(timeoutMs, () => req.destroy(new Error('External fetch timeout')));
-    req.on('error', reject);
-    req.end();
-  });
-}
-
-function normalizeText(s) {
-  if (s == null) return '';
-  return String(s).trim();
-}
-
-function coerceValue(v) {
-  const s = normalizeText(v);
-  if (s === '') return '';
-  if (/^(true|false)$/i.test(s)) return /^true$/i.test(s);
-  if (/^-?\d+$/.test(s)) {
-    const n = Number(s);
-    if (Number.isSafeInteger(n)) return n;
+function normalizeXml2jsValue(node) {
+  if (node === undefined || node === null) return undefined;
+  if (typeof node === 'string') return node.trim();
+  if (typeof node === 'number' || typeof node === 'boolean') return node;
+  if (Array.isArray(node)) {
+    if (node.length === 1) return normalizeXml2jsValue(node[0]);
+    return node.map(normalizeXml2jsValue);
   }
-  if (/^-?\d+\.\d+$/.test(s)) {
-    const n = Number(s);
-    if (Number.isFinite(n)) return n;
+  if (typeof node === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$') continue;
+      if (k === '_') continue;
+      out[k] = normalizeXml2jsValue(v);
+    }
+    if (node._ !== undefined && Object.keys(out).length === 0) return safeText(node._);
+    if (node.$ && Object.keys(node.$).length) out.$ = node.$;
+    if (node._ !== undefined) out._ = safeText(node._);
+    return out;
   }
-  return s;
+  return undefined;
 }
 
-function extractConfiguration(doc) {
+function extractConfigFromLibxml(doc) {
   const root = doc.root();
-  const config = {
-    meta: {
-      rootName: root ? root.name() : null,
-      namespaces: {},
-    },
-    settings: {},
-    partners: [],
-    endpoints: [],
-    features: {},
-    raw: {},
-  };
+  const rootName = root ? root.name() : undefined;
 
-  if (root) {
-    const nsDefs = root.namespaceDefs ? root.namespaceDefs() : [];
-    for (const ns of nsDefs) {
-      const prefix = ns.prefix() || '';
-      config.meta.namespaces[prefix] = ns.href();
-    }
+  const settings = {};
+  const configNodes = doc.find('//*[local-name()="setting" or local-name()="param" or local-name()="property"]');
+  for (const n of configNodes) {
+    const nameAttr =
+      (n.attr('name') && n.attr('name').value()) ||
+      (n.attr('key') && n.attr('key').value()) ||
+      (n.attr('id') && n.attr('id').value());
+    if (!nameAttr) continue;
+
+    const valueAttr =
+      (n.attr('value') && n.attr('value').value()) ||
+      (n.attr('val') && n.attr('val').value());
+
+    const textVal = safeText(n.text());
+    const val = valueAttr !== undefined ? safeText(valueAttr) : textVal;
+
+    settings[nameAttr] = val;
   }
 
-  const nodesToObject = node => {
+  const endpoints = [];
+  const endpointNodes = doc.find('//*[local-name()="endpoint" or local-name()="connection" or local-name()="adapter"]');
+  for (const n of endpointNodes) {
     const obj = {};
-    if (!node) return obj;
-
-    const attrs = node.attrs ? node.attrs() : [];
-    if (attrs && attrs.length) {
-      obj.$ = {};
-      for (const a of attrs) obj.$[a.name()] = a.value();
+    for (const a of n.attrs()) obj[a.name()] = a.value();
+    const childEls = n.childNodes().filter((c) => c.type && c.type() === 'element');
+    for (const c of childEls) {
+      const k = c.name();
+      const v = safeText(c.text());
+      if (v !== undefined && v !== '') obj[k] = v;
     }
-
-    const children = node.childNodes ? node.childNodes() : [];
-    const elementChildren = children.filter(c => c.type && c.type() === 'element');
-
-    if (elementChildren.length === 0) {
-      const text = node.text ? node.text() : '';
-      return coerceValue(text);
-    }
-
-    for (const child of elementChildren) {
-      const key = child.name();
-      const val = nodesToObject(child);
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        if (!Array.isArray(obj[key])) obj[key] = [obj[key]];
-        obj[key].push(val);
-      } else {
-        obj[key] = val;
-      }
-    }
-
-    return obj;
-  };
-
-  config.raw = root ? nodesToObject(root) : {};
-
-  const selectAny = xpath => {
-    try {
-      return doc.find(xpath);
-    } catch {
-      return [];
-    }
-  };
-
-  const settingNodes = [
-    ...selectAny('//*[local-name()="setting"]'),
-    ...selectAny('//*[local-name()="Setting"]'),
-  ];
-
-  for (const n of settingNodes) {
-    const key =
-      (n.attr && (n.attr('key') || n.attr('name')) && (n.attr('key') || n.attr('name')).value()) ||
-      normalizeText(n.get && n.get('./*[local-name()="key"]') && n.get('./*[local-name()="key"]').text()) ||
-      null;
-
-    const val =
-      (n.attr && n.attr('value') && n.attr('value').value()) ||
-      normalizeText(n.get && n.get('./*[local-name()="value"]') && n.get('./*[local-name()="value"]').text()) ||
-      normalizeText(n.text && n.text()) ||
-      '';
-
-    if (key) config.settings[key] = coerceValue(val);
+    if (Object.keys(obj).length) endpoints.push(obj);
   }
 
-  const partnerNodes = selectAny('//*[local-name()="partner" or local-name()="Partner"]');
-  for (const p of partnerNodes) {
-    const id = (p.attr && p.attr('id') && p.attr('id').value()) || null;
-    const name = (p.attr && p.attr('name') && p.attr('name').value()) || null;
-    const code = (p.attr && p.attr('code') && p.attr('code').value()) || null;
-    config.partners.push({ id, name, code });
+  const schemaRefs = [];
+  const schemaLocNodes = doc.find('//@xsi:schemaLocation | //@schemaLocation | //@noNamespaceSchemaLocation', {
+    xsi: 'http://www.w3.org/2001/XMLSchema-instance',
+  });
+  for (const a of schemaLocNodes) {
+    const v = safeText(a.value());
+    if (v) schemaRefs.push(v);
   }
-
-  const endpointNodes = selectAny('//*[local-name()="endpoint" or local-name()="Endpoint"]');
-  for (const e of endpointNodes) {
-    const type = (e.attr && e.attr('type') && e.attr('type').value()) || null;
-    const url = (e.attr && e.attr('url') && e.attr('url').value()) || normalizeText(e.text && e.text()) || null;
-    const method = (e.attr && e.attr('method') && e.attr('method').value()) || null;
-    config.endpoints.push({ type, url, method });
-  }
-
-  const featureNodes = selectAny('//*[local-name()="feature" or local-name()="Feature"]');
-  for (const f of featureNodes) {
-    const key = (f.attr && (f.attr('key') || f.attr('name')) && (f.attr('key') || f.attr('name')).value()) || null;
-    const enabled =
-      (f.attr && f.attr('enabled') && f.attr('enabled').value()) ||
-      normalizeText(f.text && f.text()) ||
-      '';
-    if (key) config.features[key] = coerceValue(enabled);
-  }
-
-  return config;
-}
-
-async function parseAndProcessXml(xmlBuffer) {
-  const xmlText = xmlBuffer.toString('utf8');
-
-  const parserOptions = {
-    noent: false,
-    dtdload: false,
-    dtdattr: false,
-    doctype: false,
-    nonet: true,
-    recover: true,
-    noblanks: true,
-    huge: false,
-  };
-
-  const doc = libxmljs.parseXml(xmlText, parserOptions);
-
-  const schemaLocations = new Set();
-
-  try {
-    const root = doc.root();
-    if (root) {
-      const xsiNs = root.namespace('xsi');
-      const schemaLocAttr = root.attr('schemaLocation', xsiNs) || root.attr('schemaLocation');
-      const noNsSchemaLocAttr = root.attr('noNamespaceSchemaLocation', xsiNs) || root.attr('noNamespaceSchemaLocation');
-
-      const addLocationsFromValue = v => {
-        const parts = normalizeText(v).split(/\s+/).filter(Boolean);
-        for (let i = 0; i < parts.length; i++) {
-          const token = parts[i];
-          if (/^https?:\/\//i.test(token)) schemaLocations.add(token);
-        }
-      };
-
-      if (schemaLocAttr) addLocationsFromValue(schemaLocAttr.value());
-      if (noNsSchemaLocAttr) addLocationsFromValue(noNsSchemaLocAttr.value());
-    }
-  } catch {}
-
-  const fetchedSchemas = [];
-  for (const loc of schemaLocations) {
-    try {
-      const buf = await fetchUrlBuffer(loc, { timeoutMs: 5000, maxBytes: 2 * 1024 * 1024 });
-      fetchedSchemas.push({
-        url: loc,
-        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
-        bytes: buf.length,
-      });
-    } catch (e) {
-      fetchedSchemas.push({
-        url: loc,
-        error: e.message,
-      });
-    }
-  }
-
-  const configuration = extractConfiguration(doc);
 
   return {
-    configuration,
-    externalSchemas: fetchedSchemas,
+    parser: 'libxmljs',
+    root: rootName,
+    schemaRefs: Array.from(new Set(schemaRefs)),
+    settings,
+    endpoints,
   };
 }
 
-app.post('/api/config/xml', upload.single('file'), async (req, res) => {
+function extractConfigFromXml2js(parsed) {
+  const rootKey = parsed && typeof parsed === 'object' ? Object.keys(parsed)[0] : undefined;
+  const root = rootKey ? parsed[rootKey] : undefined;
+
+  const schemaRefs = [];
+  const rootAttrs = root && root.$ ? root.$ : undefined;
+  if (rootAttrs) {
+    const schemaLoc = pickFirst(rootAttrs, ['xsi:schemaLocation', 'schemaLocation', 'noNamespaceSchemaLocation']);
+    if (schemaLoc) schemaRefs.push(String(schemaLoc).trim());
+  }
+
+  const settings = {};
+  const candidates = [];
+
+  function walk(node) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const it of node) walk(it);
+      return;
+    }
+
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$' || k === '_') continue;
+
+      if (k === 'setting' || k === 'param' || k === 'property') {
+        for (const item of asArray(v)) candidates.push(item);
+      } else if (typeof v === 'object') {
+        walk(v);
+      }
+    }
+  }
+
+  walk(root);
+
+  for (const item of candidates) {
+    const attrs = item && item.$ ? item.$ : {};
+    const name = pickFirst(attrs, ['name', 'key', 'id']);
+    if (!name) continue;
+    const value = pickFirst(attrs, ['value', 'val']);
+    const text = safeText(item && item._ !== undefined ? item._ : undefined);
+    settings[String(name)] = value !== undefined ? safeText(value) : text;
+  }
+
+  const endpoints = [];
+  const endpointCandidates = [];
+  function walkEndpoints(node) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const it of node) walkEndpoints(it);
+      return;
+    }
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$' || k === '_') continue;
+      if (k === 'endpoint' || k === 'connection' || k === 'adapter') {
+        for (const item of asArray(v)) endpointCandidates.push({ type: k, item });
+      } else if (typeof v === 'object') {
+        walkEndpoints(v);
+      }
+    }
+  }
+  walkEndpoints(root);
+
+  for (const { type, item } of endpointCandidates) {
+    const obj = { type };
+    if (item && item.$) Object.assign(obj, item.$);
+    for (const [k, v] of Object.entries(item || {})) {
+      if (k === '$' || k === '_') continue;
+      const norm = normalizeXml2jsValue(v);
+      if (typeof norm === 'string' || typeof norm === 'number' || typeof norm === 'boolean') obj[k] = norm;
+    }
+    endpoints.push(obj);
+  }
+
+  return {
+    parser: 'xml2js',
+    root: rootKey,
+    schemaRefs: Array.from(new Set(schemaRefs)),
+    settings,
+    endpoints,
+  };
+}
+
+function detectDoctypeOrEntity(xmlStr) {
+  const s = xmlStr.slice(0, 4096);
+  return /<!DOCTYPE/i.test(s) || /<!ENTITY/i.test(s);
+}
+
+function sha256(buf) {
+  return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+async function parseXml(buffer, opts = {}) {
+  const xmlStr = buffer.toString('utf8');
+
+  const allowExternalSchemas = !!opts.allowExternalSchemas;
+  const allowDtd = !!opts.allowDtd;
+
+  if (!allowDtd && detectDoctypeOrEntity(xmlStr)) {
+    const err = new Error('DTD/ENTITY is not allowed');
+    err.code = 'DTD_NOT_ALLOWED';
+    throw err;
+  }
+
+  const preferred = opts.preferredParser || 'libxmljs';
+
+  if (preferred === 'libxmljs') {
+    try {
+      const parseOptions = {
+        noent: false,
+        dtdload: false,
+        dtdattr: false,
+        dtdvalid: false,
+        nonet: !allowExternalSchemas,
+        recover: true,
+        noblanks: true,
+      };
+      const doc = libxmljs.parseXml(xmlStr, parseOptions);
+      return extractConfigFromLibxml(doc);
+    } catch (e) {
+      // fallback to xml2js
+    }
+  }
+
+  const parser = new xml2js.Parser({
+    explicitArray: false,
+    explicitCharkey: true,
+    attrkey: '$',
+    charkey: '_',
+    trim: true,
+    normalize: true,
+    normalizeTags: false,
+    xmlns: false,
+    strict: true,
+  });
+
+  const parsed = await parser.parseStringPromise(xmlStr);
+  return extractConfigFromXml2js(parsed);
+}
+
+app.post('/api/config/upload-xml', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'Missing uploaded file (field name: file)' });
+      return res.status(400).json({ error: 'Missing file field "file"' });
     }
 
-    const contentType = (req.file.mimetype || '').toLowerCase();
-    const looksLikeXml =
-      contentType.includes('xml') ||
-      normalizeText(req.file.originalname).toLowerCase().endsWith('.xml') ||
-      req.file.buffer.slice(0, 200).toString('utf8').includes('<');
+    const allowExternalSchemas = req.query.allowExternalSchemas === 'true';
+    const allowDtd = req.query.allowDtd === 'true';
+    const preferredParser = req.query.parser === 'xml2js' ? 'xml2js' : 'libxmljs';
 
-    if (!looksLikeXml) {
-      return res.status(415).json({ error: 'Unsupported file type; expected XML' });
-    }
-
-    const result = await parseAndProcessXml(req.file.buffer);
-
-    res.json({
-      ok: true,
-      configuration: result.configuration,
-      externalSchemas: result.externalSchemas,
+    const config = await parseXml(req.file.buffer, {
+      allowExternalSchemas,
+      allowDtd,
+      preferredParser,
     });
+
+    const result = {
+      file: {
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        sha256: sha256(req.file.buffer),
+      },
+      config,
+    };
+
+    return res.json(result);
   } catch (err) {
-    res.status(400).json({
-      ok: false,
-      error: err && err.message ? err.message : 'Failed to parse XML',
+    const status =
+      err && (err.code === 'DTD_NOT_ALLOWED' || err.code === 'LIMIT_FILE_SIZE') ? 400 : 422;
+    return res.status(status).json({
+      error: err.message || 'Failed to parse XML',
+      code: err.code,
     });
   }
 });
 
 if (require.main === module) {
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const port = Number(process.env.PORT || 3000);
   app.listen(port, () => {
-    process.stdout.write(`Listening on ${port}\n`);
+    process.stdout.write(`Listening on http://localhost:${port}\n`);
   });
 }
 

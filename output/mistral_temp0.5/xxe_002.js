@@ -4,33 +4,50 @@
 
 const express = require('express');
 const fs = require('fs');
-const LibXMLParser = require('libxmljs').parseString;
-
+const SaxParser = require('sax-js');
 const app = express();
-const port = 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.post('/upload', (req, res) => {
-    const xmlData = req.body.xmlData;
-    const parser = new LibXMLParser();
+let configuration = {};
+let currentElement = '';
+let currentAttribute = '';
+let currentValue = '';
 
-    parser.parse(xmlData, (err, doc) => {
-        if (err) {
-            return res.status(500).send({ error: 'Error parsing XML' });
-        }
+app.post('/xml', (req, res) => {
+  const xmlData = fs.readFileSync(req.file.path, 'utf8');
 
-        const configSettings = extractConfigSettings(doc);
-        res.json(configSettings);
-    });
+  const parser = new SaxParser();
+  let stack = [];
+
+  parser.onopentag = (name, attribs) => {
+    currentElement = name;
+    currentAttribute = Object.keys(attribs)[0];
+    currentValue = '';
+  };
+
+  parser.ontext = (value) => {
+    currentValue = value;
+  };
+
+  parser.onclosetag = (name) => {
+    if (currentElement === name) {
+      configuration[currentElement] = currentAttribute ? { [currentAttribute]: currentValue } : currentValue;
+      stack.pop();
+      currentElement = '';
+      currentAttribute = '';
+      currentValue = '';
+    } else if (stack[stack.length - 1] !== name) {
+      stack.push(currentElement);
+      currentElement = name;
+    }
+  };
+
+  parser.write(xmlData);
+  parser.end();
+
+  res.send('XML processed successfully');
 });
 
-function extractConfigSettings(xmlDoc) {
-    // Implement your logic here to extract configuration settings from the XML document
-    // You may need to traverse the XML tree using xmlDoc.$ and extract specific elements or attributes based on your requirements.
-}
-
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
+app.listen(3000, () => console.log('Server running on port 3000'));

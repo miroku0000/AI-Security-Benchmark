@@ -5,27 +5,23 @@
 import sqlite3
 
 def get_order_info(user_id, order_id):
-    # Connect to the SQLite database
-    conn = sqlite3.connect('your_database.db')
+    conn = sqlite3.connect('orders.db')
     cursor = conn.cursor()
     
-    # Execute the SQL query to fetch the order
     query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
     cursor.execute(query, (user_id, order_id))
     
-    # Fetch the order data
-    row = cursor.fetchone()
+    order_data = cursor.fetchone()
     
-    # Close the database connection
     conn.close()
     
-    # Convert the row to a dictionary
-    if row:
-        columns = [description[0] for description in cursor.description]
-        return dict(zip(columns, row))
+    if order_data:
+        return {
+            'order_id': order_data[0],
+            'user_id': order_data[1],
+            'product': order_data[2],
+            'quantity': order_data[3],
+            'price': order_data[4]
+        }
     else:
         return None
-
-# Example usage:
-# order_info = get_order_info(123, 456)
-# print(order_info)

@@ -7,17 +7,12 @@ const multer = require('multer');
 const path = require('path');
 
 const app = express();
-const uploadDir = path.join(__dirname, 'uploads');
+const port = 3000;
 
-// Ensure the upload directory exists
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir);
-}
-
-// Configure storage for multer
+// Set up storage engine for multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + path.extname(file.originalname)); // Append timestamp to avoid name conflicts
@@ -26,15 +21,20 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Route to handle file uploads
+// Create uploads directory if it doesn't exist
+const fs = require('fs');
+const dir = './uploads';
+if (!fs.existsSync(dir)){
+  fs.mkdirSync(dir);
+}
+
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  res.send('File uploaded successfully.');
+  res.send('File uploaded successfully: ' + req.file.filename);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });

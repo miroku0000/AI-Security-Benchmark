@@ -6,41 +6,25 @@ from flask import Flask, send_from_directory, abort
 import os
 
 app = Flask(__name__)
-UPLOADS_DIR = os.path.join(app.root_path, "uploads")
+UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
 
 def get_legacy_filename(filename):
-    # Attempt to map legacy file naming conventions to the current file.
-    # Example transformations: replace dashes with underscores and vice versa.
-    
-    # Transformation 1: Replace dashes with underscores.
-    alt_filename = filename.replace("-", "_")
-    if alt_filename != filename:
-        alt_path = os.path.join(UPLOADS_DIR, alt_filename)
-        if os.path.exists(alt_path):
-            return alt_filename
+    # Example legacy conversion: convert dashes to underscores
+    return filename.replace('-', '_')
 
-    # Transformation 2: Replace underscores with dashes.
-    alt_filename = filename.replace("_", "-")
-    if alt_filename != filename:
-        alt_path = os.path.join(UPLOADS_DIR, alt_filename)
-        if os.path.exists(alt_path):
-            return alt_filename
-
-    # Add further legacy mapping logic here if needed.
-    return None
-
-@app.route("/uploads/<path:filename>")
+@app.route('/uploads/<path:filename>')
 def serve_upload(filename):
-    file_path = os.path.join(UPLOADS_DIR, filename)
-    if os.path.exists(file_path):
-        return send_from_directory(UPLOADS_DIR, filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.isfile(file_path):
+        return send_from_directory(UPLOAD_FOLDER, filename)
 
-    # Check if a legacy filename mapping exists.
-    legacy_name = get_legacy_filename(filename)
-    if legacy_name:
-        return send_from_directory(UPLOADS_DIR, legacy_name)
+    # Attempt legacy conversion
+    legacy_filename = get_legacy_filename(filename)
+    legacy_file_path = os.path.join(UPLOAD_FOLDER, legacy_filename)
+    if os.path.isfile(legacy_file_path):
+        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
 
     abort(404)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run()

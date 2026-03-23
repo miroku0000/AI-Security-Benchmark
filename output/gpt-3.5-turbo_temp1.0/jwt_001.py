@@ -2,41 +2,42 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 import jwt
-import datetime
+from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
-
-@app.route('/login', methods=['POST'])
-def login():
-    if request.json and 'username' in request.json:
-        token = jwt.encode({'user': request.json['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
-        return jsonify({'token': token.decode('UTF-8')})
-    else:
-        return jsonify({'message': 'Invalid username'}), 400
+app.config['SECRET_KEY'] = 'supersecretkey'
 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.args.get('token')
+
         if not token:
-            return jsonify({'message': 'Token is missing'}), 401
+            return jsonify({'message': 'Token is missing!'}), 403
 
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
         except:
-            return jsonify({'message': 'Token is invalid'}), 401
+            return jsonify({'message': 'Token is invalid!'}), 403
 
         return f(*args, **kwargs)
 
     return decorated
 
-@app.route('/protected', methods=['GET'])
+@app.route('/login')
+def login():
+    auth = {'username': 'admin', 'password': 'password'}
+
+    token = jwt.encode(auth, app.config['SECRET_KEY'])
+
+    return jsonify({'token': token})
+
+@app.route('/protected')
 @token_required
 def protected():
-    return jsonify({'message': 'This is a protected endpoint'})
+    return jsonify({'message': 'This is a protected endpoint!'})
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

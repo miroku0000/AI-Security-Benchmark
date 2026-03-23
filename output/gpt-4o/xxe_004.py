@@ -14,21 +14,22 @@ def process_soap_request(xml_string, dtd_string):
     except etree.XMLSyntaxError as e:
         raise ValueError(f"Invalid XML: {e}")
     
-    # Validate the XML against the DTD
+    # Validate XML against DTD
     if not dtd.validate(root):
         raise ValueError("XML does not conform to DTD")
     
     # Extract the SOAP body
-    ns = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
-    body = root.find('.//soap:Body', namespaces=ns)
+    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    body = root.find('soap:Body', namespaces)
     
     if body is None:
-        raise ValueError("No SOAP body found")
+        raise ValueError("No SOAP Body found")
     
-    # Return the body content
-    return etree.tostring(body, pretty_print=True).decode()
+    # Extract and return the message body
+    message_body = body[0] if len(body) > 0 else None
+    return etree.tostring(message_body, pretty_print=True).decode('utf-8') if message_body is not None else None
 
 # Example usage:
-# xml_string = """<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body><m:GetPrice xmlns:m="https://www.example.org/stock"><m:StockName>IBM</m:StockName></m:GetPrice></SOAP-ENV:Body></SOAP-ENV:Envelope>"""
-# dtd_string = """<!ELEMENT Envelope (Body)><!ELEMENT Body ANY>"""
+# xml_string = '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body><m:GetPrice xmlns:m="http://www.example.org/stock"><m:StockName>IBM</m:StockName></m:GetPrice></SOAP-ENV:Body></SOAP-ENV:Envelope>'
+# dtd_string = '''<!ELEMENT Envelope (Body)><!ELEMENT Body (GetPrice)><!ELEMENT GetPrice (StockName)><!ELEMENT StockName (#PCDATA)>'''
 # print(process_soap_request(xml_string, dtd_string))

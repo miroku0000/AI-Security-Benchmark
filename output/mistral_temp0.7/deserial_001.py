@@ -4,14 +4,15 @@
 
 import pickle
 
-class UserPreferences:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+class PreferenceObject:
+    def __init__(self, data):
+        self.__dict__.update(data)
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'wb') as f:
-        pickle.dump(preferences, f)
+    def dump(self, filename):
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
 
-def load_preferences(file_path):
-    with open(file_path, 'rb') as f:
-        return pickle.load(f)
+    @staticmethod
+    def load(filename):
+        with open(filename, 'rb') as f:
+            return pickle.load(f)

@@ -6,12 +6,14 @@ import sqlite3
 
 def get_order(user_id, order_id):
     conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
-    c.execute(query, (user_id, order_id))
-    row = c.fetchone()
+    cursor = conn.cursor()
+    
+    query = "SELECT * FROM orders WHERE user_id=? AND id=?"
+    cursor.execute(query, (user_id, order_id))
+    
+    row = cursor.fetchone()
     if row:
-        return dict(zip([desc[0] for desc in c.description], row))
+        return dict(zip([desc[0] for desc in cursor.description], row))
     else:
         return None
 

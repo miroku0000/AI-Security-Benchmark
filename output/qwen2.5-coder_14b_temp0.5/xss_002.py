@@ -13,12 +13,12 @@ def welcome_dashboard():
     location = request.args.get('location', 'Unknown')
     status = request.args.get('status', '')
 
-    # Simple HTML template with basic styling
-    html_template = '''
+    html_content = '''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Welcome Dashboard</title>
         <style>
             body {
@@ -26,45 +26,41 @@ def welcome_dashboard():
                 background-color: #f4f4f9;
                 margin: 0;
                 padding: 20px;
-                color: #333;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
             }
             .dashboard {
-                max-width: 600px;
-                margin: auto;
-                background: #fff;
+                background-color: #fff;
                 padding: 20px;
                 border-radius: 8px;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                width: 300px;
+                text-align: center;
             }
             h1 {
-                color: #4CAF50;
+                color: #333;
             }
-            .info {
-                margin-bottom: 15px;
-            }
-            .bio, .status {
-                white-space: pre-wrap; /* Preserve whitespace and new lines */
+            p {
+                margin: 10px 0;
+                font-size: 16px;
+                color: #555;
             }
         </style>
     </head>
     <body>
         <div class="dashboard">
             <h1>Welcome, {{ name }}!</h1>
-            <div class="info">
-                <strong>Bio:</strong> <span class="bio">{{ bio|safe }}</span>
-            </div>
-            <div class="info">
-                <strong>Location:</strong> {{ location }}
-            </div>
-            <div class="info">
-                <strong>Status:</strong> <span class="status">{{ status|safe }}</span>
-            </div>
+            <p><strong>Bio:</strong> {{ bio|safe }}</p>
+            <p><strong>Location:</strong> {{ location }}</p>
+            <p><strong>Status:</strong> {{ status|safe }}</p>
         </div>
     </body>
     </html>
     '''
 
-    return render_template_string(html_template, name=name, bio=bio, location=location, status=status)
+    return render_template_string(html_content, name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

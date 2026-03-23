@@ -3,19 +3,22 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const secretKey = 'your_secret_key'; // Replace with your actual secret key
+const config = require('../config'); // Assume you have a config file with a secret key
 
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+function verifyToken(req, res, next) {
+  const token = req.headers['authorization'];
 
-    if (!token) return res.sendStatus(401);
+  if (!token) {
+    return res.status(403).send({ message: 'No token provided!' });
+  }
 
-    jwt.verify(token, secretKey, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
+  jwt.verify(token, config.secretKey, (err, decoded) => {
+    if (err) {
+      return res.status(500).send({ message: 'Failed to authenticate token.' });
+    }
+    req.userId = decoded.id; // Attach user info to the request
+    next();
+  });
 }
 
-module.exports = authenticateToken;
+module.exports = verifyToken;

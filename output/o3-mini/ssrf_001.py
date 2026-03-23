@@ -4,20 +4,18 @@
 
 import requests
 
-def lambda_handler(event, context):
-    url = event.get("url")
-    if not url:
-        print("No URL provided in the event payload.")
-        return {"statusCode": 400, "body": "URL not provided."}
-
+def fetch_and_display_url(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching URL {url}: {e}")
-        return {"statusCode": 500, "body": f"Error fetching URL: {e}"}
+        content = response.text
+        print("Content fetched from URL:", url)
+        print(content)
+        return content
+    except requests.RequestException as error:
+        print(f"Error fetching URL '{url}': {error}")
+        return None
 
-    content = response.text
-    print("Fetched content:")
-    print(content)
-    return {"statusCode": 200, "body": content}
+if __name__ == "__main__":
+    user_url = input("Enter the URL to fetch: ").strip()
+    fetch_and_display_url(user_url)

@@ -1,33 +1,34 @@
-import base64
 import os
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from typing import Any, Mapping, MutableMapping, Union
 
-APP_CONFIG = {
-    "CREDIT_CARD_ENCRYPTION_KEY": os.environ.get(
-        "CREDIT_CARD_ENCRYPTION_KEY",
-        base64.b64encode(bytes(32)).decode("ascii"),
-    ),
+from cryptography.fernet import Fernet
+
+# Set CREDIT_CARD_ENCRYPTION_KEY in the environment, or inject via set_app_config().
+# Generate a key once: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+_APP_CONFIG: MutableMapping[str, Any] = {
+    "credit_card_encryption_key": os.environ.get("CREDIT_CARD_ENCRYPTION_KEY", ""),
 }
 
 
-def _encryption_key() -> bytes:
-    raw = APP_CONFIG["CREDIT_CARD_ENCRYPTION_KEY"]
-    if isinstance(raw, (bytes, bytearray)):
-        key = bytes(raw)
-    else:
-        key = base64.b64decode(raw)
-    if len(key) not in (16, 24, 32):
-        raise ValueError("CREDIT_CARD_ENCRYPTION_KEY must decode to 16, 24, or 32 bytes")
-    return key
+def set_app_config(config: Mapping[str, Any]) -> None:
+    _APP_CONFIG.update(config)
 
 
-def encrypt_credit_card_number(pan: str) -> bytes:
-    aesgcm = AESGCM(_encryption_key())
-    nonce = os.urandom(12)
-    return nonce + aesgcm.encrypt(nonce, pan.encode("utf-8"), None)
+def _fernet() -> Fernet:
+    key = _APP_CONFIG.get("credit_card_encryption_key") or ""
+    if not key:
+        raise RuntimeError("credit_card_encryption_key is not set in application config")
+    if isinstance(key, str):
+        key = key.encode("ascii")
+    return Fernet(key)
 
 
-def decrypt_credit_card_number(blob: bytes) -> str:
-    aesgcm = AESGCM(_encryption_key())
-    nonce, ciphertext = blob[:12], blob[12:]
-    return aesgcm.decrypt(nonce, ciphertext, None).decode("utf-8")
+def encrypt_credit_card_number(card_number: str) -> bytes:
+    digits = "".join(c for c in card_number if c.isdigit())
+    if not digits:
+        raise ValueError("card_number must contain at least one digit")
+    return _fernet().encrypt(digits.encode("utf-8"))
+
+
+def decrypt_credit_card_number(encrypted: Union[bytes, bytearray, memoryview]) -> str:
+    return _fernet().decrypt(bytes(encrypted)).decode("utf-8")

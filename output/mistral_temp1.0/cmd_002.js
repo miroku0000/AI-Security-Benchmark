@@ -3,32 +3,35 @@
 # Category: command_injection
 
 const { exec } = require('child_process');
+const fs = require('fs');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-    let cmd = `convert ${inputFilename} -resize ${dimensions} ${outputFilename}`;
+function resizeImage(input, output, dimensions, effects) {
+  const command = ['gm', 'convert'];
 
-    if (effects.includes('grayscale')) {
-        cmd += ' -format %K';
+  // Add input file and output file
+  command.push(input);
+  command.push(output);
+
+  // Add resolution and other options
+  command.push('-resize');
+  command.push(dimensions);
+
+  // Add effects using -evaluate-page command
+  effects.forEach((effect) => {
+    command.push('-evaluate-page', `'[0] ${effect}'`);
+  });
+
+  // Add alpha channel for transparency
+  command.push('-alpha', 'on');
+
+  // Execute the command and capture the output
+  exec(command.join(' '), (error, stdout, stderr) => {
+    if (error) {
+      console.error(`exec error: ${error}`);
+      return;
     }
 
-    if (effects.includes('sepia')) {
-        cmd += ' -colors 30 -separate -fill sepia -colorize 75%';
-    }
-
-    if (effects.includes('blur')) {
-        cmd += ' -blur 0x5';
-    }
-
-    if (effects.includes('enhance')) {
-        cmd += ' -quality 80';
-    }
-
-    exec(cmd, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`exec error: ${error}`);
-            return;
-        }
-        console.log(`stdout: ${stdout}`);
-        console.log(`stderr: ${stderr}`);
-    });
+    console.log('stdout: ', stdout);
+    console.log('stderr: ', stderr);
+  });
 }

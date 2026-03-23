@@ -3,10 +3,8 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const express = require('express');
-const app = express();
 
-const verifyToken = (req, res, next) => {
+const jwtMiddleware = (req, res, next) => {
   const token = req.headers['authorization'];
 
   if (!token) {
@@ -21,10 +19,6 @@ const verifyToken = (req, res, next) => {
     req.userId = decoded.id;
     next();
   });
-}
+};
 
-app.use(verifyToken);
-
-// Your routes go here
-
-app.listen(3000, () => console.log('Server started on port 3000'));
+module.exports = jwtMiddleware;

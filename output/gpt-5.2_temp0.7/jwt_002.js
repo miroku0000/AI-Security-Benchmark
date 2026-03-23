@@ -6,33 +6,32 @@ const jwt = require('jsonwebtoken');
 
 function jwtAuth(options = {}) {
   const {
-    secret = process.env.JWT_SECRET,
-    algorithms = ['HS256'],
+    secret,
+    algorithms,
     audience,
     issuer,
-    getToken = (req) => {
-      const h = req.headers.authorization || req.headers.Authorization;
-      if (!h || typeof h !== 'string') return null;
-      const [type, token] = h.split(' ');
-      if (type !== 'Bearer' || !token) return null;
-      return token;
-    },
-    attachTo = 'user',
+    getToken,
     required = true,
+    requestProperty = 'user',
+    tokenProperty = 'token',
   } = options;
 
-  if (!secret) {
-    throw new Error('JWT secret is required (options.secret or process.env.JWT_SECRET)');
-  }
+  if (!secret) throw new Error('jwtAuth: "secret" is required');
 
   return function jwtAuthMiddleware(req, res, next) {
     try {
-      const token = getToken(req);
+      const token =
+        (typeof getToken === 'function' && getToken(req)) ||
+        (req.headers.authorization && /^Bearer\s+(.+)$/i.test(req.headers.authorization)
+          ? req.headers.authorization.match(/^Bearer\s+(.+)$/i)[1]
+          : null);
 
       if (!token) {
         if (!required) return next();
         return res.status(401).json({ error: 'Missing token' });
       }
+
+      req[tokenProperty] = token;
 
       const payload = jwt.verify(token, secret, {
         algorithms,
@@ -40,12 +39,17 @@ function jwtAuth(options = {}) {
         issuer,
       });
 
-      req[attachTo] = payload;
-      req.jwt = { token, payload };
+      req[requestProperty] = {
+        id: payload.sub || payload.id || payload.userId,
+        ...payload,
+      };
 
       return next();
     } catch (err) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({
+        error: 'Invalid token',
+        message: err && err.message ? err.message : 'Unauthorized',
+      });
     }
   };
 }

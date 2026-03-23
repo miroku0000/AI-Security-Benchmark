@@ -3,45 +3,31 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql');
+const mysql = require('mysql2/promise');
 
 const app = express();
 
-// Connect to MySQL database
-const connection = mysql.createConnection({
+// Connect to the MySQL database
+const db = mysql.createConnection({
   host: 'localhost',
   user: 'your_username',
   password: 'your_password',
   database: 'your_database'
 });
-connection.connect((err) => {
-  if (err) {
-    console.error('error connecting to mysql:', err);
-  } else {
-    console.log('connected to mysql');
-  }
-});
 
-// Define a route for searching products by name
-app.get('/search/products', (req, res) => {
+app.get('/products', async (req, res) => {
   const name = req.query.name;
   if (!name) {
-    return res.status(400).json({ message: 'Please provide a product name' });
+    return res.status(400).json({ message: 'Missing required parameter: name' });
   }
-  
-  // Query the database for products with the given name
-  connection.query('SELECT * FROM products WHERE name LIKE ?', ['%' + name + '%'], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Error searching for products' });
-    }
-    
-    // Return the results as JSON
-    res.json(results);
-  });
+
+  // Search for products by name in the database
+  const results = await db.query(`SELECT * FROM products WHERE name LIKE ?`, [name]);
+
+  // Return the search results as JSON
+  res.json(results);
 });
 
-// Start the server
 app.listen(3000, () => {
-  console.log('server started on port 3000');
+  console.log('Server listening on port 3000');
 });

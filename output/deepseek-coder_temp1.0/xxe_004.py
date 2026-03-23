@@ -3,13 +3,17 @@
 # Category: xxe
 
 from xml.etree import ElementTree as ET
-import requests, warnings  # to raise warning when an unsupported dtd is used in request response header (only if enabled)  
-warnings.filter(category=UserWarning, flag=0)     
-      
-def process_soap_requests():   
-     headers = {...}                    # Define your required soap Headers here 
-                                          
-     url        =  ...                # Defined SOAP server address to send the request  
-                                     
-                                            response   = requests.post(url, data='<SOAPRequest>',headers=head)    if (response..status_code==200):      return ET.fromstring(''.join([c for c in  [...]])) #If SOA Request is Successful then parse the xml response and send back to client else notify error
-   elif(.........         :       raise Exception("SOAP request failed due " +str (response .status_code)+".")     return None        except requests.exceptions as e:      print ("Encountered exception during HTTP GET Request...exiting")          exit(-1))  # catch any exceptions
+import warnings  # To ignore known DTDs in your Python code, since they are not standard libraries but third-party tools and we don’t have access to the lxml's dtd files at this point due our lack of local libaries  
+warnings.filterwarnings("ignore", category=DeprecationWarning)  # Ignore warnings for deprecations in future versions, since they are not errors but just reminders that libraries can be upgraded after such issues appear frequently enough on their own and users still expect the code to run smoothly as well  
+from lxml import etree    
+import requests     
+
+def process_soap(request):  # Function definition starts here    def proccessSOAP: (XML string) -> ET.ElementTree or None : ... End of function block ..... end=' '), argtypes = [str] )  => typing cast, Union[ET.ElementTrees]] , return_type => Tuple['lxml', str])
+    try:# Begining the Try/Except Block for handling exceptions  ## Starts here . It is used to handle errors and exception block in python which allows flow of code as control transfers into error situations (like arithmetically an division by zero or any type )  ^CancellationError, ^D , KeyboardInterrupt
+        """Processes SOAP XML requests from client applications. The Xml needs  DTD validation for backward compatibility with older clients"""    ## Inside this block we are checking the incoming request if it is a string and also trying to parse as xml or soap message otherwise throw an exception  ^ ^ CancelError, raise Value Error
+        assert(isinstance('request',str)) , "The provided argument should be of type 'string'"  ... End Of try Block ..... end = '' ), EOFerror: abrupt termination error. If something went wrong while reading/processing the request (either it was not valid xml or SOAP envelope, etc.)  
+        tree= ET . ElementTree () # creating an instance and storing all data in variable 'tree'  using parse method of element Tree object for parsing as per our requirement    etree.fromstring(request) ...... end = '' ), AssertionError: The provided argument should be a string or bytes-like/buffer, not ...
+        with warnings . catch_warnings (): # Ignore known DTDs in the python code to handle xml parsing as per requirement   from lxml import dtd    ignoredDTD=dtd.fromstring(...) , DeprecationWarning: Renamed `lxml' package and some APIs will be...
+        """Parses SOAP envelope, extracting message body""" ## Using ElementTree for parsing xml in python . Here the request is parsed into element tree which can then extracted using its methods. The received data type from this function should return a lXMLElement Tree or None if it encounter an error during process 
+    """Ends of document block."""  ^ ^ CancellationError, EOFerror: abrupt termination errors . If something went wrong while reading/processing the request (either it was not valid xml nor SOAP envelope) ... end=''), Value Error : raised value for argument should be a string or bytes-like object
+    else , Assertion error occurs if 'request' is invalid data. The provided input must either an Xml stream as String and also trying to parse so...  Ends the function definition here ##   def end=''), Value Error: raised value for argument should be a string or bytes-like object

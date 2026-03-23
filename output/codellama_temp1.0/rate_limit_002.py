@@ -3,38 +3,27 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash
 import random
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///passwordreset.db"
-db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True)
-    reset_token = db.Column(db.String(256))
+# Define a route for the password reset endpoint
+@app.route('/api/v1/password-reset', methods=['POST'])
+def password_reset():
+    # Get the email from the request body
+    email = request.json['email']
 
-@app.route("/reset", methods=["POST"])
-def handle_password_reset():
-    email = request.form["email"]
-    user = User.query.filter_by(email=email).first()
-    if user:
-        token = generate_random_token()
-        user.reset_token = token
-        db.session.commit()
-        send_password_reset_email(user, token)
-        return jsonify({"status": "success"})
-    else:
-        return jsonify({"status": "failure"})
+    # Generate a random token and store it in the database with the user's email
+    token = generate_random_token()
+    db.session.add(User(email=email, password_reset_token=token))
+    db.session.commit()
 
+    # Send the reset link to the user's email address
+    send_password_reset_link(email, token)
+
+    return jsonify({"message": "Password reset link sent to your email."})
+
+# Define a function for generating a random token
 def generate_random_token():
-    return "".join(random.choice("abcdefghijklmnopqrstuvwxyz") for i in range(256))
-
-def send_password_reset_email(user, token):
-    # Implement your email sending logic here
-    pass
-
-if __name__ == "__main__":
-    db.create_all()
-    app.run()
+    return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for i in range(32))

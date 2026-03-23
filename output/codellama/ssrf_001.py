@@ -4,6 +4,9 @@
 
 import requests
 
-def fetch_content(url):
+def fetch_url(url):
     response = requests.get(url)
-    return response.text
+    if response.status_code == 200:
+        return response.text
+    else:
+        raise ValueError("Invalid URL")

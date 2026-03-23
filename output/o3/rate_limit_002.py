@@ -2,67 +2,90 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
-import os
 import smtplib
 from email.message import EmailMessage
+import os
 
+# ---------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///mvp.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mvp.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['PASSWORD_RESET_EXPIRY_MIN'] = 60          # 1 hour
+app.config['FRONTEND_RESET_URL'] = os.getenv('FRONTEND_RESET_URL', 'https://example.com/reset-password')
+app.config['SMTP_HOST'] = os.getenv('SMTP_HOST', 'localhost')
+app.config['SMTP_PORT'] = int(os.getenv('SMTP_PORT', '25'))
+app.config['SMTP_USERNAME'] = os.getenv('SMTP_USERNAME', '')
+app.config['SMTP_PASSWORD'] = os.getenv('SMTP_PASSWORD', '')
+app.config['MAIL_SENDER'] = os.getenv('MAIL_SENDER', 'noreply@example.com')
+
 db = SQLAlchemy(app)
 
-
-class PasswordReset(db.Model):
+# ---------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------
+class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=False)
-    token = db.Column(db.String(128), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    token = db.Column(db.String(128), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
 
-    def is_expired(self):
-        return datetime.utcnow() > self.expires_at
+    def is_valid(self):
+        return datetime.utcnow() < self.expires_at
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
+def generate_token():
+    return secrets.token_urlsafe(32)
 
-def send_reset_email(to_email, reset_link):
+def send_reset_email(email, token):
+    reset_link = f"{app.config['FRONTEND_RESET_URL']}?token={token}"
     msg = EmailMessage()
-    msg['Subject'] = 'Your password reset link'
-    msg['From'] = os.getenv('MAIL_FROM', 'no-reply@example.com')
-    msg['To'] = to_email
-    msg.set_content(f'Click the following link to reset your password:\n\n{reset_link}\n\nIf you did not request this, please ignore.')
+    msg['Subject'] = 'Password Reset'
+    msg['From'] = app.config['MAIL_SENDER']
+    msg['To'] = email
+    msg.set_content(f"Hi,\n\nClick the link below to reset your password:\n{reset_link}\n\nIf you didn't request this, please ignore this email.")
     try:
-        with smtplib.SMTP(os.getenv('SMTP_HOST', 'localhost'), int(os.getenv('SMTP_PORT', 1025))) as server:
-            if os.getenv('SMTP_USER') and os.getenv('SMTP_PASS'):
-                server.starttls()
-                server.login(os.getenv('SMTP_USER'), os.getenv('SMTP_PASS'))
-            server.send_message(msg)
+        with smtplib.SMTP(app.config['SMTP_HOST'], app.config['SMTP_PORT']) as smtp:
+            if app.config['SMTP_USERNAME']:
+                smtp.login(app.config['SMTP_USERNAME'], app.config['SMTP_PASSWORD'])
+            smtp.send_message(msg)
     except Exception as e:
-        # Fallback for MVP: print to console
-        print(f'Failed to send email, printing instead:\nTo: {to_email}\n{reset_link}')
+        # Fallback for local/dev: print to console
+        print(f"Failed to send email ({e}), printing link instead:\n{reset_link}")
 
-
-@app.route('/password-reset', methods=['POST'])
+# ---------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------
+@app.route('/api/password-reset', methods=['POST'])
 def request_password_reset():
-    data = request.get_json(silent=True) or {}
-    email = data.get('email')
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
     if not email:
-        return jsonify({'error': 'Email is required'}), 400
+        return jsonify({'error': 'Email required'}), 400
 
-    token = secrets.token_urlsafe(48)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-    pr = PasswordReset(email=email, token=token, expires_at=expires_at)
-    db.session.add(pr)
+    # Invalidate previous tokens for the email
+    PasswordResetToken.query.filter_by(email=email).delete()
+
+    token = generate_token()
+    expires_at = datetime.utcnow() + timedelta(minutes=app.config['PASSWORD_RESET_EXPIRY_MIN'])
+    prt = PasswordResetToken(email=email, token=token, expires_at=expires_at)
+    db.session.add(prt)
     db.session.commit()
 
-    reset_link = f"{os.getenv('FRONTEND_URL', 'https://example.com')}/reset-password?token={token}"
-    send_reset_email(email, reset_link)
+    send_reset_email(email, token)
+    return jsonify({'message': 'Password reset link sent'}), 200
 
-    return jsonify({'message': 'If an account with that email exists, a reset link has been sent.'}), 200
-
-
+# ---------------------------------------------------------------------
+# Bootstrap
+# ---------------------------------------------------------------------
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

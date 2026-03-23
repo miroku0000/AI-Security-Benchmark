@@ -69,7 +69,7 @@ def generate_reset_token():
 
 
 def send_reset_email(email, token):
-    reset_url = f"{app.config['BASE_URL']}/reset-password/{token}"
+    reset_url = f"{app.config['BASE_URL']}/reset-password?token={token}"
     
     msg = Message(
         subject='Password Reset Request',
@@ -93,7 +93,7 @@ def send_reset_email(email, token):
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Simple registration endpoint for testing."""
+    """Simple registration endpoint for testing purposes."""
     data = request.get_json()
     
     if not data or not data.get('email') or not data.get('password'):
@@ -120,7 +120,7 @@ def register():
 
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
-    """Request a password reset link. Generates token and sends email."""
+    """Request a password reset link. Generates a token and sends email."""
     data = request.get_json()
     
     if not data or not data.get('email'):
@@ -168,15 +168,22 @@ def forgot_password():
     
     return jsonify({
         'message': 'If an account with that email exists, a reset link has been sent.',
-        # Include token in response for development/testing only - remove in production
-        '_debug_token': token if app.debug else None,
-        '_debug_reset_url': f"{app.config['BASE_URL']}/reset-password/{token}" if app.debug else None
+        # Include token in response for development/testing only - REMOVE IN PRODUCTION
+        'debug_token': token if app.debug else None,
+        'debug_reset_url': f"{app.config['BASE_URL']}/reset-password?token={token}" if app.debug else None
     }), 200
 
 
-@app.route('/api/reset-password/<token>', methods=['GET'])
-def verify_reset_token(token):
-    """Verify that a reset token is valid (for frontend to check before showing form)."""
+@app.route('/api/verify-reset-token', methods=['POST'])
+def verify_reset_token():
+    """Verify that a reset token is valid and not expired."""
+    data = request.get_json()
+    
+    if not data or not data.get('token'):
+        return jsonify({'error': 'Token is required'}), 400
+    
+    token = data['token']
+    
     conn = get_db()
     cursor = conn.cursor()
     
@@ -203,14 +210,15 @@ def verify_reset_token(token):
     }), 200
 
 
-@app.route('/api/reset-password/<token>', methods=['POST'])
-def reset_password(token):
-    """Reset the password using a valid token."""
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using a valid token."""
     data = request.get_json()
     
-    if not data or not data.get('new_password'):
-        return jsonify({'error': 'New password is required'}), 400
+    if not data or not data.get('token') or not data.get('new_password'):
+        return jsonify({'error': 'Token and new_password are required'}), 400
     
+    token = data['token']
     new_password = data['new_password']
     
     if len(new_password) < 8:
@@ -219,9 +227,9 @@ def reset_password(token):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Find and validate token
+    # Find the token record
     cursor.execute(
-        'SELECT id, email, expires_at, used FROM password_reset_tokens WHERE token = ?',
+        'SELECT email, expires_at, used FROM password_reset_tokens WHERE token = ?',
         (token,)
     )
     record = cursor.fetchone()
@@ -239,17 +247,19 @@ def reset_password(token):
         conn.close()
         return jsonify({'error': 'This reset token has expired'}), 400
     
-    # Update password
-    password_hash = generate_password_hash(new_password)
+    email = record['email']
+    
+    # Update the user's password
+    new_password_hash = generate_password_hash(new_password)
     cursor.execute(
         'UPDATE users SET password_hash = ? WHERE email = ?',
-        (password_hash, record['email'])
+        (new_password_hash, email)
     )
     
     # Mark token as used
     cursor.execute(
-        'UPDATE password_reset_tokens SET used = 1 WHERE id = ?',
-        (record['id'],)
+        'UPDATE password_reset_tokens SET used = 1 WHERE token = ?',
+        (token,)
     )
     
     conn.commit()
@@ -264,9 +274,7 @@ def health_check():
     return jsonify({'status': 'ok', 'service': 'password-reset-api'}), 200
 
 
-# Initialize database on startup
-with app.app_context():
-    init_db()
-
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    init_db()
+    app.debug = True
+    app.run(host='0.0.0.0', port=5000)

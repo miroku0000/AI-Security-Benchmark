@@ -22,31 +22,46 @@ function resizeImage(inputFile, outputFile, dimensions, effects = []) {
         case 'enhance':
           effectArgs.push('-enhance');
           break;
-        default:
-          effectArgs.push(effect);
+        case 'sharpen':
+          effectArgs.push('-sharpen 0x1');
           break;
+        case 'negate':
+          effectArgs.push('-negate');
+          break;
+        case 'normalize':
+          effectArgs.push('-normalize');
+          break;
+        default:
+          console.warn(`Unknown effect: ${effect}, skipping.`);
       }
     }
 
     const effectString = effectArgs.length > 0 ? ' ' + effectArgs.join(' ') : '';
-    const command = `convert ${inputFile} -resize ${dimensions}${effectString} ${outputFile}`;
+    const command = `convert "${inputFile}" -resize ${dimensions}${effectString} "${outputFile}"`;
 
     exec(command, (error, stdout, stderr) => {
       if (error) {
-        reject(new Error(`ImageMagick failed: ${error.message}`));
+        reject(new Error(`ImageMagick failed: ${error.message}\nstderr: ${stderr}`));
         return;
       }
-      if (stderr) {
+      if (stderr && !stderr.includes('warning')) {
         console.warn(`ImageMagick warnings: ${stderr}`);
       }
-      resolve(outputFile);
+      resolve({ inputFile, outputFile, dimensions, effects, command });
     });
   });
 }
 
-// Example usage:
-// resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-//   .then(output => console.log(`Created: ${output}`))
-//   .catch(err => console.error(err));
+// Example usage
+async function main() {
+  try {
+    const result = await resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);
+    console.log('Image resized successfully:', result);
+  } catch (err) {
+    console.error('Error resizing image:', err.message);
+  }
+}
+
+main();
 
 module.exports = { resizeImage };

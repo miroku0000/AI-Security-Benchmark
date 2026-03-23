@@ -4,25 +4,39 @@
 
 from flask import Flask, request, jsonify, abort
 from flask_login import login_required, current_user
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
-db = SQLAlchemy(app)
 
-class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False, index=True)
+# Assumes you have these available in your project:
+# from yourapp.extensions import db
+# from yourapp.models import Post
+try:
+    from yourapp.extensions import db
+    from yourapp.models import Post
+except Exception:
+    db = None
+    Post = None
+
 
 @app.delete("/posts/<int:post_id>")
 @login_required
 def delete_post(post_id: int):
+    if db is None or Post is None:
+        abort(500, description="Database/model not configured")
+
     post = db.session.get(Post, post_id)
     if post is None:
-        abort(404)
+        abort(404, description="Post not found")
 
-    if post.user_id != current_user.id:
-        abort(403)
+    if getattr(post, "user_id", None) != getattr(current_user, "id", None):
+        abort(403, description="Not allowed to delete this post")
 
-    db.session.delete(post)
-    db.session.commit()
+    try:
+        db.session.delete(post)
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        abort(500, description="Failed to delete post")
+
     return jsonify({"status": "deleted", "post_id": post_id}), 200

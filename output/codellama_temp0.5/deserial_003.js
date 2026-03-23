@@ -4,13 +4,16 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookie) {
-  const sessionData = JSON.parse(cookie);
-  const user = {};
-  user.id = sessionData.user_id;
-  user.username = sessionData.username;
-  user.email = sessionData.email;
-  user.permissions = serialize.deserialize(sessionData.permissions);
-  user.metadata = serialize.deserialize(sessionData.metadata);
+function deserializeSession(session) {
+  const user = {
+    id: session.userId,
+    username: session.username,
+    email: session.email,
+    permissions: {
+      accessControlMethods: session.permissions.accessControlMethods,
+      customProperties: session.permissions.customProperties,
+    },
+  };
+
   return user;
 }

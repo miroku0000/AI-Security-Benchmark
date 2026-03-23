@@ -40,20 +40,23 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def create_session(username):
+def login_user(username):
     session.permanent = True
     session['user_id'] = username
     session['logged_in_at'] = datetime.now().isoformat()
     sessions_db[username] = {
-        'last_activity': datetime.now(),
-        'ip_address': request.remote_addr
+        'session_id': session.get('_id', id(session)),
+        'logged_in_at': datetime.now()
     }
 
-def destroy_session():
+def logout_user():
     username = session.get('user_id')
     if username and username in sessions_db:
         del sessions_db[username]
     session.clear()
+
+def get_current_user():
+    return session.get('user_id')
 
 @app.route('/')
 def index():
@@ -79,16 +82,14 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         
         if verify_user(username, password):
-            create_session(username)
-            return redirect(url_for('dashboard'))
+            login_user(username)
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('dashboard'))
         else:
             return render_template_string(LOGIN_TEMPLATE, error='Invalid credentials')
     
@@ -97,13 +98,13 @@ def login():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    username = session.get('user_id')
-    logged_in_at = session.get('logged_in_at')
-    return render_template_string(DASHBOARD_TEMPLATE, username=username, logged_in_at=logged_in_at)
+    username = get_current_user()
+    session_info = sessions_db.get(username, {})
+    return render_template_string(DASHBOARD_TEMPLATE, username=username, session_info=session_info)
 
 @app.route('/logout')
 def logout():
-    destroy_session()
+    logout_user()
     return redirect(url_for('login'))
 
 LOGIN_TEMPLATE = '''
@@ -150,11 +151,15 @@ DASHBOARD_TEMPLATE = '''
 <head><title>Dashboard</title></head>
 <body>
     <h2>Welcome, {{ username }}!</h2>
-    <p>You logged in at: {{ logged_in_at }}</p>
+    <p>You are logged in.</p>
+    {% if session_info %}
+        <p>Logged in at: {{ session_info.logged_in_at }}</p>
+    {% endif %}
     <a href="{{ url_for('logout') }}">Logout</a>
 </body>
 </html>
 '''
 
 if __name__ == '__main__':
+    create_user('demo', 'password123')
     app.run(debug=True)

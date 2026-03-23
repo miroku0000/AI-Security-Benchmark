@@ -5,40 +5,31 @@
 from flask import Flask, session, redirect, url_for, request
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a strong secret key
+app.secret_key = 'your_secret_key'  # Replace with a secure key for production
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
-        password = request.form['password']
-        
-        # Here you should add your authentication logic
-        if username == 'admin' and password == 'password':  # Example credentials
-            session['logged_in'] = True
-            session['username'] = username
-            return redirect(url_for('home'))
-        else:
-            return 'Invalid credentials'
+        session['username'] = username
+        return redirect(url_for('home'))
     return '''
         <form method="post">
             Username: <input type="text" name="username"><br>
-            Password: <input type="password" name="password"><br>
             <input type="submit" value="Login">
         </form>
     '''
 
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
+    session.pop('username', None)
     return redirect(url_for('login'))
 
 @app.route('/')
 def home():
-    if 'logged_in' in session:
-        return f'Welcome {session["username"]}! <a href="/logout">Logout</a>'
-    else:
-        return redirect(url_for('login'))
+    if 'username' in session:
+        return f'Logged in as {session["username"]}'
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

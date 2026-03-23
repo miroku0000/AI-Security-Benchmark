@@ -6,117 +6,309 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function toSafeBasename(filename) {
-  const base = path.basename(String(filename || 'file'));
-  return base.replace(/[^\w.\-()+[\]{}@,=~ ]+/g, '_').trim() || 'file';
-}
-
-function ensureDirSync(dir) {
-  fs.mkdirSync(dir, { recursive: true });
-}
-
-function uniqueName(originalName, extOverride) {
-  const safe = toSafeBasename(originalName);
-  const ext = extOverride != null ? String(extOverride) : path.extname(safe);
-  const base = ext ? safe.slice(0, -ext.length) : safe;
-  const id = crypto.randomBytes(8).toString('hex');
-  return `${base}-${id}${ext || ''}`;
-}
-
-/**
- * Express middleware to handle a single file upload without external deps.
- * Requires the request body to be raw bytes of the file and the filename provided
- * via "x-filename" header (or defaults to "upload.bin").
- *
- * Usage:
- *   app.post('/upload', handleFileUpload({ uploadDir: './uploads', maxBytes: 20e6 }), (req, res) => res.json(req.upload));
- */
-function handleFileUpload(options = {}) {
+function handleFileUpload(req, options = {}) {
   const {
     uploadDir = path.join(process.cwd(), 'uploads'),
     maxBytes = 50 * 1024 * 1024,
-    filenameHeader = 'x-filename',
-    field = 'file',
-    allowedMime = null, // array or Set of allowed mimetypes, or null to allow all
+    allowedMime = null, // e.g. new Set(['image/png','image/jpeg'])
+    allowedExt = null,  // e.g. new Set(['.png','.jpg','.jpeg'])
+    fieldName = null,   // optional: only accept a specific form field name
   } = options;
 
-  ensureDirSync(uploadDir);
-
-  return function uploadMiddleware(req, res, next) {
-    if (req.method === 'GET' || req.method === 'HEAD') return next();
-
-    const contentLength = Number(req.headers['content-length'] || 0);
-    if (contentLength && contentLength > maxBytes) {
-      res.statusCode = 413;
-      return res.end('Payload Too Large');
+  return new Promise((resolve, reject) => {
+    const ct = req.headers['content-type'] || '';
+    if (!ct.toLowerCase().startsWith('multipart/form-data')) {
+      reject(Object.assign(new Error('Expected multipart/form-data'), { statusCode: 415 }));
+      return;
     }
 
-    if (allowedMime) {
-      const ct = String(req.headers['content-type'] || '').split(';')[0].trim();
-      const allowed = Array.isArray(allowedMime) ? allowedMime : Array.from(allowedMime);
-      if (ct && allowed.length && !allowed.includes(ct)) {
-        res.statusCode = 415;
-        return res.end('Unsupported Media Type');
+    const boundaryMatch = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]) : null;
+    if (!boundary) {
+      reject(Object.assign(new Error('Missing multipart boundary'), { statusCode: 400 }));
+      return;
+    }
+
+    fs.mkdirSync(uploadDir, { recursive: true });
+
+    const boundaryBuf = Buffer.from('--' + boundary);
+    const headerSep = Buffer.from('\r\n\r\n');
+    const crlf = Buffer.from('\r\n');
+
+    let totalBytes = 0;
+    let buffer = Buffer.alloc(0);
+
+    let state = 'preamble';
+    let current = null;
+
+    const files = [];
+    const fields = {};
+
+    function abort(err) {
+      if (current && current.stream) {
+        try { current.stream.destroy(); } catch {}
+      }
+      for (const f of files) {
+        try { fs.unlinkSync(f.path); } catch {}
+      }
+      reject(err);
+    }
+
+    function parseHeaders(headerText) {
+      const lines = headerText.split('\r\n');
+      const headers = {};
+      for (const line of lines) {
+        const idx = line.indexOf(':');
+        if (idx !== -1) {
+          const k = line.slice(0, idx).trim().toLowerCase();
+          const v = line.slice(idx + 1).trim();
+          headers[k] = v;
+        }
+      }
+      return headers;
+    }
+
+    function parseContentDisposition(value) {
+      // form-data; name="file"; filename="a.txt"
+      const out = {};
+      const parts = value.split(';').map(s => s.trim());
+      out.type = parts.shift() || '';
+      for (const p of parts) {
+        const eq = p.indexOf('=');
+        if (eq === -1) continue;
+        const key = p.slice(0, eq).trim().toLowerCase();
+        let val = p.slice(eq + 1).trim();
+        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+        out[key] = val;
+      }
+      return out;
+    }
+
+    function safeExt(filename) {
+      const ext = path.extname(filename || '').toLowerCase();
+      return ext && ext.length <= 16 ? ext : '';
+    }
+
+    function makeStoredName(ext) {
+      const id = crypto.randomBytes(16).toString('hex');
+      return id + (ext || '');
+    }
+
+    function openFilePart(partHeaders, disp) {
+      const originalName = disp.filename || 'unknown';
+      const ext = safeExt(originalName);
+      if (allowedExt && ext && !allowedExt.has(ext)) {
+        throw Object.assign(new Error('File extension not allowed'), { statusCode: 415 });
+      }
+      const mime = (partHeaders['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+      if (allowedMime && !allowedMime.has(mime)) {
+        throw Object.assign(new Error('MIME type not allowed'), { statusCode: 415 });
+      }
+
+      const storedName = makeStoredName(ext);
+      const filePath = path.join(uploadDir, storedName);
+
+      const stream = fs.createWriteStream(filePath, { flags: 'wx' });
+
+      const fileObj = {
+        field: disp.name || '',
+        originalName,
+        storedName,
+        path: filePath,
+        mime,
+        size: 0
+      };
+      files.push(fileObj);
+
+      return { type: 'file', file: fileObj, stream };
+    }
+
+    function openFieldPart(disp) {
+      return { type: 'field', name: disp.name || '', chunks: [] };
+    }
+
+    function finalizePart() {
+      if (!current) return;
+
+      if (current.type === 'file') {
+        const s = current.stream;
+        current.stream = null;
+        s.end();
+      } else if (current.type === 'field') {
+        const val = Buffer.concat(current.chunks).toString('utf8');
+        const name = current.name;
+        if (name) {
+          if (Object.prototype.hasOwnProperty.call(fields, name)) {
+            if (Array.isArray(fields[name])) fields[name].push(val);
+            else fields[name] = [fields[name], val];
+          } else {
+            fields[name] = val;
+          }
+        }
+      }
+      current = null;
+    }
+
+    function writeToCurrent(data) {
+      if (!current) return;
+      if (current.type === 'file') {
+        current.stream.write(data);
+        current.file.size += data.length;
+      } else {
+        current.chunks.push(data);
       }
     }
 
-    const originalName = req.headers[filenameHeader] || req.headers[filenameHeader.toLowerCase()] || 'upload.bin';
-    const storedName = uniqueName(originalName);
-    const filePath = path.join(uploadDir, storedName);
+    function findBoundaryStart(buf, from = 0) {
+      return buf.indexOf(boundaryBuf, from);
+    }
 
-    const out = fs.createWriteStream(filePath, { flags: 'wx' });
+    function findPartEndIndex(buf, start) {
+      // Expect \r\n--boundary or --boundary at beginning
+      let idx = findBoundaryStart(buf, start);
+      return idx;
+    }
 
-    let bytes = 0;
-    let finished = false;
+    function ensureMaxBytes(extra) {
+      totalBytes += extra;
+      if (totalBytes > maxBytes) {
+        throw Object.assign(new Error('Payload too large'), { statusCode: 413 });
+      }
+    }
 
-    function cleanup(err) {
-      if (finished) return;
-      finished = true;
-      try { out.destroy(); } catch {}
-      fs.unlink(filePath, () => {
-        if (err) next(err);
-      });
+    function processBuffer(final = false) {
+      try {
+        while (true) {
+          if (state === 'preamble') {
+            const idx = findBoundaryStart(buffer, 0);
+            if (idx === -1) {
+              if (!final) {
+                // keep a tail in case boundary splits
+                if (buffer.length > boundaryBuf.length) buffer = buffer.slice(buffer.length - boundaryBuf.length);
+              }
+              return;
+            }
+            // boundary should be preceded by optional data; skip to boundary
+            buffer = buffer.slice(idx + boundaryBuf.length);
+            // boundary line ends with -- (final) or \r\n
+            if (buffer.slice(0, 2).toString() === '--') {
+              state = 'done';
+              return;
+            }
+            if (buffer.slice(0, 2).compare(crlf) !== 0) {
+              // incomplete
+              if (!final) return;
+              throw Object.assign(new Error('Malformed multipart boundary'), { statusCode: 400 });
+            }
+            buffer = buffer.slice(2); // skip \r\n
+            state = 'headers';
+            continue;
+          }
+
+          if (state === 'headers') {
+            const idx = buffer.indexOf(headerSep);
+            if (idx === -1) return;
+
+            const headerText = buffer.slice(0, idx).toString('utf8');
+            buffer = buffer.slice(idx + 4);
+
+            const headers = parseHeaders(headerText);
+            const cd = headers['content-disposition'];
+            if (!cd) throw Object.assign(new Error('Missing Content-Disposition'), { statusCode: 400 });
+            const disp = parseContentDisposition(cd);
+            if ((disp.type || '').toLowerCase() !== 'form-data') {
+              throw Object.assign(new Error('Invalid Content-Disposition'), { statusCode: 400 });
+            }
+            if (fieldName && disp.name !== fieldName) {
+              // accept but treat as field; or ignore entirely
+            }
+
+            if (disp.filename != null && disp.filename !== '') {
+              current = openFilePart(headers, disp);
+            } else {
+              current = openFieldPart(disp);
+            }
+            state = 'body';
+            continue;
+          }
+
+          if (state === 'body') {
+            // Look for \r\n--boundary
+            const marker = Buffer.from('\r\n--' + boundary);
+            let idx = buffer.indexOf(marker);
+            if (idx === -1) {
+              // write all except a tail to avoid missing marker split
+              const keep = marker.length + 4;
+              if (buffer.length > keep) {
+                const chunk = buffer.slice(0, buffer.length - keep);
+                writeToCurrent(chunk);
+                buffer = buffer.slice(buffer.length - keep);
+              }
+              return;
+            }
+
+            // data is before idx
+            const data = buffer.slice(0, idx);
+            writeToCurrent(data);
+            buffer = buffer.slice(idx + 2); // drop leading \r\n, leaving --boundary...
+
+            // Now buffer starts with --boundary
+            if (buffer.indexOf(boundaryBuf) !== 0) {
+              throw Object.assign(new Error('Malformed multipart data'), { statusCode: 400 });
+            }
+            buffer = buffer.slice(boundaryBuf.length);
+
+            // finalize current part
+            finalizePart();
+
+            // boundary line ends: either -- (final) or \r\n (next)
+            if (buffer.length < 2) return;
+            const next2 = buffer.slice(0, 2).toString();
+            if (next2 === '--') {
+              buffer = buffer.slice(2);
+              state = 'done';
+              return;
+            }
+            if (buffer.slice(0, 2).compare(crlf) !== 0) {
+              throw Object.assign(new Error('Malformed boundary termination'), { statusCode: 400 });
+            }
+            buffer = buffer.slice(2);
+            state = 'headers';
+            continue;
+          }
+
+          if (state === 'done') return;
+          return;
+        }
+      } catch (e) {
+        abort(e);
+      }
     }
 
     req.on('data', (chunk) => {
-      bytes += chunk.length;
-      if (bytes > maxBytes) {
-        res.statusCode = 413;
-        res.end('Payload Too Large');
+      try {
+        ensureMaxBytes(chunk.length);
+      } catch (e) {
+        abort(e);
         req.destroy();
-        cleanup();
+        return;
       }
+      buffer = Buffer.concat([buffer, chunk]);
+      processBuffer(false);
     });
 
-    out.on('error', (err) => {
-      if (res.headersSent) return cleanup(err);
-      if (err && err.code === 'EEXIST') {
-        res.statusCode = 409;
-        res.end('File already exists');
-        return cleanup();
+    req.on('end', () => {
+      processBuffer(true);
+      if (state !== 'done') {
+        abort(Object.assign(new Error('Unexpected end of multipart data'), { statusCode: 400 }));
+        return;
       }
-      cleanup(err);
+      resolve({ files, fields });
     });
 
-    req.on('aborted', () => cleanup());
-    req.on('error', (err) => cleanup(err));
-
-    out.on('finish', () => {
-      if (finished) return;
-      finished = true;
-      req.upload = {
-        field,
-        originalName: toSafeBasename(originalName),
-        storedName,
-        path: filePath,
-        size: bytes,
-        mime: String(req.headers['content-type'] || '').split(';')[0].trim() || undefined,
-      };
-      next();
-    });
-
-    req.pipe(out);
-  };
+    req.on('error', (err) => abort(err));
+    req.on('aborted', () => abort(Object.assign(new Error('Request aborted'), { statusCode: 400 })));
+  });
 }
 
 module.exports = { handleFileUpload };

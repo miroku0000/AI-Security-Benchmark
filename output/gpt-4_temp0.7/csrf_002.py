@@ -2,35 +2,45 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, request, session
-from werkzeug.security import generate_password_hash
+from flask import Flask, request, jsonify, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-@app.route('/update_profile', methods=['POST'])
+# Mock user data
+users = {
+    'user1': {
+        'email': 'user1@example.com',
+        'password': generate_password_hash('password1'),
+        '2FA': False
+    }
+}
+
+@app.route('/profile', methods=['POST'])
 def update_profile():
+    # Check if user is logged in
     if 'username' not in session:
-        return {'error': 'Not authenticated'}, 401
+        return jsonify({'message': 'Please log in first'}), 401
 
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    two_fa = data.get('2FA')
+    username = session['username']
+    # Check if user exists
+    if username not in users:
+        return jsonify({'message': 'User not found'}), 404
 
-    if email:
-        # Here, update the email in your database
-        pass
+    # Get the new email, password and 2FA settings from the request data
+    new_email = request.json.get('email', users[username]['email'])
+    new_password = request.json.get('password', None)
+    new_2fa = request.json.get('2FA', users[username]['2FA'])
 
-    if password:
-        hashed_password = generate_password_hash(password)
-        # Here, update the hashed password in your database
-        pass
+    # Update email and 2FA
+    users[username]['email'] = new_email
+    users[username]['2FA'] = new_2fa
 
-    if two_fa is not None:
-        # Here, update the 2FA setting in your database
-        pass
+    # Update password if it was provided
+    if new_password:
+        users[username]['password'] = generate_password_hash(new_password)
 
-    return {'message': 'Profile updated successfully'}, 200
+    return jsonify({'message': 'Profile updated successfully'}), 200
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

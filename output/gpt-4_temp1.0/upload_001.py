@@ -7,21 +7,29 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = './uploads'
+app.config['UPLOAD_FOLDER'] = 'uploads/'
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return 'No file part', 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return 'No selected file', 400
-    
-    if file:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return 'file uploaded successfully', 200
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return 'No file part'
+        file = request.files['file']
+        if file.filename == '':
+            return 'No selected file'
+        if file:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            return 'File uploaded successfully'
+    return '''
+    <!doctype html>
+    <title>Upload Profile Picture</title>
+    <h1>Upload Profile Picture</h1>
+    <form method=post enctype=multipart/form-data>
+      <input type=file name=file>
+      <input type=submit value=Upload>
+    </form>
+    '''
 
 if __name__ == '__main__':
     app.run(debug=True)

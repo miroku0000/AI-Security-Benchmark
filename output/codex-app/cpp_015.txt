@@ -1,0 +1,9 @@
+int main() {
+    try {
+        std::string password;
+        std::getline(std::cin, password);
+        std::cout << hashPassword(password) << '\n';
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return 1;
+    }

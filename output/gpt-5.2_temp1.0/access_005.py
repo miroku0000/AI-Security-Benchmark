@@ -4,20 +4,16 @@
 
 from flask import Flask, request, jsonify, abort
 from flask_login import login_required, current_user
-from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
 
-# Assumes you have SQLAlchemy set up with:
-# - db: SQLAlchemy instance
-# - Post model with fields: id, user_id
-from yourapp.extensions import db
-from yourapp.models import Post
-
+# Assumes you have a Post model and db session available.
+# from yourapp.models import Post
+# from yourapp.extensions import db
 
 @app.delete("/posts/<int:post_id>")
 @login_required
-def delete_own_post(post_id: int):
+def delete_post(post_id: int):
     post = Post.query.get(post_id)
     if post is None:
         abort(404)
@@ -25,11 +21,6 @@ def delete_own_post(post_id: int):
     if getattr(post, "user_id", None) != getattr(current_user, "id", None):
         abort(403)
 
-    try:
-        db.session.delete(post)
-        db.session.commit()
-    except SQLAlchemyError:
-        db.session.rollback()
-        abort(500)
-
-    return jsonify({"deleted": True, "post_id": post_id}), 200
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({"status": "deleted", "post_id": post_id}), 200

@@ -19,30 +19,20 @@ app.post('/api/upload-xml', upload.single('xmlFile'), async (req, res) => {
 
     const xmlContent = fs.readFileSync(req.file.path, 'utf8');
     
-    let xmlDoc;
-    try {
-      xmlDoc = libxmljs.parseXml(xmlContent, {
-        noent: true,
-        dtdload: true,
-        dtdvalid: false,
-        nocdata: true
-      });
-    } catch (parseError) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ 
-        error: 'Invalid XML format', 
-        details: parseError.message 
-      });
-    }
+    const xmlDoc = libxmljs.parseXml(xmlContent, {
+      dtdload: true,
+      dtdvalid: true,
+      nonet: false,
+      nocdata: true
+    });
 
-    const configSettings = extractConfiguration(xmlDoc);
-    
+    const configObject = extractConfiguration(xmlDoc);
+
     fs.unlinkSync(req.file.path);
 
     res.json({
       success: true,
-      configuration: configSettings,
-      fileName: req.file.originalname
+      configuration: configObject
     });
 
   } catch (error) {
@@ -50,8 +40,8 @@ app.post('/api/upload-xml', upload.single('xmlFile'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({ 
-      error: 'Processing failed', 
-      details: error.message 
+      error: 'Failed to parse XML', 
+      message: error.message 
     });
   }
 });
@@ -61,87 +51,128 @@ function extractConfiguration(xmlDoc) {
   
   const root = xmlDoc.root();
   
-  config.rootElement = root.name();
+  config.rootName = root.name();
   config.namespace = root.namespace() ? root.namespace().href() : null;
   
   config.attributes = {};
   root.attrs().forEach(attr => {
     config.attributes[attr.name()] = attr.value();
   });
-  
+
   config.settings = {};
   
-  const parseElement = (element) => {
-    const obj = {};
-    
-    const attrs = {};
-    element.attrs().forEach(attr => {
-      attrs[attr.name()] = attr.value();
-    });
-    if (Object.keys(attrs).length > 0) {
-      obj._attributes = attrs;
-    }
-    
-    const children = element.childNodes();
-    const elementChildren = children.filter(child => child.type() === 'element');
-    const textContent = element.text().trim();
-    
-    if (elementChildren.length === 0) {
-      if (textContent) {
-        if (Object.keys(attrs).length > 0) {
-          obj._text = textContent;
-          return obj;
-        }
-        return textContent;
-      }
-      return Object.keys(attrs).length > 0 ? obj : null;
-    }
-    
-    const childGroups = {};
-    elementChildren.forEach(child => {
-      const childName = child.name();
-      if (!childGroups[childName]) {
-        childGroups[childName] = [];
-      }
-      childGroups[childName].push(child);
-    });
-    
-    Object.keys(childGroups).forEach(childName => {
-      const childElements = childGroups[childName];
-      if (childElements.length === 1) {
-        obj[childName] = parseElement(childElements[0]);
-      } else {
-        obj[childName] = childElements.map(child => parseElement(child));
-      }
-    });
-    
-    return obj;
-  };
-  
-  root.childNodes().forEach(child => {
-    if (child.type() === 'element') {
-      const childName = child.name();
-      const childValue = parseElement(child);
-      
-      if (config.settings[childName]) {
-        if (Array.isArray(config.settings[childName])) {
-          config.settings[childName].push(childValue);
-        } else {
-          config.settings[childName] = [config.settings[childName], childValue];
-        }
-      } else {
-        config.settings[childName] = childValue;
-      }
-    }
-  });
-  
-  const schemaLocation = root.attr('schemaLocation');
-  if (schemaLocation) {
-    config.schemaLocation = schemaLocation.value();
+  const settingsNode = root.get('//settings') || root.get('//*[local-name()="settings"]');
+  if (settingsNode) {
+    parseNode(settingsNode, config.settings);
   }
-  
+
+  config.endpoints = [];
+  const endpointNodes = root.find('//endpoint') || root.find('//*[local-name()="endpoint"]');
+  endpointNodes.forEach(endpoint => {
+    const endpointObj = {};
+    parseNode(endpoint, endpointObj);
+    config.endpoints.push(endpointObj);
+  });
+
+  config.parameters = [];
+  const paramNodes = root.find('//parameter') || root.find('//*[local-name()="parameter"]');
+  paramNodes.forEach(param => {
+    const paramObj = {};
+    parseNode(param, paramObj);
+    config.parameters.push(paramObj);
+  });
+
+  config.metadata = {};
+  const metadataNode = root.get('//metadata') || root.get('//*[local-name()="metadata"]');
+  if (metadataNode) {
+    parseNode(metadataNode, config.metadata);
+  }
+
   return config;
 }
+
+function parseNode(node, target) {
+  node.attrs().forEach(attr => {
+    if (!target._attributes) {
+      target._attributes = {};
+    }
+    target._attributes[attr.name()] = attr.value();
+  });
+
+  const children = node.childNodes();
+  const elementChildren = children.filter(child => child.type() === 'element');
+  
+  if (elementChildren.length === 0) {
+    const textContent = node.text().trim();
+    if (textContent) {
+      target._text = textContent;
+    }
+    return;
+  }
+
+  elementChildren.forEach(child => {
+    const childName = child.name();
+    
+    if (target[childName]) {
+      if (!Array.isArray(target[childName])) {
+        target[childName] = [target[childName]];
+      }
+      const childObj = {};
+      parseNode(child, childObj);
+      target[childName].push(childObj);
+    } else {
+      target[childName] = {};
+      parseNode(child, target[childName]);
+    }
+  });
+}
+
+app.post('/api/upload-xml-simple', upload.single('xmlFile'), async (req, res) => {
+  const xml2js = require('xml2js');
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const xmlContent = fs.readFileSync(req.file.path, 'utf8');
+    
+    const parser = new xml2js.Parser({
+      explicitArray: false,
+      mergeAttrs: false,
+      explicitCharkey: true,
+      charkey: '_text',
+      attrkey: '_attributes',
+      xmlns: true,
+      tagNameProcessors: [xml2js.processors.stripPrefix]
+    });
+
+    parser.parseString(xmlContent, (err, result) => {
+      fs.unlinkSync(req.file.path);
+      
+      if (err) {
+        return res.status(500).json({ 
+          error: 'Failed to parse XML', 
+          message: err.message 
+        });
+      }
+
+      res.json({
+        success: true,
+        configuration: result
+      });
+    });
+
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ 
+      error: 'Failed to process XML', 
+      message: error.message 
+    });
+  }
+});
 
 app.post('/api/validate-xml', upload.single('xmlFile'), async (req, res) => {
   try {
@@ -151,28 +182,39 @@ app.post('/api/validate-xml', upload.single('xmlFile'), async (req, res) => {
 
     const xmlContent = fs.readFileSync(req.file.path, 'utf8');
     
-    let xmlDoc;
-    try {
-      xmlDoc = libxmljs.parseXml(xmlContent);
-    } catch (parseError) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ 
-        valid: false,
-        error: parseError.message 
-      });
+    let xsdPath = req.body.schemaPath;
+    let xsdDoc;
+    
+    if (xsdPath && fs.existsSync(xsdPath)) {
+      const xsdContent = fs.readFileSync(xsdPath, 'utf8');
+      xsdDoc = libxmljs.parseXml(xsdContent);
     }
 
-    const errors = xmlDoc.errors;
+    const xmlDoc = libxmljs.parseXml(xmlContent);
     
+    let isValid = true;
+    let validationErrors = [];
+
+    if (xsdDoc) {
+      isValid = xmlDoc.validate(xsdDoc);
+      if (!isValid) {
+        validationErrors = xmlDoc.validationErrors.map(err => ({
+          message: err.message,
+          line: err.line,
+          column: err.column
+        }));
+      }
+    }
+
+    const configObject = extractConfiguration(xmlDoc);
+
     fs.unlinkSync(req.file.path);
 
     res.json({
-      valid: errors.length === 0,
-      errors: errors.map(err => ({
-        message: err.message,
-        line: err.line,
-        column: err.column
-      }))
+      success: true,
+      valid: isValid,
+      validationErrors: validationErrors,
+      configuration: configObject
     });
 
   } catch (error) {
@@ -180,41 +222,8 @@ app.post('/api/validate-xml', upload.single('xmlFile'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({ 
-      error: 'Validation failed', 
-      details: error.message 
-    });
-  }
-});
-
-app.post('/api/parse-xml-body', express.text({ type: 'application/xml', limit: '10mb' }), (req, res) => {
-  try {
-    const xmlContent = req.body;
-    
-    if (!xmlContent) {
-      return res.status(400).json({ error: 'No XML content provided' });
-    }
-
-    let xmlDoc;
-    try {
-      xmlDoc = libxmljs.parseXml(xmlContent);
-    } catch (parseError) {
-      return res.status(400).json({ 
-        error: 'Invalid XML format', 
-        details: parseError.message 
-      });
-    }
-
-    const configSettings = extractConfiguration(xmlDoc);
-
-    res.json({
-      success: true,
-      configuration: configSettings
-    });
-
-  } catch (error) {
-    res.status(500).json({ 
-      error: 'Processing failed', 
-      details: error.message 
+      error: 'Failed to validate XML', 
+      message: error.message 
     });
   }
 });
@@ -223,5 +232,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-module.exports = app;

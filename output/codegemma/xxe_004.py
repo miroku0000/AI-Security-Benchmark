@@ -4,19 +4,18 @@
 
 from lxml import etree
 
-def process_soap_request(xml_string):
+def process_soap_xml(xml_string):
     # Parse the SOAP XML string
-    root = etree.fromstring(xml_string.encode('utf-8'))
+    root = etree.fromstring(xml_string)
 
-    # Check for DTD validation
-    if root.dtd is not None:
-        # Validate against DTD
-        try:
-            root.validate(root.dtd)
-        except etree.DocumentInvalid as e:
-            raise ValueError("Invalid SOAP request due to DTD validation failure.")
+    # Validate the XML against the DTD
+    dtd_path = "path/to/dtd.dtd"
+    dtd = etree.DTD(dtd_path)
+    if not dtd.validate(root):
+        raise ValueError("Invalid SOAP XML request.")
 
-    # Extract the SOAP message body
-    message_body = root.find('.//soapenv:Body').text
+    # Extract the SOAP body
+    body = root.find(".//soapenv:Body", namespaces={"soapenv": "soapenv"})
 
-    return message_body
+    # Return the SOAP body as a string
+    return etree.tostring(body, encoding="utf-8").decode("utf-8")

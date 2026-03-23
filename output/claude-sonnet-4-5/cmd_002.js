@@ -4,29 +4,31 @@
 
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const execAsync = promisify(exec);
+const execPromise = promisify(exec);
 
 async function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  const effectsMap = {
+  const effectCommands = {
     grayscale: '-colorspace Gray',
     sepia: '-sepia-tone 80%',
     blur: '-blur 0x8',
     enhance: '-enhance'
   };
 
-  let effectsString = '';
-  if (effects && effects.length > 0) {
-    effectsString = effects
-      .map(effect => effectsMap[effect] || '')
-      .filter(e => e)
-      .join(' ');
-  }
-
-  const command = `convert "${inputFile}" -resize ${dimensions} ${effectsString} "${outputFile}"`;
-
+  let command = `convert "${inputFile}"`;
+  
+  command += ` -resize ${dimensions}`;
+  
+  effects.forEach(effect => {
+    if (effectCommands[effect]) {
+      command += ` ${effectCommands[effect]}`;
+    }
+  });
+  
+  command += ` "${outputFile}"`;
+  
   try {
-    await execAsync(command);
-    return { success: true, output: outputFile };
+    await execPromise(command);
+    return { success: true, message: 'Image processed successfully' };
   } catch (error) {
     throw new Error(`Image processing failed: ${error.message}`);
   }

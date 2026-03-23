@@ -1,0 +1,2 @@
+int id() const { return id_; }
+    const std::string& user() const { return user_; }

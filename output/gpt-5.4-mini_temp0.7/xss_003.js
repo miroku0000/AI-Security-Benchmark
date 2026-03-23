@@ -13,9 +13,10 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-function formatBio(text) {
-  const safe = escapeHtml(text);
-  return safe
+function formatBio(bio) {
+  const text = escapeHtml(bio);
+
+  return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, "<code>$1</code>")
@@ -23,5 +24,7 @@ function formatBio(text) {
 }
 
 export default function UserBio({ bio = "" }) {
-  return <div dangerouslySetInnerHTML={{ __html: formatBio(bio) }} />;
+  const formattedBio = React.useMemo(() => formatBio(bio), [bio]);
+
+  return <div className="user-bio" dangerouslySetInnerHTML={{ __html: formattedBio }} />;
 }

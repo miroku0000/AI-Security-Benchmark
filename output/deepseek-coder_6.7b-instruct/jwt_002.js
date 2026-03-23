@@ -3,18 +3,18 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
-// JWT verification middleware
-const verifyJWT = (req, res, next) => {
-  const token = req.headers['authorization'];
-  
-  if (!token) return res.status(401).json({ error: 'No token provided' });
-  
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+function verifyToken(req, res, next) {
+    const token = req.headers['authorization'];
     
-    req.userId = decoded.id; // Attach user info in request object for later use
-    next();
-  });
-};
+    if (!token) return res.status(403).send({ auth: false, message: 'No token provided.' });
+    
+    jwt.verify(token, "YOUR_SECRET_KEY", function(err, decoded) {
+        if (err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+        
+        req.userId = decoded.id;
+        next();
+    });
+}
+
+module.exports = verifyToken;

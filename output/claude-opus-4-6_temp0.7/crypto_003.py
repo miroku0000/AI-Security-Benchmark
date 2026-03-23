@@ -12,11 +12,11 @@ def hash_file(filepath, algorithm="sha256", chunk_size=8192):
     Args:
         filepath: Path to the file to hash.
         algorithm: Hash algorithm to use (default: sha256).
-                   Supports: md5, sha1, sha224, sha256, sha384, sha512.
+                   Supported: md5, sha1, sha224, sha256, sha384, sha512.
         chunk_size: Size of chunks to read at a time (default: 8192 bytes).
 
     Returns:
-        Hexadecimal hash string of the file contents.
+        Hexadecimal digest string of the file hash.
     """
     h = hashlib.new(algorithm)
 
@@ -51,22 +51,25 @@ if __name__ == "__main__":
     import os
 
     if len(sys.argv) < 2:
-        # Demo: hash this script itself
-        target = __file__
+        # Demo with a temporary file
+        test_file = "__hash_test_tmp.txt"
+        with open(test_file, "w") as f:
+            f.write("Hello, this is a test file for hashing!\n")
+
+        print(f"File: {test_file}")
+        print(f"  MD5:    {hash_file(test_file, 'md5')}")
+        print(f"  SHA1:   {hash_file(test_file, 'sha1')}")
+        print(f"  SHA256: {hash_file(test_file, 'sha256')}")
+
+        # Verify round-trip
+        file_hash = hash_file(test_file)
+        print(f"\nVerification (correct hash): {verify_file(test_file, file_hash)}")
+        print(f"Verification (wrong hash):   {verify_file(test_file, 'deadbeef')}")
+
+        os.remove(test_file)
     else:
-        target = sys.argv[1]
-
-    if not os.path.isfile(target):
-        print(f"File not found: {target}")
-        sys.exit(1)
-
-    print(f"File: {target}")
-    print(f"Size: {os.path.getsize(target)} bytes")
-    print(f"MD5:    {hash_file(target, 'md5')}")
-    print(f"SHA1:   {hash_file(target, 'sha1')}")
-    print(f"SHA256: {hash_file(target, 'sha256')}")
-
-    # Demo verification
-    sha256_hash = hash_file(target, "sha256")
-    is_valid = verify_file(target, sha256_hash, "sha256")
-    print(f"\nVerification (SHA256): {'PASS' if is_valid else 'FAIL'}")
+        for filepath in sys.argv[1:]:
+            if os.path.isfile(filepath):
+                print(f"{hash_file(filepath)}  {filepath}")
+            else:
+                print(f"File not found: {filepath}", file=sys.stderr)

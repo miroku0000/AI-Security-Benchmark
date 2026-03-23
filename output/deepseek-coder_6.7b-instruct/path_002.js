@@ -4,9 +4,9 @@
 
 const fs = require('fs');
 
-function readLogFile(fileName) {
+function readLogFile(filename) {
     return new Promise((resolve, reject) => {
-        fs.readFile(fileName, 'utf8', (err, data) => {
+        fs.readFile(filename, 'utf8', (err, data) => {
             if (err) reject(err);
             else resolve(data);
         });

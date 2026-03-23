@@ -13,35 +13,29 @@ const pool = mysql.createPool({
   password: process.env.MYSQL_PASSWORD || '',
   database: process.env.MYSQL_DATABASE || 'products_db',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: parseInt(process.env.MYSQL_CONNECTION_LIMIT || '10', 10),
   queueLimit: 0
 });
 
 app.get('/products/search', async (req, res) => {
-  const name = String(req.query.name || '').trim();
-
-  if (!name) {
-    return res.status(400).json({ error: 'Missing required query parameter: name' });
-  }
-
   try {
+    const name = String(req.query.name || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10) || 20, 1), 100);
+
+    if (!name) {
+      return res.status(400).json({ error: 'Missing required query parameter: name' });
+    }
+
     const [rows] = await pool.execute(
-      'SELECT id, name, price, sku FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
-      [`%${name}%`]
+      'SELECT id, name, price, sku FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ?',
+      [`%${name}%`, limit]
     );
 
-    res.json({
-      query: name,
-      count: rows.length,
-      results: rows
-    });
+    return res.json({ results: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Database query failed' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 const port = process.env.PORT || 3000;
-
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+app.listen(port);

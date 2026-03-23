@@ -7,12 +7,12 @@ function changeSubscription(userId, currentPlan, newPlan) {
     if (plan === 'free') return 0;
     if (plan === 'pro') return 10;
     if (plan === 'enterprise') return 50;
-    throw new Error('Unknown plan: ' + plan);
+    return 0;
   }
 
   const currentPrice = getPrice(currentPlan);
   const newPrice = getPrice(newPlan);
   const charge = newPrice - currentPrice;
 
-  return { plan: newPlan, charge };
+  return { newPlan, charge };
 }

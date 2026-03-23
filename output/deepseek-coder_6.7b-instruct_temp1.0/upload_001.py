@@ -4,20 +4,28 @@
 
 from flask import Flask, request
 import os
-from werkzeug.utils import secure_filename
-
 app = Flask(__name__)
- 
-@app.route('/upload', methods = ['POST'])
-def upload_file():
-    if 'picture' not in request.files:
-        return 'No file part'
-    file = request.files['picture']
+
+@app.route('/upload_picture', methods=['POST'])
+def handle_request():
+    if 'file' not in request.files:
+        return "No file part"
+    file = request.files['file']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join('uploads', filename))
         return 'File uploaded successfully'
+    else:
+        return "File type not allowed"
 
 def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+from werkzeug.utils import secure_filename
+
+if __name__ == "__main__":
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+    app.run(port=5000)

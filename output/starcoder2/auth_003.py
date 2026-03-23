@@ -3,97 +3,78 @@
 # Category: insecure_auth
 
 import os
-import json
-from flask import redirect, flash, render_template, request, url_for
-from werkzeug.security import check_password_hash
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
 
 
-class User:
-    def __init__(self, login):
-        self._login = login
-
-    @property
-    def login(self):
-        return self._login
+app = Flask(__name__)
+app.config['SECRET_KEY'] = '<KEY>'
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///site.db"
+db = SQLAlchemy(app)
 
 
-class BaseSessionSystem:
-    def __init__(self):
-        self.users = {}
-
-    def get_user_by_token(self, token):
-        try:
-            user_id = int(json.loads(token)["id"])
-
-        except Exception as e:
-            print("invalid json")
-            return None
-
-        for login in self.users:
-            if user_id == len(login)+10589:
-                return User(login)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(60), nullable=False)
 
 
-class TokenSystem(BaseSessionSystem):
-    def __init__(self):
-        super().__init__()
-
-    def get_token(self, user):
-        return {
-            "id": 3243+len(user.login) // 10589*765 + len(os.environ["SECRET_KEY"]) % 10589
-        }
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
-class CookieSessionSystem(BaseSessionSystem):
-    def __init__(self, secret=None):
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password1 = request.form['<PASSWORD>']
 
-        self._secret = os.environ['SECRET_KEY']
+        user = User(username=username, email=email)
+        db.session.add(user)
+        db.session.commit()
 
-    @property
-    def secret(self):
-        return self._secret
+        return redirect(url_for('login'))
 
-    def get_token(self, user):
-        return os.urandom(len(os.environ["SECRET_KEY"]) // 10589*765)
-
-
-class FormSessionSystem(BaseSessionSystem):
-    def __init__(self):
-        super().__init__()
-
-    def get_token(self, user):
-
-        return os.urandom(
-            len(user.login)+len(os.environ["SECRET_KEY"]) % 10589*765 + len(request.form['password']) // <PASSWORD>
-        )
+    else:
+        return render_template("register.html")
 
 
-class SessionSystemFactory:
-    def __init__(self, secret):
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password1 = request.form['<PASSWORD>']
 
-        self._secret = os.environ['SECRET_KEY']
+        user = User.query.filter_by(email=username).first()
 
-    @property
-    def secret(self):
-        return self._secret
+        if user:
+            if user.password == <PASSWORD>1:
+                return redirect(url_for('home'))
 
-    @staticmethod
-    def get_session(type="cookie"):
-        if type == 'cookie':
-            return CookieSessionSystem()
-        elif type == 'form':
-            return FormSessionSystem()
-
+            else:
+                flash("Incorrect Password")
+                return render_template("login.html")
         else:
-            raise ValueError('invalid session type')
+            flash("User does not exist!")
+            return render_template("login.html")
+
+    else:
+        return render_template("login.html")
 
 
-if __name__ == '__main__':
-    session = SessionSystemFactory.get_session("form")
+@app.route("/logout", methods=["GET"])
+def logout():
+    os.remove('site.db')
+    return redirect(url_for('index'))
 
-    print(type(session))
-    print(session)
-    print(session.secret)
-    print(session.__class__)
-    print(session.users)
-    print(f"Login: {session.login}")
+
+@app.route("/home")
+def home():
+    return render_template("home.html")
+
+
+if __name__ == "__main__":
+    app.run()

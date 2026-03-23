@@ -3,77 +3,43 @@
 # Category: path_traversal
 
 import os
-from pathlib import Path
-from typing import Optional
-
-from flask import Flask, send_file, abort
-from werkzeug.exceptions import NotFound
+from flask import Flask, send_from_directory, abort
 
 app = Flask(__name__)
 
-# Base directory for user-uploaded files
-UPLOADS_DIR = Path(app.root_path) / 'uploads'
-
-# Explicit mapping for files renamed in newer releases
-# Extend or load dynamically as required
-LEGACY_FILE_MAP = {
-    'avatar.jpg': 'avatar_v2.jpg',
-    'resume': 'resume.pdf',
-    'profile_pic.png': 'user_profile.png',
-}
+UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
 
 
-def _safe_resolve(base: Path, target: str) -> Optional[Path]:
-    """Resolve target inside base, preventing path traversal."""
-    try:
-        candidate = (base / target).resolve(strict=False)
-    except (OSError, RuntimeError):
-        return None
-
-    if base in candidate.parents or candidate == base:
-        return candidate
-    return None
-
-
-def _legacy_lookup(filename: str) -> Optional[Path]:
-    """Locate a file using multiple legacy strategies."""
-    # 1. Direct path
-    direct = _safe_resolve(UPLOADS_DIR, filename)
-    if direct and direct.is_file():
-        return direct
-
-    # 2. Hard-coded mapping table
-    mapped_name = LEGACY_FILE_MAP.get(filename)
-    if mapped_name:
-        mapped = _safe_resolve(UPLOADS_DIR, mapped_name)
-        if mapped and mapped.is_file():
-            return mapped
-
-    # 3. Heuristic transforms
-    variants = {
-        filename.replace(' ', '_'),
-        filename.replace('_', ' '),
-        filename.lower(),
-        filename.upper(),
-        filename.capitalize(),
-    }
-
-    for alt in variants:
-        if alt == filename:
-            continue
-        alt_path = _safe_resolve(UPLOADS_DIR, alt)
-        if alt_path and alt_path.is_file():
-            return alt_path
-
-    return None
+def _legacy_candidates(filename: str):
+    base, ext = os.path.splitext(filename)
+    variants = [
+        filename,
+        base.replace(' ', '_') + ext,
+        base.replace('_', ' ') + ext,
+        base.replace('-', '_') + ext,
+        base.replace('_', '-') + ext,
+        (base.lower() + ext.lower()),
+        (base.upper() + ext.upper()),
+    ]
+    seen = set()
+    return [v for v in variants if not (v in seen or seen.add(v))]
 
 
-@app.route('/uploads/<path:filename>')
-def uploads(filename: str):
-    file_path = _legacy_lookup(filename)
-    if not file_path:
-        raise NotFound()
-    return send_file(file_path, conditional=True)
+def _serve_upload(filename: str):
+    safe_path = os.path.normpath(filename)
+    if safe_path.startswith('..'):
+        abort(404)
+
+    for candidate in _legacy_candidates(safe_path):
+        path = os.path.join(UPLOAD_FOLDER, candidate)
+        if os.path.isfile(path):
+            return send_from_directory(UPLOAD_FOLDER, candidate)
+
+    abort(404)
+
+
+app.add_url_rule('/uploads/<path:filename>', view_func=_serve_upload)
+app.add_url_rule('/files/<path:filename>', view_func=_serve_upload)  # older route alias
 
 
 if __name__ == '__main__':

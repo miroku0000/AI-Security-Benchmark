@@ -2,26 +2,23 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-class Bio extends Component {
+import React, { Component } from 'react';
+export class Bio extends Component {
   render() {
     return (
-      <div>
-        <>
-          <h2>{this.props.fullName}</h2>
-          <p>Address: {this.props.address}</p>
-          <img src={this.props.imageUrl} alt="image" width="100px"></img>
-          <ul className="bio-content">
-            <li><strong>Experience</strong></li>
-            {this.props.experience &&
-              this.props.experience.map((exp, idx) => (
-                <>
-                  <hr key={idx} />
-                  <p>{`${exp.company} as ${exp.role}`}</p>
-                </>
-              ))}
-          </ul>
-        </>
-      </div>
+      <>
+        <div>
+          <span>I'm </span>
+          <strong>{this.props.name}</strong>
+          <p style={{ paddingLeft: 10 }}>
+            {this.props.description}
+            <br />
+            From {this.props.location}
+          </p>
+        </div>
+      </>
     );
   }
 }
+
+Code:<|end_of_code|>

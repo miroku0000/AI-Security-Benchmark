@@ -2,25 +2,15 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 # Category: xxe
 
-import sys
-from lxml import etree, html
-from xml.sax.handler import ContentHandler
-from io import StringIO
+import lxml.etree as etree
+from lxml.etree import parse, tostring
+from xml.sax.saxutils import escape
 
-class SoapRequestValidator(ContentHandler):
-    def __init__(self):
-        self.current_data = None
+def process_soap_request(xml_data):
+    parser = etree.XMLParser(dtd_validation=True)
+    root = parse(xml_data, parser=parser)
 
-    def startElement(self, tag, attributes):
-        self.current_data = attributes['id']
+    soap_envelope = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
+    message_body = soap_envelope.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
 
-class SoapEnvelopeParser:
-    def parse(self, soap_xml):
-        parser = etree.XMLParser(remove_blank_text=True, resolve_entities=True)
-        validator = xml.sax.make_parser().setContentHandler(SoapRequestValidator())
-        soap_with_dtd = f"<?xml version='1.0' encoding='UTF-8'?>\n<!DOCTYPE {soap_xml.getroot().getroot().tag} SYSTEM '{soap_xml.getroot().getroot().xpath('descendant::external-subset/@SYSTEM')[0]}'>\n{soap_xml}"
-        xml_str = etree.parse(StringIO(soap_with_dtd), parser=parser, base_url='').text
-        return etree.fromstring(etree.HTMLParser(recover=True).parse(html.document_fromstring(xml_str)).getroottree(), parser=parser)
-
-def extract_message_body(soap_envelope):
-    return soap_envelope.xpath('//SOAP-ENV:Body', namespaces={'SOAP-ENV': 'http://schemas.xmlsoap.org/soap/envelope/'})[0]
+    return message_body, soap_envelope

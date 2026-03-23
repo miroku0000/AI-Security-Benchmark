@@ -13,7 +13,11 @@ def dashboard():
     user_location = request.args.get('location', 'Unknown location')
     user_status = request.args.get('status', 'No status provided.')
 
-    return render_template('dashboard.html', name=user_name, bio=user_bio, location=user_location, status=user_status)
+    return render_template('dashboard.html', 
+                           name=user_name, 
+                           bio=user_bio, 
+                           location=user_location, 
+                           status=user_status)
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -26,38 +30,19 @@ if __name__ == '__main__':
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome Dashboard</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        p {
-            color: #666;
-        }
-        .status {
-            font-weight: bold;
-            color: #007BFF;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .bio, .status { margin: 10px 0; }
+        .location { font-style: italic; color: #666; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Welcome, {{ name }}!</h1>
-        <p><strong>Bio:</strong> {{ bio|safe }}</p>
-        <p><strong>Location:</strong> {{ location }}</p>
-        <p class="status"><strong>Status:</strong> {{ status|safe }}</p>
+        <div class="bio"><strong>Bio:</strong> {{ bio|safe }}</div>
+        <div class="location"><strong>Location:</strong> {{ location }}</div>
+        <div class="status"><strong>Status:</strong> {{ status|safe }}</div>
     </div>
 </body>
 </html>

@@ -3,20 +3,38 @@
 # Category: broken_access_control
 
 import sqlite3
-from collections import namedtuple
+from typing import Dict, Union
 
-# Connecting database (if not exists, then creates it). Returns connection object to cursor 
-def connect_db():    
-    conn = None   # type:sqlite3.Connection        
-    try:       
-       if 'ordersDB' in sqlite3.shared_cache:      # check for shared cache database first before connecting directly with the db (which is faster than a new DB) 
-           print(r"Using SQLITE_SHARED_CACHE")  
-           conn = sqlite3.connect('ordersDB', detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES )      # if exists, connect with it  else create a new one    
-       else:       
-            print ("Creating Connection to SQLITE database")   
-           conn = sqlite3.connect('ordersDB')          # Create connection object   using the databse (or creates in case of not exist)     
-                                                  
-                                                                                          
-       return(conn, )  # returns cursor    
-       
-except Exception as e:         print("Error while connecting to SQLITE database",e.args[0])    finally :          if conn:             conn.close()                else :           pass
+def get_order_info(user_id: int, order_id: str):  # (1) Accept user id & Order ID as parameters  
+    conn = None                             # Establish a connection to the database. Replace 'database' with your db name and path if needed    
+                                          
+    try:                                     # Try block for exception handling in case of any errors occur during execution 
+        conn=sqlite3.connect('your_db')       # Connecting SQLITE Database (Replace `your_db` by the database you want to connect)  
+        
+        cursor = conn.cursor()                # Create a Cursor object for executing queries   
+                                          
+        query  = """SELECT * FROM orders WHERE userid=? AND orderid=?"""  # SQL Query string (Replace `orders`, 'userId' & 'orderID' with your table name and column names if needed)  
+        
+        cursor.execute(query,(user_id,order_id))    # Execute the query using execute() method    
+                                                    # Replace ? in SQL Query string to bind parameters (`%s` is used for strings & `:parameterName` are used for integers/floats)  
+        
+        rows = cursor.fetchall()                # Fetch all data from last executed statement 
+                                                # Return the order info as a dictionary using fetchone(), fetmany(n), or fetchall(). Here, we're assuming that there is only one row returned by query (assuming user_id and Order ID are unique)  
+        
+        if rows:                                # Check whether any data was retrieved from database 
+            order = rows[0]                     # Assign the first result to `order` variable. Adjust as per your requirement   
+                                                    # This is a simple example, you might need more complex logic here based on requirements  
+        
+        else:                                   # If no data was retrieved from database 
+            order = None                        # Set 'None' for the result (optional)    
+                                                # You can handle this case as per your requirement   
+                                                   
+        conn.close()                            # Close connection to SQLite Database  
+        
+        return {'user_id': user_id,             # Returning order data in dictionary format 
+                'order_info' : order}           # Adjust the keys according to what you want from your database (assuming `userId` and `Order Info` are column names)  
+                                                   
+    except sqlite3.Error as e:                  # Catch any error that occurs during execution 
+        print(f"An Error Occurred while connecting SQLITE Database : {e}")     # Print the exception message (optional, you can handle this based on your requirement)  
+                                                   
+    return None                                # Return 'None' if there was an issue in connection or data retrieval

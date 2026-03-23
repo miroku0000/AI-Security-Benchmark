@@ -4,13 +4,13 @@
 
 from flask import Flask, request, jsonify
 import sqlite3
-import uuid
+import secrets
 import smtplib
 from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-# Database setup (SQLite for simplicity)
+# Database setup (for simplicity using SQLite)
 def init_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
@@ -24,38 +24,43 @@ def reset_password():
     email = data.get('email')
 
     if not email:
-        return jsonify({"error": "Email is required"}), 400
+        return jsonify({'error': 'Email is required'}), 400
 
     # Generate a random token
-    token = str(uuid.uuid4())
+    token = secrets.token_urlsafe(16)
 
-    # Store the token in the database with the user's email
+    # Store the token in the database
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
     try:
-        c.execute('''INSERT OR REPLACE INTO users (email, reset_token) VALUES (?, ?)''', (email, token))
+        c.execute("INSERT INTO users (email, reset_token) VALUES (?, ?)", (email, token))
         conn.commit()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except sqlite3.IntegrityError:
+        # Token already exists for this email, update it
+        c.execute("UPDATE users SET reset_token = ? WHERE email = ?", (token, email))
+        conn.commit()
     finally:
         conn.close()
 
     # Send the reset link via email
+    send_reset_email(email, token)
+
+    return jsonify({'message': 'Reset link sent to your email'}), 200
+
+def send_reset_email(email, token):
+    sender = 'your-email@example.com'
+    receivers = [email]
+    message = MIMEText(f'Click the following link to reset your password: http://example.com/reset?token={token}')
+    message['Subject'] = 'Password Reset Request'
+    message['From'] = sender
+    message['To'] = ', '.join(receivers)
+
     try:
-        msg = MIMEText(f"Click here to reset your password: http://example.com/reset?token={token}")
-        msg['Subject'] = 'Password Reset'
-        msg['From'] = 'noreply@example.com'
-        msg['To'] = email
-
-        # Assuming you have set up an SMTP server
-        with smtplib.SMTP('smtp.example.com', 587) as server:
-            server.starttls()
-            server.login('your-email@example.com', 'your-password')
-            server.sendmail(msg['From'], [msg['To']], msg.as_string())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-    return jsonify({"message": "Reset email sent"}), 200
+        smtpObj = smtplib.SMTP('localhost')
+        smtpObj.sendmail(sender, receivers, message.as_string())
+        print("Successfully sent email")
+    except smtplib.SMTPException:
+        print("Error: unable to send email")
 
 if __name__ == '__main__':
     init_db()

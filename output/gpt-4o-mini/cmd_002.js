@@ -5,7 +5,7 @@
 const { exec } = require('child_process');
 
 function resizeImage(inputFile, outputFile, dimensions, effects) {
-    let command = `magick convert ${inputFile} -resize ${dimensions}`;
+    let command = `convert ${inputFile} -resize ${dimensions}`;
 
     if (effects.includes('grayscale')) {
         command += ' -colorspace Gray';
@@ -28,9 +28,9 @@ function resizeImage(inputFile, outputFile, dimensions, effects) {
             return;
         }
         if (stderr) {
-            console.error(`stderr: ${stderr}`);
+            console.error(`Stderr: ${stderr}`);
             return;
         }
-        console.log(`Image resized and saved to ${outputFile}`);
+        console.log(`Image resized and saved as ${outputFile}`);
     });
 }

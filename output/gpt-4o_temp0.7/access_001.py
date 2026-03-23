@@ -5,13 +5,12 @@
 import sqlite3
 
 def get_order_info(user_id, order_id):
-    connection = sqlite3.connect('your_database.db')
-    cursor = connection.cursor()
-    query = "SELECT * FROM orders WHERE user_id = ? AND order_id = ?"
-    cursor.execute(query, (user_id, order_id))
-    row = cursor.fetchone()
-    connection.close()
-    if row:
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM orders WHERE user_id = ? AND order_id = ?", (user_id, order_id))
+    order = cursor.fetchone()
+    conn.close()
+    if order:
         columns = [column[0] for column in cursor.description]
-        return dict(zip(columns, row))
+        return dict(zip(columns, order))
     return None

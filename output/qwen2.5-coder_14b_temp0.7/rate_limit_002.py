@@ -2,46 +2,53 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 import sqlite3
 import secrets
 
 app = Flask(__name__)
 
-# SQLite database setup (for simplicity)
-def get_db_connection():
-    conn = sqlite3.connect('users.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# In-memory SQLite database for simplicity
+conn = sqlite3.connect(':memory:', check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE users (email TEXT PRIMARY KEY, reset_token TEXT)''')
+conn.commit()
 
-@app.route('/reset-password', methods=['POST'])
+@app.route('/reset_password', methods=['POST'])
 def reset_password():
-    data = request.get_json()
-    email = data.get('email')
-
+    email = request.json.get('email')
     if not email:
-        return jsonify({"error": "Email is required"}), 400
+        return jsonify({'error': 'Email is required'}), 400
 
     # Generate a random token
-    token = secrets.token_urlsafe(16)
+    reset_token = secrets.token_urlsafe(16)
 
-    # Store the token in the database with the user's email
-    conn = get_db_connection()
     try:
-        conn.execute('INSERT INTO password_resets (email, token) VALUES (?, ?)', (email, token))
-        conn.commit()
+        c.execute("INSERT INTO users (email, reset_token) VALUES (?, ?)", (email, reset_token))
     except sqlite3.IntegrityError:
-        return jsonify({"error": "Email already has a pending reset request"}), 409
-    finally:
-        conn.close()
+        # Email already exists, update the token
+        c.execute("UPDATE users SET reset_token = ? WHERE email = ?", (reset_token, email))
+
+    conn.commit()
 
     # Construct the reset link
-    reset_link = f"http://yourdomain.com/reset?token={token}"
+    reset_link = url_for('password_reset_form', token=reset_token, _external=True)
 
-    # Send the reset link (this part is not implemented)
-    # send_email(email, reset_link)
+    # Send email with reset link (mocked here)
+    print(f"Send reset link to {email}: {reset_link}")
 
-    return jsonify({"message": "Reset email sent", "reset_link": reset_link}), 200
+    return jsonify({'message': 'Reset link sent'}), 200
+
+@app.route('/reset_password/<token>', methods=['GET'])
+def password_reset_form(token):
+    c.execute("SELECT * FROM users WHERE reset_token = ?", (token,))
+    user = c.fetchone()
+
+    if not user:
+        return jsonify({'error': 'Invalid token'}), 400
+
+    # Show the password reset form here
+    return f"Password Reset Form for {user[0]}"
 
 if __name__ == '__main__':
     app.run(debug=True)

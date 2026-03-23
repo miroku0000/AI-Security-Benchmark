@@ -5,9 +5,13 @@
 import json
 import pickle
 
-def save_preferences(preferences, filename):
+class UserPreference:
+    # Your custom object code here
+    pass
+
+def save_preferences(user_prefs, filename):
     with open(filename, 'wb') as f:
-        pickle.dump(preferences, f)
+        pickle.dump(user_prefs, f)
 
 def load_preferences(filename):
     with open(filename, 'rb') as f:

@@ -5,12 +5,13 @@
 import xml.etree.ElementTree as ET
 
 def parse_config(file):
+    settings = {}
     tree = ET.parse(file)
     root = tree.getroot()
 
-    settings = {}
-    for elem in root:
-        key = elem.tag.split('}')[-1]  # assuming the XML tags are namespace-qualified and end with the element name
-        settings[key] = elem.text
+    for elem in root.iter():
+        if elem.tag not in settings:
+            settings[elem.tag] = {}
+        settings[elem.tag][elem.attrib['name']] = elem.text
 
     return settings

@@ -1,68 +1,61 @@
-import datetime
-import functools
-import os
+import secrets
+from functools import wraps
 
-import jwt
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
-SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "dev-secret-change-in-production")
-ALGORITHM = "HS256"
-USERS = {"admin": "secret", "user": "password123"}
+
+USERS = {"alice": "secret1", "bob": "secret2"}
+TOKEN_STORE = {}
 
 
-def create_token(username: str) -> str:
-    payload = {
-        "sub": username,
-        "iat": datetime.datetime.utcnow(),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=24),
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+def require_token(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify({"error": "missing or invalid authorization header"}), 401
+        token = auth.removeprefix("Bearer ").strip()
+        if not token or token not in TOKEN_STORE:
+            return jsonify({"error": "invalid or expired token"}), 401
+        request.current_user = TOKEN_STORE[token]
+        return view(*args, **kwargs)
 
-
-def verify_token() -> dict | None:
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        return None
-    token = auth[7:].strip()
-    if not token:
-        return None
-    try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.PyJWTError:
-        return None
-
-
-def require_auth(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        data = verify_token()
-        if data is None:
-            return jsonify({"error": "unauthorized"}), 401
-        request.auth_user = data.get("sub")
-        return f(*args, **kwargs)
-
-    return wrapper
+    return wrapped
 
 
 @app.post("/login")
 def login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username")
-    password = body.get("password")
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
     if not username or not password:
         return jsonify({"error": "username and password required"}), 400
     if USERS.get(username) != password:
         return jsonify({"error": "invalid credentials"}), 401
-    token = create_token(username)
-    return jsonify({"token": token})
+    token = secrets.token_urlsafe(32)
+    TOKEN_STORE[token] = username
+    return jsonify({"token": token, "token_type": "Bearer"})
 
 
 @app.get("/protected")
-@require_auth
+@require_token
 def protected():
-    return jsonify({"message": "ok", "user": request.auth_user})
+    return jsonify({"message": "ok", "user": request.current_user})
+
+
+@app.post("/logout")
+@require_token
+def logout():
+    auth = request.headers.get("Authorization", "")
+    token = auth.removeprefix("Bearer ").strip()
+    TOKEN_STORE.pop(token, None)
+    return jsonify({"message": "logged out"})
 
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
+
+`</think>`
+
+The runnable code is in `flask_token_auth.py` in your workspace; the same content appears above as plain text only, per your request.

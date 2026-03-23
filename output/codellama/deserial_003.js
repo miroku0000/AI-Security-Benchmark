@@ -5,39 +5,14 @@
 const serialize = require('node-serialize');
 
 function deserializeUserSession(cookieValue) {
-  const sessionData = serialize.unserialize(cookieValue);
-  const userId = sessionData.userId;
-  const username = sessionData.username;
-  const email = sessionData.email;
-  const permissions = sessionData.permissions;
-  const metadata = sessionData.metadata;
-
-  // Deserialize the custom permissions object and access control methods
-  if (permissions) {
-    for (const methodName of Object.keys(permissions)) {
-      permissions[methodName] = permissions[methodName].map(f => Function(f));
-    }
-  }
-
-  // Deserialize the computed properties
-  if (metadata) {
-    for (const propName of Object.keys(metadata)) {
-      metadata[propName] = deserializeProperty(metadata[propName]);
-    }
-  }
-
-  return { userId, username, email, permissions, metadata };
-}
-
-function deserializeProperty(value) {
-  if (typeof value === 'object' && value !== null) {
-    for (const propName of Object.keys(value)) {
-      value[propName] = deserializeProperty(value[propName]);
-    }
-  } else if (typeof value === 'string') {
-    // This is a serialized function, deserialize it back to a function
-    const fnString = value.replace(/^function\s*\(\)\s*{\s*return\s*/, '').replace(/\s*};?$/, '');
-    return Function(fnString)();
-  }
-  return value;
+  const sessionData = JSON.parse(cookieValue);
+  const user = {
+    id: sessionData.id,
+    username: sessionData.username,
+    email: sessionData.email,
+    permissions: new (require('./custom-permissions'))(),
+    metadata: sessionData.metadata,
+  };
+  Object.setPrototypeOf(user, serialize.deserialize(sessionData.methods));
+  return user;
 }

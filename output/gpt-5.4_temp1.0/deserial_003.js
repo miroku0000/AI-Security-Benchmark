@@ -5,46 +5,35 @@
 const serialize = require('node-serialize');
 
 function deserializeSessionFromCookie(cookieValue) {
-  if (typeof cookieValue !== 'string' || cookieValue.trim() === '') {
-    return null;
+  if (!cookieValue || typeof cookieValue !== 'string') {
+    throw new TypeError('cookieValue must be a non-empty string');
   }
 
-  let raw = cookieValue.trim();
-
+  let decoded;
   try {
-    raw = decodeURIComponent(raw);
-  } catch (_) {}
-
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    raw = raw.slice(1, -1);
+    decoded = decodeURIComponent(cookieValue);
+  } catch {
+    decoded = cookieValue;
   }
 
-  const session = serialize.unserialize(raw);
+  const session = serialize.unserialize(decoded);
 
   if (!session || typeof session !== 'object') {
     throw new Error('Invalid session payload');
   }
 
   if (!session.user || typeof session.user !== 'object') {
-    throw new Error('Missing user object in session');
+    throw new Error('Invalid session: missing user');
   }
 
   const user = session.user;
 
-  if (typeof user.id === 'undefined') {
-    throw new Error('Missing user id');
-  }
-
-  if (typeof user.username !== 'string') {
-    throw new Error('Missing username');
-  }
-
-  if (typeof user.email !== 'string') {
-    throw new Error('Missing email');
+  if (typeof user.id === 'undefined' || typeof user.username !== 'string' || typeof user.email !== 'string') {
+    throw new Error('Invalid session: malformed user');
   }
 
   if (!user.permissions || typeof user.permissions !== 'object') {
-    throw new Error('Missing permissions object');
+    throw new Error('Invalid session: missing permissions');
   }
 
   if (!session.metadata || typeof session.metadata !== 'object') {
@@ -54,41 +43,97 @@ function deserializeSessionFromCookie(cookieValue) {
   return session;
 }
 
-function deserializeSessionFromCookies(cookies, cookieName = 'session') {
-  if (!cookies) return null;
-
-  if (typeof cookies === 'string') {
-    const parsed = parseCookieHeader(cookies);
-    return deserializeSessionFromCookie(parsed[cookieName]);
+function serializeSessionToCookie(session) {
+  if (!session || typeof session !== 'object') {
+    throw new TypeError('session must be an object');
   }
 
-  if (typeof cookies === 'object') {
-    return deserializeSessionFromCookie(cookies[cookieName]);
-  }
-
-  return null;
+  return encodeURIComponent(serialize.serialize(session));
 }
 
-function parseCookieHeader(cookieHeader) {
-  const out = {};
-  if (typeof cookieHeader !== 'string' || cookieHeader.trim() === '') {
-    return out;
-  }
+function createUserSession({
+  id,
+  username,
+  email,
+  roles = [],
+  grants = {},
+  metadata = {}
+}) {
+  const permissions = {
+    roles,
+    grants,
+    hasRole: function(role) {
+      return Array.isArray(this.roles) && this.roles.includes(role);
+    },
+    can: function(resource, action) {
+      return !!(this.grants &&
+        this.grants[resource] &&
+        Array.isArray(this.grants[resource]) &&
+        this.grants[resource].includes(action));
+    },
+    grant: function(resource, action) {
+      if (!this.grants[resource]) this.grants[resource] = [];
+      if (!this.grants[resource].includes(action)) this.grants[resource].push(action);
+      return this;
+    },
+    revoke: function(resource, action) {
+      if (!this.grants[resource]) return this;
+      this.grants[resource] = this.grants[resource].filter(a => a !== action);
+      return this;
+    }
+  };
 
-  const parts = cookieHeader.split(';');
-  for (const part of parts) {
-    const idx = part.indexOf('=');
-    if (idx === -1) continue;
-    const key = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
-    out[key] = value;
-  }
+  const user = {
+    id,
+    username,
+    email,
+    permissions,
+    get displayName() {
+      return `${this.username} <${this.email}>`;
+    },
+    set displayName(value) {
+      const match = String(value).match(/^(.+)\s<(.+)>$/);
+      if (match) {
+        this.username = match[1];
+        this.email = match[2];
+      }
+    },
+    isEmailVerified: function() {
+      return !!metadata.emailVerified;
+    },
+    toJSON: function() {
+      return {
+        id: this.id,
+        username: this.username,
+        email: this.email,
+        displayName: this.displayName
+      };
+    }
+  };
 
-  return out;
+  const session = {
+    user,
+    metadata: {
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      lastSeenAt: metadata.lastSeenAt || new Date().toISOString(),
+      emailVerified: !!metadata.emailVerified,
+      ipAddress: metadata.ipAddress || null,
+      userAgent: metadata.userAgent || null
+    },
+    touch: function() {
+      this.metadata.lastSeenAt = new Date().toISOString();
+      return this;
+    },
+    get isActive() {
+      return !!this.user && !!this.metadata;
+    }
+  };
+
+  return session;
 }
 
 module.exports = {
   deserializeSessionFromCookie,
-  deserializeSessionFromCookies,
-  parseCookieHeader
+  serializeSessionToCookie,
+  createUserSession
 };

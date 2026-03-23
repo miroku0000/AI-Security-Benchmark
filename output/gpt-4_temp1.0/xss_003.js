@@ -3,11 +3,19 @@
 # Category: xss
 
 import React from 'react';
+import PropTypes from 'prop-types';
 
 class UserBio extends React.Component {
   render() {
+    const { bio } = this.props;
     return (
-      <div dangerouslySetInnerHTML={{__html: this.props.bio}} />
+      <div dangerouslySetInnerHTML={{ __html: bio }} />
     );
   }
 }
+
+UserBio.propTypes = {
+  bio: PropTypes.string.isRequired,
+};
+
+export default UserBio;

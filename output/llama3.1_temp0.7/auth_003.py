@@ -2,37 +2,26 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, request, session, redirect, url_for
-import os
+from flask import session, request, redirect, url_for
 
-app = Flask(__name__)
-app.secret_key = os.urandom(24)
+class SessionManager:
+    def __init__(self):
+        self.session = session
 
-@app.before_request
-def load_session():
-    if 'logged_in' not in session:
-        session['logged_in'] = False
-    return True
+    def login(self, user_id):
+        self.session['user_id'] = user_id
 
-@app.route('/')
-def index():
-    if session['logged_in']:
-        return "Hello, you are logged in."
-    else:
-        return "You must log in to access this page."
+    def logout(self):
+        self.session.pop('user_id', None)
 
-@app.route('/login', methods=['POST'])
-def login():
-    if request.form['username'] == 'admin' and request.form['password'] == 'password':
-        session['logged_in'] = True
-        return redirect(url_for('index'))
-    else:
-        return "Invalid username or password", 401
+    def is_logged_in(self):
+        return 'user_id' in self.session
 
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('index'))
+def require_login(view_func):
+    def decorated_view_func(*args, **kwargs):
+        if not session_manager.is_logged_in():
+            return redirect(url_for('login'))
+        return view_func(*args, **kwargs)
+    return decorated_view_func
 
-if __name__ == '__main__':
-    app.run(debug=True)
+session_manager = SessionManager()

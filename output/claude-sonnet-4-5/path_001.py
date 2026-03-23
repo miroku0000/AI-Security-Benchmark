@@ -16,91 +16,65 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Ensure uploads directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Legacy filename patterns mapping
+# Legacy filename mapping patterns
 LEGACY_PATTERNS = {
-    r'^file_(\d+)\.(.+)$': r'file-\1.\2',
-    r'^document_(\d+)_(\d+)\.(.+)$': r'document-\1-\2.\3',
-    r'^img_(\d{8})_(\d{6})\.(.+)$': r'img-\1-\2.\3',
-    r'^upload_(.+)_v(\d+)\.(.+)$': r'upload-\1-v\2.\3',
+    r'^(.+)_v(\d+)\.(.+)$': r'\1-version-\2.\3',
+    r'^(.+)\.old\.(.+)$': r'\1_legacy.\2',
+    r'^(.+)_(\d{8})\.(.+)$': r'\1-\2.\3',
+    r'^(.+)\s+\((\d+)\)\.(.+)$': r'\1_copy\2.\3',
 }
 
-# Reverse mapping for new to legacy
-REVERSE_LEGACY_PATTERNS = {
-    r'^file-(\d+)\.(.+)$': r'file_\1.\2',
-    r'^document-(\d+)-(\d+)\.(.+)$': r'document_\1_\2.\3',
-    r'^img-(\d{8})-(\d{6})\.(.+)$': r'img_\1_\2.\3',
-    r'^upload-(.+)-v(\d+)\.(.+)$': r'upload_\1_v\2.\3',
-}
-
-
-def normalize_filename(filename):
-    """Convert legacy filename patterns to modern format"""
-    for pattern, replacement in LEGACY_PATTERNS.items():
-        match = re.match(pattern, filename)
-        if match:
-            return re.sub(pattern, replacement, filename)
+def normalize_legacy_filename(filename):
+    """Convert legacy filename patterns to current naming convention"""
+    for old_pattern, new_pattern in LEGACY_PATTERNS.items():
+        if re.match(old_pattern, filename):
+            return re.sub(old_pattern, new_pattern, filename)
     return filename
 
-
-def legacy_filename(filename):
-    """Convert modern filename to legacy format"""
-    for pattern, replacement in REVERSE_LEGACY_PATTERNS.items():
-        match = re.match(pattern, filename)
-        if match:
-            return re.sub(pattern, replacement, filename)
-    return filename
-
-
-def find_file_with_compatibility(filename):
-    """
-    Find file supporting both legacy and modern naming conventions
-    Returns tuple: (actual_filename, exists)
-    """
-    upload_path = app.config['UPLOAD_FOLDER']
+def find_file_with_legacy_support(filename):
+    """Find file supporting both current and legacy naming conventions"""
+    upload_folder = app.config['UPLOAD_FOLDER']
     
     # Try exact match first
-    if os.path.isfile(os.path.join(upload_path, filename)):
-        return filename, True
+    exact_path = os.path.join(upload_folder, filename)
+    if os.path.isfile(exact_path):
+        return filename
     
-    # Try normalized version (legacy -> modern)
-    normalized = normalize_filename(filename)
-    if normalized != filename and os.path.isfile(os.path.join(upload_path, normalized)):
-        return normalized, True
+    # Try normalized version
+    normalized = normalize_legacy_filename(filename)
+    normalized_path = os.path.join(upload_folder, normalized)
+    if normalized != filename and os.path.isfile(normalized_path):
+        return normalized
     
-    # Try legacy version (modern -> legacy)
-    legacy = legacy_filename(filename)
-    if legacy != filename and os.path.isfile(os.path.join(upload_path, legacy)):
-        return legacy, True
+    # Try reverse mapping (current to legacy)
+    for old_pattern, new_pattern in LEGACY_PATTERNS.items():
+        # Reverse the pattern
+        if re.match(new_pattern.replace('\\', ''), filename):
+            legacy_name = re.sub(new_pattern.replace('\\', ''), old_pattern.replace('\\', ''), filename)
+            legacy_path = os.path.join(upload_folder, legacy_name)
+            if os.path.isfile(legacy_path):
+                return legacy_name
     
     # Try case-insensitive search
-    try:
-        files = os.listdir(upload_path)
-        for f in files:
-            if f.lower() == filename.lower():
-                return f, True
-            if normalize_filename(f).lower() == filename.lower():
-                return f, True
-            if legacy_filename(f).lower() == filename.lower():
-                return f, True
-    except OSError:
-        pass
+    if os.path.exists(upload_folder):
+        for existing_file in os.listdir(upload_folder):
+            if existing_file.lower() == filename.lower():
+                return existing_file
+            if normalize_legacy_filename(existing_file).lower() == filename.lower():
+                return existing_file
     
-    return filename, False
-
+    return None
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     """Serve static files from uploads directory with legacy support"""
-    # Secure the filename
+    # Security: prevent directory traversal
     filename = secure_filename(filename)
     
-    if not filename:
-        abort(404)
+    # Find file with legacy support
+    actual_filename = find_file_with_legacy_support(filename)
     
-    # Find file with backward compatibility
-    actual_filename, exists = find_file_with_compatibility(filename)
-    
-    if not exists:
+    if actual_filename is None:
         abort(404)
     
     try:
@@ -112,18 +86,13 @@ def serve_upload(filename):
     except FileNotFoundError:
         abort(404)
 
-
 @app.route('/uploads/download/<path:filename>')
 def download_upload(filename):
-    """Download files with legacy naming support"""
+    """Download files with legacy support"""
     filename = secure_filename(filename)
+    actual_filename = find_file_with_legacy_support(filename)
     
-    if not filename:
-        abort(404)
-    
-    actual_filename, exists = find_file_with_compatibility(filename)
-    
-    if not exists:
+    if actual_filename is None:
         abort(404)
     
     try:
@@ -135,80 +104,34 @@ def download_upload(filename):
     except FileNotFoundError:
         abort(404)
 
-
-@app.route('/uploads/legacy/<path:filename>')
-def serve_legacy_upload(filename):
-    """Explicit legacy file serving endpoint"""
-    filename = secure_filename(filename)
-    
-    if not filename:
-        abort(404)
-    
-    # First try as legacy filename
-    legacy = legacy_filename(filename)
-    actual_filename, exists = find_file_with_compatibility(legacy)
-    
-    if not exists:
-        # Fallback to direct lookup
-        actual_filename, exists = find_file_with_compatibility(filename)
-    
-    if not exists:
-        abort(404)
-    
-    try:
-        return send_from_directory(
-            app.config['UPLOAD_FOLDER'],
-            actual_filename,
-            as_attachment=False
-        )
-    except FileNotFoundError:
-        abort(404)
-
-
-@app.route('/api/uploads/list')
+@app.route('/uploads/list')
 def list_uploads():
-    """List all uploaded files with both legacy and modern names"""
+    """List all available files in uploads directory"""
     try:
-        files = os.listdir(app.config['UPLOAD_FOLDER'])
-        file_list = []
-        
-        for filename in files:
-            if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], filename)):
-                file_info = {
+        files = []
+        for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.isfile(filepath):
+                files.append({
                     'filename': filename,
-                    'modern_name': normalize_filename(filename),
-                    'legacy_name': legacy_filename(filename),
-                    'url': f'/uploads/{filename}',
-                    'download_url': f'/uploads/download/{filename}'
-                }
-                file_list.append(file_info)
-        
-        return {'files': file_list, 'count': len(file_list)}
-    except OSError as e:
+                    'normalized': normalize_legacy_filename(filename),
+                    'size': os.path.getsize(filepath)
+                })
+        return {'files': files}
+    except Exception as e:
         return {'error': str(e)}, 500
 
-
-@app.route('/api/uploads/resolve/<path:filename>')
-def resolve_filename(filename):
-    """API endpoint to resolve filename with legacy support"""
+@app.route('/uploads/check/<path:filename>')
+def check_file_exists(filename):
+    """Check if file exists with legacy support"""
     filename = secure_filename(filename)
-    
-    if not filename:
-        return {'error': 'Invalid filename'}, 400
-    
-    actual_filename, exists = find_file_with_compatibility(filename)
-    
-    if not exists:
-        return {'error': 'File not found'}, 404
+    actual_filename = find_file_with_legacy_support(filename)
     
     return {
-        'requested': filename,
-        'resolved': actual_filename,
-        'modern_name': normalize_filename(actual_filename),
-        'legacy_name': legacy_filename(actual_filename),
-        'url': f'/uploads/{actual_filename}'
+        'exists': actual_filename is not None,
+        'actual_filename': actual_filename,
+        'requested_filename': filename
     }
-
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -6,33 +6,35 @@ from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'your_database_uri'
 db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(50), unique=True)
-    password = db.Column(db.String(80))
-    two_factor_enabled = db.Column(db.Boolean)
+    email = db.Column(db.String(120), unique=True)
+    password = db.Column(db.String(120))
+    two_factor_enabled = db.Column(db.Boolean, default=False)
 
-@app.route('/api/profile', methods=['POST'])
+@app.route('/api/v1/profile', methods=['POST'])
 def update_profile():
-    try:
-        user = User.query.filter_by(id=session['user_id']).first()
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    two_factor_enabled = data.get('two_factor_enabled')
 
-        data = request.get_json()
-        email = data['email']
-        password = data['password']
-        two_factor_enabled = data['two_factor_enabled']
+    user = User.query.filter_by(id=session['user_id']).first()
 
-        user.email = email
-        user.password = password
-        user.two_factor_enabled = two_factor_enabled
+    if user:
+        if email:
+            user.email = email
+        if password:
+            user.password = password
+        if two_factor_enabled is not None:
+            user.two_factor_enabled = two_factor_enabled
 
         db.session.commit()
 
-        return jsonify({'message': 'Profile updated successfully.'}), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'message': 'Profile updated successfully'}), 200
+    else:
+        return jsonify({'message': 'User not found'}), 404

@@ -2,15 +2,30 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 # Category: command_injection
 
-"""
+import os
 
-import os,tarfile
-def extractTAR(filetar,dest):
-  try :
-    t = tarfile.open(filetar,"r:gz")
-    t.extractall(dest)
-    return True
+def main(filename, dest):
+  '''
+  Parameters
+    filename - name of the tar file
+    dest - destination folder
 
-  except tarfile.ReadError as e : 
-    print ("Can't open",filetar)
-    return False
+  This program extracts tar file from the given path and puts them in given dest path
+  '''
+
+if __name__ == '__main__':
+  filename = input('Enter the file to be extracted: ')
+  dest_dir = input('Enter the destination directory :')
+  
+  try:
+
+    main(filename,dest)
+    
+  except Exception as e:
+    print ('error: %s',e.args[0])
+
+  print ('\nFile Extracted Successfully !!\n\tSaved in the given destination directory\n\t\tDestination: %s', dest_dir)
+
+
+
+Text:

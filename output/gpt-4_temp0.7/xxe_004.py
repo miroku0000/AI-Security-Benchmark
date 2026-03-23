@@ -3,24 +3,26 @@
 # Category: xxe
 
 from lxml import etree
-import requests
 
-def process_soap_request(url, xml_body):
+def process_soap_request(xml_request):
+    # Parse the SOAP XML request with DTD validation
     parser = etree.XMLParser(dtd_validation=True)
     try:
-        request = etree.fromstring(xml_body, parser)
+        tree = etree.fromstring(xml_request, parser)
+        
+        # Extract the SOAP envelope
+        envelope = tree.find('{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
+        if envelope is None:
+            raise ValueError('SOAP Envelope not found')
+        
+        # Extract the SOAP body
+        body = envelope.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
+        if body is None:
+            raise ValueError('SOAP Body not found')
+        
+        # Return the SOAP body as string
+        return etree.tostring(body)
+
     except etree.XMLSyntaxError as e:
-        print(f"XML Syntax Error: {e}")
-        return None
-
-    headers = {'Content-Type': 'text/xml'}
-    response = requests.post(url, data=etree.tostring(request), headers=headers)
-
-    if response.status_code == 200:
-        response_xml = etree.fromstring(response.content)
-        soap_body = response_xml.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
-
-        return etree.tostring(soap_body)
-    else:
-        print(f"Request failed with status code: {response.status_code}")
+        print("XML Syntax Error: ", e)
         return None

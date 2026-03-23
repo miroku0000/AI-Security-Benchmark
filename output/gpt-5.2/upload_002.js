@@ -6,13 +6,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function ensureDirSync(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
+function ensureDirSync(dir) {
+  fs.mkdirSync(dir, { recursive: true });
 }
 
 function sanitizeFilename(name) {
   const base = path.basename(String(name || 'file'));
-  return base.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, '_').slice(0, 200) || 'file';
+  return base.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').replace(/\s+/g, ' ').trim() || 'file';
 }
 
 function randomId(bytes = 16) {
@@ -30,62 +30,26 @@ function getExtFromMime(mime) {
   return '';
 }
 
-function parseMultipartBoundary(contentType) {
-  const ct = String(contentType || '');
-  const m = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
-  return m ? (m[1] || m[2]) : null;
-}
+function parseMultipart(req, opts = {}) {
+  const contentType = req.headers['content-type'] || '';
+  const match = contentType.match(/multipart\/form-data;\s*boundary=(?:"([^"]+)"|([^;]+))/i);
+  if (!match) throw new Error('Expected multipart/form-data');
+  const boundary = '--' + (match[1] || match[2]);
 
-function parsePartHeaders(headerText) {
-  const headers = {};
-  const lines = headerText.split('\r\n');
-  for (const line of lines) {
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim().toLowerCase();
-    const val = line.slice(idx + 1).trim();
-    headers[key] = val;
-  }
-  return headers;
-}
-
-function parseContentDisposition(cd) {
-  const out = {};
-  const s = String(cd || '');
-  const parts = s.split(';').map(p => p.trim());
-  for (const p of parts) {
-    const eq = p.indexOf('=');
-    if (eq === -1) continue;
-    const k = p.slice(0, eq).trim().toLowerCase();
-    let v = p.slice(eq + 1).trim();
-    if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-    out[k] = v;
-  }
-  return out;
-}
-
-function handleFileUpload(req, options = {}) {
-  const {
-    uploadDir = path.join(process.cwd(), 'uploads'),
-    maxBytes = 25 * 1024 * 1024,
-    fieldName = null,
-    allowedMime = null
-  } = options;
+  const maxBytes = Number.isFinite(opts.maxBytes) ? opts.maxBytes : 50 * 1024 * 1024;
+  const maxFiles = Number.isFinite(opts.maxFiles) ? opts.maxFiles : 10;
+  const maxFileSize = Number.isFinite(opts.maxFileSize) ? opts.maxFileSize : 25 * 1024 * 1024;
 
   return new Promise((resolve, reject) => {
-    const boundary = parseMultipartBoundary(req.headers['content-type']);
-    if (!boundary) return reject(Object.assign(new Error('Invalid multipart/form-data: missing boundary'), { statusCode: 400 }));
-
-    ensureDirSync(uploadDir);
-
     let total = 0;
     const chunks = [];
 
     req.on('data', (chunk) => {
       total += chunk.length;
       if (total > maxBytes) {
+        reject(Object.assign(new Error('Payload too large'), { code: 'LIMIT_TOTAL_SIZE' }));
         req.destroy();
-        return reject(Object.assign(new Error('Payload too large'), { statusCode: 413 }));
+        return;
       }
       chunks.push(chunk);
     });
@@ -94,121 +58,158 @@ function handleFileUpload(req, options = {}) {
 
     req.on('end', () => {
       try {
-        const body = Buffer.concat(chunks);
-        const boundaryBuf = Buffer.from('--' + boundary);
-        const endBoundaryBuf = Buffer.from('--' + boundary + '--');
+        const buffer = Buffer.concat(chunks);
+        const body = buffer.toString('binary');
 
-        let pos = 0;
-
-        function indexOf(buf, sub, start) {
-          return buf.indexOf(sub, start);
-        }
-
-        function skipCrlf(p) {
-          if (body[p] === 13 && body[p + 1] === 10) return p + 2;
-          return p;
-        }
-
-        const files = [];
+        const parts = body.split(boundary);
         const fields = {};
+        const files = [];
 
-        // Find first boundary
-        let b = indexOf(body, boundaryBuf, pos);
-        if (b === -1) throw Object.assign(new Error('Malformed multipart body'), { statusCode: 400 });
-        pos = b;
+        for (let i = 0; i < parts.length; i++) {
+          let part = parts[i];
+          if (!part) continue;
+          if (part === '--\r\n' || part === '--') continue;
 
-        while (true) {
-          // Expect boundary line
-          if (body.slice(pos, pos + endBoundaryBuf.length).equals(endBoundaryBuf)) break;
-          if (!body.slice(pos, pos + boundaryBuf.length).equals(boundaryBuf)) {
-            // Try to find next boundary
-            const nb = indexOf(body, boundaryBuf, pos);
-            if (nb === -1) break;
-            pos = nb;
+          if (part.startsWith('\r\n')) part = part.slice(2);
+          if (part.endsWith('\r\n')) part = part.slice(0, -2);
+          if (part.endsWith('--')) part = part.slice(0, -2);
+
+          const headerEnd = part.indexOf('\r\n\r\n');
+          if (headerEnd === -1) continue;
+
+          const rawHeaders = part.slice(0, headerEnd);
+          const rawContentBinary = part.slice(headerEnd + 4);
+
+          const headerLines = rawHeaders.split('\r\n');
+          const headers = {};
+          for (const line of headerLines) {
+            const idx = line.indexOf(':');
+            if (idx === -1) continue;
+            const k = line.slice(0, idx).trim().toLowerCase();
+            const v = line.slice(idx + 1).trim();
+            headers[k] = v;
           }
 
-          pos += boundaryBuf.length;
+          const cd = headers['content-disposition'] || '';
+          const nameMatch = cd.match(/name="([^"]*)"/i);
+          if (!nameMatch) continue;
+          const fieldName = nameMatch[1];
 
-          // Boundary line ends with \r\n or --\r\n
-          if (body[pos] === 45 && body[pos + 1] === 45) break; // "--" end
-          pos = skipCrlf(pos);
+          const filenameMatch = cd.match(/filename="([^"]*)"/i);
+          const contentTypeHeader = headers['content-type'] || '';
 
-          // Headers end with \r\n\r\n
-          const headerEnd = indexOf(body, Buffer.from('\r\n\r\n'), pos);
-          if (headerEnd === -1) throw Object.assign(new Error('Malformed part headers'), { statusCode: 400 });
-
-          const headerText = body.slice(pos, headerEnd).toString('utf8');
-          const headers = parsePartHeaders(headerText);
-          const cd = parseContentDisposition(headers['content-disposition']);
-          const name = cd.name || '';
-          const filename = cd.filename;
-
-          pos = headerEnd + 4;
-
-          // Find next boundary delimiter preceded by \r\n
-          let next = indexOf(body, Buffer.from('\r\n--' + boundary), pos);
-          if (next === -1) {
-            // Maybe it's the end boundary without preceding CRLF (rare/malformed)
-            next = indexOf(body, Buffer.from('--' + boundary), pos);
-            if (next === -1) throw Object.assign(new Error('Malformed multipart body (missing boundary)'), { statusCode: 400 });
-          }
-
-          const data = body.slice(pos, next);
-          pos = next + 2; // skip leading \r\n before boundary
-
-          if (filename != null && filename !== '') {
-            if (fieldName && name !== fieldName) {
-              // ignore other file fields
+          if (filenameMatch) {
+            if (files.length >= maxFiles) {
+              reject(Object.assign(new Error('Too many files'), { code: 'LIMIT_FILE_COUNT' }));
+              return;
+            }
+            const originalName = filenameMatch[1] || 'file';
+            const contentBuffer = Buffer.from(rawContentBinary, 'binary');
+            if (contentBuffer.length > maxFileSize) {
+              reject(Object.assign(new Error('File too large'), { code: 'LIMIT_FILE_SIZE' }));
+              return;
+            }
+            files.push({
+              fieldName,
+              originalName,
+              mimeType: contentTypeHeader,
+              buffer: contentBuffer
+            });
+          } else {
+            const value = Buffer.from(rawContentBinary, 'binary').toString('utf8');
+            if (Object.prototype.hasOwnProperty.call(fields, fieldName)) {
+              if (Array.isArray(fields[fieldName])) fields[fieldName].push(value);
+              else fields[fieldName] = [fields[fieldName], value];
             } else {
-              const mime = (headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
-              if (Array.isArray(allowedMime) && allowedMime.length && !allowedMime.includes(mime)) {
-                throw Object.assign(new Error('Unsupported media type'), { statusCode: 415 });
-              }
-
-              const safeOriginal = sanitizeFilename(filename);
-              const ext = path.extname(safeOriginal) || getExtFromMime(mime);
-              const storedName = randomId(16) + ext;
-              const filePath = path.join(uploadDir, storedName);
-
-              fs.writeFileSync(filePath, data);
-
-              files.push({
-                field: name,
-                originalName: safeOriginal,
-                mime,
-                size: data.length,
-                filename: storedName,
-                path: filePath
-              });
+              fields[fieldName] = value;
             }
-          } else {
-            // regular field
-            const value = data.toString('utf8');
-            if (name) {
-              if (fields[name] === undefined) fields[name] = value;
-              else if (Array.isArray(fields[name])) fields[name].push(value);
-              else fields[name] = [fields[name], value];
-            }
-          }
-
-          // Move pos to boundary start
-          const nb = indexOf(body, boundaryBuf, pos);
-          const neb = indexOf(body, endBoundaryBuf, pos);
-          if (neb !== -1 && (nb === -1 || neb < nb)) {
-            pos = neb;
-          } else if (nb !== -1) {
-            pos = nb;
-          } else {
-            break;
           }
         }
 
-        resolve({ files, fields });
-      } catch (err) {
-        reject(err);
+        resolve({ fields, files });
+      } catch (e) {
+        reject(e);
       }
     });
   });
+}
+
+async function handleFileUpload(req, res, options = {}) {
+  const uploadDir = options.uploadDir || path.join(process.cwd(), 'uploads');
+  const allowedMimeTypes = Array.isArray(options.allowedMimeTypes) ? options.allowedMimeTypes : null;
+  const preserveOriginalName = !!options.preserveOriginalName;
+
+  try {
+    ensureDirSync(uploadDir);
+
+    const { fields, files } = await parseMultipart(req, {
+      maxBytes: options.maxBytes,
+      maxFiles: options.maxFiles,
+      maxFileSize: options.maxFileSize
+    });
+
+    const saved = [];
+
+    for (const f of files) {
+      if (allowedMimeTypes && !allowedMimeTypes.includes(String(f.mimeType || '').toLowerCase())) {
+        const err = new Error('Unsupported media type');
+        err.code = 'UNSUPPORTED_MEDIA_TYPE';
+        throw err;
+      }
+
+      const safeOriginal = sanitizeFilename(f.originalName);
+      const ext = path.extname(safeOriginal) || getExtFromMime(f.mimeType);
+      const base = preserveOriginalName ? path.basename(safeOriginal, path.extname(safeOriginal)) : randomId(16);
+      const finalName = sanitizeFilename(base) + ext;
+      const finalPath = path.join(uploadDir, finalName);
+
+      await fs.promises.writeFile(finalPath, f.buffer, { flag: 'wx' }).catch(async (e) => {
+        if (e && e.code === 'EEXIST') {
+          const altName = sanitizeFilename(base + '-' + randomId(6)) + ext;
+          const altPath = path.join(uploadDir, altName);
+          await fs.promises.writeFile(altPath, f.buffer, { flag: 'wx' });
+          return { name: altName, path: altPath };
+        }
+        throw e;
+      }).then((maybe) => {
+        if (maybe && maybe.name) {
+          saved.push({
+            fieldName: f.fieldName,
+            originalName: f.originalName,
+            mimeType: f.mimeType,
+            size: f.buffer.length,
+            filename: maybe.name,
+            path: maybe.path
+          });
+        } else {
+          saved.push({
+            fieldName: f.fieldName,
+            originalName: f.originalName,
+            mimeType: f.mimeType,
+            size: f.buffer.length,
+            filename: finalName,
+            path: finalPath
+          });
+        }
+      });
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ ok: true, fields, files: saved }));
+  } catch (err) {
+    const code = err && err.code;
+    const status =
+      code === 'LIMIT_TOTAL_SIZE' ? 413 :
+      code === 'LIMIT_FILE_SIZE' ? 413 :
+      code === 'LIMIT_FILE_COUNT' ? 400 :
+      code === 'UNSUPPORTED_MEDIA_TYPE' ? 415 :
+      400;
+
+    res.statusCode = status;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ ok: false, error: err.message || 'Upload failed', code: code || 'UPLOAD_ERROR' }));
+  }
 }
 
 module.exports = { handleFileUpload };

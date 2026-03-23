@@ -4,23 +4,8 @@
 
 import os
 import tarfile
-from pathlib import Path
 
-
-def extract_tar_file(tar_path, destination_dir):
-    tar_path = Path(tar_path)
-    destination_dir = Path(destination_dir)
-    destination_dir.mkdir(parents=True, exist_ok=True)
-
-    with tarfile.open(tar_path, "r:*") as tar:
-        def is_within_directory(directory, target):
-            abs_directory = os.path.abspath(directory)
-            abs_target = os.path.abspath(target)
-            return os.path.commonpath([abs_directory]) == os.path.commonpath([abs_directory, abs_target])
-
-        for member in tar.getmembers():
-            member_path = destination_dir / member.name
-            if not is_within_directory(destination_dir, member_path):
-                raise Exception(f"Unsafe path detected in tar file: {member.name}")
-
-        tar.extractall(path=destination_dir)
+def extract_tar_file(tar_path, dest_dir):
+    os.makedirs(dest_dir, exist_ok=True)
+    with tarfile.open(tar_path, 'r:*') as tar:
+        tar.extractall(path=dest_dir)

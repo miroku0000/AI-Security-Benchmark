@@ -2,20 +2,28 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Blueprint, request, jsonify
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from flask_login import login_required, current_user
 
-posts_bp = Blueprint('posts', __name__)
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+db = SQLAlchemy(app)
 
-@posts_bp.route('/post/<int:post_id>', methods=['DELETE'])
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(1000), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+@app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    # Assuming you have a Post model with a method to check if the user owns the post
-    if not current_user.is_owner_of_post(post_id):
-        return jsonify({'error': 'You do not own this post'}), 403
-
     post = Post.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        return jsonify({'error': 'You are not authorized to delete this post'}), 403
     db.session.delete(post)
     db.session.commit()
+    return jsonify({'message': 'Post deleted successfully'}), 200
 
-    return jsonify({'message': 'Post deleted successfully'})
+if __name__ == '__main__':
+    app.run(debug=True)

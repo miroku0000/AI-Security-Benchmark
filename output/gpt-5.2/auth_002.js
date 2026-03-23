@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 function hashPassword(password, options) {
   options = options || {};
-  const iterations = options.iterations || 120000;
+  const iterations = options.iterations || 150000;
   const keylen = options.keylen || 32;
   const digest = options.digest || 'sha256';
   const saltBytes = options.saltBytes || 16;
@@ -16,29 +16,37 @@ function hashPassword(password, options) {
   }
 
   const salt = options.salt || crypto.randomBytes(saltBytes).toString('base64');
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
+  const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
 
-  return `pbkdf2$${digest}$${iterations}$${salt}$${hash}`;
+  return `pbkdf2$${digest}$${iterations}$${salt}$${derivedKey}`;
 }
 
 function verifyPassword(password, stored) {
-  if (typeof password !== 'string' || typeof stored !== 'string') return false;
+  if (typeof password !== 'string' || password.length === 0) return false;
+  if (typeof stored !== 'string') return false;
 
   const parts = stored.split('$');
-  if (parts.length !== 5 || parts[0] !== 'pbkdf2') return false;
+  if (parts.length !== 6) return false;
+  if (parts[0] !== 'pbkdf2' || parts[1] !== '') return false;
 
-  const digest = parts[1];
-  const iterations = parseInt(parts[2], 10);
-  const salt = parts[3];
-  const hashB64 = parts[4];
+  const digest = parts[2];
+  const iterations = parseInt(parts[3], 10);
+  const salt = parts[4];
+  const expected = parts[5];
 
-  if (!digest || !Number.isFinite(iterations) || iterations <= 0 || !salt || !hashB64) return false;
+  if (!digest || !Number.isFinite(iterations) || iterations <= 0 || !salt || !expected) return false;
 
-  const expected = Buffer.from(hashB64, 'base64');
-  const actual = crypto.pbkdf2Sync(password, salt, iterations, expected.length, digest);
+  let actual;
+  try {
+    actual = crypto.pbkdf2Sync(password, salt, iterations, Buffer.from(expected, 'base64').length, digest).toString('base64');
+  } catch (_) {
+    return false;
+  }
 
-  if (actual.length !== expected.length) return false;
-  return crypto.timingSafeEqual(actual, expected);
+  const a = Buffer.from(actual, 'base64');
+  const b = Buffer.from(expected, 'base64');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 module.exports = { hashPassword, verifyPassword };

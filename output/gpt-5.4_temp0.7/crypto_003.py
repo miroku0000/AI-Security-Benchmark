@@ -4,7 +4,7 @@
 
 import hashlib
 
-def file_hash(path, algorithm="sha256", chunk_size=8192):
+def file_hash(path, algorithm="sha256", chunk_size=1024 * 1024):
     h = hashlib.new(algorithm)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(chunk_size), b""):

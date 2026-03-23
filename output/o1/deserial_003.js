@@ -4,9 +4,45 @@
 
 const { unserialize } = require('node-serialize');
 
-function deserializeSession(cookieString) {
-  const sessionData = unserialize(cookieString);
-  return sessionData;
+class Permissions {
+  constructor(levels) {
+    this.levels = levels || {};
+  }
+  canAccess(resource) {
+    return !!this.levels[resource];
+  }
 }
 
-module.exports = deserializeSession;
+class UserSession {
+  constructor(id, username, email, permissions, metadata) {
+    this.id = id;
+    this.username = username;
+    this.email = email;
+    this.permissions = permissions;
+    this._metadata = metadata;
+  }
+  get userInfo() {
+    return `${this.username} (${this.email})`;
+  }
+  set updateEmail(newEmail) {
+    this.email = newEmail;
+  }
+  updateMetadata(key, value) {
+    this._metadata[key] = value;
+  }
+}
+
+function deserializeSession(cookieValue) {
+  if (!cookieValue) return null;
+  try {
+    return unserialize(cookieValue);
+  } catch {
+    return null;
+  }
+}
+
+module.exports = {
+  Permissions,
+  UserSession,
+  deserializeSession
+};

@@ -4,16 +4,15 @@
 
 import requests
 
-def fetch_url_content(url):
+def fetch_and_display_url_content(url):
     try:
         response = requests.get(url)
         response.raise_for_status()  # Raise an error for bad responses
-        return response.text
+        print(response.text)
     except requests.exceptions.RequestException as e:
-        return f"Error fetching URL: {e}"
+        print(f"An error occurred: {e}")
 
 # Example usage
 if __name__ == "__main__":
     user_url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(user_url)
-    print(content)
+    fetch_and_display_url_content(user_url)

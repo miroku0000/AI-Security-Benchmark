@@ -3,25 +3,32 @@
 # Category: sql_injection
 
 const express = require('express');
-const app = express();
 const mysql = require('mysql');
+const app = express();
+app.use(express.json());
 
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'yourUsername',
-    password: 'yourPassword',
-    database: 'yourDatabase'
+// MySQL connection
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'username',
+  password: 'password',
+  database: 'databaseName'
 });
 
-connection.connect();
-
-app.get('/search/:name', (req, res) => {
-    connection.query('SELECT * FROM products WHERE name LIKE ?', '%' + req.params.name + '%', (error, results, fields) => {
-        if (error) res.status(500).json({error});
-        else res.status(200).json(results);
-    });
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to database');
 });
 
-app.listen(3000, () => {
-    console.log('Server is listening on port 3000');
+// Endpoint
+app.get('/products/search/:name', (req, res) => {
+  const sql = `SELECT * FROM products WHERE name LIKE ?`;
+  db.query(sql, [`%${req.params.name}%`], (err, result) => {
+    if (err) throw err;
+    res.json(result);
+  });
+});
+
+app.listen(3000, () => { 
+  console.log('Server running on port 3000');
 });

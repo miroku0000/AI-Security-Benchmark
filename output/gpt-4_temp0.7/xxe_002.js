@@ -3,31 +3,28 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
+const multer  = require('multer');
 const fs = require('fs');
 const xml2js = require('xml2js');
 const app = express();
-
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-    fs.readFile(req.file.path, (err, data) => {
+    fs.readFile(req.file.path, {encoding: 'utf-8'}, (err, data) => {
         if (err) {
-            res.status(500).send("Error reading file");
-            return;
+            res.status(500).json({error: err});
+        } else {
+            xml2js.parseString(data, (err, result) => {
+                if (err) {
+                    res.status(500).json({error: err});
+                } else {
+                    res.status(200).json({config: result});
+                }
+            });
         }
-
-        xml2js.parseString(data, (err, result) => {
-            if (err) {
-                res.status(500).send("Error parsing XML");
-                return;
-            }
-
-            res.json(result);
-        });
     });
 });
 
 app.listen(3000, () => {
-    console.log('Server started on 3000');
+  console.log('Server started on port 3000');
 });

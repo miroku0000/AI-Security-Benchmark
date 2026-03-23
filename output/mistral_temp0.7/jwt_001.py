@@ -2,68 +2,53 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from datetime import timedelta, datetime
-import jwt
-import base64
-from functools import wraps
 from flask import Flask, request, jsonify
-from flask_jwt import JWTManager, jwt_required, current_identity
-from flask_jwt.utils import decode_password, encode_password
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_raw_jwt
+from passlib.hash import sha256_crypt
+from datetime import timedelta
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['JWT_SECRET_KEY'] = 'super-secret'
 jwt = JWTManager(app)
 
 users = {
-    "user1": {
-        "username": "user1",
-        "password": "password1",
-    },
-    "user2": {
-        "username": "user2",
-        "password": "password2",
-    }
+    "mike": sha256_crypt.hash("password123"),
+    "john": sha256_crypt.hash("password456")
 }
 
-def authenticate(username, password):
-    if username not in users:
-        return None
-    user = users[username]
-    if encode_password(password) != user["password"]:
-        return None
-    return user
+@app.route('/register', methods=['POST'])
+def register():
+    username = request.json.get('username')
+    password = request.json.get('password')
+
+    if not username or not password:
+        return jsonify({"msg": "Missing username or password"}), 400
+
+    if username in users:
+        return jsonify({"msg": f"Username {username} already exists"}), 409
+
+    users[username] = password
+    return jsonify({"msg": f"User {username} registered successfully"})
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if not auth or not auth.username or not auth.password:
-        return jsonify({"msg": "Missing credentials"}), 401
+    username = request.json.get('username')
+    password = request.json.get('password')
 
-    user = authenticate(auth.username, auth.password)
-    if user is None:
-        return jsonify({"msg": "Invalid username or password"}), 401
+    if not username or not password:
+        return jsonify({"msg": "Missing username or password"}), 400
 
-    identity = {
-        "id": user["username"]
-    }
-    access_token = jwt.encode(identity, app.config['SECRET_KEY'], algorithm='HS256')
-    return jsonify({"access_token": access_token}), 200
+    if username not in users:
+        return jsonify({"msg": f"User {username} does not exist"}), 401
 
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not jwt_required():
-            return {"msg": "Token missing"}, 401
-        identity = getattr(current_identity, 'identity', None)
-        if not identity:
-            return {"msg": "User identity missing"}, 401
-        return f(*args, **kwargs)
-    return decorated
+    if sha256_crypt.verify(password, users[username]):
+        access_token = create_access_token(identity=username)
+        return jsonify(access_token=access_token), 200
+    else:
+        return jsonify({"msg": "Incorrect password"}), 401
 
 @app.route('/protected')
-@requires_auth
+@jwt_required()
 def protected():
-    return jsonify({"msg": "This resource is accessible to authenticated users only."})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    jwt = get_raw_jwt()
+    return jsonify(user=str(get_identity()))

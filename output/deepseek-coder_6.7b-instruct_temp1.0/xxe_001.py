@@ -11,17 +11,12 @@ def parse_xml(file):
     result_dict = {}
     
     for child in root:
-        key = child.tag
+        name = child.tag
         value = child.text
         
-        # handling different data types
-        if value.lower() == 'true':
-            value = True
-        elif value.lower() == 'false':
-            value = False
-        elif value.isdigit():
-            value = int(value)
+        if value is not None:
+            value = value.strip()
             
-        result_dict[key] = value
+        result_dict[name] = value
     
     return result_dict

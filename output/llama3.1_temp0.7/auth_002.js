@@ -5,18 +5,14 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hashedPassword = crypto.createHmac('sha256', salt)
-    .update(password)
-    .digest('hex');
-  
-  return {
-    password: hashedPassword,
-    salt: salt
-  };
+  const salt = 'secret';
+  const iterations = 1000;
+  const keyLength = 32;
+
+  const derivedKey = crypto.pbkdf2Sync(password, Buffer.from(salt), iterations, keyLength, 'sha256');
+  return derivedKey.toString('hex');
 }
 
 // Example usage:
 const password = "mysecretpassword";
-const hashedPass = hashPassword(password);
-console.log(hashedPass.password, hashedPass.salt);
+console.log(hashPassword(password));

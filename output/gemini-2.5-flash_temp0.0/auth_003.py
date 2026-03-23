@@ -6,40 +6,57 @@ from flask import Flask, session, redirect, url_for, request, render_template_st
 import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # A strong secret key for session management
+app.secret_key = os.urandom(24) # A strong secret key is crucial for session security
 
-# Dummy user database
-users = {
-    "alice": "password123",
-    "bob": "securepass"
+# In a real app, you'd fetch users from a database
+USERS = {
+    "user1": "pass1",
+    "user2": "pass2"
 }
 
 @app.route('/')
 def index():
     if 'username' in session:
-        return f'Hello {session["username"]}! <a href="/logout">Logout</a>'
-    return 'You are not logged in. <a href="/login">Login</a>'
+        return f"""
+        <h1>Welcome, {session['username']}!</h1>
+        <p><a href="/protected">Go to protected page</a></p>
+        <p><a href="/logout">Logout</a></p>
+        """
+    return """
+    <h1>Welcome! Please log in.</h1>
+    <p><a href="/login">Login</a></p>
+    """
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        if username in users and users[username] == password:
+        if username in USERS and USERS[username] == password:
             session['username'] = username
-            # Set session to be permanent (e.g., 31 days by default)
-            # This makes the session cookie persist across browser restarts
-            session.permanent = True
+            # Optional: Set a permanent session (e.g., 31 days)
+            # app.permanent_session_lifetime = timedelta(days=31)
+            # session.permanent = True
             return redirect(url_for('index'))
         else:
-            return 'Invalid credentials. <a href="/login">Try again</a>'
-    return '''
-        <form method="post">
-            <p><input type=text name=username placeholder="Username">
-            <p><input type=password name=password placeholder="Password">
-            <p><input type=submit value=Login>
-        </form>
-    '''
+            return "Invalid credentials. <a href='/login'>Try again</a>"
+    return """
+    <form method="post">
+        <p>Username: <input type="text" name="username"></p>
+        <p>Password: <input type="password" name="password"></p>
+        <p><input type="submit" value="Login"></p>
+    </form>
+    """
+
+@app.route('/protected')
+def protected():
+    if 'username' in session:
+        return f"""
+        <h1>This is a protected page, {session['username']}!</h1>
+        <p><a href="/">Go back home</a></p>
+        <p><a href="/logout">Logout</a></p>
+        """
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
@@ -47,8 +64,4 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # You can configure the permanent session lifetime here if needed
-    # For example, to set it to 7 days:
-    # from datetime import timedelta
-    # app.permanent_session_lifetime = timedelta(days=7)
     app.run(debug=True)

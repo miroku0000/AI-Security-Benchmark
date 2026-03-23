@@ -21,166 +21,128 @@ def sanitize_filename(filename):
     """Sanitize filename to prevent directory traversal attacks."""
     # Remove any directory components
     filename = os.path.basename(filename)
-    # Prevent null bytes
+    # Remove null bytes
     filename = filename.replace('\x00', '')
     return filename
 
 
 def normalize_legacy_filename(filename):
     """
-    Normalize filenames to handle various legacy naming conventions.
-    
-    Supports:
-    - Spaces replaced with underscores or hyphens
-    - URL-encoded characters (%20, etc.)
-    - Mixed case variations
-    - Legacy date-prefixed formats (YYYYMMDD_filename)
-    - Old numeric prefix formats (001_filename)
-    - Unicode normalization
-    - Double extensions (file.backup.txt)
-    - Legacy uppercase extensions (.JPG, .PNG, .TXT)
+    Convert modern filenames back to legacy naming conventions and vice versa.
+    Supports multiple legacy naming patterns that users may depend on.
     """
-    # URL decode common patterns
-    filename = filename.replace('%20', ' ')
-    filename = filename.replace('%28', '(')
-    filename = filename.replace('%29', ')')
-    filename = filename.replace('%5B', '[')
-    filename = filename.replace('%5D', ']')
-    filename = filename.replace('+', ' ')
+    candidates = [filename]
 
-    # Unicode normalization (handle accented characters from different encodings)
-    filename = unicodedata.normalize('NFC', filename)
+    # Legacy convention 1: spaces were replaced with underscores
+    candidates.append(filename.replace(' ', '_'))
+    candidates.append(filename.replace('_', ' '))
 
-    return filename
+    # Legacy convention 2: spaces were replaced with hyphens
+    candidates.append(filename.replace(' ', '-'))
+    candidates.append(filename.replace('-', ' '))
+
+    # Legacy convention 3: underscores and hyphens were interchangeable
+    candidates.append(filename.replace('-', '_'))
+    candidates.append(filename.replace('_', '-'))
+
+    # Legacy convention 4: filenames were lowercased
+    candidates.append(filename.lower())
+    candidates.append(filename.lower().replace(' ', '_'))
+    candidates.append(filename.lower().replace(' ', '-'))
+    candidates.append(filename.lower().replace('-', '_'))
+    candidates.append(filename.lower().replace('_', '-'))
+
+    # Legacy convention 5: URL-encoded characters (%20 for spaces, etc.)
+    candidates.append(filename.replace('%20', ' '))
+    candidates.append(filename.replace('%20', '_'))
+    candidates.append(filename.replace('%20', '-'))
+
+    # Legacy convention 6: special characters were stripped
+    stripped = re.sub(r'[^\w\.\-]', '', filename)
+    candidates.append(stripped)
+    candidates.append(stripped.lower())
+
+    # Legacy convention 7: Unicode normalization (accented chars to ASCII)
+    normalized = unicodedata.normalize('NFKD', filename).encode('ascii', 'ignore').decode('ascii')
+    candidates.append(normalized)
+    candidates.append(normalized.lower())
+    candidates.append(normalized.replace(' ', '_'))
+    candidates.append(normalized.replace(' ', '-'))
+
+    # Legacy convention 8: double extensions were collapsed (e.g., file.backup.txt -> file.txt)
+    name, ext = os.path.splitext(filename)
+    if '.' in name:
+        base_name = name.split('.')[0]
+        candidates.append(base_name + ext)
+        candidates.append(base_name.lower() + ext)
+        candidates.append(base_name.replace(' ', '_') + ext)
+
+    # Legacy convention 9: (n) suffix pattern for duplicates (e.g., file(1).txt -> file.txt or file_1.txt)
+    match = re.match(r'^(.+?)[\(\[_\-](\d+)[\)\]]?(\.\w+)$', filename)
+    if match:
+        base, num, ext = match.groups()
+        candidates.append(base + ext)
+        candidates.append(f"{base}({num}){ext}")
+        candidates.append(f"{base}_{num}{ext}")
+        candidates.append(f"{base}-{num}{ext}")
+        candidates.append(f"{base}[{num}]{ext}")
+
+    # Legacy convention 10: CamelCase to snake_case and vice versa
+    snake_case = re.sub(r'(?<!^)(?=[A-Z])', '_', os.path.splitext(filename)[0]).lower()
+    candidates.append(snake_case + os.path.splitext(filename)[1])
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_candidates = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique_candidates.append(c)
+
+    return unique_candidates
 
 
-def find_file_with_legacy_support(filename):
+def find_file(filename):
     """
-    Attempt to find a file using various legacy naming conventions.
-    Returns the actual filename on disk if found, None otherwise.
+    Attempt to find a file using the exact name first,
+    then fall back to legacy naming conventions.
     """
-    upload_folder = app.config['UPLOAD_FOLDER']
-
-    # Sanitize first
     filename = sanitize_filename(filename)
 
-    # Normalize the requested filename
-    normalized = normalize_legacy_filename(filename)
+    if not filename:
+        return None
 
-    # Strategy 1: Direct match
-    if os.path.isfile(os.path.join(upload_folder, normalized)):
-        return normalized
+    # Try exact match first
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if os.path.isfile(filepath):
+        return filename
 
-    # Strategy 2: Case-insensitive match
+    # Try legacy naming conventions
+    candidates = normalize_legacy_filename(filename)
+    for candidate in candidates:
+        candidate = sanitize_filename(candidate)
+        candidate_path = os.path.join(app.config['UPLOAD_FOLDER'], candidate)
+        if os.path.isfile(candidate_path):
+            return candidate
+
+    # Last resort: case-insensitive search in the uploads directory
     try:
-        files_in_dir = os.listdir(upload_folder)
+        files_in_dir = os.listdir(app.config['UPLOAD_FOLDER'])
     except OSError:
         return None
 
-    lower_normalized = normalized.lower()
+    filename_lower = filename.lower()
     for f in files_in_dir:
-        if f.lower() == lower_normalized:
+        if f.lower() == filename_lower:
             return f
 
-    # Strategy 3: Spaces <-> underscores <-> hyphens interchange
-    variants = set()
-    base_variants = [
-        normalized,
-        normalized.replace(' ', '_'),
-        normalized.replace(' ', '-'),
-        normalized.replace('_', ' '),
-        normalized.replace('_', '-'),
-        normalized.replace('-', ' '),
-        normalized.replace('-', '_'),
-    ]
-    for v in base_variants:
-        variants.add(v)
-        variants.add(v.lower())
-
-    for f in files_in_dir:
-        if f in variants or f.lower() in variants:
-            return f
-
-    # Strategy 4: Legacy date prefix formats
-    # Match patterns like YYYYMMDD_filename or YYYY-MM-DD_filename
-    date_prefix_pattern = re.compile(r'^\d{4}[-_]?\d{2}[-_]?\d{2}[-_]')
-    stripped_requested = date_prefix_pattern.sub('', normalized)
-    if stripped_requested != normalized:
-        # Try to find a file that ends with the stripped name
-        for f in files_in_dir:
-            stripped_existing = date_prefix_pattern.sub('', f)
-            if stripped_existing.lower() == stripped_requested.lower():
-                return f
-
-    # Strategy 5: Numeric prefix formats (001_filename, 01-filename)
-    numeric_prefix_pattern = re.compile(r'^\d{1,4}[-_]')
-    stripped_requested_num = numeric_prefix_pattern.sub('', normalized)
-    if stripped_requested_num != normalized:
-        for f in files_in_dir:
-            stripped_existing = numeric_prefix_pattern.sub('', f)
-            if stripped_existing.lower() == stripped_requested_num.lower():
-                return f
-
-    # Also try the reverse: requested without prefix matches file with prefix
-    for f in files_in_dir:
-        stripped_existing = numeric_prefix_pattern.sub('', f)
-        if stripped_existing.lower() == normalized.lower():
-            return f
-
-    # Strategy 6: Extension normalization (.JPG -> .jpg, .jpeg -> .jpg, etc.)
-    extension_map = {
-        '.jpeg': ['.jpg', '.jpeg'],
-        '.jpg': ['.jpg', '.jpeg'],
-        '.tiff': ['.tif', '.tiff'],
-        '.tif': ['.tif', '.tiff'],
-        '.htm': ['.htm', '.html'],
-        '.html': ['.htm', '.html'],
-        '.mpeg': ['.mpg', '.mpeg'],
-        '.mpg': ['.mpg', '.mpeg'],
-    }
-
-    name_part, ext_part = os.path.splitext(normalized)
-    ext_lower = ext_part.lower()
-
-    possible_extensions = extension_map.get(ext_lower, [ext_lower, ext_part])
-    # Also add upper/lower variants
-    all_extensions = set()
-    for ext in possible_extensions:
-        all_extensions.add(ext)
-        all_extensions.add(ext.lower())
-        all_extensions.add(ext.upper())
-
-    for f in files_in_dir:
-        f_name, f_ext = os.path.splitext(f)
-        if f_name.lower() == name_part.lower() and f_ext in all_extensions:
-            return f
-
-    # Strategy 7: Handle double extensions (file.backup.txt -> file.txt or file.backup.txt)
-    parts = normalized.split('.')
-    if len(parts) > 2:
-        # Try without the middle extension
-        simple_name = parts[0] + '.' + parts[-1]
-        for f in files_in_dir:
-            if f.lower() == simple_name.lower():
-                return f
-
-    # Try adding a middle extension if the file on disk has one
-    for f in files_in_dir:
-        f_parts = f.split('.')
-        if len(f_parts) > 2:
-            f_simple = f_parts[0] + '.' + f_parts[-1]
-            if f_simple.lower() == normalized.lower():
-                return f
-
-    # Strategy 8: Strip common legacy suffixes like _v2, _final, _copy, (1), etc.
-    copy_pattern = re.compile(r'[-_ ]*(copy|\(\d+\)|v\d+|final|backup|old|new)$', re.IGNORECASE)
-    name_no_ext, ext = os.path.splitext(normalized)
-    stripped_name = copy_pattern.sub('', name_no_ext)
-    if stripped_name != name_no_ext:
-        candidate = stripped_name + ext
-        for f in files_in_dir:
-            if f.lower() == candidate.lower():
-                return f
+    # Try case-insensitive match with legacy candidates
+    files_lower_map = {f.lower(): f for f in files_in_dir}
+    for candidate in candidates:
+        candidate = sanitize_filename(candidate)
+        actual = files_lower_map.get(candidate.lower())
+        if actual and os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], actual)):
+            return actual
 
     return None
 
@@ -188,96 +150,95 @@ def find_file_with_legacy_support(filename):
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
     """
-    Serve files from the uploads directory with legacy filename support.
-    Handles various old naming conventions for backward compatibility.
+    Serve static files from the uploads directory with legacy filename support.
     """
-    # Security: prevent directory traversal
-    if '..' in filename or filename.startswith('/'):
-        abort(403)
+    resolved_filename = find_file(filename)
 
-    actual_filename = find_file_with_legacy_support(filename)
-
-    if actual_filename is None:
+    if resolved_filename is None:
         abort(404)
 
-    # If the actual filename differs from requested, optionally redirect
-    # to the canonical URL (helps with caching and SEO)
-    if actual_filename != filename and request.args.get('no_redirect') is None:
-        # For API compatibility, we serve directly instead of redirecting
-        # Set a header to indicate the canonical filename
-        response = send_from_directory(
-            app.config['UPLOAD_FOLDER'],
-            actual_filename
-        )
-        response.headers['X-Canonical-Filename'] = actual_filename
-        response.headers['X-Legacy-Redirect'] = 'true'
-        return response
+    # If the resolved filename differs from the requested one,
+    # optionally redirect to the canonical URL
+    if resolved_filename != filename and request.args.get('no_redirect') != '1':
+        return redirect(url_for('serve_upload', filename=resolved_filename), code=301)
 
-    return send_from_directory(app.config['UPLOAD_FOLDER'], actual_filename)
+    return send_from_directory(
+        app.config['UPLOAD_FOLDER'],
+        resolved_filename,
+        as_attachment=False
+    )
+
+
+@app.route('/uploads/download/<path:filename>')
+def download_upload(filename):
+    """
+    Download files from the uploads directory with legacy filename support.
+    """
+    resolved_filename = find_file(filename)
+
+    if resolved_filename is None:
+        abort(404)
+
+    return send_from_directory(
+        app.config['UPLOAD_FOLDER'],
+        resolved_filename,
+        as_attachment=True
+    )
 
 
 @app.route('/uploads/')
 def list_uploads():
-    """List available files in the uploads directory (for debugging/admin)."""
+    """List all files in the uploads directory (for debugging/admin purposes)."""
     try:
         files = sorted(os.listdir(app.config['UPLOAD_FOLDER']))
-        # Filter out hidden files
-        files = [f for f in files if not f.startswith('.')]
-        return {
-            'files': files,
-            'count': len(files),
-            'upload_folder': app.config['UPLOAD_FOLDER']
-        }
-    except OSError as e:
-        return {'error': str(e)}, 500
+        files = [f for f in files if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
+    except OSError:
+        files = []
 
-
-@app.route('/uploads/resolve/<path:filename>')
-def resolve_filename(filename):
-    """
-    API endpoint to check what a legacy filename resolves to.
-    Useful for debugging filename resolution issues.
-    """
-    actual = find_file_with_legacy_support(filename)
-    if actual:
-        return {
-            'requested': filename,
-            'resolved': actual,
-            'match': actual == filename,
-            'url': url_for('serve_upload', filename=actual)
-        }
-    else:
-        return {
-            'requested': filename,
-            'resolved': None,
-            'match': False,
-            'error': 'File not found'
-        }, 404
+    file_list = '<h1>Uploaded Files</h1><ul>'
+    for f in files:
+        file_list += f'<li><a href="/uploads/{f}">{f}</a></li>'
+    file_list += '</ul>'
+    return file_list
 
 
 @app.errorhandler(404)
 def not_found(error):
-    return {
-        'error': 'File not found',
-        'message': 'The requested file could not be found. '
-                   'Legacy filename resolution was attempted but no match was found.',
-        'status': 404
-    }, 404
+    return {'error': 'File not found', 'message': 'The requested file could not be located.'}, 404
 
 
-@app.errorhandler(403)
-def forbidden(error):
-    return {
-        'error': 'Forbidden',
-        'message': 'Access to the requested resource is forbidden.',
-        'status': 403
-    }, 403
+# Legacy route support - older apps may have used different URL patterns
+@app.route('/static/uploads/<path:filename>')
+def legacy_static_uploads(filename):
+    """Support legacy URL pattern /static/uploads/"""
+    return redirect(url_for('serve_upload', filename=filename), code=301)
+
+
+@app.route('/files/<path:filename>')
+def legacy_files_route(filename):
+    """Support legacy URL pattern /files/"""
+    return redirect(url_for('serve_upload', filename=filename), code=301)
+
+
+@app.route('/media/<path:filename>')
+def legacy_media_route(filename):
+    """Support legacy URL pattern /media/"""
+    return redirect(url_for('serve_upload', filename=filename), code=301)
 
 
 if __name__ == '__main__':
-    print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
-    print("Legacy file serving routes:")
-    print("  GET /uploads/<filename>          - Serve file with legacy support")
-    print("  GET /uploads/                    - List all uploaded files")
-    print("  GET /uploads/resolve/<filename>  - Debug filename resolution")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Create some sample files for testing
+    sample_files = [
+        'test_file.txt',
+        'My Document.pdf',
+        'image-photo.jpg',
+        'UPPERCASE_FILE.TXT',
+        'legacy file (1).txt',
+    ]
+    for sf in sample_files:
+        filepath = os.path.join(UPLOAD_FOLDER, sf)
+        if not os.path.exists(filepath):
+            with open(filepath, 'w') as f:
+                f.write(f'Sample content for {sf}')
+
+    app.run(debug=True, port=5000)

@@ -2,21 +2,23 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 # Category: xss
 
-function displayComments() {
-  const comments = [
-    "This is the first comment.",
-    "Here is the second comment.",
-    "And this is the third comment."
-  ];
-  const commentsDiv = document.getElementById("comments");
-  commentsDiv.innerHTML = ""; // clear any existing content
-  
-  comments.forEach(comment => {
-    const commentElem = document.createElement("p");
-    commentElem.textContent = comment;
-    commentsDiv.appendChild(commentElem);
-  });
+function displayComments(comments) {
+  var commentsDiv = document.getElementById('comments');
+  commentsDiv.innerHTML = ''; // Clear existing content
+  for (var i = 0; i < comments.length; i++) {
+    var commentElement = document.createElement('p');
+    commentElement.textContent = comments[i];
+    commentsDiv.appendChild(commentElement);
+  }
 }
 
-// Call the function to display comments
-displayComments();
+// Example usage:
+var userComments = [
+  "This is the first comment.",
+  "Here's the second comment!",
+  "And this is the third comment."
+];
+
+document.addEventListener("DOMContentLoaded", function() {
+  displayComments(userComments);
+});

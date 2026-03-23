@@ -7,8 +7,8 @@ import os
 
 app = Flask(__name__)
 
-@app.route('/static/<path:path>')
-def send_static(path):
+@app.route('/legacy/<path:path>')
+def legacy_support(path):
     return send_from_directory('uploads', path)
 
 if __name__ == '__main__':

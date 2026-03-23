@@ -13,8 +13,10 @@ app = Flask(__name__)
 
 # ---- Config ----
 app.config["JWT_SECRET"] = "change-me"  # set via env in production
+app.config["JWT_ISSUER"] = "flask-api"
+app.config["JWT_AUDIENCE"] = "flask-api-clients"
 app.config["JWT_ALG"] = "HS256"
-app.config["JWT_EXPIRES_MIN"] = 60
+app.config["JWT_EXPIRES_MINUTES"] = 60
 
 # ---- Simple in-memory user store (replace with DB) ----
 USERS = {
@@ -39,15 +41,20 @@ def _now():
 
 def create_access_token(user):
     iat = _now()
-    exp = iat + timedelta(minutes=app.config["JWT_EXPIRES_MIN"])
+    exp = iat + timedelta(minutes=app.config["JWT_EXPIRES_MINUTES"])
     payload = {
         "sub": str(user["id"]),
         "username": user["username"],
         "roles": user.get("roles", []),
+        "iss": app.config["JWT_ISSUER"],
+        "aud": app.config["JWT_AUDIENCE"],
         "iat": int(iat.timestamp()),
         "exp": int(exp.timestamp()),
     }
-    return jwt.encode(payload, app.config["JWT_SECRET"], algorithm=app.config["JWT_ALG"])
+    token = jwt.encode(payload, app.config["JWT_SECRET"], algorithm=app.config["JWT_ALG"])
+    if isinstance(token, bytes):
+        token = token.decode("utf-8")
+    return token
 
 
 def decode_token(token):
@@ -55,7 +62,9 @@ def decode_token(token):
         token,
         app.config["JWT_SECRET"],
         algorithms=[app.config["JWT_ALG"]],
-        options={"require": ["exp", "iat", "sub"]},
+        issuer=app.config["JWT_ISSUER"],
+        audience=app.config["JWT_AUDIENCE"],
+        options={"require": ["exp", "iat", "iss", "aud", "sub"]},
     )
 
 
@@ -66,10 +75,10 @@ def get_bearer_token():
     parts = auth.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         return None
-    return parts[1]
+    return parts[1].strip()
 
 
-def jwt_required(fn):
+def auth_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         token = get_bearer_token()
@@ -83,9 +92,11 @@ def jwt_required(fn):
             return jsonify({"error": "invalid_token"}), 401
 
         g.jwt = payload
-        g.user_id = payload.get("sub")
-        g.username = payload.get("username")
-        g.roles = payload.get("roles", [])
+        g.user = {
+            "id": int(payload["sub"]),
+            "username": payload.get("username"),
+            "roles": payload.get("roles", []),
+        }
         return fn(*args, **kwargs)
 
     return wrapper
@@ -94,11 +105,27 @@ def jwt_required(fn):
 def roles_required(*required_roles):
     def decorator(fn):
         @wraps(fn)
-        @jwt_required
         def wrapper(*args, **kwargs):
-            roles = set(getattr(g, "roles", []) or [])
+            token = get_bearer_token()
+            if not token:
+                return jsonify({"error": "missing_bearer_token"}), 401
+            try:
+                payload = decode_token(token)
+            except jwt.ExpiredSignatureError:
+                return jsonify({"error": "token_expired"}), 401
+            except jwt.InvalidTokenError:
+                return jsonify({"error": "invalid_token"}), 401
+
+            roles = set(payload.get("roles", []))
             if not roles.intersection(required_roles):
                 return jsonify({"error": "forbidden"}), 403
+
+            g.jwt = payload
+            g.user = {
+                "id": int(payload["sub"]),
+                "username": payload.get("username"),
+                "roles": payload.get("roles", []),
+            }
             return fn(*args, **kwargs)
 
         return wrapper
@@ -106,7 +133,7 @@ def roles_required(*required_roles):
     return decorator
 
 
-@app.post("/auth/login")
+@app.post("/login")
 def login():
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
@@ -121,32 +148,26 @@ def login():
         {
             "access_token": token,
             "token_type": "Bearer",
-            "expires_in": app.config["JWT_EXPIRES_MIN"] * 60,
+            "expires_in": app.config["JWT_EXPIRES_MINUTES"] * 60,
         }
     )
 
 
 @app.get("/me")
-@jwt_required
+@auth_required
 def me():
-    return jsonify(
-        {
-            "user_id": g.user_id,
-            "username": g.username,
-            "roles": g.roles,
-        }
-    )
+    return jsonify({"user": g.user, "jwt": g.jwt})
 
 
 @app.get("/admin")
 @roles_required("admin")
 def admin_only():
-    return jsonify({"ok": True, "message": f"Hello, {g.username}. You are an admin."})
+    return jsonify({"ok": True, "message": "admin access granted", "user": g.user})
 
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

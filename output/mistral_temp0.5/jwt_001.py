@@ -2,77 +2,52 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, request, jsonify, abort
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_raw_jwt
+from datetime import timedelta, datetime
 import jwt
-import os
+import hashlib
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
-db = SQLAlchemy(app)
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Replace with your own secret key
+jwt = JWTManager(app)
 
-users = db.Table('users',
-    db.Column('username', db.String(80), primary_key=True),
-    db.Column('password', db.String(80))
-)
+# Mock user data for simplicity
+mock_users = {
+    "user1": {"password": hashlib.sha256("password1".encode()).hexdigest()},
+    "user2": {"password": hashlib.sha256("password2".encode()).hexdigest()}
+}
 
-class User(db.Model):
-    __tablename__ = 'users'
-    username = db.Column(db.String(80), primary_key=True)
-    password = db.Column(db.String(80))
-
-app.secret_key = os.urandom(24)
-
-SECRET_KEY = app.secret_key
-ALGORITHM = 'HS256'
-
-def encode_auth_token(username, password):
-    payload = {
-        'exp': int(time.time()) + 3600,
-        'iat': int(time.time()),
-        'sub': username
-    }
-
-    secret_key = SECRET_KEY
-    encoded_jwt = jwt.encode(payload, secret_key, algorithm=ALGORITHM)
-
-    return encoded_jwt.decode('utf-8')
-
-def authenticate(username, password):
-    user = User.query.filter_by(username=username).first()
-    if user and user.password == password:
-        return user
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    if data and 'username' in data:
+        if data['username'] not in mock_users:
+            mock_users[data['username']] = {}
+            return jsonify({"message": "User registered successfully."})
+        else:
+            return jsonify({"error": "Username already exists."}), 409
+    else:
+        return jsonify({"error": "Invalid request data."}), 400
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if not auth or not auth.username or not auth.password:
-        return abort(401)
+    data = request.get_json()
+    if data and 'username' in data and 'password' in data:
+        user = mock_users[data['username']]
+        if user and hashlib.sha256(data['password'].encode()).hexdigest() == user['password']:
+            access_token = create_access_token(identity=data['username'])
+            return jsonify({"access_token": access_token})
+        else:
+            return jsonify({"error": "Invalid credentials."}), 401
+    else:
+        return jsonify({"error": "Invalid request data."}), 400
 
-    user = authenticate(auth.username, auth.password)
-    if user is None:
-        return abort(401)
-
-    token = encode_auth_token(user.username, auth.password)
-    return jsonify({'token': token})
-
-@app.route('/protected')
+@app.route('/protected', methods=['GET'])
+@jwt_required()
 def protected():
-    if not 'token' in request.args:
-        return jsonify({'error': 'Token is missing!'}), 401
-
-    token = request.args.get('token')
-    try:
-        data = jwt.decode(token, app.secret_key, algorithms=[ALGORITHM])
-        username = data['sub']
-        user = User.query.filter_by(username=username).first()
-        if not user:
-            return jsonify({'error': 'Invalid token!'}), 401
-    except Exception as e:
-        return jsonify({'error': str(e)}), 401
-
-    return jsonify({'message': 'Successfully authenticated!'})
+    username = get_raw_jwt()['identity']
+    return jsonify({"user": username})
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)

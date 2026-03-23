@@ -12,10 +12,11 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        # Here you would typically check the database for the user and password
-        if username == 'admin' and password == 'secret':
+        
+        # Dummy authentication check
+        if username == 'admin' and password == 'password':
             session['logged_in'] = True
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('home'))
         else:
             return 'Invalid credentials'
     return '''
@@ -26,17 +27,17 @@ def login():
         </form>
     '''
 
-@app.route('/dashboard')
-def dashboard():
-    if 'logged_in' in session and session['logged_in']:
-        return 'Welcome to the Dashboard!'
-    else:
-        return redirect(url_for('login'))
-
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+@app.route('/')
+def home():
+    if 'logged_in' in session and session['logged_in']:
+        return 'Welcome to the Home Page!'
+    else:
+        return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

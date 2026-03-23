@@ -4,12 +4,23 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password) {
+function hashPassword(password, salt) {
   return new Promise((resolve, reject) => {
-    if (!password) return reject(new Error("Password can't be empty"));
-
-    const salt = crypto.randomBytes(16);
-    const hashedPassword = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512');
-    resolve(`${hashedPassword.toString('hex')}:${salt.toString('hex')}`);
+    const hash = crypto.createHmac('sha256', salt);
+    hash.update(password);
+    hash.once('readable', function() {
+      const data = this.read();
+      resolve(data.toString('hex'));
+    });
   });
+}
+
+function generateSalt() {
+  return Buffer.from(crypto.randomBytes(16), 'binary').toString('base64');
+}
+
+async function hashAndSaltPassword(password) {
+  const salt = await generateSalt();
+  const hashedPassword = await hashPassword(password, salt);
+  return {salt, password: hashedPassword};
 }

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union
 from lxml import etree
 
 
@@ -22,89 +22,64 @@ class SoapMessage:
     envelope: etree._Element
     header: Optional[etree._Element]
     body: etree._Element
-    payload: Optional[etree._Element]
-    soap_version: str
-    namespaces: Dict[str, str]
-
-
-def _to_bytes(xml: Union[str, bytes]) -> bytes:
-    if isinstance(xml, bytes):
-        return xml
-    if isinstance(xml, str):
-        return xml.encode("utf-8")
-    raise TypeError("xml must be str or bytes")
+    body_children: list[etree._Element]
+    raw_xml: bytes
 
 
 def process_soap_request(
     xml: Union[str, bytes],
     *,
-    validate_dtd: bool = True,
+    dtd_validation: bool = True,
     load_dtd: bool = True,
-    resolve_entities: bool = False,
+    resolve_entities: bool = True,
     no_network: bool = True,
     huge_tree: bool = False,
     recover: bool = False,
+    allow_xinclude: bool = False,
 ) -> SoapMessage:
-    """
-    Parses a SOAP XML request, optionally validates against an internal/external DTD,
-    and extracts the SOAP Body and its first element payload.
+    if isinstance(xml, str):
+        raw = xml.encode("utf-8")
+    else:
+        raw = xml
 
-    Security note: DTD processing can be dangerous. By default, this function disables
-    entity resolution and network access. If older clients require entity expansion,
-    set resolve_entities=True and consider no_network=True to avoid SSRF.
-    """
-    data = _to_bytes(xml)
+    if allow_xinclude:
+        raise ValueError("XInclude is not supported in this processor.")
 
     parser = etree.XMLParser(
-        ns_clean=True,
-        remove_blank_text=True,
-        recover=recover,
-        huge_tree=huge_tree,
+        dtd_validation=dtd_validation,
         load_dtd=load_dtd,
-        dtd_validation=validate_dtd,
         resolve_entities=resolve_entities,
         no_network=no_network,
+        huge_tree=huge_tree,
+        recover=recover,
+        remove_blank_text=False,
+        ns_clean=True,
     )
 
     try:
-        root = etree.fromstring(data, parser=parser)
+        doc = etree.fromstring(raw, parser)
     except (etree.XMLSyntaxError, ValueError) as e:
         raise SoapProcessingError(f"Invalid XML: {e}") from e
 
-    if not isinstance(root, etree._Element):
-        raise SoapProcessingError("Parsed document has no root element")
+    if not isinstance(doc.tag, str):
+        raise SoapProcessingError("Invalid XML root element.")
 
-    ns = root.nsmap or {}
-    root_ns = root.nsmap.get(root.prefix) if root.prefix else root.nsmap.get(None)
-    if root.tag == f"{{{SOAP11_NS}}}Envelope":
-        soap_ns = SOAP11_NS
-        soap_version = "1.1"
-    elif root.tag == f"{{{SOAP12_NS}}}Envelope":
-        soap_ns = SOAP12_NS
-        soap_version = "1.2"
-    else:
-        if root_ns in (SOAP11_NS, SOAP12_NS) and root.tag.endswith("}Envelope"):
-            soap_ns = root_ns
-            soap_version = "1.1" if root_ns == SOAP11_NS else "1.2"
-        else:
-            raise SoapProcessingError("Root element is not a SOAP Envelope")
+    qn = etree.QName(doc)
+    if qn.localname != "Envelope" or qn.namespace not in (SOAP11_NS, SOAP12_NS):
+        raise SoapProcessingError("Root element is not a SOAP Envelope.")
 
-    header = root.find(f"{{{soap_ns}}}Header")
-    body = root.find(f"{{{soap_ns}}}Body")
+    ns = qn.namespace
+    header = doc.find(f"{{{ns}}}Header")
+    body = doc.find(f"{{{ns}}}Body")
     if body is None:
-        raise SoapProcessingError("SOAP Body not found")
+        raise SoapProcessingError("SOAP Body not found.")
 
-    payload = None
-    for child in body:
-        if isinstance(child.tag, str):
-            payload = child
-            break
+    body_children = [c for c in body if isinstance(c.tag, str)]
 
     return SoapMessage(
-        envelope=root,
+        envelope=doc,
         header=header,
         body=body,
-        payload=payload,
-        soap_version=soap_version,
-        namespaces=ns,
+        body_children=body_children,
+        raw_xml=raw,
     )

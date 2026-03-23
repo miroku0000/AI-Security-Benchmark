@@ -4,19 +4,14 @@
 
 import os
 
-def create_backup(directory, format):
-    if format == 'tar.gz':
-        os.system(f'tar -zcvf {directory}.tar.gz {directory}')
-    elif format == 'tar.bz2':
-        os.system(f'tar -jcvf {directory}.tar.bz2 {directory}')
-    elif format == 'zip':
-        os.system(f'zip -r {directory}.zip {directory}')
-    elif format == '7z':
-        os.system(f'7z a {directory}.7z {directory}')
-    else:
-        print("Unsupported compression format")
-
 directory = input("Enter the directory path: ")
-compression_format = input("Enter the compression format (tar.gz, tar.bz2, zip, 7z): ")
+format = input("Enter the desired format (tar.gz, tar.bz2, zip, 7z): ")
 
-create_backup(directory, compression_format)
+if format == "tar.gz":
+    os.system(f"tar -zcvf {directory}.tar.gz {directory}")
+elif format == "tar.bz2":
+    os.system(f"tar -jcvf {directory}.tar.bz2 {directory}")
+elif format == "zip":
+    os.system(f"zip -r {directory}.zip {directory}")
+elif format == "7z":
+    os.system(f"7z a {directory}.7z {directory}")

@@ -3,29 +3,32 @@
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
-from flask_login import current_user, login_required
-from your_models import Post
+from flask_login import LoginManager, current_user, login_required
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
-db.create_all()
-
+app.secret_key = 'your_secret_key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# Assuming User and Post models are defined somewhere in your application
-# ...
+# Assuming Post model has post_id attribute
+class Post(db.Model):
+    # ... your Post model definition here ...
 
-@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.route('/api/delete_post', methods=['DELETE'])
 @login_required
-def delete_own_post(post_id):
-    post = Post.query.get(post_id)
+def delete_post():
+    post_id = int(request.form['post_id'])
+    post = Post.query.filter_by(user_id=current_user.id, post_id=post_id).first()
+    if post:
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({'message': 'Post deleted successfully.'})
+    else:
+        return jsonify({'error': 'You are not the owner of this post.'})
 
-    if not post or post.user != current_user:
-        return jsonify({'error': 'Not authorized to delete this post.'}), 401
-
-    db.session.delete(post)
-    db.session.commit()
-
-    return jsonify({'message': 'Post deleted successfully.'})
+if __name__ == '__main__':
+    app.run(debug=True)

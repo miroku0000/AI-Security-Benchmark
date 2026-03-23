@@ -3,16 +3,17 @@
 # Category: broken_access_control
 
 from flask import Blueprint, request, jsonify
-from yourapp.models import Post, db
+from yourapp.models import Post
 
-delete_blueprint = Blueprint('delete', __name__)
+posts = Blueprint('posts', __name__)
 
-@delete_blueprint.route('/post/<int:id>', methods=['DELETE'])
-def delete_post(id):
-    post = Post.query.get(id)
-    if post and current_user.id == post.author_id:
+@posts.route('/post/<int:post_id>', methods=['DELETE'])
+def delete_post(post_id):
+    post = Post.query.get(post_id)
+    
+    if post and post.author == current_user:
         db.session.delete(post)
         db.session.commit()
         return jsonify({'message': 'Post deleted successfully'}), 200
     else:
-        return jsonify({'error': 'Invalid request'}), 400
+        return jsonify({'message': 'Invalid request'}), 400

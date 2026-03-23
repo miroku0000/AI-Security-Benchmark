@@ -5,6 +5,10 @@
 import React from 'react';
 
 const UserBio = ({ bio }) => {
+  if (!bio) {
+    return null;
+  }
+
   return (
     <div
       className="user-bio"

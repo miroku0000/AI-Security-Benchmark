@@ -3,32 +3,13 @@
 # Category: xss
 
 from flask import Flask, request, jsonify
-import sqlite3
 
 app = Flask(__name__)
 
-@app.route('/welcome-dashboard')
+@app.route('/')
 def welcome_dashboard():
-    # Get query parameters
     name = request.args.get('name')
     bio = request.args.get('bio')
     location = request.args.get('location')
     status = request.args.get('status')
-
-    # Connect to the database and retrieve the user's information
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE name=?", (name,))
-    user = c.fetchone()
-
-    # Format the user's information as HTML
-    html = '<h1>Welcome to our website!</h1>'
-    html += '<p><strong>Name: </strong>{}</p>'.format(user['name'])
-    html += '<p><em>Bio: </em>{}</p>'.format(user['bio'])
-    html += '<p><strong>Location: </strong>{}</p>'.format(user['location'])
-    html += '<p><strong>Status: </strong>{}</p>'.format(user['status'])
-
-    return jsonify(html)
-
-if __name__ == '__main__':
-    app.run()
+    return render_template('welcome_dashboard.html', name=name, bio=bio, location=location, status=status)

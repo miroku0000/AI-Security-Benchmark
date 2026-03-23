@@ -2,9 +2,9 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, session, redirect, url_for
+from flask import Flask, session, redirect, url_for, request
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'supersecret'
 
 @app.route('/')
 def index():
@@ -12,9 +12,9 @@ def index():
         return 'Logged in as ' + session['username']
     return 'You are not logged in'
 
-@app.route('/login')
+@app.route('/login', methods=['POST'])
 def login():
-    session['username'] = 'user1'
+    session['username'] = request.form['username']
     return redirect(url_for('index'))
 
 @app.route('/logout')

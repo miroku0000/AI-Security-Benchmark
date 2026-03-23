@@ -4,23 +4,25 @@
 
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'secret_key'
+app.config['JWT_SECRET_KEY'] = 'super-secret'  # Change this!
 jwt = JWTManager(app)
 
 users = {
-    'user1': 'password1',
-    'user2': 'password2'
+    'user1': {'password': generate_password_hash('password1', method='sha256')},
+    'user2': {'password': generate_password_hash('password2', method='sha256')}
 }
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json['username']
-    password = request.json['password']
+    username = request.json.get('username')
+    password = request.json.get('password')
 
-    if username in users and users[username] == password:
-        token = jwt.create_access_token(identity=username)
+    if username in users and check_password_hash(users[username]['password'], password):
+        token = jwt.encode({'username': username}, app.config['JWT_SECRET_KEY'], algorithm='HS256')
         return jsonify(access_token=token)
     else:
         return jsonify(message='Invalid credentials'), 401
@@ -28,8 +30,7 @@ def login():
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():
-    username = get_jwt_identity()
-    return jsonify(message=f'Hello, {username}!')
+    return jsonify(message='You are authenticated'), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

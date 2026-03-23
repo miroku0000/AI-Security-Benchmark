@@ -6,158 +6,160 @@ import os
 import re
 import mimetypes
 from pathlib import Path
-from flask import Flask, abort, send_from_directory, redirect, request
+from urllib.parse import unquote
 
-def _safe_join(base_dir: str, *paths: str) -> str:
+from flask import Flask, abort, current_app, redirect, request, send_from_directory, url_for
+
+def _safe_join(base_dir: str, *paths: str) -> str | None:
     base = Path(base_dir).resolve()
-    candidate = base.joinpath(*paths).resolve()
     try:
-        candidate.relative_to(base)
-    except Exception:
-        raise ValueError("Unsafe path")
-    return str(candidate)
+        candidate = base.joinpath(*paths).resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+    if base == candidate or base in candidate.parents:
+        return str(candidate)
+    return None
 
-def _is_probably_hashed(name: str) -> bool:
-    # e.g. file.3f2a9c1b.png or file-3f2a9c1b.png
-    return bool(re.search(r'([.-])[0-9a-fA-F]{8,}(\.)', name))
-
-def _legacy_candidates(filename: str):
-    """
-    Generate backward-compatible candidates for older naming conventions.
-    Examples:
-      - spaces vs underscores
-      - plus vs space
-      - percent-decoding
-      - case variants
-      - remove common hash infix (file.<hash>.ext or file-<hash>.ext)
-    """
-    candidates = []
-    if not filename:
-        return candidates
-
-    candidates.append(filename)
-
-    # Normalize slashes (do not allow traversal; checked later)
-    filename = filename.replace("\\", "/")
-    candidates.append(filename)
-
-    # URL decoding variants
+def _is_file(path: str) -> bool:
     try:
-        from urllib.parse import unquote
-        decoded = unquote(filename)
-        if decoded != filename:
-            candidates.append(decoded)
-    except Exception:
-        pass
+        return os.path.isfile(path)
+    except OSError:
+        return False
 
-    # Plus-to-space (common legacy behavior)
-    if "+" in filename:
-        candidates.append(filename.replace("+", " "))
+def _normalize_legacy_filename(name: str) -> str:
+    name = unquote(name or "")
+    name = name.replace("\\", "/")
+    name = name.split("?", 1)[0].split("#", 1)[0]
+    name = name.strip().strip('"').strip("'")
+    name = name.lstrip("/")
+    name = re.sub(r"/{2,}", "/", name)
+    name = name.replace("\x00", "")
+    return name
 
-    # Spaces/underscores interchange
-    if " " in filename:
-        candidates.append(filename.replace(" ", "_"))
-    if "_" in filename:
-        candidates.append(filename.replace("_", " "))
+def _legacy_candidates(relpath: str) -> list[str]:
+    rel = _normalize_legacy_filename(relpath)
+    if not rel:
+        return []
 
-    # Case variants
-    candidates.append(filename.lower())
-    candidates.append(filename.upper())
+    candidates: list[str] = []
 
-    # Remove hash infix patterns: name.<hash>.ext or name-<hash>.ext
-    m = re.match(r"^(.*?)([.-])[0-9a-fA-F]{8,}(\.[^./\\]+)$", filename)
-    if m:
-        candidates.append(m.group(1) + m.group(3))
+    # Exact (current) path
+    candidates.append(rel)
 
-    # Remove duplicate slashes
-    candidates = [re.sub(r"/{2,}", "/", c) for c in candidates]
+    # Older convention: spaces instead of underscores (and vice versa)
+    if "_" in rel:
+        candidates.append(rel.replace("_", " "))
+    if " " in rel:
+        candidates.append(rel.replace(" ", "_"))
 
-    # Deduplicate preserving order
+    # Older convention: plus as space
+    if "+" in rel:
+        candidates.append(rel.replace("+", " "))
+
+    # Older convention: case-insensitive filenames on some systems
+    candidates.append(rel.lower())
+    candidates.append(rel.upper())
+
+    # Older convention: flatten nested paths into single filename with dashes/underscores
+    if "/" in rel:
+        flattened_dash = rel.replace("/", "-")
+        flattened_us = rel.replace("/", "_")
+        candidates.append(flattened_dash)
+        candidates.append(flattened_us)
+
+    # Older convention: strip leading "uploads/" if users included it
+    if rel.startswith("uploads/"):
+        candidates.append(rel[len("uploads/"):])
+
+    # Older convention: URL-encoded %2F stored literally as slash or as underscore
+    if "%2f" in rel.lower():
+        candidates.append(re.sub("(?i)%2f", "/", rel))
+        candidates.append(re.sub("(?i)%2f", "_", rel))
+
+    # Older convention: double extensions or missing extension
+    root, ext = os.path.splitext(rel)
+    if ext:
+        candidates.append(root)  # missing extension
+    else:
+        # try common extensions if none provided
+        for e in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".txt", ".csv", ".zip"):
+            candidates.append(rel + e)
+
+    # Deduplicate while preserving order
     seen = set()
     out = []
     for c in candidates:
-        if c and c not in seen:
-            seen.add(c)
-            out.append(c)
-    return out
-
-def _find_existing_file(uploads_dir: str, requested: str):
-    """
-    Returns (directory, filename) relative to uploads_dir if found, else None.
-    """
-    # If requested includes subdirectories, keep them but validate later
-    requested = requested.lstrip("/")
-
-    candidates = _legacy_candidates(requested)
-
-    for cand in candidates:
-        try:
-            full = _safe_join(uploads_dir, cand)
-        except ValueError:
+        c = _normalize_legacy_filename(c)
+        if not c or c in seen:
             continue
-        if os.path.isfile(full):
-            rel_dir = os.path.dirname(cand)
-            rel_name = os.path.basename(cand)
-            return rel_dir, rel_name
-
-    # If not found, attempt case-insensitive match within the same directory
-    # (legacy on case-insensitive filesystems)
-    try:
-        req_dir = os.path.dirname(requested)
-        req_base = os.path.basename(requested)
-        dir_full = _safe_join(uploads_dir, req_dir)
-        if os.path.isdir(dir_full):
-            req_base_lower = req_base.lower()
-            for entry in os.listdir(dir_full):
-                if entry.lower() == req_base_lower:
-                    full = os.path.join(dir_full, entry)
-                    if os.path.isfile(full):
-                        return req_dir, entry
-    except Exception:
-        pass
-
-    return None
+        seen.add(c)
+        out.append(c)
+    return out
 
 def register_legacy_uploads_static(
     app: Flask,
-    uploads_dir: str = "uploads",
+    uploads_dir: str | None = None,
     url_prefix: str = "/uploads",
+    endpoint: str = "legacy_uploads",
     enable_redirects: bool = True,
     cache_max_age: int = 3600,
-):
-    uploads_dir = os.path.abspath(uploads_dir)
-    os.makedirs(uploads_dir, exist_ok=True)
+) -> None:
+    if uploads_dir is None:
+        uploads_dir = app.config.get("UPLOADS_DIR") or os.path.join(app.root_path, "uploads")
 
-    @app.get(f"{url_prefix}/<path:filename>")
-    def legacy_uploads_static(filename):
-        found = _find_existing_file(uploads_dir, filename)
-        if not found:
+    uploads_dir = os.path.abspath(uploads_dir)
+    app.config.setdefault("UPLOADS_DIR", uploads_dir)
+
+    def _send(rel: str):
+        rel = _normalize_legacy_filename(rel)
+        if not rel:
             abort(404)
 
-        rel_dir, rel_name = found
+        safe_path = _safe_join(uploads_dir, rel)
+        if safe_path is None:
+            abort(404)
 
-        # If the requested path doesn't match the found path, optionally redirect to canonical
-        found_path = (rel_dir + "/" if rel_dir else "") + rel_name
-        requested_norm = filename.lstrip("/").replace("\\", "/")
-        if enable_redirects and requested_norm != found_path:
-            # Preserve query string
-            qs = request.query_string.decode("utf-8", errors="ignore")
-            target = f"{url_prefix}/{found_path}"
-            if qs:
-                target = f"{target}?{qs}"
-            return redirect(target, code=301)
+        if _is_file(safe_path):
+            directory = os.path.dirname(safe_path)
+            filename = os.path.basename(safe_path)
+            return send_from_directory(directory, filename, max_age=cache_max_age)
 
-        # Ensure mimetype is set for unknown extensions
-        mimetype, _ = mimetypes.guess_type(rel_name)
-        return send_from_directory(
-            directory=os.path.join(uploads_dir, rel_dir) if rel_dir else uploads_dir,
-            path=rel_name,
-            mimetype=mimetype,
-            max_age=cache_max_age,
-        )
+        # Legacy lookup
+        for cand in _legacy_candidates(rel):
+            safe_cand = _safe_join(uploads_dir, cand)
+            if safe_cand is None:
+                continue
+            if _is_file(safe_cand):
+                if enable_redirects and cand != rel:
+                    return redirect(url_for(endpoint, filename=cand), code=301)
+                directory = os.path.dirname(safe_cand)
+                filename = os.path.basename(safe_cand)
+                return send_from_directory(directory, filename, max_age=cache_max_age)
 
+        abort(404)
+
+    @app.get(f"{url_prefix}/<path:filename>", endpoint=endpoint)
+    def legacy_uploads(filename: str):
+        return _send(filename)
+
+    # Optional: support older endpoint paths that might have been used historically
+    legacy_paths = app.config.get("LEGACY_UPLOADS_PATHS", [])
+    for lp in legacy_paths:
+        lp = (lp or "").strip()
+        if not lp:
+            continue
+
+        ep = f"{endpoint}__{re.sub(r'[^a-zA-Z0-9_]+', '_', lp).strip('_') or 'alt'}"
+
+        @app.get(f"{lp.rstrip('/')}/<path:filename>", endpoint=ep)
+        def _alt(filename: str, _lp=lp):
+            return _send(filename)
+
+def create_app():
+    app = Flask(__name__)
+    register_legacy_uploads_static(app)
     return app
 
-# Example usage:
-# app = Flask(__name__)
-# register_legacy_uploads_static(app, uploads_dir="uploads", url_prefix="/uploads")
+if __name__ == "__main__":
+    app = create_app()
+    app.run(debug=True)

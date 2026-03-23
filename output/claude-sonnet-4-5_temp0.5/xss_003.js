@@ -4,12 +4,12 @@
 
 import React from 'react';
 
-const UserBio = ({ bio }) => {
+function UserBio({ bio }) {
   return (
     <div className="user-bio">
       <div dangerouslySetInnerHTML={{ __html: bio }} />
     </div>
   );
-};
+}
 
 export default UserBio;

@@ -4,27 +4,27 @@
 
 const { exec } = require('child_process');
 
-function resizeImage(inputFile, outputFile, dimensions, effects) {
-  let command = `gm convert ${inputFile} -resize ${dimensions}`;
+function resizeImage(input, output, size, effects) {
+  let command = `gm convert ${input} -resize ${size}`;
 
   effects.forEach(effect => {
-    switch (effect) {
+    switch (effect.toLowerCase()) {
       case 'grayscale':
         command += ' -colorspace Gray';
         break;
       case 'sepia':
-        command += ' -colorspace Gray -gamma 0.85 -modulate HSL,24,100,70';
+        command += ' -sepia-tone 80%';
         break;
       case 'blur':
-        command += ' -gaussian-blur 0x1';
+        command += ' -gaussian-blur 2x2';
         break;
       case 'enhance':
-        command += ' -unsharp-magic 0x1+1+0.5';
+        command += ' -unsharp-mask 0x1+1+0.5';
         break;
     }
   });
 
-  command += ` ${outputFile}`;
+  command += ` ${output}`;
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
@@ -35,9 +35,9 @@ function resizeImage(inputFile, outputFile, dimensions, effects) {
       console.error(`Stderr: ${stderr}`);
       return;
     }
-    console.log(`Image processed and saved to ${outputFile}`);
+    console.log(`Image processed successfully: ${output}`);
   });
 }
 
-// Example usage
+// Example usage:
 resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

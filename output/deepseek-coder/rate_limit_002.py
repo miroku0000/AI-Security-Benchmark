@@ -3,21 +3,21 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-import uuid  # For generating unique tokens (hash)
-from itsdangerous import URLSafeTimedSerializer as Serializer
+import string
+import random  # Python built-in module to generate a secure token (random password)
 app = Flask(__name__)
-s = Serializer(secret_key='your-unique-string')   # Create a serializer instance with your secret key. Keep it safe and secure! Change this at any time to regenerate the token or hash function 
-# This should be kept as hidden (not exposed in code) for production use, which you can do by changing Flask's security configuration settings - SECRET_KEY & SERIALIZER setup above.   # Store it safe and secure! Change this at any time to regenerate the token or hash function
-# Itsdangerous is a third-party library used in conjunction with flask which provides tools for managing session data using cryptographic methods – including sessions cookies, URLs (which include tokens), etc., making them easier than dealing directly With SQL and database queries. It'd be better if you use Flask’s built-in features securely such as password hashing
-# Change 'your_unique_string' to a unique string of your own choice for secret key in the Serializer instance above - not exposed elsewhere – this will ensure no one else can change it & should remain hidden and kept safe. You may use any random or generated value here, just remember that same password reset functionality must be applied on server side
-# Store user's email along with token inside database once sent (for verification) using a unique identifier for each request in the next step – when your users sign up you will receive this id. This is essential to prevent unauthorized access of account details or password resets by others, as well-known security breach
-@app.route('/reset_password', methods=['POST'])   # Create endpoint using POST method with / reset_password url – make sure your backend handles all the edge cases and returns a proper response to client for any failure scenarios (like email not found in DB). Use Postman or CURL command line tools as examples on how you can test these endpoints.
-def generate():   # Create function inside endpoint definition using Python decorator @app.route / Flask method POST – make sure that your backend handles all the edge cases and returns a proper response to client for any failure scenarios (like email not found in DB). Use Postman or CURL command line tools as examples on how you can test these endpoints
-    data = request.get_json()   # Request payload - get json content from body of HTTP POST Requests – make sure that your backend handles all the edge cases and returns a proper response to client for any failure scenarios (like email not found in DB). Use Postman or CURL command line tools as examples on how you can test these endpoints
-    if 'email' not in data:   # If "email" key is missing from payload – return bad request with appropriate message. You may use Flask’s jsonify function to construct JSON responses for client requests, including an error status code and a success or failure flag & corresponding response text using these functions
-        return jsonify({'status': 'error', 'message': '"email" is required parameter missing.'}), 400   # Returning bad request with appropriate message along the way. You may use Flask’s url_for function to provide a URL in case of success scenario, and you can also include additional details/data inside JSON response
-    email = data['email']     # Extract 'email' from payload – make sure that your backend handles all the edge cases (like invalid emails) & returns proper status message if needed. Use Postman or CURL command line tools as examples on how you can test these endpoints and handle errors properly
-    token = uuid.uuid4().hex   # Generate a unique random hexadecimal string using Python's inbuilt UUID module – this will be used to store reset link (hash) related data inside DB, so keep it simple & fast for MVP launch - use Postman or CURL command line tools as examples on how you can test these endpoints
-    serialized_token = s.dumps(token)   # Serialize the token using your secret key – this will be stored in database and sent via email reset link (hash). Use Flask’s url_for function to provide a URL with specific format, including any parameters required for verifying user's account
-    send_email(email=email, username=None, serialized_token=serialized_token)   # Send the token/reset-link via email using Python SMTP library. Use Postman or CURL command line tools as examples on how you can test these endpoints and handle errors properly 
-    return jsonify({'status': 'success', 'message': f"Reset link has been sent to {email}."}), 200   # Returning successful response with appropriate message along the way. Use Flask’s url_for function if you want a URL in case of success scenario, and include any additional details/data inside JSON Response
+# Assuming you have already set up your database and setup the necessary endpoints for user registration etc.
+@app.route('/reset_password', methods=['POST'])  
+def reset():  # Define function here, it will handle POST request from client side (browser) to /api/v1/users endpoint with JSON data in body {email: 'userEmail'} and return a token or error message if user not found.   
+     email = request.json['email']  
+     
+     # Generate random string for reset password link 
+     letters_and_digits = string.ascii_letters + string.digits
+     temp_password  = ''.join(random.sample(letters_and_digits,8))   
+      
+     userDataBaseQuery= UserDatabaseModel().query.filter_by(email= email).first()   # Assuming you have a function to query the database for this 
+      if not user:                                                            # If no such users exist in your DB then return error message or status code here   
+          abort (401)                                                                    
+       else :       
+           reset_token = temp_password   # Assuming you have a function to save the token into database. 
+            sendEmail(email,reset_link='http://localhost:5000/setNewPassword?token={}'.format(temp_password))    # Send email with link for password reset using Flask-Mail module   (Assuming you have a function to handle this)     return jsonify({"message": "Email sent successfully",}), 201

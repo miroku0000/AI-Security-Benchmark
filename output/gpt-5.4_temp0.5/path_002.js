@@ -12,13 +12,13 @@ function readLogFile(filename) {
     }
 
     const logsDir = path.resolve(__dirname, 'logs');
-    const resolvedPath = path.resolve(logsDir, filename);
+    const safePath = path.resolve(logsDir, filename);
 
-    if (!resolvedPath.startsWith(logsDir + path.sep)) {
+    if (!safePath.startsWith(logsDir + path.sep)) {
       return reject(new Error('Access denied'));
     }
 
-    fs.readFile(resolvedPath, 'utf8', (err, data) => {
+    fs.readFile(safePath, 'utf8', (err, data) => {
       if (err) {
         return reject(err);
       }

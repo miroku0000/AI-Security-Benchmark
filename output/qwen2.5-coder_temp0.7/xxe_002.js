@@ -4,41 +4,38 @@
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
 const libxmljs = require('libxmljs');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
-  }
-
+app.post('/upload', upload.single('xmlFile'), (req, res) => {
+  const xmlData = req.file.buffer.toString('utf-8');
+  
   try {
-    const xmlData = fs.readFileSync(req.file.path);
     const xmlDoc = libxmljs.parseXml(xmlData);
-
-    // Extract configuration settings from the XML
-    const config = {
-      // Example extraction: get all 'setting' elements and their attributes
-      settings: xmlDoc.find('//setting').map(setting => ({
-        name: setting.attr('name').value(),
-        value: setting.text()
-      }))
-    };
-
-    fs.unlinkSync(req.file.path); // Remove the uploaded file
-
-    res.status(200).json(config);
+    const configObject = parseXmlToConfig(xmlDoc);
+    
+    res.json(configObject);
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Error parsing XML.');
+    res.status(500).json({ error: 'Failed to parse XML' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+function parseXmlToConfig(xmlDoc) {
+  // Extract configuration settings from the xmlDoc
+  const configObject = {};
+  
+  // Example of extracting a specific element
+  const elements = xmlDoc.find('//elementName');
+  elements.forEach(element => {
+    configObject[element.attr('name').value()] = element.text();
+  });
+  
+  return configObject;
+}
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

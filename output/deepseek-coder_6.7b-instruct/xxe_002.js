@@ -6,21 +6,24 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const xml2js = require('xml2js');
 const fs = require('fs');
-
 const app = express();
-app.use(bodyParser.text({ type: 'application/xml' })); // Use text middleware for parsing XML
+app.use(bodyParser.text({ type: 'application/xml' }));
 
-// POST endpoint to receive and parse the uploaded XML file
 app.post('/parseXML', (req, res) => {
-    xml2js.parseString(req.body, (err, result) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error parsing XML');
-        }
-        
-        // Return the parsed XML as JSON object in the response
-        res.json(result);
-    });
+  const parser = new xml2js.Parser({
+    trim: true,
+    explicitArray: false,
+    mergeAttrs: true,
+    explicitRoot: false
+  });
+  
+  parser.parseString(req.body, (err, result) => {
+    if (err) {
+      res.status(400).send({ error: 'Failed to parse XML' });
+    } else {
+      res.json(result);
+    }
+  });
 });
 
 app.listen(3000, () => console.log('Server running on port 3000'));

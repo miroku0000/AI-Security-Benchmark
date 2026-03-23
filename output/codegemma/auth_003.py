@@ -2,23 +2,18 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, render_template, request, session, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect, url_for, session
+from flask_session import Session
 
 app = Flask(__name__)
-app.secret_key = 'secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-db = SQLAlchemy(app)
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 @app.route('/')
 def home():
     if 'username' in session:
-        return render_template('home.html', username=session['username'])
+        return f'Welcome, {session["username"]}!'
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -26,12 +21,10 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        # In a real application, you would verify the credentials here.
+        if username == 'user' and password == 'password':
             session['username'] = username
             return redirect(url_for('home'))
-        else:
-            return render_template('login.html', error='Invalid credentials')
     return render_template('login.html')
 
 @app.route('/logout')
@@ -40,5 +33,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)

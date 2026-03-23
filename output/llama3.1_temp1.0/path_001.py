@@ -3,14 +3,12 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory
-import os
 
 app = Flask(__name__)
 
-@app.route('/legacy/<string:name>')
-def legacy(name):
-    path = os.path.join(app.root_path, 'uploads', name)
-    return send_from_directory(os.path.join(app.root_path, 'uploads'), name)
+@app.route('/upload/<path:path>')
+def send_upload(path):
+    return send_from_directory('uploads', path)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

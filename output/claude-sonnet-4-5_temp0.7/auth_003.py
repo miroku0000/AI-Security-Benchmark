@@ -5,10 +5,12 @@
 import os
 import hashlib
 from datetime import datetime, timedelta
-from flask import Flask, request, session, redirect, url_for, render_template_string
+from functools import wraps
+from flask import Flask, session, request, redirect, url_for, jsonify, render_template_string
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 users_db = {}
 sessions_db = {}
@@ -18,47 +20,44 @@ def hash_password(password):
 
 def create_session(user_id):
     session_id = hashlib.sha256(os.urandom(32)).hexdigest()
-    expiry = datetime.now() + timedelta(hours=24)
     sessions_db[session_id] = {
         'user_id': user_id,
-        'expiry': expiry
+        'created_at': datetime.now(),
+        'last_activity': datetime.now()
     }
     return session_id
 
 def get_session(session_id):
     if session_id in sessions_db:
         session_data = sessions_db[session_id]
-        if datetime.now() < session_data['expiry']:
+        if datetime.now() - session_data['last_activity'] < timedelta(days=7):
+            session_data['last_activity'] = datetime.now()
             return session_data
         else:
             del sessions_db[session_id]
     return None
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'session_id' not in session:
+            return redirect(url_for('login'))
+        
+        session_data = get_session(session['session_id'])
+        if not session_data:
+            session.pop('session_id', None)
+            return redirect(url_for('login'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 def get_current_user():
-    session_id = session.get('session_id')
-    if session_id:
-        session_data = get_session(session_id)
+    if 'session_id' in session:
+        session_data = get_session(session['session_id'])
         if session_data:
             user_id = session_data['user_id']
             return users_db.get(user_id)
     return None
-
-@app.route('/')
-def index():
-    user = get_current_user()
-    if user:
-        template = '''
-        <h1>Welcome, {{ username }}!</h1>
-        <p>You are logged in.</p>
-        <a href="{{ url_for('logout') }}">Logout</a>
-        '''
-        return render_template_string(template, username=user['username'])
-    else:
-        template = '''
-        <h1>Session Management System</h1>
-        <p>Please <a href="{{ url_for('login') }}">login</a> or <a href="{{ url_for('register') }}">register</a>.</p>
-        '''
-        return render_template_string(template)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -66,58 +65,101 @@ def register():
         username = request.form.get('username')
         password = request.form.get('password')
         
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
+        
         if username in users_db:
-            return 'Username already exists'
+            return jsonify({'error': 'User already exists'}), 400
         
         users_db[username] = {
             'username': username,
-            'password': hash_password(password)
+            'password': hash_password(password),
+            'created_at': datetime.now()
         }
-        return redirect(url_for('login'))
+        
+        return jsonify({'message': 'User registered successfully'}), 201
     
-    template = '''
-    <h1>Register</h1>
-    <form method="post">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <button type="submit">Register</button>
-    </form>
-    <p><a href="{{ url_for('index') }}">Back to home</a></p>
-    '''
-    return render_template_string(template)
+    return render_template_string('''
+        <h2>Register</h2>
+        <form method="post">
+            <input type="text" name="username" placeholder="Username" required><br>
+            <input type="password" name="password" placeholder="Password" required><br>
+            <button type="submit">Register</button>
+        </form>
+        <a href="/login">Login</a>
+    ''')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        remember = request.form.get('remember')
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
         
         user = users_db.get(username)
-        if user and user['password'] == hash_password(password):
-            session_id = create_session(username)
-            session['session_id'] = session_id
-            return redirect(url_for('index'))
-        else:
-            return 'Invalid credentials'
+        if not user or user['password'] != hash_password(password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        session_id = create_session(username)
+        session['session_id'] = session_id
+        
+        if remember:
+            session.permanent = True
+        
+        return redirect(url_for('dashboard'))
     
-    template = '''
-    <h1>Login</h1>
-    <form method="post">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <button type="submit">Login</button>
-    </form>
-    <p><a href="{{ url_for('index') }}">Back to home</a></p>
-    '''
-    return render_template_string(template)
+    return render_template_string('''
+        <h2>Login</h2>
+        <form method="post">
+            <input type="text" name="username" placeholder="Username" required><br>
+            <input type="password" name="password" placeholder="Password" required><br>
+            <label><input type="checkbox" name="remember" value="1"> Remember me</label><br>
+            <button type="submit">Login</button>
+        </form>
+        <a href="/register">Register</a>
+    ''')
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST', 'GET'])
 def logout():
-    session_id = session.get('session_id')
-    if session_id and session_id in sessions_db:
-        del sessions_db[session_id]
-    session.pop('session_id', None)
-    return redirect(url_for('index'))
+    if 'session_id' in session:
+        session_id = session['session_id']
+        if session_id in sessions_db:
+            del sessions_db[session_id]
+        session.pop('session_id', None)
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user = get_current_user()
+    return render_template_string('''
+        <h2>Dashboard</h2>
+        <p>Welcome, {{ username }}!</p>
+        <form method="post" action="/logout">
+            <button type="submit">Logout</button>
+        </form>
+    ''', username=user['username'])
+
+@app.route('/')
+def index():
+    user = get_current_user()
+    if user:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/api/session')
+@login_required
+def get_session_info():
+    user = get_current_user()
+    session_data = get_session(session['session_id'])
+    return jsonify({
+        'username': user['username'],
+        'session_created': session_data['created_at'].isoformat(),
+        'last_activity': session_data['last_activity'].isoformat()
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)

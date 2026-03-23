@@ -7,39 +7,37 @@ import re
 
 app = Flask(__name__)
 
-_ALLOWED_TAGS = {"b", "strong", "i", "em", "br"}
-_TAG_RE = re.compile(r"</?([a-zA-Z0-9]+)(\s[^>]*)?>", re.IGNORECASE)
+ALLOWED_TAGS = {"b", "strong", "i", "em", "br"}
+TAG_RE = re.compile(r"</?([a-zA-Z0-9]+)(\s[^>]*)?>", re.IGNORECASE)
 
-def sanitize_basic_formatting(user_html: str) -> str:
-    if not user_html:
+def sanitize_basic_formatting(text: str) -> str:
+    if not text:
         return ""
-    s = user_html.replace("\r\n", "\n").replace("\r", "\n")
-    s = escape(s)
-    s = s.replace("&lt;", "<").replace("&gt;", ">")
-    def repl(m):
+    s = escape(text)
+
+    s = s.replace("&lt;br&gt;", "<br>").replace("&lt;br/&gt;", "<br>").replace("&lt;br /&gt;", "<br>")
+
+    def _unescape_allowed(m):
         tag = (m.group(1) or "").lower()
-        if tag in _ALLOWED_TAGS:
-            full = m.group(0)
-            if tag == "br":
-                return "<br>"
-            if full.startswith("</"):
-                return f"</{tag}>"
-            return f"<{tag}>"
-        return escape(m.group(0))
-    s = _TAG_RE.sub(repl, s)
+        full = m.group(0)
+        if tag in ALLOWED_TAGS:
+            return full.replace("&lt;", "<").replace("&gt;", ">")
+        return full
+
+    s = TAG_RE.sub(_unescape_allowed, s)
     return s
 
-@app.route("/dashboard")
+@app.get("/dashboard")
 def dashboard():
     name = request.args.get("name", "").strip() or "Guest"
-    bio_raw = request.args.get("bio", "").strip()
+    bio = request.args.get("bio", "").strip()
     location = request.args.get("location", "").strip()
-    status_raw = request.args.get("status", "").strip()
+    status = request.args.get("status", "").strip()
 
     safe_name = escape(name)
-    safe_location = escape(location)
-    safe_bio = sanitize_basic_formatting(bio_raw)
-    safe_status = sanitize_basic_formatting(status_raw)
+    safe_location = escape(location) if location else ""
+    safe_bio = sanitize_basic_formatting(bio)
+    safe_status = sanitize_basic_formatting(status)
 
     template = """
     <!doctype html>
@@ -50,12 +48,12 @@ def dashboard():
       <title>Welcome Dashboard</title>
       <style>
         :root{
-          --bg0:#0b1020;
-          --bg1:#0f1730;
-          --card:#121b36cc;
-          --card2:#0f1730cc;
-          --text:#e9ecf5;
-          --muted:#aab3d6;
+          --bg1:#0b1220;
+          --bg2:#0f1b33;
+          --card:#0f1a2e;
+          --card2:#0c1527;
+          --text:#e8eefc;
+          --muted:#a9b7d6;
           --accent:#7c5cff;
           --accent2:#2dd4bf;
           --border:rgba(255,255,255,.10);
@@ -69,8 +67,7 @@ def dashboard():
           background:
             radial-gradient(1200px 600px at 15% 10%, rgba(124,92,255,.35), transparent 60%),
             radial-gradient(900px 500px at 85% 20%, rgba(45,212,191,.25), transparent 55%),
-            radial-gradient(900px 700px at 50% 90%, rgba(255,255,255,.06), transparent 60%),
-            linear-gradient(180deg, var(--bg0), var(--bg1));
+            linear-gradient(180deg, var(--bg1), var(--bg2));
           min-height:100vh;
           display:flex;
           align-items:center;
@@ -80,7 +77,7 @@ def dashboard():
         .wrap{
           width:min(980px, 100%);
           display:grid;
-          grid-template-columns: 1.1fr .9fr;
+          grid-template-columns: 1.2fr .8fr;
           gap:18px;
         }
         @media (max-width: 860px){
@@ -92,255 +89,193 @@ def dashboard():
           border-radius:18px;
           box-shadow: var(--shadow);
           overflow:hidden;
+        }
+        .hero{
+          padding:26px 26px 18px 26px;
           position:relative;
         }
-        .card::before{
+        .hero:before{
           content:"";
           position:absolute;
           inset:-2px;
-          background: radial-gradient(600px 220px at 20% 0%, rgba(124,92,255,.25), transparent 60%),
-                      radial-gradient(520px 220px at 80% 0%, rgba(45,212,191,.18), transparent 60%);
+          background:
+            radial-gradient(600px 220px at 20% 0%, rgba(124,92,255,.35), transparent 60%),
+            radial-gradient(520px 220px at 80% 0%, rgba(45,212,191,.25), transparent 60%);
           pointer-events:none;
           filter: blur(0px);
+          opacity:.9;
         }
-        .card > .inner{
-          position:relative;
-          padding:22px 22px 20px;
-          background: rgba(10,14,30,.35);
-          backdrop-filter: blur(10px);
-        }
-        .header{
+        .hero > *{position:relative}
+        .top{
           display:flex;
-          align-items:flex-start;
+          align-items:center;
           justify-content:space-between;
           gap:14px;
-          margin-bottom:14px;
         }
-        .title{
-          display:flex;
-          flex-direction:column;
-          gap:6px;
-        }
-        .kicker{
-          font-size:12px;
-          letter-spacing:.12em;
-          text-transform:uppercase;
-          color:var(--muted);
-        }
-        h1{
-          margin:0;
-          font-size:28px;
-          line-height:1.15;
-        }
-        .pill{
+        .badge{
           display:inline-flex;
           align-items:center;
-          gap:8px;
+          gap:10px;
           padding:10px 12px;
           border-radius:999px;
-          border:1px solid var(--border);
-          background: rgba(255,255,255,.04);
+          background: rgba(255,255,255,.06);
+          border:1px solid rgba(255,255,255,.10);
           color:var(--muted);
           font-size:13px;
-          white-space:nowrap;
+          letter-spacing:.2px;
         }
         .dot{
           width:10px;height:10px;border-radius:50%;
           background: linear-gradient(180deg, var(--accent), var(--accent2));
-          box-shadow: 0 0 0 4px rgba(124,92,255,.12);
+          box-shadow: 0 0 0 4px rgba(124,92,255,.15);
+        }
+        .title{
+          margin:14px 0 6px 0;
+          font-size:34px;
+          line-height:1.15;
+          letter-spacing:-.6px;
+        }
+        .subtitle{
+          margin:0;
+          color:var(--muted);
+          font-size:15px;
+          line-height:1.6;
         }
         .grid{
           display:grid;
           grid-template-columns: 1fr 1fr;
-          gap:12px;
-          margin-top:14px;
+          gap:14px;
+          padding:18px 26px 26px 26px;
+          background: rgba(0,0,0,.10);
+          border-top:1px solid rgba(255,255,255,.08);
         }
-        @media (max-width: 520px){
+        @media (max-width: 560px){
           .grid{grid-template-columns:1fr}
         }
         .panel{
-          border:1px solid var(--border);
-          background: rgba(255,255,255,.03);
+          background: rgba(15,26,46,.55);
+          border:1px solid rgba(255,255,255,.10);
           border-radius:14px;
-          padding:14px 14px 12px;
+          padding:14px 14px 12px 14px;
         }
         .label{
-          font-size:12px;
           color:var(--muted);
-          letter-spacing:.08em;
+          font-size:12px;
           text-transform:uppercase;
-          margin-bottom:8px;
+          letter-spacing:.12em;
+          margin:0 0 8px 0;
         }
         .value{
-          font-size:14px;
-          line-height:1.55;
+          margin:0;
+          font-size:15px;
+          line-height:1.6;
           color:var(--text);
           word-wrap:break-word;
         }
-        .value b, .value strong{font-weight:700}
-        .value i, .value em{font-style:italic}
-        .value br{line-height:1.8}
+        .value b, .value strong{color:#ffffff}
+        .value i, .value em{color:#d7e2ff}
         .side{
-          display:flex;
-          flex-direction:column;
-          gap:18px;
+          padding:22px;
         }
-        .profile{
-          display:flex;
-          gap:14px;
-          align-items:center;
-        }
-        .avatar{
-          width:54px;height:54px;border-radius:16px;
-          background:
-            radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.35), transparent 60%),
-            linear-gradient(135deg, rgba(124,92,255,.9), rgba(45,212,191,.75));
-          border:1px solid rgba(255,255,255,.18);
-          box-shadow: 0 12px 30px rgba(0,0,0,.35);
-          flex:0 0 auto;
-        }
-        .meta{
-          display:flex;
-          flex-direction:column;
-          gap:4px;
-          min-width:0;
-        }
-        .meta .name{
+        .side h3{
+          margin:0 0 10px 0;
           font-size:16px;
-          font-weight:700;
-          overflow:hidden;
-          text-overflow:ellipsis;
-          white-space:nowrap;
+          letter-spacing:-.2px;
         }
-        .meta .sub{
-          font-size:13px;
+        .side p{
+          margin:0 0 14px 0;
           color:var(--muted);
-          overflow:hidden;
-          text-overflow:ellipsis;
-          white-space:nowrap;
+          font-size:14px;
+          line-height:1.6;
         }
-        .cta{
+        .hint{
+          background: rgba(255,255,255,.06);
+          border:1px solid rgba(255,255,255,.10);
+          border-radius:14px;
+          padding:14px;
+        }
+        .hint code{
+          display:block;
+          white-space:pre-wrap;
+          word-break:break-word;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-size:12px;
+          color:#dbe7ff;
+        }
+        .footer{
+          margin-top:14px;
           display:flex;
           gap:10px;
           flex-wrap:wrap;
-          margin-top:10px;
-        }
-        .btn{
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          gap:8px;
-          padding:10px 12px;
-          border-radius:12px;
-          border:1px solid var(--border);
-          background: rgba(255,255,255,.04);
-          color:var(--text);
-          text-decoration:none;
-          font-size:13px;
-        }
-        .btn.primary{
-          background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(45,212,191,.75));
-          border-color: rgba(255,255,255,.18);
-          color: #0b1020;
-          font-weight:700;
-        }
-        .hint{
-          margin-top:12px;
-          font-size:12px;
           color:var(--muted);
-          line-height:1.5;
+          font-size:12px;
         }
-        .hint code{
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-          font-size: 11px;
-          color: rgba(233,236,245,.92);
-          background: rgba(255,255,255,.06);
-          border: 1px solid rgba(255,255,255,.10);
-          padding: 2px 6px;
-          border-radius: 8px;
+        .pill{
+          padding:7px 10px;
+          border-radius:999px;
+          border:1px solid rgba(255,255,255,.10);
+          background: rgba(255,255,255,.05);
         }
       </style>
     </head>
     <body>
       <div class="wrap">
         <section class="card">
-          <div class="inner">
-            <div class="header">
-              <div class="title">
-                <div class="kicker">Welcome back</div>
-                <h1>{{ safe_name }}</h1>
-              </div>
-              <div class="pill" title="Session status">
-                <span class="dot"></span>
-                <span>Dashboard active</span>
-              </div>
+          <div class="hero">
+            <div class="top">
+              <div class="badge"><span class="dot"></span> Welcome Dashboard</div>
+              {% if location %}
+                <div class="badge" title="Location">📍 {{ location }}</div>
+              {% else %}
+                <div class="badge" title="Location">📍 Not set</div>
+              {% endif %}
             </div>
+            <h1 class="title">Hello, {{ name }}.</h1>
+            <p class="subtitle">Here’s your personalized snapshot. You can format your bio and status with <b>&lt;b&gt;</b>/<b>&lt;strong&gt;</b>, <i>&lt;i&gt;</i>/<i>&lt;em&gt;</i>, and <b>&lt;br&gt;</b>.</p>
+          </div>
 
-            <div class="grid">
-              <div class="panel">
-                <div class="label">Bio</div>
-                <div class="value">{{ safe_bio|safe if safe_bio else "Add a bio using the <b>bio</b> query parameter."|safe }}</div>
-              </div>
-              <div class="panel">
-                <div class="label">Status</div>
-                <div class="value">{{ safe_status|safe if safe_status else "Set a custom status with the <i>status</i> query parameter."|safe }}</div>
-              </div>
-              <div class="panel">
-                <div class="label">Location</div>
-                <div class="value">{{ safe_location if safe_location else "Unknown" }}</div>
-              </div>
-              <div class="panel">
-                <div class="label">Quick tips</div>
-                <div class="value">
-                  You can use <b>&lt;b&gt;</b>, <i>&lt;i&gt;</i>, and <b>&lt;br&gt;</b> in bio/status.<br>
-                  Example: <code>?name=Sam&amp;bio=&lt;b&gt;Builder&lt;/b&gt;&amp;status=Shipping%20&lt;i&gt;today&lt;/i&gt;</code>
-                </div>
-              </div>
+          <div class="grid">
+            <div class="panel">
+              <p class="label">Bio</p>
+              <p class="value">{% if bio %}{{ bio|safe }}{% else %}<span style="color:var(--muted)">Add a bio via <code style="display:inline; padding:2px 6px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);">?bio=...</code></span>{% endif %}</p>
+            </div>
+            <div class="panel">
+              <p class="label">Status</p>
+              <p class="value">{% if status %}{{ status|safe }}{% else %}<span style="color:var(--muted)">Set a status via <code style="display:inline; padding:2px 6px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);">?status=...</code></span>{% endif %}</p>
+            </div>
+            <div class="panel">
+              <p class="label">Name</p>
+              <p class="value">{{ name }}</p>
+            </div>
+            <div class="panel">
+              <p class="label">Location</p>
+              <p class="value">{% if location %}{{ location }}{% else %}<span style="color:var(--muted)">Not provided</span>{% endif %}</p>
             </div>
           </div>
         </section>
 
-        <aside class="side">
-          <section class="card">
-            <div class="inner">
-              <div class="profile">
-                <div class="avatar" aria-hidden="true"></div>
-                <div class="meta">
-                  <div class="name">{{ safe_name }}</div>
-                  <div class="sub">{{ safe_location if safe_location else "No location set" }}</div>
-                </div>
-              </div>
-              <div class="cta">
-                <a class="btn primary" href="/dashboard?name={{ safe_name|urlencode }}&location={{ safe_location|urlencode }}&bio={{ (bio_raw or '')|urlencode }}&status={{ (status_raw or '')|urlencode }}">Refresh</a>
-                <a class="btn" href="/dashboard">Reset</a>
-              </div>
-              <div class="hint">
-                Data is read from query parameters: <code>name</code>, <code>bio</code>, <code>location</code>, <code>status</code>.
-              </div>
-            </div>
-          </section>
-
-          <section class="card">
-            <div class="inner">
-              <div class="label">Your status preview</div>
-              <div class="value" style="font-size:15px">
-                {{ safe_status|safe if safe_status else "No status set." }}
-              </div>
-            </div>
-          </section>
+        <aside class="card side">
+          <h3>Try it</h3>
+          <p>Pass values as query parameters. Basic formatting is supported in <b>bio</b> and <b>status</b>.</p>
+          <div class="hint">
+            <code>/dashboard?name=Ada%20Lovelace&location=London&bio=%3Cb%3EMath%20pioneer%3C%2Fb%3E%3Cbr%3E%3Ci%3EFirst%20programmer%3C%2Fi%3E&status=%3Cstrong%3EBuilding%3C%2Fstrong%3E%20something%20new</code>
+          </div>
+          <div class="footer">
+            <span class="pill">Allowed: &lt;b&gt; &lt;strong&gt; &lt;i&gt; &lt;em&gt; &lt;br&gt;</span>
+            <span class="pill">Everything else is escaped</span>
+          </div>
         </aside>
       </div>
     </body>
     </html>
     """
+
     return render_template_string(
         template,
-        safe_name=safe_name,
-        safe_bio=safe_bio,
-        safe_location=safe_location,
-        safe_status=safe_status,
-        bio_raw=bio_raw,
-        status_raw=status_raw,
+        name=safe_name,
+        location=safe_location,
+        bio=safe_bio,
+        status=safe_status,
     )
 
 if __name__ == "__main__":

@@ -7,52 +7,57 @@ from functools import wraps
 
 import jwt
 from flask import Flask, jsonify, request, g
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 
 # ---- Config ----
-app.config["JWT_SECRET"] = "change-me"  # set from env in production
+app.config["JWT_SECRET"] = "change-me"  # set via env in production
 app.config["JWT_ALG"] = "HS256"
-app.config["JWT_ACCESS_TTL_MIN"] = 30
+app.config["JWT_EXP_MINUTES"] = 60
 app.config["JWT_ISSUER"] = "flask-api"
 app.config["JWT_AUDIENCE"] = "flask-api-users"
 
 # ---- Simple in-memory user store (replace with DB) ----
 USERS = {
-    "alice": {"id": 1, "username": "alice", "password": "password123", "roles": ["user"]},
-    "admin": {"id": 2, "username": "admin", "password": "admin123", "roles": ["admin"]},
+    "alice": {
+        "id": 1,
+        "username": "alice",
+        "password_hash": generate_password_hash("password123"),
+        "roles": ["user"],
+    },
+    "admin": {
+        "id": 2,
+        "username": "admin",
+        "password_hash": generate_password_hash("admin123"),
+        "roles": ["admin"],
+    },
 }
 
-
-def _now():
-    return datetime.now(timezone.utc)
-
-
-def create_access_token(user_id: int, username: str, roles=None):
-    roles = roles or []
-    iat = _now()
-    exp = iat + timedelta(minutes=app.config["JWT_ACCESS_TTL_MIN"])
+# ---- JWT helpers ----
+def create_access_token(user):
+    now = datetime.now(timezone.utc)
     payload = {
-        "sub": str(user_id),
-        "username": username,
-        "roles": roles,
-        "iat": int(iat.timestamp()),
-        "exp": int(exp.timestamp()),
+        "sub": str(user["id"]),
+        "username": user["username"],
+        "roles": user.get("roles", []),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=app.config["JWT_EXP_MINUTES"])).timestamp()),
         "iss": app.config["JWT_ISSUER"],
         "aud": app.config["JWT_AUDIENCE"],
-        "type": "access",
     }
     return jwt.encode(payload, app.config["JWT_SECRET"], algorithm=app.config["JWT_ALG"])
 
 
-def decode_token(token: str):
+def decode_token(token):
     return jwt.decode(
         token,
         app.config["JWT_SECRET"],
         algorithms=[app.config["JWT_ALG"]],
-        issuer=app.config["JWT_ISSUER"],
         audience=app.config["JWT_AUDIENCE"],
-        options={"require": ["exp", "iat", "sub"]},
+        issuer=app.config["JWT_ISSUER"],
+        options={"require": ["exp", "iat", "nbf", "iss", "aud", "sub"]},
     )
 
 
@@ -63,7 +68,7 @@ def get_bearer_token():
     parts = auth.split(None, 1)
     if len(parts) != 2 or parts[0].lower() != "bearer":
         return None
-    return parts[1].strip()
+    return parts[1].strip() or None
 
 
 def auth_required(fn):
@@ -73,16 +78,16 @@ def auth_required(fn):
         if not token:
             return jsonify({"error": "missing_token"}), 401
         try:
-            claims = decode_token(token)
+            payload = decode_token(token)
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "token_expired"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "invalid_token"}), 401
 
-        g.jwt = claims
-        g.user_id = int(claims.get("sub"))
-        g.username = claims.get("username")
-        g.roles = claims.get("roles", [])
+        g.jwt = payload
+        g.user_id = payload.get("sub")
+        g.username = payload.get("username")
+        g.roles = payload.get("roles", [])
         return fn(*args, **kwargs)
 
     return wrapper
@@ -103,22 +108,24 @@ def roles_required(*required_roles):
     return decorator
 
 
-@app.post("/auth/login")
+# ---- Routes ----
+@app.post("/login")
 def login():
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
 
     user = USERS.get(username)
-    if not user or user["password"] != password:
+    if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "invalid_credentials"}), 401
 
-    token = create_access_token(user["id"], user["username"], user.get("roles", []))
+    token = create_access_token(user)
     return jsonify(
         {
             "access_token": token,
             "token_type": "Bearer",
-            "expires_in": app.config["JWT_ACCESS_TTL_MIN"] * 60,
+            "expires_in": app.config["JWT_EXP_MINUTES"] * 60,
+            "user": {"id": user["id"], "username": user["username"], "roles": user.get("roles", [])},
         }
     )
 
@@ -126,25 +133,29 @@ def login():
 @app.get("/me")
 @auth_required
 def me():
-    return jsonify(
-        {
-            "id": g.user_id,
-            "username": g.username,
-            "roles": g.roles,
-            "claims": g.jwt,
-        }
-    )
+    return jsonify({"id": g.user_id, "username": g.username, "roles": g.roles})
 
 
 @app.get("/admin")
 @roles_required("admin")
-def admin_only():
+def admin():
     return jsonify({"ok": True, "message": f"Hello admin {g.username}"})
 
 
 @app.get("/health")
 def health():
-    return jsonify({"ok": True})
+    return jsonify({"status": "ok"})
+
+
+# ---- Error handlers ----
+@app.errorhandler(404)
+def not_found(_):
+    return jsonify({"error": "not_found"}), 404
+
+
+@app.errorhandler(405)
+def method_not_allowed(_):
+    return jsonify({"error": "method_not_allowed"}), 405
 
 
 if __name__ == "__main__":

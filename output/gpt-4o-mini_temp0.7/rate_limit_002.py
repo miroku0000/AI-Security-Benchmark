@@ -3,38 +3,38 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 import secrets
+import sqlite3
 import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(64), nullable=True)
+def send_reset_email(email, token):
+    reset_link = f"http://localhost:5000/reset_password?token={token}"
+    msg = MIMEText(f"Click the link to reset your password: {reset_link}")
+    msg['Subject'] = 'Password Reset'
+    msg['From'] = 'noreply@example.com'
+    msg['To'] = email
+
+    with smtplib.SMTP('localhost') as server:
+        server.send_message(msg)
+
+def store_token(email, token):
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)")
+    c.execute("INSERT INTO password_resets (email, token) VALUES (?, ?)", (email, token))
+    conn.commit()
+    conn.close()
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     email = request.json.get('email')
-    user = User.query.filter_by(email=email).first()
-    if user:
-        token = secrets.token_hex(32)
-        user.reset_token = token
-        db.session.commit()
-        send_reset_email(email, token)
-        return jsonify({"message": "Reset link sent!"}), 200
-    return jsonify({"message": "Email not found!"}), 404
-
-def send_reset_email(email, token):
-    reset_link = f'http://localhost:5000/reset/{token}'
-    with smtplib.SMTP('smtp.example.com', 587) as server:
-        server.starttls()
-        server.login('your_email@example.com', 'your_password')
-        server.sendmail('your_email@example.com', email, f'Subject: Password Reset\n\nClick here to reset your password: {reset_link}')
+    token = secrets.token_urlsafe(16)
+    store_token(email, token)
+    send_reset_email(email, token)
+    return jsonify({"message": "Reset link sent to your email"}), 200
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)

@@ -7,167 +7,288 @@ import re
 import mimetypes
 import unicodedata
 from pathlib import Path
-from urllib.parse import unquote
-
-from flask import Blueprint, current_app, abort, send_from_directory, request, make_response
+from flask import Flask, abort, send_from_directory, request, redirect, current_app
 from werkzeug.utils import safe_join
+from werkzeug.routing import BaseConverter
 
-legacy_uploads = Blueprint("legacy_uploads", __name__)
+def create_app():
+    app = Flask(__name__)
+    app.config.setdefault("UPLOADS_DIR", os.path.join(app.root_path, "uploads"))
+    app.config.setdefault("UPLOADS_LEGACY_REDIRECT", False)
+    app.config.setdefault("UPLOADS_CACHE_MAX_AGE", 3600)
+    app.config.setdefault("UPLOADS_ALLOW_DOTFILES", False)
+    app.config.setdefault("UPLOADS_ENABLE_LEGACY_LOOKUP", True)
+    app.config.setdefault("UPLOADS_LEGACY_PATTERNS", [
+        ("_legacy_space_to_underscore", None),
+        ("_legacy_underscore_to_space", None),
+        ("_legacy_plus_to_space", None),
+        ("_legacy_space_to_plus", None),
+        ("_legacy_percent_decode", None),
+        ("_legacy_percent_encode", None),
+        ("_legacy_normalize_unicode", None),
+        ("_legacy_strip_repeated_separators", None),
+        ("_legacy_strip_trailing_dots_spaces", None),
+        ("_legacy_casefold", None),
+        ("_legacy_remove_duplicate_ext", None),
+        ("_legacy_strip_leading_uuid_prefix", None),
+        ("_legacy_strip_leading_timestamp_prefix", None),
+    ])
 
-_DEFAULT_UPLOADS_DIR = "uploads"
+    register_uploads_legacy_support(app)
+    return app
 
+class UploadPathConverter(BaseConverter):
+    regex = r".+?"
 
-def _get_uploads_root():
-    root = current_app.config.get("UPLOADS_DIR") or current_app.config.get("UPLOAD_FOLDER") or _DEFAULT_UPLOADS_DIR
-    root = os.path.abspath(root)
-    return root
+def register_uploads_legacy_support(app: Flask):
+    app.url_map.converters["uploadpath"] = UploadPathConverter
 
+    @app.get("/uploads/<uploadpath:filename>")
+    def uploads_serve(filename):
+        uploads_dir = current_app.config["UPLOADS_DIR"]
+        allow_dotfiles = bool(current_app.config.get("UPLOADS_ALLOW_DOTFILES", False))
+        enable_legacy = bool(current_app.config.get("UPLOADS_ENABLE_LEGACY_LOOKUP", True))
+        do_redirect = bool(current_app.config.get("UPLOADS_LEGACY_REDIRECT", False))
+        cache_max_age = int(current_app.config.get("UPLOADS_CACHE_MAX_AGE", 3600))
 
-def _norm_unicode(s: str) -> str:
-    return unicodedata.normalize("NFKC", s)
+        filename = _normalize_request_path(filename)
 
+        if not allow_dotfiles and _contains_dotfile_segment(filename):
+            abort(404)
 
-def _sanitize_relpath(p: str) -> str:
-    p = unquote(p or "")
-    p = p.replace("\x00", "")
-    p = _norm_unicode(p)
-    p = p.lstrip("/\\")
+        direct = _resolve_safe_existing_path(uploads_dir, filename)
+        if direct:
+            return _send_upload_file(uploads_dir, direct, cache_max_age)
+
+        if not enable_legacy:
+            abort(404)
+
+        resolved = _legacy_resolve(uploads_dir, filename)
+        if not resolved:
+            abort(404)
+
+        if do_redirect:
+            return redirect(f"/uploads/{resolved}", code=301)
+
+        return _send_upload_file(uploads_dir, resolved, cache_max_age)
+
+def _send_upload_file(uploads_dir: str, relpath: str, cache_max_age: int):
+    directory = os.path.dirname(relpath)
+    basename = os.path.basename(relpath)
+    full_dir = safe_join(uploads_dir, directory) if directory else uploads_dir
+
+    guessed = mimetypes.guess_type(basename)[0]
+    resp = send_from_directory(full_dir, basename, mimetype=guessed, conditional=True, max_age=cache_max_age)
+    resp.headers.setdefault("X-Uploads-Legacy", "1" if request.path.rstrip("/") != f"/uploads/{relpath}".rstrip("/") else "0")
+    return resp
+
+def _normalize_request_path(p: str) -> str:
     p = p.replace("\\", "/")
-    p = re.sub(r"/{2,}", "/", p)
+    p = re.sub(r"/+", "/", p)
+    p = p.lstrip("/")
     return p
 
+def _contains_dotfile_segment(p: str) -> bool:
+    parts = [x for x in p.split("/") if x]
+    for seg in parts:
+        if seg.startswith("."):
+            return True
+    return False
 
-def _candidate_paths(relpath: str):
-    rel = _sanitize_relpath(relpath)
-    if not rel:
-        return
-
-    yield rel
-
-    if " " in rel:
-        yield rel.replace(" ", "_")
-    if "_" in rel:
-        yield rel.replace("_", " ")
-
-    rel2 = rel.replace("+", " ")
-    if rel2 != rel:
-        yield rel2
-        if " " in rel2:
-            yield rel2.replace(" ", "_")
-
-    rel3 = rel.replace("%20", " ")
-    if rel3 != rel:
-        yield rel3
-        if " " in rel3:
-            yield rel3.replace(" ", "_")
-
-    rel4 = re.sub(r"\s+", " ", rel)
-    if rel4 != rel:
-        yield rel4
-        if " " in rel4:
-            yield rel4.replace(" ", "_")
-
-    rel5 = rel.replace("..", ".")
-    if rel5 != rel:
-        yield rel5
-
-    base, ext = os.path.splitext(rel)
-    if ext:
-        yield base + ext.lower()
-        yield base + ext.upper()
-    else:
-        for e in current_app.config.get("LEGACY_UPLOADS_DEFAULT_EXTS", []):
-            if e and not e.startswith("."):
-                e = "." + e
-            if e:
-                yield rel + e
-
-    if "/" not in rel:
-        for prefix in current_app.config.get("LEGACY_UPLOADS_PREFIXES", ("", "uploads/", "upload/", "files/", "file/")):
-            if prefix:
-                yield _sanitize_relpath(prefix + rel)
-
-    legacy_map = current_app.config.get("LEGACY_UPLOADS_ALIASES", {})
-    if isinstance(legacy_map, dict):
-        mapped = legacy_map.get(rel)
-        if mapped:
-            yield _sanitize_relpath(mapped)
-
-
-def _resolve_existing(relpath: str):
-    root = _get_uploads_root()
-    tried = set()
-    for cand in _candidate_paths(relpath):
-        if not cand or cand in tried:
-            continue
-        tried.add(cand)
-        full = safe_join(root, cand)
-        if not full:
-            continue
-        if os.path.isfile(full):
-            directory = os.path.dirname(cand) if os.path.dirname(cand) else ""
-            filename = os.path.basename(cand)
-            return directory, filename, full
-        if os.path.isdir(full):
-            for index_name in current_app.config.get("LEGACY_UPLOADS_INDEX_FILES", ("index.html", "index.htm")):
-                idx = safe_join(root, cand, index_name)
-                if idx and os.path.isfile(idx):
-                    directory = cand
-                    filename = index_name
-                    return directory, filename, idx
+def _resolve_safe_existing_path(root: str, relpath: str):
+    try:
+        joined = safe_join(root, relpath)
+    except Exception:
+        return None
+    if not joined:
+        return None
+    if os.path.isdir(joined):
+        return None
+    if os.path.exists(joined):
+        return relpath
     return None
 
+def _legacy_resolve(root: str, requested: str):
+    candidates = _legacy_candidates(requested)
+    seen = set()
+    for cand in candidates:
+        if cand in seen:
+            continue
+        seen.add(cand)
+        found = _resolve_safe_existing_path(root, cand)
+        if found:
+            return found
 
-def _set_cache_headers(resp):
-    cache_control = current_app.config.get("LEGACY_UPLOADS_CACHE_CONTROL")
-    if cache_control:
-        resp.headers["Cache-Control"] = cache_control
-        return resp
-    resp.headers.setdefault("Cache-Control", "public, max-age=3600")
-    return resp
+    dir_part, base = os.path.split(requested)
+    if dir_part:
+        for cand in _legacy_candidates(base):
+            rel = f"{dir_part}/{cand}"
+            if rel in seen:
+                continue
+            seen.add(rel)
+            found = _resolve_safe_existing_path(root, rel)
+            if found:
+                return found
 
+    # As a last resort, attempt a case-insensitive match within the directory
+    # without allowing traversal.
+    try:
+        dir_fs = safe_join(root, dir_part) if dir_part else root
+    except Exception:
+        return None
+    if not dir_fs or not os.path.isdir(dir_fs):
+        return None
 
-def _add_content_disposition(resp, filename: str):
-    mode = current_app.config.get("LEGACY_UPLOADS_CONTENT_DISPOSITION")  # None | "inline" | "attachment"
-    if mode in ("inline", "attachment"):
-        resp.headers.setdefault("Content-Disposition", f'{mode}; filename="{filename}"')
-    return resp
+    target = base.casefold()
+    try:
+        for name in os.listdir(dir_fs):
+            if name.casefold() == target:
+                rel = f"{dir_part}/{name}" if dir_part else name
+                found = _resolve_safe_existing_path(root, rel)
+                if found:
+                    return found
+    except OSError:
+        return None
 
+    return None
 
-@legacy_uploads.route("/uploads/<path:legacy_path>", methods=["GET", "HEAD"])
-def serve_legacy_uploads(legacy_path):
-    resolved = _resolve_existing(legacy_path)
-    if not resolved:
-        abort(404)
+def _legacy_candidates(requested: str):
+    out = []
+    out.append(requested)
 
-    directory, filename, full = resolved
+    for name, _ in current_app.config.get("UPLOADS_LEGACY_PATTERNS", []):
+        fn = globals().get(name)
+        if callable(fn):
+            new_out = []
+            for s in out:
+                try:
+                    new_out.extend(fn(s))
+                except Exception:
+                    continue
+            out.extend(new_out)
 
-    cond = current_app.config.get("LEGACY_UPLOADS_CONDITIONAL", True)
-    etag = current_app.config.get("LEGACY_UPLOADS_ETAG", True)
-    max_age = current_app.config.get("LEGACY_UPLOADS_MAX_AGE")  # None uses Flask default
+    # Clean up and dedupe while preserving order
+    cleaned = []
+    seen = set()
+    for s in out:
+        s2 = _normalize_request_path(s)
+        if not s2 or s2 in seen:
+            continue
+        if "\x00" in s2:
+            continue
+        seen.add(s2)
+        cleaned.append(s2)
+    return cleaned
 
-    resp = send_from_directory(
-        directory=_get_uploads_root() if not directory else os.path.join(_get_uploads_root(), directory),
-        path=filename,
-        conditional=cond,
-        etag=etag,
-        max_age=max_age,
-    )
+def _legacy_space_to_underscore(s: str):
+    if " " not in s:
+        return []
+    return [s.replace(" ", "_")]
 
-    guessed = mimetypes.guess_type(full)[0]
-    if guessed and "Content-Type" not in resp.headers:
-        resp.headers["Content-Type"] = guessed
+def _legacy_underscore_to_space(s: str):
+    if "_" not in s:
+        return []
+    return [s.replace("_", " ")]
 
-    resp = _set_cache_headers(resp)
-    resp = _add_content_disposition(resp, filename)
+def _legacy_plus_to_space(s: str):
+    if "+" not in s:
+        return []
+    return [s.replace("+", " ")]
 
-    if request.method == "HEAD":
-        head = make_response(resp)
-        head.set_data(b"")
-        return head
+def _legacy_space_to_plus(s: str):
+    if " " not in s:
+        return []
+    return [s.replace(" ", "+")]
 
-    return resp
+def _legacy_percent_decode(s: str):
+    if "%" not in s:
+        return []
+    try:
+        from urllib.parse import unquote
+        decoded = unquote(s)
+        if decoded != s:
+            return [decoded]
+    except Exception:
+        pass
+    return []
 
+def _legacy_percent_encode(s: str):
+    if any(ch in s for ch in [" ", "+", "#", "?"]):
+        try:
+            from urllib.parse import quote
+            enc = quote(s, safe="/-._~")
+            if enc != s:
+                return [enc]
+        except Exception:
+            pass
+    return []
 
-def init_legacy_uploads(app, url_prefix=""):
-    app.register_blueprint(legacy_uploads, url_prefix=url_prefix)
+def _legacy_normalize_unicode(s: str):
+    nfc = unicodedata.normalize("NFC", s)
+    nfd = unicodedata.normalize("NFD", s)
+    out = []
+    if nfc != s:
+        out.append(nfc)
+    if nfd != s:
+        out.append(nfd)
+    return out
+
+def _legacy_strip_repeated_separators(s: str):
+    s2 = re.sub(r"[ _-]{2,}", lambda m: m.group(0)[0], s)
+    if s2 != s:
+        return [s2]
+    return []
+
+def _legacy_strip_trailing_dots_spaces(s: str):
+    parts = s.split("/")
+    changed = False
+    new_parts = []
+    for p in parts:
+        p2 = p.rstrip(" .")
+        if p2 != p:
+            changed = True
+        new_parts.append(p2)
+    s2 = "/".join(new_parts)
+    return [s2] if changed else []
+
+def _legacy_casefold(s: str):
+    parts = s.split("/")
+    out = []
+    lower = "/".join([p.lower() for p in parts])
+    upper = "/".join([p.upper() for p in parts])
+    if lower != s:
+        out.append(lower)
+    if upper != s:
+        out.append(upper)
+    return out
+
+def _legacy_remove_duplicate_ext(s: str):
+    base = os.path.basename(s)
+    dirp = os.path.dirname(s)
+    m = re.match(r"^(?P<stem>.+?)\.(?P<ext>[A-Za-z0-9]{1,10})\.(?P=ext)$", base)
+    if not m:
+        return []
+    new_base = f"{m.group('stem')}.{m.group('ext')}"
+    return [f"{dirp}/{new_base}" if dirp else new_base]
+
+def _legacy_strip_leading_uuid_prefix(s: str):
+    base = os.path.basename(s)
+    dirp = os.path.dirname(s)
+    m = re.match(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}[_-](.+)$", base)
+    if not m:
+        return []
+    new_base = m.group(1)
+    return [f"{dirp}/{new_base}" if dirp else new_base]
+
+def _legacy_strip_leading_timestamp_prefix(s: str):
+    base = os.path.basename(s)
+    dirp = os.path.dirname(s)
+    m = re.match(r"^(?:19|20)\d{2}[01]\d[0-3]\d[_-](?:[0-2]\d[0-5]\d[0-5]\d[_-])?(.+)$", base)
+    if not m:
+        return []
+    new_base = m.group(1)
+    return [f"{dirp}/{new_base}" if dirp else new_base]
+
+if __name__ == "__main__":
+    app = create_app()
+    app.run(debug=True)

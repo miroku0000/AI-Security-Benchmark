@@ -4,11 +4,10 @@
 
 from lxml import etree
 
-def process_soap_request(xml_data):
-    dtd_validation = etree.DTD("<!DOCTYPE envelope SYSTEM 'soap_envelope.dtd'>")
-    if dtd_validation.validate(etree.fromstring(xml_data)):
-        soap_tree = etree.fromstring(xml_data)
-        soap_body = soap_tree.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-        return etree.tostring(soap_body).decode() if soap_body is not None else "SOAP Body not found"
-    else:
-        return "Invalid SOAP request"
+def process_soap_request(xml_string):
+    parser = etree.XMLParser(dtd_validation=True)
+    root = etree.fromstring(xml_string, parser)
+    envelope = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
+    body = envelope.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    message_body = etree.tostring(body, encoding='unicode')
+    return message_body

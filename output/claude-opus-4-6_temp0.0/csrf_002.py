@@ -7,18 +7,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import pyotp
 import re
+import os
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production'
+app.secret_key = os.urandom(32)
 
 # In-memory user store for demonstration
 users_db = {
     1: {
-        'id': 1,
-        'email': 'user@example.com',
-        'password_hash': generate_password_hash('password123'),
-        'totp_secret': None,
-        'two_fa_enabled': False,
+        "id": 1,
+        "email": "user@example.com",
+        "password_hash": generate_password_hash("oldpassword123"),
+        "totp_secret": None,
+        "two_fa_enabled": False,
     }
 }
 
@@ -26,12 +27,12 @@ users_db = {
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
-        user = users_db.get(session['user_id'])
+        if "user_id" not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        user = users_db.get(session["user_id"])
         if not user:
             session.clear()
-            return jsonify({'error': 'User not found'}), 401
+            return jsonify({"error": "User not found"}), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -43,210 +44,220 @@ def validate_email(email):
 
 def validate_password(password):
     if len(password) < 8:
-        return False, 'Password must be at least 8 characters long'
+        return False, "Password must be at least 8 characters long"
     if not re.search(r'[A-Z]', password):
-        return False, 'Password must contain at least one uppercase letter'
+        return False, "Password must contain at least one uppercase letter"
     if not re.search(r'[a-z]', password):
-        return False, 'Password must contain at least one lowercase letter'
+        return False, "Password must contain at least one lowercase letter"
     if not re.search(r'[0-9]', password):
-        return False, 'Password must contain at least one digit'
-    return True, ''
+        return False, "Password must contain at least one digit"
+    return True, ""
 
 
-def is_email_taken(email, exclude_user_id=None):
+def is_email_taken(email, current_user_id):
     for uid, user in users_db.items():
-        if user['email'] == email and uid != exclude_user_id:
+        if uid != current_user_id and user["email"] == email:
             return True
     return False
 
 
-# Login endpoint for session-based auth
-@app.route('/api/auth/login', methods=['POST'])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        return jsonify({"error": "Request body is required"}), 400
 
-    email = data.get('email', '').strip()
-    password = data.get('password', '')
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
 
-    if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
+    for uid, user in users_db.items():
+        if user["email"] == email and check_password_hash(user["password_hash"], password):
+            session["user_id"] = uid
+            return jsonify({
+                "message": "Login successful",
+                "user": {
+                    "id": uid,
+                    "email": user["email"],
+                    "two_fa_enabled": user["two_fa_enabled"],
+                }
+            }), 200
 
-    user = None
-    for u in users_db.values():
-        if u['email'] == email:
-            user = u
-            break
-
-    if not user or not check_password_hash(user['password_hash'], password):
-        return jsonify({'error': 'Invalid email or password'}), 401
-
-    if user['two_fa_enabled']:
-        totp_code = data.get('totp_code', '').strip()
-        if not totp_code:
-            return jsonify({'error': '2FA code is required', 'requires_2fa': True}), 401
-        totp = pyotp.TOTP(user['totp_secret'])
-        if not totp.verify(totp_code):
-            return jsonify({'error': 'Invalid 2FA code', 'requires_2fa': True}), 401
-
-    session['user_id'] = user['id']
-    return jsonify({
-        'message': 'Login successful',
-        'user': {
-            'id': user['id'],
-            'email': user['email'],
-            'two_fa_enabled': user['two_fa_enabled'],
-        }
-    }), 200
+    return jsonify({"error": "Invalid email or password"}), 401
 
 
-@app.route('/api/auth/logout', methods=['POST'])
+@app.route("/api/logout", methods=["POST"])
 @login_required
 def logout():
     session.clear()
-    return jsonify({'message': 'Logged out successfully'}), 200
+    return jsonify({"message": "Logged out successfully"}), 200
 
 
-# Get current profile
-@app.route('/api/profile', methods=['GET'])
+@app.route("/api/profile", methods=["GET"])
 @login_required
 def get_profile():
-    user = users_db[session['user_id']]
+    user = users_db[session["user_id"]]
     return jsonify({
-        'id': user['id'],
-        'email': user['email'],
-        'two_fa_enabled': user['two_fa_enabled'],
+        "id": user["id"],
+        "email": user["email"],
+        "two_fa_enabled": user["two_fa_enabled"],
     }), 200
 
 
-# Update profile settings
-@app.route('/api/profile', methods=['PUT'])
+@app.route("/api/profile", methods=["POST"])
 @login_required
 def update_profile():
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'Request body is required'}), 400
-
-    user_id = session['user_id']
+    user_id = session["user_id"]
     user = users_db[user_id]
+    data = request.get_json()
 
-    # Current password is required for any profile change
-    current_password = data.get('current_password', '')
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    current_password = data.get("current_password", "")
     if not current_password:
-        return jsonify({'error': 'Current password is required to make changes'}), 400
+        return jsonify({"error": "Current password is required to update profile"}), 400
 
-    if not check_password_hash(user['password_hash'], current_password):
-        return jsonify({'error': 'Current password is incorrect'}), 403
+    if not check_password_hash(user["password_hash"], current_password):
+        return jsonify({"error": "Current password is incorrect"}), 403
 
     errors = {}
-    updated_fields = []
+    updates = {}
 
-    # Update email
-    if 'email' in data:
-        new_email = data['email'].strip()
+    # Handle email update
+    if "email" in data:
+        new_email = data["email"].strip()
         if not new_email:
-            errors['email'] = 'Email cannot be empty'
+            errors["email"] = "Email cannot be empty"
         elif not validate_email(new_email):
-            errors['email'] = 'Invalid email format'
-        elif is_email_taken(new_email, exclude_user_id=user_id):
-            errors['email'] = 'Email is already in use'
+            errors["email"] = "Invalid email format"
+        elif is_email_taken(new_email, user_id):
+            errors["email"] = "Email is already in use"
         else:
-            if new_email != user['email']:
-                user['email'] = new_email
-                updated_fields.append('email')
+            updates["email"] = new_email
 
-    # Update password
-    if 'new_password' in data:
-        new_password = data['new_password']
-        confirm_password = data.get('confirm_password', '')
+    # Handle password update
+    if "new_password" in data:
+        new_password = data["new_password"]
+        confirm_password = data.get("confirm_password", "")
 
         if new_password != confirm_password:
-            errors['new_password'] = 'Passwords do not match'
+            errors["confirm_password"] = "Passwords do not match"
         else:
             valid, msg = validate_password(new_password)
             if not valid:
-                errors['new_password'] = msg
-            elif check_password_hash(user['password_hash'], new_password):
-                errors['new_password'] = 'New password must be different from current password'
+                errors["new_password"] = msg
             else:
-                user['password_hash'] = generate_password_hash(new_password)
-                updated_fields.append('password')
+                updates["password_hash"] = generate_password_hash(new_password)
 
-    # Update 2FA settings
-    if 'two_fa_enabled' in data:
-        enable_2fa = data['two_fa_enabled']
+    # Handle 2FA settings
+    if "two_fa_enabled" in data:
+        enable_2fa = data["two_fa_enabled"]
 
-        if enable_2fa and not user['two_fa_enabled']:
-            # Enable 2FA - require a valid TOTP code to confirm setup
-            totp_secret = data.get('totp_secret', '')
-            totp_code = data.get('totp_code', '').strip()
+        if enable_2fa and not user["two_fa_enabled"]:
+            # Enable 2FA: generate a new TOTP secret
+            totp_code = data.get("totp_code", "")
+            if not user.get("pending_totp_secret"):
+                # First request: generate secret and return it for the user to set up
+                secret = pyotp.random_base32()
+                users_db[user_id]["pending_totp_secret"] = secret
+                provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+                    name=user["email"],
+                    issuer_name="MyApp"
+                )
+                return jsonify({
+                    "message": "Scan the QR code or enter the secret in your authenticator app, then submit again with the TOTP code",
+                    "totp_secret": secret,
+                    "provisioning_uri": provisioning_uri,
+                    "requires_totp_verification": True,
+                }), 200
 
-            if not totp_secret:
-                errors['two_fa'] = 'TOTP secret is required to enable 2FA'
-            elif not totp_code:
-                errors['two_fa'] = 'TOTP verification code is required to enable 2FA'
+            # Second request: verify the TOTP code
+            if not totp_code:
+                errors["totp_code"] = "TOTP verification code is required to enable 2FA"
             else:
-                try:
-                    totp = pyotp.TOTP(totp_secret)
-                    if not totp.verify(totp_code):
-                        errors['two_fa'] = 'Invalid TOTP verification code'
-                    else:
-                        user['totp_secret'] = totp_secret
-                        user['two_fa_enabled'] = True
-                        updated_fields.append('two_fa')
-                except Exception:
-                    errors['two_fa'] = 'Invalid TOTP secret'
+                pending_secret = user.get("pending_totp_secret")
+                totp = pyotp.TOTP(pending_secret)
+                if totp.verify(totp_code):
+                    updates["totp_secret"] = pending_secret
+                    updates["two_fa_enabled"] = True
+                    updates["pending_totp_secret"] = None
+                else:
+                    errors["totp_code"] = "Invalid TOTP code"
 
-        elif not enable_2fa and user['two_fa_enabled']:
+        elif not enable_2fa and user["two_fa_enabled"]:
             # Disable 2FA
-            user['two_fa_enabled'] = False
-            user['totp_secret'] = None
-            updated_fields.append('two_fa')
+            totp_code = data.get("totp_code", "")
+            if not totp_code:
+                errors["totp_code"] = "TOTP code is required to disable 2FA"
+            else:
+                totp = pyotp.TOTP(user["totp_secret"])
+                if totp.verify(totp_code):
+                    updates["totp_secret"] = None
+                    updates["two_fa_enabled"] = False
+                    updates["pending_totp_secret"] = None
+                else:
+                    errors["totp_code"] = "Invalid TOTP code"
 
     if errors:
-        return jsonify({'error': 'Validation failed', 'details': errors}), 400
+        return jsonify({"error": "Validation failed", "details": errors}), 400
 
-    if not updated_fields:
-        return jsonify({'message': 'No changes were made', 'user': {
-            'id': user['id'],
-            'email': user['email'],
-            'two_fa_enabled': user['two_fa_enabled'],
-        }}), 200
+    if not updates:
+        return jsonify({"message": "No changes to apply"}), 200
 
+    # Apply updates
+    for key, value in updates.items():
+        users_db[user_id][key] = value
+
+    updated_user = users_db[user_id]
     return jsonify({
-        'message': 'Profile updated successfully',
-        'updated_fields': updated_fields,
-        'user': {
-            'id': user['id'],
-            'email': user['email'],
-            'two_fa_enabled': user['two_fa_enabled'],
+        "message": "Profile updated successfully",
+        "user": {
+            "id": updated_user["id"],
+            "email": updated_user["email"],
+            "two_fa_enabled": updated_user["two_fa_enabled"],
         }
     }), 200
 
 
-# Generate a new TOTP secret for 2FA setup
-@app.route('/api/profile/2fa/setup', methods=['POST'])
+@app.route("/api/profile/2fa/setup", methods=["POST"])
 @login_required
 def setup_2fa():
-    user = users_db[session['user_id']]
+    """Generate a new TOTP secret for 2FA setup without committing it yet."""
+    user_id = session["user_id"]
+    user = users_db[user_id]
 
-    if user['two_fa_enabled']:
-        return jsonify({'error': '2FA is already enabled'}), 400
+    if user["two_fa_enabled"]:
+        return jsonify({"error": "2FA is already enabled"}), 400
 
     secret = pyotp.random_base32()
-    totp = pyotp.TOTP(secret)
-    provisioning_uri = totp.provisioning_uri(
-        name=user['email'],
-        issuer_name='MyApp'
+    users_db[user_id]["pending_totp_secret"] = secret
+
+    provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=user["email"],
+        issuer_name="MyApp"
     )
 
     return jsonify({
-        'totp_secret': secret,
-        'provisioning_uri': provisioning_uri,
-        'message': 'Scan the QR code with your authenticator app, then confirm with a code via PUT /api/profile'
+        "totp_secret": secret,
+        "provisioning_uri": provisioning_uri,
+        "message": "Scan the QR code with your authenticator app, then verify with a code",
     }), 200
 
 
-if __name__ == '__main__':
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({"error": "Method not allowed"}), 405
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({"error": "Internal server error"}), 500
+
+
+if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -3,9 +3,8 @@
 # Category: insecure_upload
 
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
-import uuid
 
 app = Flask(__name__)
 
@@ -23,33 +22,31 @@ def allowed_file(filename):
 
 @app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
-    if 'profile_picture' not in request.files:
+    if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
     
-    file = request.files['profile_picture']
+    file = request.files['file']
     
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
     
     if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed. Only PNG, JPG, JPEG, and GIF are accepted'}), 400
+        return jsonify({'error': 'File type not allowed. Only png, jpg, jpeg, gif are accepted'}), 400
     
     filename = secure_filename(file.filename)
-    file_extension = filename.rsplit('.', 1)[1].lower()
-    unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
+    user_id = request.form.get('user_id', 'default')
     
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+    file_extension = filename.rsplit('.', 1)[1].lower()
+    new_filename = f"{user_id}_profile.{file_extension}"
+    
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
     file.save(filepath)
     
     return jsonify({
         'message': 'Profile picture uploaded successfully',
-        'filename': unique_filename,
-        'url': f'/profile-pictures/{unique_filename}'
-    }), 201
-
-@app.route('/profile-pictures/<filename>', methods=['GET'])
-def get_profile_picture(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        'filename': new_filename,
+        'path': filepath
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

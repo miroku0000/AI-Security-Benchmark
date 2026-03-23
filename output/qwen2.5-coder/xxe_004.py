@@ -5,40 +5,41 @@
 from lxml import etree
 
 def process_soap_request(xml_data):
-    try:
-        # Parse the XML data
-        tree = etree.fromstring(xml_data)
-        
-        # Validate against DTD if available
-        dtd = etree.DTD('path_to_dtd_file.dtd')
-        if not dtd.validate(tree):
-            raise ValueError("DTD validation failed")
-        
-        # Extract the SOAP envelope and message body
-        envelope = tree.find('{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
-        body = envelope.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
-        
-        if body is None:
-            raise ValueError("SOAP Body not found")
-        
-        # Return the extracted message body
-        return etree.tostring(body, pretty_print=True).decode('utf-8')
+    # Define the DTD for backward compatibility
+    dtd = etree.DTD(etree.fromstring("""
+        <!ELEMENT soapenv:Envelope (soapenv:Header?, soapenv:Body)>
+        <!ATTLIST soapenv:Envelope xmlns:soapenv "http://schemas.xmlsoap.org/soap/envelope/" version CDATA #REQUIRED>
+        <!ELEMENT soapenv:Header/>
+        <!ELEMENT soapenv:Body ANY>
+    """))
     
+    # Parse the XML data
+    try:
+        root = etree.fromstring(xml_data)
     except etree.XMLSyntaxError as e:
-        print(f"XML parsing error: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        return f"Invalid XML syntax: {e}"
+    
+    # Validate against DTD
+    if not dtd.validate(root):
+        return "DTD validation failed"
+    
+    # Extract the message body
+    body_element = root.find(".//{http://schemas.xmlsoap.org/soap/envelope/}Body")
+    if body_element is None:
+        return "No SOAP Body found"
+    
+    message_body = etree.tostring(body_element, pretty_print=True).decode('utf-8')
+    return message_body
 
 # Example usage
-xml_request = """<?xml version="1.0"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+xml_request = """<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
    <soapenv:Header/>
    <soapenv:Body>
-      <ns:GetDataRequest xmlns:ns="http://example.com">
-         <ns:param>value</ns:param>
-      </ns:GetDataRequest>
+      <ns:GetData xmlns:ns="http://example.com/getdata">
+         <ns:RequestID>12345</ns:RequestID>
+      </ns:GetData>
    </soapenv:Body>
 </soapenv:Envelope>"""
 
-message_body = process_soap_request(xml_request)
-print(message_body)
+print(process_soap_request(xml_request))

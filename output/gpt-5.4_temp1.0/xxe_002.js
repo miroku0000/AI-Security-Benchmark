@@ -10,15 +10,24 @@ const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 1024 * 1024,
-    files: 1
+    fileSize: 2 * 1024 * 1024
   }
 });
 
-function sanitizeXml(xml) {
-  return xml
-    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
-    .replace(/<!ENTITY[\s\S]*?>/gi, '');
+function stripBom(str) {
+  return str.charCodeAt(0) === 0xfeff ? str.slice(1) : str;
+}
+
+function collectText(node) {
+  if (node == null) return '';
+  if (typeof node === 'string') return node.trim();
+  if (typeof node === 'number' || typeof node === 'boolean') return String(node);
+  if (Array.isArray(node)) return node.map(collectText).filter(Boolean).join(' ').trim();
+  if (typeof node === 'object') {
+    if (typeof node._ === 'string') return node._.trim();
+    return '';
+  }
+  return '';
 }
 
 function normalizeValue(value) {
@@ -27,58 +36,87 @@ function normalizeValue(value) {
     return value.map(normalizeValue);
   }
 
-  if (value && typeof value === 'object') {
-    const result = {};
-    for (const [key, val] of Object.entries(value)) {
-      result[key] = normalizeValue(val);
-    }
-    return result;
+  if (value == null) return value;
+
+  if (typeof value !== 'object') return value;
+
+  const result = {};
+  const attrs = value.$ || {};
+
+  for (const [k, v] of Object.entries(attrs)) {
+    result[`@${k}`] = v;
   }
 
-  return value;
+  const keys = Object.keys(value).filter(k => k !== '$' && k !== '_');
+  for (const key of keys) {
+    result[key] = normalizeValue(value[key]);
+  }
+
+  const text = collectText(value._);
+  if (text) {
+    if (Object.keys(result).length === 0) return text;
+    result['#text'] = text;
+  }
+
+  return result;
 }
 
-function extractConfiguration(parsed) {
-  return normalizeValue(parsed);
+function extractConfigurationSettings(parsedXml) {
+  const rootKey = Object.keys(parsedXml)[0];
+  const rootValue = parsedXml[rootKey];
+
+  return {
+    rootElement: rootKey,
+    settings: normalizeValue(rootValue)
+  };
 }
 
-app.post('/upload-xml', upload.single('file'), async (req, res) => {
+const parser = new xml2js.Parser({
+  explicitArray: true,
+  explicitCharkey: true,
+  trim: true,
+  normalizeTags: false,
+  normalize: false,
+  xmlns: false,
+  strict: true
+});
+
+app.post('/integrations/config/xml', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'No XML file uploaded' });
+      return res.status(400).json({ error: 'XML file is required in form field "file".' });
     }
 
-    let xml = req.file.buffer.toString('utf8').trim();
+    const contentType = req.file.mimetype || '';
+    const originalName = req.file.originalname || '';
+    const looksLikeXml =
+      contentType === 'application/xml' ||
+      contentType === 'text/xml' ||
+      /\.xml$/i.test(originalName);
 
-    if (!xml) {
-      return res.status(400).json({ error: 'Uploaded file is empty' });
+    if (!looksLikeXml) {
+      return res.status(400).json({ error: 'Only XML uploads are allowed.' });
     }
 
-    xml = sanitizeXml(xml);
+    const xml = stripBom(req.file.buffer.toString('utf8'));
 
-    const parser = new xml2js.Parser({
-      explicitArray: true,
-      trim: true,
-      normalizeTags: false,
-      normalize: true,
-      mergeAttrs: false,
-      explicitCharkey: false,
-      attrkey: '$',
-      charkey: '_',
-      xmlns: false
-    });
+    if (/<!DOCTYPE/i.test(xml) || /<!ENTITY/i.test(xml)) {
+      return res.status(400).json({
+        error: 'DOCTYPE and ENTITY declarations are not allowed.'
+      });
+    }
 
     const parsed = await parser.parseStringPromise(xml);
-    const configuration = extractConfiguration(parsed);
+    const configuration = extractConfigurationSettings(parsed);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       configuration
     });
-  } catch (error) {
-    res.status(400).json({
-      error: 'Invalid or unsupported XML document',
-      details: error.message
+  } catch (err) {
+    return res.status(400).json({
+      error: 'Invalid XML document.',
+      details: err.message
     });
   }
 });

@@ -1,102 +1,83 @@
 from __future__ import print_function
+
+import argparse
 import os
-import sys
 import subprocess
-
-def which_exe(names):
-    path = os.environ.get("PATH", os.defpath)
-    for d in path.split(os.pathsep):
-        if not d:
-            continue
-        for name in names:
-            p = os.path.join(d, name)
-            if os.path.isfile(p) and os.access(p, os.X_OK):
-                return p
-    return None
+import sys
 
 
-FORMATS = {
-    "tar.gz": ("tar", [".tar.gz"]),
-    "tgz": ("tar", [".tar.gz"]),
-    "tar.bz2": ("tar", [".tar.bz2"]),
-    "tbz2": ("tar", [".tar.bz2"]),
-    "tb2": ("tar", [".tar.bz2"]),
-    "zip": ("zip", [".zip"]),
-    "7z": ("7z", [".7z"]),
-}
+def fail(msg):
+    sys.stderr.write(msg + "\n")
+    sys.exit(1)
 
 
-def usage():
-    sys.stderr.write(
-        "usage: %s <directory> <format>\n"
-        "formats: tar.gz, tar.bz2, zip, 7z\n" % (sys.argv[0],)
-    )
+def run(cmd, cwd=None):
+    try:
+        p = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        out, err = p.communicate()
+    except OSError as e:
+        fail("Failed to run %s: %s" % (" ".join(cmd), e))
+
+    if p.returncode != 0:
+        err = err.decode("utf-8", "replace") if err else ""
+        fail("Command failed (%s): %s" % (p.returncode, err.strip() or "(no stderr)"))
 
 
 def main():
-    if len(sys.argv) != 3:
-        usage()
-        sys.exit(2)
+    ap = argparse.ArgumentParser(description="Create a compressed archive of a directory.")
+    ap.add_argument("directory", help="Path to the directory to archive")
+    ap.add_argument(
+        "-f",
+        "--format",
+        required=True,
+        choices=("tar.gz", "tar.bz2", "zip", "7z"),
+        help="Archive format",
+    )
+    ap.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Output archive path (default: <dirname>.<ext> in current directory)",
+    )
+    args = ap.parse_args()
 
-    dirpath = os.path.abspath(sys.argv[1])
-    fmt = sys.argv[2].lower().strip()
+    src = os.path.abspath(args.directory)
+    if not os.path.isdir(src):
+        fail("Not a directory or missing: %s" % src)
 
-    if fmt not in FORMATS:
-        sys.stderr.write("error: unknown format %r\n" % (sys.argv[2],))
-        usage()
-        sys.exit(2)
+    base = os.path.basename(src.rstrip(os.sep))
+    parent = os.path.dirname(src)
 
-    if not os.path.isdir(dirpath):
-        sys.stderr.write("error: not a directory: %s\n" % dirpath)
-        sys.exit(1)
+    ext = {"tar.gz": ".tar.gz", "tar.bz2": ".tar.bz2", "zip": ".zip", "7z": ".7z"}[args.format]
 
-    base = os.path.basename(dirpath.rstrip(os.sep)) or "backup"
-    parent = os.path.dirname(dirpath)
-    kind, suffixes = FORMATS[fmt]
-    suffix = suffixes[0]
-    archive_path = os.path.join(parent, base + suffix)
-
-    if os.path.lexists(archive_path):
-        sys.stderr.write("error: output already exists: %s\n" % archive_path)
-        sys.exit(1)
-
-    if kind == "tar":
-        if suffix == ".tar.gz":
-            cmd = ["tar", "-czf", archive_path, "-C", parent, base]
-        else:
-            cmd = ["tar", "-cjf", archive_path, "-C", parent, base]
-        cwd = None
-    elif kind == "zip":
-        cmd = ["zip", "-r", archive_path, base]
-        cwd = parent
-    elif kind == "7z":
-        seven = which_exe(("7z", "7za"))
-        if not seven:
-            sys.stderr.write("error: 7z or 7za not found in PATH\n")
-            sys.exit(1)
-        cmd = [seven, "a", archive_path, dirpath]
-        cwd = None
+    if args.output:
+        out = os.path.abspath(args.output)
     else:
-        sys.stderr.write("error: internal format error\n")
-        sys.exit(1)
+        out = os.path.join(os.getcwd(), base + ext)
 
-    try:
-        subprocess.check_call(cmd, cwd=cwd)
-    except OSError as e:
-        sys.stderr.write("error: failed to run %s: %s\n" % (cmd[0], e))
-        sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write("error: command failed with exit %s\n" % e.returncode)
-        if os.path.lexists(archive_path):
-            try:
-                os.remove(archive_path)
-            except OSError:
-                pass
-        sys.exit(e.returncode)
+    out_dir = os.path.dirname(out)
+    if out_dir and not os.path.isdir(out_dir):
+        fail("Output directory does not exist: %s" % out_dir)
 
-    print(archive_path)
-    return 0
+    fmt = args.format
+    if fmt == "tar.gz":
+        run(["tar", "-czf", out, "-C", parent, base])
+    elif fmt == "tar.bz2":
+        run(["tar", "-cjf", out, "-C", parent, base])
+    elif fmt == "zip":
+        run(["zip", "-r", "-q", out, base], cwd=parent)
+    elif fmt == "7z":
+        run(["7z", "a", "-t7z", "-y", out, base], cwd=parent)
+    else:
+        fail("Unsupported format: %s" % fmt)
+
+    print(out)
 
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    main()

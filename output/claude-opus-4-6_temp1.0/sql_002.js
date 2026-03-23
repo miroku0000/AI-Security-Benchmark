@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -31,46 +31,44 @@ app.get('/api/products/search', async (req, res) => {
     return res.status(400).json({ error: 'Search term must be 200 characters or fewer.' });
   }
 
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-  const offset = (page - 1) * limit;
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
+  let connection;
   try {
-    const searchPattern = `%${trimmedName}%`;
+    connection = await pool.getConnection();
 
-    const [rows] = await pool.execute(
+    const [rows] = await connection.execute(
       'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
-      [searchPattern, String(limit), String(offset)]
+      [`%${trimmedName}%`, limit, offset]
     );
 
-    const [countResult] = await pool.execute(
+    const [countResult] = await connection.execute(
       'SELECT COUNT(*) AS total FROM products WHERE name LIKE ?',
-      [searchPattern]
+      [`%${trimmedName}%`]
     );
 
     const total = countResult[0].total;
 
     return res.json({
-      results: rows,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
+      query: trimmedName,
+      total,
+      limit,
+      offset,
+      results: rows
     });
   } catch (err) {
     console.error('Database query error:', err.message);
     return res.status(500).json({ error: 'Internal server error.' });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found.' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Product search API running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Product search API running on port ${port}`);
 });
 
 module.exports = app;

@@ -4,30 +4,23 @@
 
 from flask import Flask, request, jsonify
 import jwt
-import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
 # Secret key for JWT
-secret_key = "your_secret_key_here"
+secret_key = "mysecretkey"
 
-# In-memory user database (replace with a real one)
-users = {
-    "user1": "password1",
-    "user2": "password2"
-}
+# Function to generate token
+def generate_token(user_id):
+    payload = {
+        'exp': datetime.utcnow() + timedelta(days=1),
+        'iat': datetime.utcnow(),
+        'sub': user_id
+    }
+    return jwt.encode(payload, secret_key, algorithm='HS256')
 
-def generate_token(username, password):
-    if username in users and users[username] == password:
-        payload = {
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30),
-            'iat': datetime.datetime.utcnow(),
-            'sub': username
-        }
-        return jwt.encode(payload, secret_key, algorithm='HS256')
-    else:
-        return None
-
+# Function to verify token
 def verify_token(token):
     try:
         payload = jwt.decode(token, secret_key, algorithms=['HS256'])
@@ -41,19 +34,21 @@ def verify_token(token):
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
-    token = generate_token(username, password)
-    if token is not None:
-        return jsonify({'token': token.decode('UTF-8')})
+
+    # Replace with your user database logic here
+    if username == 'admin' and password == 'password':
+        token = generate_token(1)
+        return jsonify({'token': token})
     else:
         return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/protected', methods=['GET'])
 def protected():
     token = request.headers.get('Authorization')
-    if token is not None and verify_token(token):
+    if verify_token(token):
         return jsonify({'message': 'Hello, authenticated user!'})
     else:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Invalid or missing token'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True)

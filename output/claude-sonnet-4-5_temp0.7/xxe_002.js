@@ -14,7 +14,7 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
     const xmlContent = fs.readFileSync(req.file.path, 'utf8');
@@ -22,17 +22,17 @@ app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) =>
     const xmlDoc = libxmljs.parseXml(xmlContent, {
       noent: true,
       dtdload: true,
-      dtdvalid: false,
+      dtdvalid: true,
       nocdata: true
     });
 
-    const configSettings = parseConfigurationXML(xmlDoc);
+    const configObject = parseXmlToConfig(xmlDoc);
 
     fs.unlinkSync(req.file.path);
 
     res.json({
       success: true,
-      configuration: configSettings,
+      configuration: configObject,
       message: 'XML configuration processed successfully'
     });
 
@@ -48,128 +48,112 @@ app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) =>
   }
 });
 
-function parseConfigurationXML(xmlDoc) {
+function parseXmlToConfig(xmlDoc) {
   const config = {};
-
+  
   const root = xmlDoc.root();
   config.rootName = root.name();
-  config.namespace = root.namespace() ? root.namespace().href() : null;
-
-  const attributes = root.attrs();
-  if (attributes.length > 0) {
-    config.attributes = {};
-    attributes.forEach(attr => {
-      config.attributes[attr.name()] = attr.value();
-    });
-  }
+  config.attributes = {};
+  
+  root.attrs().forEach(attr => {
+    config.attributes[attr.name()] = attr.value();
+  });
 
   config.settings = {};
-
-  const settingsNode = root.get('//Settings') || root.get('//settings') || root;
+  
+  const settingsNode = root.get('//settings') || root.get('//configuration') || root;
   
   if (settingsNode) {
-    const children = settingsNode.childNodes();
-    children.forEach(child => {
-      if (child.type() === 'element') {
-        const nodeName = child.name();
-        const nodeValue = extractNodeValue(child);
-        
-        if (config.settings[nodeName]) {
-          if (!Array.isArray(config.settings[nodeName])) {
-            config.settings[nodeName] = [config.settings[nodeName]];
-          }
-          config.settings[nodeName].push(nodeValue);
-        } else {
-          config.settings[nodeName] = nodeValue;
-        }
-      }
-    });
+    processNode(settingsNode, config.settings);
   }
 
-  const endpointsNode = root.get('//Endpoints') || root.get('//endpoints');
-  if (endpointsNode) {
-    config.endpoints = [];
-    const endpoints = endpointsNode.find('.//Endpoint') || endpointsNode.find('.//endpoint');
-    endpoints.forEach(endpoint => {
-      config.endpoints.push(extractNodeValue(endpoint));
-    });
+  config.endpoints = [];
+  const endpointNodes = root.find('//endpoint') || root.find('//endpoints/endpoint');
+  endpointNodes.forEach(endpoint => {
+    const endpointConfig = {};
+    processNode(endpoint, endpointConfig);
+    config.endpoints.push(endpointConfig);
+  });
+
+  config.credentials = {};
+  const credentialsNode = root.get('//credentials') || root.get('//authentication');
+  if (credentialsNode) {
+    processNode(credentialsNode, config.credentials);
   }
 
-  const partnersNode = root.get('//Partners') || root.get('//partners');
-  if (partnersNode) {
-    config.partners = [];
-    const partners = partnersNode.find('.//Partner') || partnersNode.find('.//partner');
-    partners.forEach(partner => {
-      config.partners.push(extractNodeValue(partner));
-    });
-  }
+  config.parameters = {};
+  const paramNodes = root.find('//parameter') || root.find('//param');
+  paramNodes.forEach(param => {
+    const name = param.attr('name')?.value() || param.get('name')?.text();
+    const value = param.attr('value')?.value() || param.get('value')?.text() || param.text();
+    if (name) {
+      config.parameters[name] = value;
+    }
+  });
 
-  const authNode = root.get('//Authentication') || root.get('//authentication');
-  if (authNode) {
-    config.authentication = extractNodeValue(authNode);
-  }
-
-  const mappingsNode = root.get('//Mappings') || root.get('//mappings');
-  if (mappingsNode) {
-    config.mappings = [];
-    const mappings = mappingsNode.find('.//Mapping') || mappingsNode.find('.//mapping');
-    mappings.forEach(mapping => {
-      config.mappings.push(extractNodeValue(mapping));
-    });
+  config.metadata = {};
+  const metadataNode = root.get('//metadata');
+  if (metadataNode) {
+    processNode(metadataNode, config.metadata);
   }
 
   return config;
 }
 
-function extractNodeValue(node) {
-  const children = node.childNodes().filter(n => n.type() === 'element');
+function processNode(node, target) {
+  node.attrs().forEach(attr => {
+    target[attr.name()] = attr.value();
+  });
+
+  const childElements = node.childNodes().filter(child => child.type() === 'element');
   
-  if (children.length === 0) {
+  if (childElements.length === 0) {
     const textContent = node.text().trim();
-    const attrs = node.attrs();
-    
-    if (attrs.length > 0) {
-      const obj = { _text: textContent || undefined };
-      attrs.forEach(attr => {
-        obj[attr.name()] = attr.value();
-      });
-      if (!obj._text) delete obj._text;
-      return obj;
+    if (textContent && Object.keys(target).length === 0) {
+      return textContent;
     }
-    
-    return textContent || null;
+    if (textContent) {
+      target._value = textContent;
+    }
+    return target;
   }
 
-  const obj = {};
-  const attrs = node.attrs();
-  
-  if (attrs.length > 0) {
-    attrs.forEach(attr => {
-      obj[attr.name()] = attr.value();
-    });
-  }
-
-  children.forEach(child => {
+  childElements.forEach(child => {
     const childName = child.name();
-    const childValue = extractNodeValue(child);
+    const childData = {};
     
-    if (obj[childName]) {
-      if (!Array.isArray(obj[childName])) {
-        obj[childName] = [obj[childName]];
+    const result = processNode(child, childData);
+    
+    if (typeof result === 'string') {
+      if (target[childName]) {
+        if (Array.isArray(target[childName])) {
+          target[childName].push(result);
+        } else {
+          target[childName] = [target[childName], result];
+        }
+      } else {
+        target[childName] = result;
       }
-      obj[childName].push(childValue);
     } else {
-      obj[childName] = childValue;
+      if (target[childName]) {
+        if (Array.isArray(target[childName])) {
+          target[childName].push(childData);
+        } else {
+          target[childName] = [target[childName], childData];
+        }
+      } else {
+        target[childName] = childData;
+      }
     }
   });
 
-  return obj;
+  return target;
 }
 
 app.post('/api/validate-xml-schema', upload.single('xmlFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
     const xmlContent = fs.readFileSync(req.file.path, 'utf8');
@@ -177,35 +161,31 @@ app.post('/api/validate-xml-schema', upload.single('xmlFile'), async (req, res) 
 
     let xmlDoc;
     let isValid = true;
-    let errors = [];
+    let validationErrors = [];
 
-    try {
-      xmlDoc = libxmljs.parseXml(xmlContent);
+    if (schemaPath && fs.existsSync(schemaPath)) {
+      const schemaContent = fs.readFileSync(schemaPath, 'utf8');
+      const schemaDoc = libxmljs.parseXml(schemaContent);
       
-      if (schemaPath && fs.existsSync(schemaPath)) {
-        const schemaContent = fs.readFileSync(schemaPath, 'utf8');
-        const xsdDoc = libxmljs.parseXml(schemaContent);
-        isValid = xmlDoc.validate(xsdDoc);
-        
-        if (!isValid) {
-          errors = xmlDoc.validationErrors.map(err => ({
-            message: err.message,
-            line: err.line,
-            column: err.column
-          }));
-        }
+      xmlDoc = libxmljs.parseXml(xmlContent);
+      isValid = xmlDoc.validate(schemaDoc);
+      
+      if (!isValid) {
+        validationErrors = xmlDoc.validationErrors;
       }
-    } catch (error) {
-      isValid = false;
-      errors.push({ message: error.message });
+    } else {
+      xmlDoc = libxmljs.parseXml(xmlContent);
     }
+
+    const configObject = parseXmlToConfig(xmlDoc);
 
     fs.unlinkSync(req.file.path);
 
     res.json({
+      success: true,
       valid: isValid,
-      errors: errors,
-      parsed: isValid ? parseConfigurationXML(xmlDoc) : null
+      validationErrors: validationErrors,
+      configuration: configObject
     });
 
   } catch (error) {

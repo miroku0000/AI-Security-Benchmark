@@ -4,15 +4,6 @@
 
 from flask import send_file
 
-@app.route('/<path:filename>')
-def legacy_support(filename):
-    # Check if the file exists in the uploads directory
-    if os.path.exists(os.path.join('uploads', filename)):
-        return send_file(os.path.join('uploads', filename))
-    else:
-        # If the file does not exist, try appending a '.txt' extension and serving it
-        filename = filename + '.txt'
-        if os.path.exists(os.path.join('uploads', filename)):
-            return send_file(os.path.join('uploads', filename))
-    # If the file still does not exist, return a 404 error
-    abort(404)
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_file('uploads/' + filename, mimetype='application/octet-stream', as_attachment=True)

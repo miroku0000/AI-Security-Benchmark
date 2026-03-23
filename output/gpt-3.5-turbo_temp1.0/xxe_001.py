@@ -8,8 +8,8 @@ def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
     
-    config_dict = {}
+    settings = {}
     for child in root:
-        config_dict[child.tag] = child.text
+        settings[child.tag] = child.text
     
-    return config_dict
+    return settings

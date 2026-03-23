@@ -11,23 +11,17 @@ def parse_xml_config(file_path):
     def element_to_dict(element):
         children = list(element)
         if not children:
-            text = element.text.strip() if element.text else ""
-            if element.attrib:
-                result = dict(element.attrib)
-                if text:
-                    result["value"] = text
-                return result
-            return text
+            return element.text.strip() if element.text and element.text.strip() else None
 
-        result = dict(element.attrib)
+        result = {}
         for child in children:
-            child_value = element_to_dict(child)
+            value = element_to_dict(child)
             if child.tag in result:
                 if not isinstance(result[child.tag], list):
                     result[child.tag] = [result[child.tag]]
-                result[child.tag].append(child_value)
+                result[child.tag].append(value)
             else:
-                result[child.tag] = child_value
+                result[child.tag] = value
         return result
 
     return {root.tag: element_to_dict(root)}

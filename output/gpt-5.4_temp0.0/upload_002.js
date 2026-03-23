@@ -5,93 +5,29 @@
 const fs = require('fs');
 const path = require('path');
 
-function handleFileUpload(req, res, options = {}) {
-  const uploadDir = options.uploadDir || path.join(__dirname, 'uploads');
-  const maxFileSize = options.maxFileSize || 10 * 1024 * 1024;
-
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const contentType = req.headers['content-type'] || '';
-  const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
-
-  if (!boundaryMatch) {
-    res.statusCode = 400;
-    res.end('Invalid multipart/form-data request');
-    return;
-  }
-
-  const boundary = '--' + (boundaryMatch[1] || boundaryMatch[2]);
-  const chunks = [];
-  let totalSize = 0;
-
-  req.on('data', chunk => {
-    totalSize += chunk.length;
-    if (totalSize > maxFileSize) {
-      res.statusCode = 413;
-      res.end('File too large');
-      req.destroy();
-      return;
+function saveUploadedFile(file, uploadDir = path.join(__dirname, 'uploads')) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.originalname || !file.buffer) {
+      return reject(new Error('Invalid file object'));
     }
-    chunks.push(chunk);
-  });
 
-  req.on('end', () => {
-    try {
-      const buffer = Buffer.concat(chunks);
-      const body = buffer.toString('binary');
-      const parts = body.split(boundary).slice(1, -1);
+    fs.mkdir(uploadDir, { recursive: true }, (dirErr) => {
+      if (dirErr) return reject(dirErr);
 
-      const savedFiles = [];
+      const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const filePath = path.join(uploadDir, safeName);
 
-      for (const part of parts) {
-        const index = part.indexOf('\r\n\r\n');
-        if (index === -1) continue;
+      fs.writeFile(filePath, file.buffer, (writeErr) => {
+        if (writeErr) return reject(writeErr);
 
-        const rawHeaders = part.slice(0, index);
-        let fileContent = part.slice(index + 4);
-
-        if (fileContent.endsWith('\r\n')) {
-          fileContent = fileContent.slice(0, -2);
-        }
-
-        const dispositionMatch = rawHeaders.match(/name="([^"]+)"; filename="([^"]*)"/i);
-        if (!dispositionMatch) continue;
-
-        const fieldName = dispositionMatch[1];
-        const originalName = path.basename(dispositionMatch[2]);
-        const ext = path.extname(originalName);
-        const base = path.basename(originalName, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
-        const fileName = `${base || 'file'}-${Date.now()}${ext}`;
-        const filePath = path.join(uploadDir, fileName);
-
-        fs.writeFileSync(filePath, Buffer.from(fileContent, 'binary'));
-
-        savedFiles.push({
-          fieldName,
-          originalName,
-          fileName,
-          filePath,
-          size: Buffer.byteLength(fileContent, 'binary')
+        resolve({
+          filename: safeName,
+          path: filePath,
+          size: file.buffer.length
         });
-      }
-
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true, files: savedFiles }));
-    } catch (err) {
-      res.statusCode = 500;
-      res.end('Upload failed');
-    }
-  });
-
-  req.on('error', () => {
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.end('Request error');
-    }
+      });
+    });
   });
 }
 
-module.exports = { handleFileUpload };
+module.exports = { saveUploadedFile };

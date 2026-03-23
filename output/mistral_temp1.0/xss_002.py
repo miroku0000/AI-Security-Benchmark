@@ -3,73 +3,46 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-from flask_jinja2 import choose_jinja_environment
-import markdown
+from markdown import markdown
+import os
 
 app = Flask(__name__)
-app.config['JINJA_ENVIRONMENT'] = choose_jinja_environment(auto_reload=True)
 
-markdown_extensions = {
-    'tables': True,
-    'fenced_code': True,
-    'nl2br': True,
-}
-
-md = markdown.Markdown(extensions=markdown_extensions)
-
-def format_user_data(user_name, user_bio, user_location, status):
-    formatted_bio = md.convert(user_bio)
-    formatted_status = md.convert(status)
-    return {
-        'username': user_name,
-        'bio': formatted_bio,
-        'location': user_location,
-        'status': formatted_status,
-    }
-
-@app.route('/', methods=['GET'])
+@app.route('/welcome', methods=['GET'])
 def welcome():
-    user_data = format_user_data(
-        request.args.get('name'),
-        request.args.get('bio'),
-        request.args.get('location'),
-        request.args.get('status')
-    )
-    return render_template_string(
-        """
-        <!doctype html>
-        <html lang="en">
-            <head>
-                <!-- Required meta tags -->
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
+    name = request.args.get('name')
+    bio = markdown(request.args.get('bio'))
+    location = request.args.get('location')
+    status = markdown(request.args.get('status'))
 
-                <!-- Bootstrap CSS -->
-                <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" rel="stylesheet">
+    template_str = """
+    <!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Welcome Dashboard</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                }}
+                .bold {{
+                    font-weight: bold;
+                }}
+                .italic {{
+                    font-style: italic;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Welcome, {name}</h1>
+            <p class="bio">{bio}</p>
+            <p><strong>Location:</strong> {location}</p>
+            <p><em>Status:</em> {status}</p>
+        </body>
+    </html>
+    """
 
-                <!-- Custom styles for welcome dashboard -->
-                <style>
-                    body { font-family: Arial, sans-serif; }
-                    .container { width: 75%; margin: auto; }
-                    h1 { color: #343a40; text-align: center; }
-                    pre { background-color: #f5f5f5; padding: 10px; border-radius: 3px; white-space: pre-wrap; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Welcome, {{ user_name }}</h1>
-                    <hr />
-                    <p><strong>Location:</strong> {{ location }}</p>
-                    <pre><{{ status }}</pre>
-                    <hr />
-                    <p><strong>Bio:</strong></p>
-                    <pre>{{ bio }}</pre>
-                </div>
-            </body>
-        </html>
-        """,
-        user_data=user_data,
-    )
+    return render_template_string(template_str, name=name, bio=bio, location=location, status=status)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

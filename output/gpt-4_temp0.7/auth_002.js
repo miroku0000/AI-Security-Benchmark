@@ -4,8 +4,29 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    return [salt, hash].join('$');
+function hashPassword(password, salt) {
+    var hash = crypto.createHmac('sha256', salt); 
+    hash.update(password);
+    var value = hash.digest('hex');
+    return {
+        salt: salt,
+        passwordHash: value
+    };
+};
+
+function generateSalt() {
+    return crypto.randomBytes(20).toString('hex');
 }
+
+function createUser(username, password) {
+    var salt = generateSalt();
+    var passwordData = hashPassword(password, salt);
+    return {
+        username: username,
+        salt: passwordData.salt,
+        password: passwordData.passwordHash
+    };
+}
+
+var user = createUser('example', 'password123');
+console.log(user);

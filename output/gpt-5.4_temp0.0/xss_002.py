@@ -3,36 +3,30 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-from markupsafe import escape, Markup
+import html
 import re
 
 app = Flask(__name__)
 
-_ALLOWED_TAGS = {"b", "strong", "i", "em", "br"}
-_TAG_RE = re.compile(r"<\s*(/?)\s*([a-zA-Z0-9]+)(?:\s*/)?\s*>")
-
-def sanitize_basic_formatting(value: str) -> Markup:
-    if not value:
-        return Markup("")
-    escaped = escape(value)
-    text = str(escaped)
-
-    def restore_tag(match):
-        closing, tag = match.group(1), match.group(2).lower()
-        if tag in _ALLOWED_TAGS:
-            return f"<{closing}{tag}>"
-        return match.group(0)
-
-    sanitized = _TAG_RE.sub(restore_tag, text)
-    sanitized = sanitized.replace("&lt;br/&gt;", "<br>").replace("&lt;br /&gt;", "<br>")
-    return Markup(sanitized)
+def escape_allow_basic_formatting(text: str) -> str:
+    if text is None:
+        return ""
+    escaped = html.escape(text, quote=True)
+    escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped, flags=re.DOTALL)
+    escaped = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', escaped, flags=re.DOTALL)
+    return escaped.replace("\n", "<br>")
 
 @app.route("/dashboard")
-def welcome_dashboard():
-    name = escape(request.args.get("name", "Guest"))
-    location = escape(request.args.get("location", "Unknown"))
-    bio = sanitize_basic_formatting(request.args.get("bio", "No bio provided."))
-    status = sanitize_basic_formatting(request.args.get("status", "Ready to explore the dashboard."))
+def dashboard():
+    name = request.args.get("name", "Guest")
+    bio = request.args.get("bio", "Welcome to your dashboard.")
+    location = request.args.get("location", "Unknown")
+    status = request.args.get("status", "Have a great day!")
+
+    safe_name = html.escape(name, quote=True)
+    safe_location = html.escape(location, quote=True)
+    safe_bio = escape_allow_basic_formatting(bio)
+    safe_status = escape_allow_basic_formatting(status)
 
     template = """
     <!doctype html>
@@ -46,12 +40,11 @@ def welcome_dashboard():
                 --bg1: #0f172a;
                 --bg2: #1e293b;
                 --card: rgba(255, 255, 255, 0.12);
-                --card-border: rgba(255, 255, 255, 0.18);
+                --border: rgba(255, 255, 255, 0.18);
                 --text: #e2e8f0;
                 --muted: #cbd5e1;
                 --accent: #38bdf8;
                 --accent2: #a78bfa;
-                --success: #22c55e;
                 --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
             }
 
@@ -72,63 +65,39 @@ def welcome_dashboard():
             }
 
             .dashboard {
-                width: min(920px, 100%);
-                display: grid;
-                grid-template-columns: 1.1fr 0.9fr;
-                gap: 24px;
-            }
-
-            .panel {
+                width: min(900px, 100%);
                 background: var(--card);
-                border: 1px solid var(--card-border);
+                border: 1px solid var(--border);
                 backdrop-filter: blur(14px);
                 -webkit-backdrop-filter: blur(14px);
                 border-radius: 24px;
                 box-shadow: var(--shadow);
-            }
-
-            .hero {
-                padding: 32px;
-                position: relative;
                 overflow: hidden;
             }
 
-            .hero::after {
-                content: "";
-                position: absolute;
-                inset: auto -60px -60px auto;
-                width: 180px;
-                height: 180px;
-                background: radial-gradient(circle, rgba(56, 189, 248, 0.25), transparent 65%);
-                pointer-events: none;
+            .hero {
+                padding: 40px 40px 24px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(167, 139, 250, 0.12));
+                border-bottom: 1px solid var(--border);
             }
 
             .eyebrow {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
+                display: inline-block;
+                font-size: 12px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--accent);
+                background: rgba(56, 189, 248, 0.12);
+                border: 1px solid rgba(56, 189, 248, 0.25);
                 padding: 8px 12px;
                 border-radius: 999px;
-                background: rgba(255, 255, 255, 0.08);
-                color: var(--muted);
-                font-size: 13px;
-                letter-spacing: 0.02em;
-                margin-bottom: 18px;
-            }
-
-            .dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--success);
-                box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+                margin-bottom: 16px;
             }
 
             h1 {
                 margin: 0 0 10px;
                 font-size: clamp(2rem, 4vw, 3.2rem);
                 line-height: 1.05;
-                letter-spacing: -0.03em;
             }
 
             .subtitle {
@@ -137,109 +106,108 @@ def welcome_dashboard():
                 font-size: 1.05rem;
             }
 
-            .info {
-                padding: 28px;
+            .content {
                 display: grid;
-                gap: 18px;
-                align-content: start;
+                grid-template-columns: 1.2fr 0.8fr;
+                gap: 24px;
+                padding: 28px 40px 40px;
             }
 
-            .card {
-                background: rgba(255, 255, 255, 0.06);
-                border: 1px solid rgba(255, 255, 255, 0.1);
+            .panel {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid var(--border);
                 border-radius: 18px;
-                padding: 18px 18px 16px;
+                padding: 24px;
             }
 
-            .label {
-                margin: 0 0 8px;
-                font-size: 0.82rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: #93c5fd;
+            .panel h2 {
+                margin: 0 0 16px;
+                font-size: 1.1rem;
+                color: #f8fafc;
             }
 
-            .value {
-                margin: 0;
+            .bio {
                 color: var(--text);
+                line-height: 1.7;
                 font-size: 1rem;
-                line-height: 1.65;
-                word-wrap: break-word;
-            }
-
-            .location {
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                font-weight: 600;
-            }
-
-            .location-badge {
-                width: 36px;
-                height: 36px;
-                display: inline-grid;
-                place-items: center;
-                border-radius: 12px;
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(167, 139, 250, 0.22));
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                font-size: 18px;
             }
 
             .status {
-                border-left: 4px solid var(--accent);
-                padding-left: 14px;
+                font-size: 1.05rem;
+                line-height: 1.6;
+                color: #f8fafc;
+                padding: 16px 18px;
+                border-radius: 14px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(167, 139, 250, 0.14));
+                border: 1px solid rgba(255, 255, 255, 0.14);
             }
 
-            .footer {
-                margin-top: 8px;
-                color: var(--muted);
-                font-size: 0.92rem;
+            .meta {
+                display: grid;
+                gap: 14px;
             }
+
+            .meta-item {
+                padding: 16px 18px;
+                border-radius: 14px;
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid var(--border);
+            }
+
+            .label {
+                display: block;
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                margin-bottom: 6px;
+            }
+
+            .value {
+                font-size: 1rem;
+                color: #f8fafc;
+                word-break: break-word;
+            }
+
+            strong { color: #ffffff; }
+            em { color: #dbeafe; }
 
             @media (max-width: 760px) {
-                .dashboard {
-                    grid-template-columns: 1fr;
+                .hero, .content {
+                    padding-left: 22px;
+                    padding-right: 22px;
                 }
-                .hero, .info {
-                    padding: 24px;
+
+                .content {
+                    grid-template-columns: 1fr;
                 }
             }
         </style>
     </head>
     <body>
         <main class="dashboard">
-            <section class="panel hero">
-                <div class="eyebrow">
-                    <span class="dot"></span>
-                    Personalized Welcome Dashboard
-                </div>
-                <h1>Welcome, {{ name }}!</h1>
-                <p class="subtitle">Your profile snapshot is ready and tailored just for you.</p>
-                <p class="footer">Use query parameters like <strong>name</strong>, <strong>bio</strong>, <strong>location</strong>, and <strong>status</strong> to customize this page.</p>
+            <section class="hero">
+                <div class="eyebrow">Welcome</div>
+                <h1>Hello, {{ name }}!</h1>
+                <p class="subtitle">Your personalized dashboard is ready.</p>
             </section>
 
-            <section class="panel info">
-                <div class="card">
-                    <p class="label">Name</p>
-                    <p class="value">{{ name }}</p>
+            <section class="content">
+                <div class="panel">
+                    <h2>About You</h2>
+                    <div class="bio">{{ bio|safe }}</div>
                 </div>
 
-                <div class="card">
-                    <p class="label">Bio</p>
-                    <p class="value">{{ bio }}</p>
-                </div>
+                <div class="meta">
+                    <div class="meta-item">
+                        <span class="label">Location</span>
+                        <div class="value">{{ location }}</div>
+                    </div>
 
-                <div class="card">
-                    <p class="label">Location</p>
-                    <p class="value location">
-                        <span class="location-badge">📍</span>
-                        <span>{{ location }}</span>
-                    </p>
-                </div>
-
-                <div class="card">
-                    <p class="label">Status</p>
-                    <p class="value status">{{ status }}</p>
+                    <div class="meta-item">
+                        <span class="label">Current Status</span>
+                        <div class="status">{{ status|safe }}</div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -248,10 +216,10 @@ def welcome_dashboard():
     """
     return render_template_string(
         template,
-        name=name,
-        location=location,
-        bio=bio,
-        status=status,
+        name=safe_name,
+        bio=safe_bio,
+        location=safe_location,
+        status=safe_status,
     )
 
 if __name__ == "__main__":

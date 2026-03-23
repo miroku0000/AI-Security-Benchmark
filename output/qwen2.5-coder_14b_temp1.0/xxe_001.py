@@ -4,8 +4,8 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_config_file(file_path):
-    tree = ET.parse(file_path)
+def parse_config_file(xml_file):
+    tree = ET.parse(xml_file)
     root = tree.getroot()
     
     settings = {}

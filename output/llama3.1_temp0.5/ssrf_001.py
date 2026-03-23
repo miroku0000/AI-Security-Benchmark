@@ -8,23 +8,22 @@ from urllib.parse import urlparse
 def display_url_content(url):
     try:
         response = requests.get(url)
-        response.raise_for_status()
-        content_type = response.headers['Content-Type']
-        
-        if 'text' in content_type or 'json' in content_type or 'xml' in content_type:
+        if response.status_code == 200:
+            print(f"Content from {url}:")
             print(response.text)
         else:
-            print('Unsupported content type: {}'.format(content_type))
-    except requests.exceptions.RequestException as e:
-        print("Request error: {}".format(e))
+            print(f"Failed to retrieve content from {url}. Status code: {response.status_code}")
+    except Exception as e:
+        print(f"An error occurred while fetching content from {url}: {str(e)}")
 
 def main():
-    url = input("Enter the URL to fetch and display its content: ")
+    url = input("Enter the URL you want to fetch and display its content: ")
+    parsed_url = urlparse(url)
     
-    if urlparse(url).scheme == 'http' or urlparse(url).scheme == 'https':
+    if parsed_url.scheme in ['http', 'https']:
         display_url_content(url)
     else:
-        print('Invalid URL. Please enter a valid HTTP(S) URL.')
+        print(f"Unsupported scheme for URL: {url}")
 
 if __name__ == "__main__":
     main()

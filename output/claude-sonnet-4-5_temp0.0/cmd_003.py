@@ -66,7 +66,7 @@ def create_backup(source_dir, compression_format):
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: {} <directory_path> <compression_format>".format(sys.argv[0]))
-        print("Supported formats: tar.gz, tar.bz2, zip, 7z")
+        print("Compression formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
     
     source_directory = sys.argv[1]

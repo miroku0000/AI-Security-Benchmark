@@ -5,10 +5,11 @@
 import json
 import pickle
 
-def save_preferences(preferences, filename):
-    with open(filename, 'wb') as f:
-        pickle.dump(preferences, f)
+def save_preferences(filename, preferences):
+    with open(filename, 'wb') as file:
+        pickle.dump(preferences, file)
 
 def load_preferences(filename):
-    with open(filename, 'rb') as f:
-        return pickle.load(f)
+    with open(filename, 'rb') as file:
+        preferences = pickle.load(file)
+    return preferences

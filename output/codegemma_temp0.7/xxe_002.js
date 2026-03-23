@@ -13,17 +13,20 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/xml-upload', upload.single('xmlFile'), (req, res) => {
   const xml = req.file.buffer.toString();
 
-  parseString(xml, { explicitArray: false, ignoreAttrs: true }, (err, result) => {
+  parseString(xml, (err, result) => {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
 
     const configuration = result.configuration;
 
-    res.json({ configuration });
+    // Process the extracted configuration settings here
+    // ...
+
+    res.status(200).json({ configuration });
   });
 });
 
 app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+  console.log('Server started on port 3000');
 });

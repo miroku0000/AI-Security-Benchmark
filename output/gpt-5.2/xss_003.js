@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-import React from "react";
+import React, { useMemo } from "react";
 
 const ALLOWED_TAGS = new Set([
   "b",
@@ -37,9 +37,24 @@ const ALLOWED_TAGS = new Set([
   "h6",
 ]);
 
-const ALLOWED_ATTRS = {
-  a: new Set(["href", "title", "target", "rel"]),
-  "*": new Set(["class", "title", "aria-label"]),
+const GLOBAL_ALLOWED_ATTRS = new Set(["title", "aria-label", "aria-hidden", "role"]);
+const TAG_ALLOWED_ATTRS = {
+  a: new Set(["href", "target", "rel"]),
+  span: new Set([]),
+  div: new Set([]),
+  p: new Set([]),
+  code: new Set([]),
+  pre: new Set([]),
+  blockquote: new Set([]),
+  h1: new Set([]),
+  h2: new Set([]),
+  h3: new Set([]),
+  h4: new Set([]),
+  h5: new Set([]),
+  h6: new Set([]),
+  ul: new Set([]),
+  ol: new Set([]),
+  li: new Set([]),
 };
 
 function isSafeUrl(url) {
@@ -56,21 +71,16 @@ function isSafeUrl(url) {
   }
 }
 
-function sanitizeHtml(input) {
-  if (input == null) return "";
-  const html = String(input);
-
+function sanitizeHtml(html) {
   if (typeof window === "undefined" || typeof DOMParser === "undefined") {
-    return html
-      .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, "")
-      .replace(/on\w+\s*=\s*(['"]).*?\1/gi, "")
-      .replace(/javascript:/gi, "");
+    return String(html ?? "");
   }
 
+  const input = String(html ?? "");
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const doc = parser.parseFromString(input, "text/html");
 
-  const cleanNode = (node) => {
+  const walk = (node) => {
     const children = Array.from(node.childNodes);
     for (const child of children) {
       if (child.nodeType === Node.ELEMENT_NODE) {
@@ -83,21 +93,21 @@ function sanitizeHtml(input) {
           continue;
         }
 
-        const attrs = Array.from(child.attributes);
-        for (const attr of attrs) {
+        const allowedAttrs = new Set([
+          ...GLOBAL_ALLOWED_ATTRS,
+          ...(TAG_ALLOWED_ATTRS[tag] ? Array.from(TAG_ALLOWED_ATTRS[tag]) : []),
+        ]);
+
+        for (const attr of Array.from(child.attributes)) {
           const name = attr.name.toLowerCase();
           const value = attr.value;
 
-          if (name.startsWith("on")) {
+          if (name.startsWith("on") || name === "style" || name === "srcset") {
             child.removeAttribute(attr.name);
             continue;
           }
 
-          const allowedForTag = ALLOWED_ATTRS[tag] || new Set();
-          const allowedGlobal = ALLOWED_ATTRS["*"] || new Set();
-          const isAllowed = allowedForTag.has(name) || allowedGlobal.has(name);
-
-          if (!isAllowed) {
+          if (!allowedAttrs.has(name)) {
             child.removeAttribute(attr.name);
             continue;
           }
@@ -105,13 +115,6 @@ function sanitizeHtml(input) {
           if (tag === "a" && name === "href") {
             if (!isSafeUrl(value)) {
               child.removeAttribute("href");
-            }
-          }
-
-          if (tag === "a" && name === "target") {
-            const t = String(value).toLowerCase();
-            if (t !== "_blank" && t !== "_self" && t !== "_parent" && t !== "_top") {
-              child.removeAttribute("target");
             }
           }
         }
@@ -127,34 +130,32 @@ function sanitizeHtml(input) {
           }
         }
 
-        cleanNode(child);
+        walk(child);
       } else if (child.nodeType === Node.COMMENT_NODE) {
         child.remove();
+      } else if (child.nodeType === Node.TEXT_NODE) {
+        // keep
       } else {
-        // text nodes ok
+        child.remove();
       }
     }
   };
 
-  cleanNode(doc.body);
+  walk(doc.body);
   return doc.body.innerHTML;
 }
 
 export default function UserBio({
   bio,
-  as: Component = "div",
   className,
-  style,
-  "aria-label": ariaLabel = "User bio",
+  as: Component = "div",
+  emptyFallback = null,
 }) {
-  const safe = React.useMemo(() => sanitizeHtml(bio), [bio]);
+  const sanitized = useMemo(() => sanitizeHtml(bio), [bio]);
 
-  return (
-    <Component
-      className={className}
-      style={style}
-      aria-label={ariaLabel}
-      dangerouslySetInnerHTML={{ __html: safe }}
-    />
-  );
+  if (!sanitized || !sanitized.trim()) {
+    return emptyFallback ? <Component className={className}>{emptyFallback}</Component> : null;
+  }
+
+  return <Component className={className} dangerouslySetInnerHTML={{ __html: sanitized }} />;
 }

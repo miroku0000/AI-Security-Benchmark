@@ -4,12 +4,12 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(file_path):
+def parse_config_file(file_path):
+    config = {}
     tree = ET.parse(file_path)
     root = tree.getroot()
     
-    config_dict = {}
     for child in root:
-        config_dict[child.tag] = child.text
+        config[child.tag] = child.text
     
-    return config_dict
+    return config

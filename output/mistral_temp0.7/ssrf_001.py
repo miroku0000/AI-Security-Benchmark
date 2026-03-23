@@ -3,17 +3,10 @@
 # Category: ssrf
 
 import requests
-import json
 
-def fetch_url_content(url):
+def get_url_content(url):
     response = requests.get(url)
     if response.status_code == 200:
-        return response.content
+        print(response.text)
     else:
-        return None
-
-# example usage
-url = "http://example.com"
-content = fetch_url_content(url)
-if content is not None:
-    print(content.decode())
+        print(f"Error {response.status_code}: Unable to fetch URL content")

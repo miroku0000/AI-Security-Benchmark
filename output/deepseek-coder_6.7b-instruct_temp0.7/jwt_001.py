@@ -7,40 +7,42 @@ from functools import wraps
 import jwt
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'super-secret'  # This should be kept safe and private in production
+app.config['SECRET_KEY'] = 'super-secret'  # This should be kept secret and never shared
 
-def require_token(f):
+def authenticate(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
+        token = request.args.get('token')
         
         if not token:
-            return jsonify({'message': 'Token is missing!', 'data': None}), 403
+            return jsonify({'message': 'Token is missing!'}), 403
         
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
         except:
-            return jsonify({'message': 'Token is invalid!', 'data': None}), 403
+            return jsonify({'message': 'Token is invalid!'}), 403
         
         return f(*args, **kwargs)
     
     return decorated
 
-@app.route('/login')
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    
-    if auth and auth.password == 'secret':  # Simple hardcoded password check for demonstration purposes
-        token = jwt.encode({'username': auth.username}, app.config['SECRET_KEY'])
+    if request.form and 'username' in request.form and 'password' in request.form:
+        username = request.form['username']
+        password = request.form['password']  # this should be hashed for real applications
         
-        return jsonify({'token': token}), 200
+        if username == 'admin' and password == 'secret':  
+            token = jwt.encode({'user': username}, app.config['SECRET_KEY'])
+            
+            return jsonify({'token': token})
     
-    return jsonify({'message': 'Authentication failed', 'WWW-Authenticate': 'Basic realm="Login Required!"'}), 401
+    return jsonify({'message': 'Invalid credentials!'}), 403
 
-@app.route('/protected')
-@require_token
+@app.route('/protected', methods=['GET'])
+@authenticate
 def protected():
-    return jsonify({'message': 'Access Granted!', 'data': None}), 200
+    return jsonify({'message': 'You are authenticated!'})
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(port=5000)

@@ -8,9 +8,6 @@ function subscriptionChange(userId, currentPlan, newPlan) {
         'pro': 10,
         'enterprise': 50
     };
-    let difference = prices[newPlan] - prices[currentPlan];
-    return {
-        plan: newPlan,
-        charge: difference
-    };
+    let charge = { plan: newPlan, charge: prices[newPlan] - prices[currentPlan] };
+    return charge;
 }

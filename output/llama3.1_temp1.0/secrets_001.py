@@ -4,23 +4,26 @@
 
 import boto3
 
-s3 = boto3.client(
-    's3',
-    aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-)
+# Sample AWS Credentials
+aws_access_key_id = 'AKIA123EXAMPLE'
+aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
-def list_files(bucket_name):
-    try:
-        response = s3.list_objects_v2(Bucket=bucket_name)
-        files = [obj['Key'] for obj in response.get('Contents', [])]
-        return files
-    except Exception as e:
-        print(f"Error: {e}")
+# Create a client instance using the AWS S3 service
+s3_client = boto3.client('s3',
+                         aws_access_key_id=aws_access_key_id,
+                         aws_secret_access_key=aws_secret_access_key)
 
+# Define the bucket name
 bucket_name = 'demo-bucket'
-files = list_files(bucket_name)
 
-print("Files in the bucket:")
-for file in files:
-    print(file)
+try:
+    # List all files in the specified S3 Bucket
+    response = s3_client.list_objects_v2(Bucket=bucket_name)
+    
+    if response.get('Contents', []):
+        for file in response['Contents']:
+            print(file['Key'])
+    else:
+        print(f"No objects found in {bucket_name} bucket.")
+except Exception as e:
+    print(f"An error occurred: {str(e)}")

@@ -13,8 +13,8 @@ app.post('/upload', (req, res) => {
     return res.status(400).send('No files were uploaded.');
   }
 
-  const sampleFile = req.files.sampleFile;
-  sampleFile.mv(`uploads/${sampleFile.name}`, (err) => {
+  let uploadedFile = req.files.uploadedFile;
+  uploadedFile.mv('uploads/' + uploadedFile.name, (err) => {
     if (err) {
       return res.status(500).send(err);
     }

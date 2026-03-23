@@ -4,92 +4,135 @@
 
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const xml2js = require('xml2js');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
-
-function safeText(value) {
-  if (value == null) return null;
-  if (Array.isArray(value)) return value.map(safeText);
-  if (typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (k === '$' || k === '_') continue;
-      out[k] = safeText(v);
-    }
-    if (Object.keys(out).length === 0 && value._ != null) return String(value._).trim();
-    if (value._ != null && Object.keys(out).length === 0) return String(value._).trim();
-    return out;
+const upload = multer({
+  dest: path.join(os.tmpdir(), 'xml-uploads'),
+  limits: {
+    fileSize: 10 * 1024 * 1024
   }
-  return String(value).trim();
+});
+
+function safeDelete(filePath) {
+  if (!filePath) return;
+  fs.unlink(filePath, () => {});
 }
 
-function extractSettings(parsed) {
-  const root = parsed && typeof parsed === 'object' ? parsed[Object.keys(parsed)[0]] : null;
-  const config = root && (root.Configuration || root.configuration || root.Config || root.config || root);
-  const settingsSource = config && (config.Settings || config.settings || config.Setting || config.setting || config);
+function normalizeValue(value) {
+  if (Array.isArray(value)) {
+    if (value.length === 1) return normalizeValue(value[0]);
+    return value.map(normalizeValue);
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && keys[0] === '_') return normalizeValue(value._);
+    const out = {};
+    for (const key of keys) {
+      if (key === '$' || key === '#name') continue;
+      out[key] = normalizeValue(value[key]);
+    }
+    return out;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+    if (trimmed !== '' && !Number.isNaN(Number(trimmed)) && /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      return Number(trimmed);
+    }
+    return trimmed;
+  }
+  return value;
+}
+
+function extractSettings(parsedXml) {
+  const rootName = Object.keys(parsedXml)[0];
+  const root = parsedXml[rootName];
   const settings = {};
 
-  function assignFromNode(node, prefix = '') {
-    if (!node || typeof node !== 'object') return;
-    for (const [key, val] of Object.entries(node)) {
-      if (key === '$' || key === '_') continue;
-      const outKey = prefix ? `${prefix}.${key}` : key;
-      if (Array.isArray(val)) {
-        settings[outKey] = val.map(safeText);
-      } else if (val && typeof val === 'object' && Object.keys(val).some(k => k !== '$' && k !== '_')) {
-        assignFromNode(val, outKey);
-      } else {
-        settings[outKey] = safeText(val);
+  function traverse(node, prefix = '') {
+    if (Array.isArray(node)) {
+      if (node.length === 1) {
+        traverse(node[0], prefix);
+        return;
       }
+      settings[prefix || rootName] = node.map(normalizeValue);
+      return;
     }
+
+    if (node && typeof node === 'object') {
+      if (node.$) {
+        settings[prefix ? `${prefix}.$` : '$'] = normalizeValue(node.$);
+      }
+
+      for (const [key, value] of Object.entries(node)) {
+        if (key === '$' || key === '_') continue;
+        const nextPrefix = prefix ? `${prefix}.${key}` : key;
+        if (Array.isArray(value) && value.length > 1) {
+          settings[nextPrefix] = value.map(normalizeValue);
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          traverse(value, nextPrefix);
+        } else {
+          settings[nextPrefix] = normalizeValue(value);
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(node, '_')) {
+        settings[prefix || rootName] = normalizeValue(node._);
+      }
+      return;
+    }
+
+    settings[prefix || rootName] = normalizeValue(node);
   }
 
-  if (settingsSource && typeof settingsSource === 'object') {
-    assignFromNode(settingsSource);
-  }
-
-  if (Object.keys(settings).length === 0) {
-    assignFromNode(root);
-  }
-
-  return settings;
+  traverse(root, rootName);
+  return { rootName, settings };
 }
 
 app.post('/upload-xml', upload.single('file'), async (req, res) => {
+  const filePath = req.file && req.file.path;
+
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'No XML file uploaded' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No XML file uploaded.' });
     }
 
-    const xml = req.file.buffer.toString('utf8');
+    const xml = fs.readFileSync(filePath, 'utf8');
 
     const parser = new xml2js.Parser({
-      explicitArray: false,
-      mergeAttrs: true,
-      trim: true,
-      normalize: true,
+      explicitArray: true,
+      mergeAttrs: false,
       explicitRoot: true,
+      trim: true,
+      normalize: false,
+      attrkey: '$',
+      charkey: '_',
       xmlns: false,
-      strict: true
+      preserveChildrenOrder: false
     });
 
     const parsed = await parser.parseStringPromise(xml);
-    const settings = extractSettings(parsed);
+    const result = extractSettings(parsed);
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      filename: req.file.originalname,
-      settings,
-      raw: parsed
+      fileName: req.file.originalname,
+      rootElement: result.rootName,
+      configuration: result.settings
     });
-  } catch (err) {
+  } catch (error) {
     return res.status(400).json({
       success: false,
-      error: 'Failed to parse XML',
-      message: err.message
+      error: 'Failed to parse XML document.',
+      details: error.message
     });
+  } finally {
+    safeDelete(filePath);
   }
 });
 
@@ -97,7 +140,7 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`XML endpoint listening on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`XML upload service listening on port ${PORT}`);
 });

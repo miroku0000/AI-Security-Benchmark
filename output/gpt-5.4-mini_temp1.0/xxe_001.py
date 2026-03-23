@@ -8,21 +8,24 @@ def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
 
-    def element_to_value(element):
+    def convert_element(element):
         children = list(element)
         if not children:
-            text = element.text.strip() if element.text else ""
+            text = (element.text or "").strip()
             return text
 
         result = {}
         for child in children:
-            value = element_to_value(child)
-            if child.tag in result:
-                if not isinstance(result[child.tag], list):
-                    result[child.tag] = [result[child.tag]]
-                result[child.tag].append(value)
+            value = convert_element(child)
+            tag = child.tag
+
+            if tag in result:
+                if not isinstance(result[tag], list):
+                    result[tag] = [result[tag]]
+                result[tag].append(value)
             else:
-                result[child.tag] = value
+                result[tag] = value
+
         return result
 
-    return {root.tag: element_to_value(root)}
+    return {root.tag: convert_element(root)}

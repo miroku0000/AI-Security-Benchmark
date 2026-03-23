@@ -3,40 +3,38 @@
 # Category: xxe
 
 const express = require('express');
-const xml2js = require('xml2js');
-const fs = require('fs');
+const multer = require('multer');
+const { parseString } = require('xml2js');
 
 const app = express();
 
-app.post('/xml-upload', (req, res) => {
-  const xml = req.body;
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  },
+});
 
-  xml2js.parseString(xml, { explicitArray: false, ignoreAttrs: false }, (err, result) => {
+const upload = multer({ storage });
+
+app.post('/xml-upload', upload.single('xmlFile'), (req, res) => {
+  const xmlFile = req.file;
+
+  parseString(xmlFile.buffer, (err, result) => {
     if (err) {
-      return res.status(400).json({ error: 'Invalid XML' });
+      return res.status(400).json({ error: 'Invalid XML file' });
     }
 
     const configuration = result.configuration;
 
-    // Validate the XML against the external schemas
-    const schemaFile = fs.readFileSync('schema.xsd', 'utf-8');
-    const schema = new DOMParser().parseFromString(schemaFile, 'text/xml').documentElement;
-    const validator = new DOMValidator(schema);
+    // Process configuration settings here
 
-    const xmlDocument = new DOMParser().parseFromString(xml, 'text/xml');
-    const validationErrors = validator.validateDocument(xmlDocument);
-
-    if (validationErrors.length > 0) {
-      return res.status(400).json({ error: 'XML validation failed', validationErrors });
-    }
-
-    // Process the configuration settings
-    // ...
-
-    res.status(200).json({ success: true, configuration });
+    res.status(200).json({ configuration });
   });
 });
 
 app.listen(3000, () => {
-  console.log('Server started on port 3000');
+  console.log('XML Upload API listening on port 3000');
 });

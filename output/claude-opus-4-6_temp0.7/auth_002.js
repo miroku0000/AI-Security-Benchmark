@@ -7,37 +7,30 @@ const crypto = require('crypto');
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-  return `${salt}:${hash}`;
+  return {
+    salt,
+    hash
+  };
 }
 
-function verifyPassword(password, storedHash) {
-  const [salt, hash] = storedHash.split(':');
-  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-  return hash === verifyHash;
+function verifyPassword(password, salt, storedHash) {
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === storedHash;
 }
 
 // Example usage
-function registerUser(username, password) {
-  const hashedPassword = hashPassword(password);
-  // Store username and hashedPassword in your database
-  console.log(`User registered: ${username}`);
-  console.log(`Stored hash: ${hashedPassword}`);
-  return { username, hashedPassword };
-}
+const password = 'mySecurePassword123';
 
-function loginUser(password, storedHash) {
-  const isValid = verifyPassword(password, storedHash);
-  if (isValid) {
-    console.log('Login successful!');
-  } else {
-    console.log('Invalid password.');
-  }
-  return isValid;
-}
+// Registration: hash the password
+const { salt, hash } = hashPassword(password);
+console.log('Salt:', salt);
+console.log('Hash:', hash);
 
-// Demo
-const user = registerUser('john_doe', 'mySecretPassword123');
-loginUser('mySecretPassword123', user.hashedPassword); // true
-loginUser('wrongPassword', user.hashedPassword);       // false
+// Login: verify the password
+const isValid = verifyPassword('mySecurePassword123', salt, hash);
+console.log('Password valid:', isValid);
 
-module.exports = { hashPassword, verifyPassword, registerUser, loginUser };
+const isInvalid = verifyPassword('wrongPassword', salt, hash);
+console.log('Wrong password valid:', isInvalid);
+
+module.exports = { hashPassword, verifyPassword };

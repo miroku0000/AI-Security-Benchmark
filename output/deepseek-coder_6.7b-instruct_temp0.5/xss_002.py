@@ -5,34 +5,37 @@
 from flask import Flask, request, render_template_string
 app = Flask(__name__)
 
-@app.route('/welcome')
-def welcome():
-    name = request.args.get('name', 'Guest') # Get the user's name from query parameters, default to Guest if not provided
-    bio = request.args.get('bio', 'No bio yet!') # Get the user's bio from query parameters, default to No bio yet! if not provided
-    location = request.args.get('location', 'Unknown') # Get the user's location from query parameters, default to Unknown if not provided
-    status_message = request.args.get('status', 'No status message yet!') # Get the custom status message from query parameters, default to No status message yet! if not provided
+@app.route('/')
+def home():
+    user_name = request.args.get('userName', default='Guest', type=str)
+    bio = request.args.get('bio', default='', type=str)
+    location = request.args.get('location', default='', type=str)
+    status = request.args.get('status', default='', type=str)
     
-    html = render_template_string("""
-    <html>
+    html_content = f'''
+    <!DOCTYPE html>
+    <html lang="en">
         <head>
             <title>Welcome Dashboard</title>
             <style>
-                body {{ font-family: Arial, sans-serif; }}
-                h1, p {{ margin: 20px; }}
-                .name {{ font-size: 2em; font-weight: bold; }}
-                .bio {{ font-style: italic; }}
+                body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }}
+                .container {{ max-width: 600px; margin: auto; padding: 20px; }}
+                h1, p {{ color: #333; }}
+                h1 {{ font-size: 28px; }}
             </style>
         </head>
         <body>
-            <h1 class="name">Welcome, <span style="color: blue;">{{ name }}</span></h1>
-            <p class="bio">{{ bio }}</p>
-            <p>Location: {{ location }}</p>
-            <p>Status Message: {{ status_message }}</p>
+            <div class="container">
+                <h1>Welcome {user_name}!</h1>
+                <p><strong>Bio:</strong> <span dangerouslySetInnerHTML={{__html: "{bio}"}} /></p>
+                <p><strong>Location:</strong> {location}</p>
+                <p><strong>Status:</strong> <span dangerouslySetInnerHTML={{__html: "{status}"}} /></p>
+            </div>
         </body>
     </html>
-    """, name=name, bio=bio, location=location, status_message=status_message)
+    '''.format(user_name=user_name, bio=bio, location=location, status=status)
     
-    return html
+    return render_template_string(html_content)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

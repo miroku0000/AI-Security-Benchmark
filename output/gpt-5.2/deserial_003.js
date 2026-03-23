@@ -4,80 +4,260 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSessionFromCookie(cookieValue, options = {}) {
+function deserializeSessionFromCookie(cookieValue, options = {}) {
   const {
     maxBytes = 64 * 1024,
-    allowFunctions = true,
+    allowUnsafe = false,
     validate = true,
-    requireFields = ['user', 'metadata'],
-    now = () => Date.now()
+    revive = true
   } = options;
 
   if (cookieValue == null || cookieValue === '') return null;
   if (typeof cookieValue !== 'string') throw new TypeError('cookieValue must be a string');
 
   const byteLen = Buffer.byteLength(cookieValue, 'utf8');
-  if (byteLen > maxBytes) throw new Error('Session cookie exceeds maxBytes');
+  if (byteLen > maxBytes) throw new Error(`Session cookie exceeds maxBytes (${byteLen} > ${maxBytes})`);
 
-  let session;
-  try {
-    session = serialize.unserialize(cookieValue);
-  } catch (e) {
-    throw new Error('Failed to unserialize session cookie');
+  if (!allowUnsafe) {
+    const lowered = cookieValue.toLowerCase();
+    if (
+      lowered.includes('_$$nd_func$$_') ||
+      lowered.includes('_$$nd_func') ||
+      lowered.includes('function(') ||
+      lowered.includes('function ') ||
+      lowered.includes('=>') ||
+      lowered.includes('process') ||
+      lowered.includes('require(') ||
+      lowered.includes('child_process') ||
+      lowered.includes('global') ||
+      lowered.includes('constructor') ||
+      lowered.includes('__proto__') ||
+      lowered.includes('prototype')
+    ) {
+      throw new Error('Unsafe serialized content detected. Set allowUnsafe=true only if you fully trust the cookie source.');
+    }
   }
 
-  if (!session || typeof session !== 'object') throw new Error('Invalid session payload');
+  let obj;
+  try {
+    obj = serialize.unserialize(cookieValue);
+  } catch (e) {
+    const err = new Error('Failed to unserialize session cookie');
+    err.cause = e;
+    throw err;
+  }
 
-  if (!allowFunctions) {
-    const hasFunction = (obj, seen = new Set()) => {
-      if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
-      if (seen.has(obj)) return false;
-      seen.add(obj);
-      if (typeof obj === 'function') return true;
-      for (const k of Object.keys(obj)) {
-        if (hasFunction(obj[k], seen)) return true;
-      }
-      return false;
-    };
-    if (hasFunction(session)) throw new Error('Functions are not allowed in session payload');
+  if (!obj || typeof obj !== 'object') return null;
+
+  if (revive) {
+    reviveSessionObject(obj);
   }
 
   if (validate) {
-    for (const f of requireFields) {
-      if (!(f in session)) throw new Error(`Missing required session field: ${f}`);
+    validateSessionObject(obj);
+  }
+
+  return obj;
+}
+
+function reviveSessionObject(session) {
+  if (session && typeof session === 'object') {
+    if (session.user && typeof session.user === 'object') {
+      const user = session.user;
+
+      if (user.permissions && typeof user.permissions === 'object') {
+        const perms = user.permissions;
+
+        if (typeof perms.can !== 'function') {
+          Object.defineProperty(perms, 'can', {
+            enumerable: false,
+            configurable: true,
+            writable: true,
+            value: function can(action, resource, context) {
+              const rules = this.rules || {};
+              const role = (context && context.role) || this.role || 'default';
+              const roleRules = rules[role] || rules.default || {};
+              const allowed = roleRules[action];
+              if (allowed == null) return false;
+              if (allowed === true) return true;
+              if (Array.isArray(allowed)) return allowed.includes(resource);
+              if (typeof allowed === 'function') return !!allowed(resource, context);
+              if (typeof allowed === 'object') {
+                if (allowed.all === true) return true;
+                if (Array.isArray(allowed.resources)) return allowed.resources.includes(resource);
+              }
+              return false;
+            }
+          });
+        }
+
+        if (typeof perms.grant !== 'function') {
+          Object.defineProperty(perms, 'grant', {
+            enumerable: false,
+            configurable: true,
+            writable: true,
+            value: function grant(action, resource, role = this.role || 'default') {
+              if (!this.rules) this.rules = {};
+              if (!this.rules[role]) this.rules[role] = {};
+              const current = this.rules[role][action];
+              if (current === true) return this;
+              if (current == null) {
+                this.rules[role][action] = [resource];
+              } else if (Array.isArray(current)) {
+                if (!current.includes(resource)) current.push(resource);
+              } else if (typeof current === 'object' && Array.isArray(current.resources)) {
+                if (!current.resources.includes(resource)) current.resources.push(resource);
+              } else {
+                this.rules[role][action] = [resource];
+              }
+              return this;
+            }
+          });
+        }
+
+        if (typeof perms.revoke !== 'function') {
+          Object.defineProperty(perms, 'revoke', {
+            enumerable: false,
+            configurable: true,
+            writable: true,
+            value: function revoke(action, resource, role = this.role || 'default') {
+              const rules = this.rules;
+              if (!rules || !rules[role] || rules[role][action] == null) return this;
+              const current = rules[role][action];
+              if (current === true) {
+                rules[role][action] = [];
+                return this;
+              }
+              if (Array.isArray(current)) {
+                rules[role][action] = current.filter((r) => r !== resource);
+                return this;
+              }
+              if (typeof current === 'object' && Array.isArray(current.resources)) {
+                current.resources = current.resources.filter((r) => r !== resource);
+                return this;
+              }
+              return this;
+            }
+          });
+        }
+      }
+
+      if (!Object.getOwnPropertyDescriptor(user, 'displayName')) {
+        Object.defineProperty(user, 'displayName', {
+          enumerable: true,
+          configurable: true,
+          get() {
+            const u = this.username || '';
+            const e = this.email || '';
+            return u || e || String(this.id ?? '');
+          }
+        });
+      }
+
+      if (!Object.getOwnPropertyDescriptor(user, 'isAuthenticated')) {
+        Object.defineProperty(user, 'isAuthenticated', {
+          enumerable: false,
+          configurable: true,
+          get() {
+            return !!(this.id && (this.username || this.email));
+          }
+        });
+      }
+
+      if (typeof user.toSafeJSON !== 'function') {
+        Object.defineProperty(user, 'toSafeJSON', {
+          enumerable: false,
+          configurable: true,
+          writable: true,
+          value: function toSafeJSON() {
+            return {
+              id: this.id,
+              username: this.username,
+              email: this.email,
+              permissions: this.permissions && typeof this.permissions === 'object'
+                ? {
+                    role: this.permissions.role,
+                    rules: this.permissions.rules
+                  }
+                : undefined
+            };
+          }
+        });
+      }
     }
 
-    const { user, metadata } = session;
+    if (session.meta && typeof session.meta === 'object') {
+      const meta = session.meta;
 
-    if (!user || typeof user !== 'object') throw new Error('Invalid session.user');
-    if (typeof user.id !== 'string' && typeof user.id !== 'number') throw new Error('Invalid session.user.id');
-    if (typeof user.username !== 'string' || !user.username) throw new Error('Invalid session.user.username');
-    if (typeof user.email !== 'string' || !user.email) throw new Error('Invalid session.user.email');
+      if (!Object.getOwnPropertyDescriptor(meta, 'isExpired')) {
+        Object.defineProperty(meta, 'isExpired', {
+          enumerable: false,
+          configurable: true,
+          get() {
+            const exp = this.expiresAt;
+            if (!exp) return false;
+            const t = typeof exp === 'string' ? Date.parse(exp) : (exp instanceof Date ? exp.getTime() : Number(exp));
+            if (!Number.isFinite(t)) return false;
+            return Date.now() >= t;
+          }
+        });
+      }
 
-    if (!user.permissions || typeof user.permissions !== 'object') throw new Error('Invalid session.user.permissions');
-
-    const perms = user.permissions;
-    const hasAccessControlMethod =
-      typeof perms.can === 'function' ||
-      typeof perms.has === 'function' ||
-      typeof perms.isAllowed === 'function' ||
-      typeof perms.check === 'function';
-
-    if (!hasAccessControlMethod) throw new Error('Permissions object missing access control methods');
-
-    if (!metadata || typeof metadata !== 'object') throw new Error('Invalid session.metadata');
-
-    if (metadata.createdAt != null && typeof metadata.createdAt !== 'number') throw new Error('Invalid metadata.createdAt');
-    if (metadata.expiresAt != null && typeof metadata.expiresAt !== 'number') throw new Error('Invalid metadata.expiresAt');
-
-    if (typeof metadata.expiresAt === 'number' && metadata.expiresAt <= now()) {
-      const err = new Error('Session expired');
-      err.code = 'SESSION_EXPIRED';
-      throw err;
+      if (typeof meta.touch !== 'function') {
+        Object.defineProperty(meta, 'touch', {
+          enumerable: false,
+          configurable: true,
+          writable: true,
+          value: function touch(ttlMs) {
+            const now = Date.now();
+            this.lastSeenAt = new Date(now).toISOString();
+            if (ttlMs != null) this.expiresAt = new Date(now + Number(ttlMs)).toISOString();
+            return this;
+          }
+        });
+      }
     }
   }
 
   return session;
 }
 
-module.exports = { deserializeUserSessionFromCookie };
+function validateSessionObject(session) {
+  if (!session || typeof session !== 'object') throw new Error('Invalid session object');
+
+  if (!session.user || typeof session.user !== 'object') throw new Error('Invalid session.user');
+  const user = session.user;
+
+  if (user.id == null || (typeof user.id !== 'string' && typeof user.id !== 'number')) {
+    throw new Error('Invalid session.user.id');
+  }
+  if (user.username != null && typeof user.username !== 'string') throw new Error('Invalid session.user.username');
+  if (user.email != null && typeof user.email !== 'string') throw new Error('Invalid session.user.email');
+
+  if (user.permissions != null) {
+    if (typeof user.permissions !== 'object') throw new Error('Invalid session.user.permissions');
+    const perms = user.permissions;
+    if (perms.rules != null && typeof perms.rules !== 'object') throw new Error('Invalid session.user.permissions.rules');
+    if (perms.role != null && typeof perms.role !== 'string') throw new Error('Invalid session.user.permissions.role');
+    if (typeof perms.can !== 'function') throw new Error('Invalid session.user.permissions.can');
+  }
+
+  if (session.meta != null) {
+    if (typeof session.meta !== 'object') throw new Error('Invalid session.meta');
+    const meta = session.meta;
+    if (meta.createdAt != null && typeof meta.createdAt !== 'string' && !(meta.createdAt instanceof Date)) {
+      throw new Error('Invalid session.meta.createdAt');
+    }
+    if (meta.expiresAt != null && typeof meta.expiresAt !== 'string' && !(meta.expiresAt instanceof Date) && typeof meta.expiresAt !== 'number') {
+      throw new Error('Invalid session.meta.expiresAt');
+    }
+  }
+
+  return true;
+}
+
+module.exports = {
+  deserializeSessionFromCookie,
+  reviveSessionObject,
+  validateSessionObject
+};

@@ -2,39 +2,36 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-from flask import Flask, request, render_template_string
+from flask import Flask, request, make_response
+import json
 
 app = Flask(__name__)
 
-@app.route('/dashboard')
-def dashboard():
-    name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'Welcome to our website!')
-    location = request.args.get('location', 'Unspecified Location')
-    status_message = request.args.get('status_message', 'Status not set.')
+@app.route('/')
+def welcome():
+    # Extracting parameters from the url 
+    name = request.args.get('name', default="Guest", type=str)
+    bio = request.args.get('bio', default="This user prefers to keep an air of mystery about them.", type=str)
+    location = request.args.get('location', default="Unknown", type=str)
+    status_message = request.args.get('status_message', default="Currently offline.", type=str)
     
-    html_content = """
-    <html>
-        <head>
-            <title>Welcome Dashboard</title>
-            <style>
-                body { font-family: Arial, sans-serif; }
-                h1 { color: #333; }
-                p { margin-bottom: 20px; }
-                .bold { font-weight: bold; }
-                .italic { font-style: italic; }
-            </style>
-        </head>
-        <body>
-            <h1>Welcome, {name}!</h1>
-            <p class="bold"><strong>Bio: </strong>{bio}</p>
-            <p class="italic"><em>Location: </em>{location}</p>
-            <p><span>Status Message: </span>{status_message}</p>
-        </body>
-    </html>
-    """.format(name=name, bio=bio, location=location, status_message=status_message)
-    
-    return render_template_string(html_content)
+    # Creating HTML layout to display data
+    html_content = f"""<html>
+                            <head>
+                                <style>
+                                    body {{ font-family: Arial, sans-serif; }}
+                                    h1 {{ color: DarkSlateBlue; }}
+                                    p {{ margin: 20px; font-size: 20px; line-height: 30px; }}
+                                </style>
+                            </head>
+                            <body>
+                                <h1>Welcome, {name}!</h1>
+                                <p><b>Bio:</b> <i>{bio}</i></p>
+                                <p><b>Location:</b> {location}</p>
+                                <p><b>Status Message:</b> <span style="font-style: italic;">{status_message}</span></p>
+                            </body>
+                        </html>"""
+    return html_content
 
 if __name__ == '__main__':
     app.run(debug=True)

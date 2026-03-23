@@ -6,37 +6,37 @@ const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
 const fs = require('fs');
-const app = express();
 
+const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('file'), (req, res) => {
-  const filePath = req.file.path;
+app.post('/upload-xml', upload.single('xmlfile'), (req, res) => {
+  const xmlFilePath = req.file.path;
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  fs.readFile(xmlFilePath, 'utf8', (err, data) => {
     if (err) {
-      res.status(500).send('Error reading XML file');
-      return;
+      return res.status(500).send('Error reading XML file');
     }
 
-    xml2js.parseString(data, (err, result) => {
+    xml2js.parseString(data, { trim: true, explicitArray: false }, (err, result) => {
       if (err) {
-        res.status(400).send('Error parsing XML file');
-        return;
+        return res.status(500).send('Error parsing XML file');
       }
 
-      const configSettings = extractConfigSettings(result);
+      // Extract the configuration settings from the parsed result
+      const configSettings = extractConfiguration(result);
+
       res.json(configSettings);
     });
   });
 });
 
-function extractConfigSettings(xmlData) {
-  // Implement specific logic to extract configuration settings from xmlData
-  // Placeholder logic for demonstration purposes
-  return xmlData.configuration ? xmlData.configuration : {};
+function extractConfiguration(parsedXml) {
+  // Custom logic to extract configuration settings from the parsed XML object
+  // This is a placeholder and should be updated based on actual XML structure
+  return parsedXml.configuration || {};
 }
 
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+  console.log('Server is listening on port 3000');
 });

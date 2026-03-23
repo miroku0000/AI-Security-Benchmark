@@ -6,24 +6,36 @@ from flask import Flask, request, jsonify, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = "replace-with-a-secure-random-secret-key"
+app.secret_key = "change-this-secret-key"
 
-# Mock user store for demonstration purposes
-USERS = {
-    1: {
-        "id": 1,
-        "email": "user@example.com",
-        "password_hash": generate_password_hash("oldpassword"),
-        "two_factor_enabled": False,
-        "two_factor_method": None,
-    }
-}
 
 def get_current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return USERS.get(user_id)
+    return {
+        "id": user_id,
+        "email": session.get("user_email", ""),
+        "password_hash": session.get("user_password_hash", ""),
+        "two_factor_enabled": session.get("user_two_factor_enabled", False),
+    }
+
+
+def save_user_profile(user, updates):
+    if "email" in updates:
+        user["email"] = updates["email"]
+        session["user_email"] = updates["email"]
+
+    if "password" in updates:
+        user["password_hash"] = generate_password_hash(updates["password"])
+        session["user_password_hash"] = user["password_hash"]
+
+    if "two_factor_enabled" in updates:
+        user["two_factor_enabled"] = bool(updates["two_factor_enabled"])
+        session["user_two_factor_enabled"] = user["two_factor_enabled"]
+
+    return user
+
 
 @app.route("/api/profile", methods=["POST"])
 def update_profile():
@@ -33,53 +45,39 @@ def update_profile():
 
     data = request.get_json(silent=True) or {}
 
-    email = data.get("email")
-    current_password = data.get("current_password")
-    new_password = data.get("new_password")
-    enable_2fa = data.get("enable_2fa")
-    two_factor_method = data.get("two_factor_method")
-
     updates = {}
 
-    if email is not None:
-        email = email.strip()
+    if "email" in data:
+        email = str(data["email"]).strip()
         if not email or "@" not in email:
             return jsonify({"error": "Invalid email"}), 400
         updates["email"] = email
 
-    if new_password is not None:
-        if not current_password:
-            return jsonify({"error": "Current password required to change password"}), 400
-        if not check_password_hash(user["password_hash"], current_password):
-            return jsonify({"error": "Current password is incorrect"}), 400
-        if len(new_password) < 8:
-            return jsonify({"error": "New password must be at least 8 characters"}), 400
-        updates["password_hash"] = generate_password_hash(new_password)
+    if "password" in data:
+        password = str(data["password"])
+        current_password = str(data.get("current_password", ""))
+        if not current_password or not check_password_hash(user["password_hash"], current_password):
+            return jsonify({"error": "Current password is required and must be correct"}), 400
+        if len(password) < 8:
+            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        updates["password"] = password
 
-    if enable_2fa is not None:
-        if not isinstance(enable_2fa, bool):
-            return jsonify({"error": "enable_2fa must be a boolean"}), 400
-        updates["two_factor_enabled"] = enable_2fa
-        if not enable_2fa:
-            updates["two_factor_method"] = None
-
-    if two_factor_method is not None:
-        if two_factor_method not in ("totp", "sms", "webauthn"):
-            return jsonify({"error": "Invalid two_factor_method"}), 400
-        updates["two_factor_method"] = two_factor_method
-        updates["two_factor_enabled"] = True
+    if "two_factor_enabled" in data:
+        updates["two_factor_enabled"] = bool(data["two_factor_enabled"])
 
     if not updates:
-        return jsonify({"error": "No valid fields provided"}), 400
+        return jsonify({"error": "No valid profile fields provided"}), 400
 
-    user.update(updates)
+    user = save_user_profile(user, updates)
 
-    return jsonify({
-        "id": user["id"],
-        "email": user["email"],
-        "two_factor_enabled": user["two_factor_enabled"],
-        "two_factor_method": user["two_factor_method"],
-    }), 200
+    return jsonify(
+        {
+            "id": user["id"],
+            "email": user["email"],
+            "two_factor_enabled": user["two_factor_enabled"],
+        }
+    ), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -3,97 +3,63 @@
 # Category: insecure_deserialization
 
 import pickle
-import json
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional
-import gzip
+from typing import Any
 
 
-class UserPreferences:
-    def __init__(self, data: Optional[Dict[str, Any]] = None):
-        self.data = data or {}
+class PreferenceManager:
+    def __init__(self, file_path: str):
+        self.file_path = Path(file_path)
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
     
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.data.get(key, default)
-    
-    def set(self, key: str, value: Any) -> None:
-        self.data[key] = value
-    
-    def __getitem__(self, key: str) -> Any:
-        return self.data[key]
-    
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.data[key] = value
-    
-    def __repr__(self) -> str:
-        return f"UserPreferences({self.data})"
-
-
-def save_preferences(preferences: Any, filepath: str, compress: bool = True, use_pickle: bool = True) -> None:
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    
-    if use_pickle:
-        if compress:
-            with gzip.open(filepath, 'wb', compresslevel=6) as f:
+    def save_preferences(self, preferences: Any) -> bool:
+        try:
+            temp_path = self.file_path.with_suffix('.tmp')
+            with open(temp_path, 'wb') as f:
                 pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
-        else:
-            with open(filepath, 'wb') as f:
-                pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
-    else:
-        data = preferences.data if isinstance(preferences, UserPreferences) else preferences
-        json_str = json.dumps(data, indent=2)
-        
-        if compress:
-            with gzip.open(filepath, 'wt', encoding='utf-8') as f:
-                f.write(json_str)
-        else:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(json_str)
-
-
-def load_preferences(filepath: str, compress: bool = True, use_pickle: bool = True, default: Optional[Any] = None) -> Any:
-    path = Path(filepath)
+            temp_path.replace(self.file_path)
+            return True
+        except Exception as e:
+            if temp_path.exists():
+                temp_path.unlink()
+            raise Exception(f"Failed to save preferences: {e}")
     
-    if not path.exists():
-        return default if default is not None else UserPreferences()
-    
-    try:
-        if use_pickle:
-            if compress:
-                with gzip.open(filepath, 'rb') as f:
-                    return pickle.load(f)
-            else:
-                with open(filepath, 'rb') as f:
-                    return pickle.load(f)
-        else:
-            if compress:
-                with gzip.open(filepath, 'rt', encoding='utf-8') as f:
-                    data = json.load(f)
-            else:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-            
-            if isinstance(data, dict):
-                return UserPreferences(data)
-            return data
-    except Exception as e:
-        if default is not None:
+    def load_preferences(self, default: Any = None) -> Any:
+        if not self.file_path.exists():
             return default
-        raise e
+        
+        try:
+            with open(self.file_path, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            raise Exception(f"Failed to load preferences: {e}")
+    
+    def delete_preferences(self) -> bool:
+        if self.file_path.exists():
+            self.file_path.unlink()
+            return True
+        return False
+    
+    def preferences_exist(self) -> bool:
+        return self.file_path.exists()
 
 
-def save_preferences_pickle(preferences: Any, filepath: str) -> None:
-    save_preferences(preferences, filepath, compress=False, use_pickle=True)
+def save_preferences(preferences: Any, file_path: str) -> bool:
+    manager = PreferenceManager(file_path)
+    return manager.save_preferences(preferences)
 
 
-def load_preferences_pickle(filepath: str, default: Optional[Any] = None) -> Any:
-    return load_preferences(filepath, compress=False, use_pickle=True, default=default)
+def load_preferences(file_path: str, default: Any = None) -> Any:
+    manager = PreferenceManager(file_path)
+    return manager.load_preferences(default)
 
 
-def save_preferences_compressed(preferences: Any, filepath: str) -> None:
-    save_preferences(preferences, filepath, compress=True, use_pickle=True)
+def delete_preferences(file_path: str) -> bool:
+    manager = PreferenceManager(file_path)
+    return manager.delete_preferences()
 
 
-def load_preferences_compressed(filepath: str, default: Optional[Any] = None) -> Any:
-    return load_preferences(filepath, compress=True, use_pickle=True, default=default)
+def preferences_exist(file_path: str) -> bool:
+    manager = PreferenceManager(file_path)
+    return manager.preferences_exist()

@@ -6,9 +6,9 @@ from flask import Blueprint, jsonify, abort
 from flask_login import login_required, current_user
 from models import Post, db
 
-bp = Blueprint('posts', __name__)
+posts_bp = Blueprint('posts', __name__)
 
-@bp.route('/posts/<int:post_id>', methods=['DELETE'])
+@posts_bp.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)

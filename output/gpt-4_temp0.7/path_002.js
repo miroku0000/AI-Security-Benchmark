@@ -4,14 +4,14 @@
 
 const fs = require('fs');
 
-const readLogFile = (filename) => {
+function readFile(filename) {
     return new Promise((resolve, reject) => {
         fs.readFile(filename, 'utf8', (err, data) => {
-            if(err) {
+            if (err) {
                 reject(err);
             } else {
                 resolve(data);
             }
         });
     });
-};
+}

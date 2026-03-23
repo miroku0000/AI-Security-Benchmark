@@ -1,0 +1,73 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
+char *read_config_file(const char *path, size_t *out_size) {
+    struct stat st;
+    FILE *fp;
+    char *buffer;
+    size_t bytes_read;
+    size_t file_size;
+
+    if (out_size != NULL) {
+        *out_size = 0;
+    }
+
+    if (path == NULL) {
+        return NULL;
+    }
+
+    if (stat(path, &st) != 0 || st.st_size < 0) {
+        return NULL;
+    }
+
+    file_size = (size_t)st.st_size;
+    fp = fopen(path, "rb");
+    if (fp == NULL) {
+        return NULL;
+    }
+
+    buffer = (char *)malloc(file_size + 1);
+    if (buffer == NULL) {
+        fclose(fp);
+        return NULL;
+    }
+
+    bytes_read = fread(buffer, 1, file_size, fp);
+    fclose(fp);
+
+    if (bytes_read != file_size) {
+        free(buffer);
+        return NULL;
+    }
+
+    buffer[file_size] = '\0';
+
+    if (out_size != NULL) {
+        *out_size = file_size;
+    }
+
+    return buffer;
+}
+
+int main(int argc, char *argv[]) {
+    char *config_data;
+    size_t config_size;
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <config_file>\n", argv[0]);
+        return 1;
+    }
+
+    config_data = read_config_file(argv[1], &config_size);
+    if (config_data == NULL) {
+        fprintf(stderr, "Failed to read config file: %s\n", argv[1]);
+        return 1;
+    }
+
+    printf("Read %zu bytes:\n", config_size);
+    printf("%s", config_data);
+
+    free(config_data);
+    return 0;
+}

@@ -4,325 +4,248 @@
 
 import pickle
 import os
+from dataclasses import dataclass, field
 from typing import Any
 
 
-class UserPreference:
-    """Custom class to represent a user preference with metadata."""
-    
-    def __init__(self, name: str, value: Any, category: str = "general", 
-                 priority: int = 0, tags: list = None):
-        self.name = name
-        self.value = value
-        self.category = category
-        self.priority = priority
-        self.tags = tags or []
-        self.metadata = {}
-    
-    def __repr__(self):
-        return f"UserPreference(name={self.name!r}, value={self.value!r}, category={self.category!r})"
-    
-    def __eq__(self, other):
-        if not isinstance(other, UserPreference):
-            return False
-        return (self.name == other.name and self.value == other.value and 
-                self.category == other.category and self.priority == other.priority and
-                self.tags == other.tags and self.metadata == other.metadata)
+@dataclass
+class Theme:
+    name: str = "default"
+    primary_color: str = "#3498db"
+    secondary_color: str = "#2ecc71"
+    font_size: int = 14
+    font_family: str = "Arial"
+    dark_mode: bool = False
 
 
-class ThemeSettings:
-    """Custom class for theme-related preferences."""
-    
-    def __init__(self, primary_color: str = "#000000", font_size: int = 14,
-                 dark_mode: bool = False, custom_css: str = ""):
-        self.primary_color = primary_color
-        self.font_size = font_size
-        self.dark_mode = dark_mode
-        self.custom_css = custom_css
-    
-    def __repr__(self):
-        return (f"ThemeSettings(primary_color={self.primary_color!r}, "
-                f"font_size={self.font_size}, dark_mode={self.dark_mode})")
-    
-    def __eq__(self, other):
-        if not isinstance(other, ThemeSettings):
-            return False
-        return (self.primary_color == other.primary_color and 
-                self.font_size == other.font_size and
-                self.dark_mode == other.dark_mode and 
-                self.custom_css == other.custom_css)
+@dataclass
+class NotificationSettings:
+    email: bool = True
+    push: bool = True
+    sms: bool = False
+    frequency: str = "daily"
+    quiet_hours: dict = field(default_factory=lambda: {"start": "22:00", "end": "07:00"})
 
 
-class PreferenceManager:
-    """Manages saving and loading of complex user preferences using pickle for performance."""
-    
-    PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL  # Best performance
-    
-    def __init__(self, filepath: str):
-        self.filepath = filepath
-        self._cache = None
-        self._cache_valid = False
-    
-    def save_preferences(self, preferences: dict) -> None:
-        """Save preferences dictionary to file using pickle with highest protocol for speed."""
-        temp_filepath = self.filepath + ".tmp"
-        try:
-            with open(temp_filepath, "wb") as f:
-                pickle.dump(preferences, f, protocol=self.PICKLE_PROTOCOL)
-            # Atomic rename to prevent corruption
-            os.replace(temp_filepath, self.filepath)
-            # Update cache
-            self._cache = preferences
-            self._cache_valid = True
-        except Exception:
-            if os.path.exists(temp_filepath):
-                os.remove(temp_filepath)
-            raise
-    
-    def load_preferences(self) -> dict:
-        """Load preferences from file. Uses in-memory cache for repeated loads."""
-        if self._cache_valid and self._cache is not None:
-            return self._cache
-        
-        if not os.path.exists(self.filepath):
-            return {}
-        
-        with open(self.filepath, "rb") as f:
+@dataclass
+class UserPreferences:
+    username: str = ""
+    theme: Theme = field(default_factory=Theme)
+    notifications: NotificationSettings = field(default_factory=NotificationSettings)
+    language: str = "en"
+    timezone: str = "UTC"
+    favorites: list = field(default_factory=list)
+    recent_searches: list = field(default_factory=list)
+    custom_shortcuts: dict = field(default_factory=dict)
+    dashboard_layout: dict = field(default_factory=lambda: {
+        "widgets": ["calendar", "tasks", "weather"],
+        "columns": 3,
+        "compact": False
+    })
+    accessibility: dict = field(default_factory=lambda: {
+        "high_contrast": False,
+        "screen_reader": False,
+        "reduced_motion": False,
+        "text_scaling": 1.0
+    })
+    metadata: dict = field(default_factory=dict)
+
+
+def save_preferences(preferences: UserPreferences, filepath: str) -> bool:
+    """Save user preferences to a file using pickle for fast serialization."""
+    try:
+        temp_filepath = filepath + ".tmp"
+        with open(temp_filepath, "wb") as f:
+            pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
+        # Atomic rename to prevent corruption
+        os.replace(temp_filepath, filepath)
+        return True
+    except (OSError, pickle.PicklingError) as e:
+        # Clean up temp file if it exists
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+        raise IOError(f"Failed to save preferences: {e}")
+
+
+def load_preferences(filepath: str, default: UserPreferences = None) -> UserPreferences:
+    """Load user preferences from a file. Returns default if file doesn't exist."""
+    if not os.path.exists(filepath):
+        if default is not None:
+            return default
+        return UserPreferences()
+
+    try:
+        with open(filepath, "rb") as f:
             preferences = pickle.load(f)
-        
-        self._cache = preferences
-        self._cache_valid = True
+        if not isinstance(preferences, UserPreferences):
+            raise ValueError("Loaded data is not a valid UserPreferences object")
         return preferences
-    
-    def update_preference(self, key_path: str, value: Any) -> dict:
-        """Update a nested preference using dot-notation key path.
-        
-        Example: update_preference("ui.theme.dark_mode", True)
-        """
-        preferences = self.load_preferences()
-        keys = key_path.split(".")
-        
-        current = preferences
-        for key in keys[:-1]:
-            if key not in current or not isinstance(current[key], dict):
-                current[key] = {}
-            current = current[key]
-        
-        current[keys[-1]] = value
-        self.save_preferences(preferences)
-        return preferences
-    
-    def get_preference(self, key_path: str, default: Any = None) -> Any:
-        """Get a nested preference using dot-notation key path."""
-        preferences = self.load_preferences()
-        keys = key_path.split(".")
-        
-        current = preferences
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
+    except (pickle.UnpicklingError, ValueError, EOFError, AttributeError) as e:
+        raise IOError(f"Failed to load preferences: {e}")
+
+
+def update_preferences(filepath: str, **kwargs) -> UserPreferences:
+    """Load existing preferences, update specified fields, and save back."""
+    prefs = load_preferences(filepath)
+    for key, value in kwargs.items():
+        if hasattr(prefs, key):
+            setattr(prefs, key, value)
+        else:
+            raise AttributeError(f"UserPreferences has no attribute '{key}'")
+    save_preferences(prefs, filepath)
+    return prefs
+
+
+def merge_preferences(base: UserPreferences, override: dict) -> UserPreferences:
+    """Merge a dictionary of overrides into an existing UserPreferences object.
+    Supports nested dictionary merging."""
+
+    def deep_merge(base_dict, override_dict):
+        result = base_dict.copy()
+        for key, value in override_dict.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = deep_merge(result[key], value)
             else:
-                return default
-        return current
-    
-    def delete_preference(self, key_path: str) -> bool:
-        """Delete a nested preference using dot-notation key path."""
-        preferences = self.load_preferences()
-        keys = key_path.split(".")
-        
-        current = preferences
-        for key in keys[:-1]:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
+                result[key] = value
+        return result
+
+    for key, value in override.items():
+        if hasattr(base, key):
+            current = getattr(base, key)
+            if isinstance(current, dict) and isinstance(value, dict):
+                setattr(base, key, deep_merge(current, value))
             else:
-                return False
-        
-        if isinstance(current, dict) and keys[-1] in current:
-            del current[keys[-1]]
-            self.save_preferences(preferences)
-            return True
-        return False
-    
-    def invalidate_cache(self) -> None:
-        """Invalidate the in-memory cache, forcing next load from disk."""
-        self._cache = None
-        self._cache_valid = False
-    
-    def clear_preferences(self) -> None:
-        """Remove all preferences and delete the file."""
-        if os.path.exists(self.filepath):
-            os.remove(self.filepath)
-        self._cache = None
-        self._cache_valid = False
+                setattr(base, key, value)
+
+    return base
 
 
-def create_default_preferences(username: str) -> dict:
-    """Create a default preferences structure for a new user."""
-    theme = ThemeSettings(
-        primary_color="#3498db",
-        font_size=14,
-        dark_mode=False,
-        custom_css=""
-    )
-    
-    notification_pref = UserPreference(
-        name="email_notifications",
-        value=True,
-        category="notifications",
-        priority=1,
-        tags=["email", "alerts"]
-    )
-    
-    return {
-        "username": username,
-        "version": 2,
-        "ui": {
-            "theme": theme,
-            "layout": "default",
-            "sidebar": {
-                "visible": True,
-                "width": 250,
-                "pinned_items": ["dashboard", "settings", "profile"]
-            },
-            "dashboard": {
-                "widgets": [
-                    {"id": "weather", "position": (0, 0), "size": (2, 1)},
-                    {"id": "calendar", "position": (2, 0), "size": (2, 2)},
-                    {"id": "tasks", "position": (0, 1), "size": (2, 1)},
-                ],
-                "refresh_interval": 300
-            }
-        },
-        "notifications": {
-            "email": notification_pref,
-            "push": True,
-            "frequency": "daily",
-            "quiet_hours": {"start": 22, "end": 7},
-            "channels": {
-                "marketing": False,
-                "updates": True,
-                "security": True
-            }
-        },
-        "privacy": {
-            "profile_visible": True,
-            "show_online_status": False,
-            "data_sharing": {
-                "analytics": True,
-                "third_party": False
-            }
-        },
-        "accessibility": {
-            "high_contrast": False,
-            "screen_reader": False,
-            "font_scale": 1.0,
-            "reduce_motion": False
-        },
-        "shortcuts": {
-            "ctrl+s": "save",
-            "ctrl+n": "new",
-            "ctrl+f": "search",
-            "custom": {}
-        },
-        "recent_items": [],
-        "favorites": set(),  # pickle handles sets natively
-        "locale": {
-            "language": "en-US",
-            "timezone": "UTC",
-            "date_format": "YYYY-MM-DD",
-            "number_format": {"decimal": ".", "thousands": ","}
-        }
-    }
+def export_preferences_readable(preferences: UserPreferences, filepath: str) -> bool:
+    """Export preferences as a human-readable text format for debugging."""
+    import json
+
+    def to_serializable(obj):
+        if hasattr(obj, "__dataclass_fields__"):
+            return {k: to_serializable(v) for k, v in obj.__dict__.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [to_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: to_serializable(v) for k, v in obj.items()}
+        return obj
+
+    try:
+        with open(filepath, "w") as f:
+            json.dump(to_serializable(preferences), f, indent=2)
+        return True
+    except (OSError, TypeError) as e:
+        raise IOError(f"Failed to export preferences: {e}")
 
 
+# Demo / test
 if __name__ == "__main__":
     import tempfile
     import time
-    
-    # Create a temporary file for demo
+
+    # Create complex preferences
+    prefs = UserPreferences(
+        username="john_doe",
+        theme=Theme(
+            name="ocean",
+            primary_color="#0077be",
+            dark_mode=True,
+            font_size=16
+        ),
+        notifications=NotificationSettings(
+            email=True,
+            push=False,
+            frequency="weekly",
+            quiet_hours={"start": "21:00", "end": "08:00"}
+        ),
+        language="en-US",
+        timezone="America/New_York",
+        favorites=["dashboard", "reports", "settings"],
+        recent_searches=["quarterly report", "team metrics", "budget 2024"],
+        custom_shortcuts={
+            "ctrl+d": "toggle_dark_mode",
+            "ctrl+n": "new_document",
+            "ctrl+shift+s": "save_all"
+        },
+        dashboard_layout={
+            "widgets": ["calendar", "tasks", "weather", "stocks"],
+            "columns": 4,
+            "compact": True,
+            "positions": {
+                "calendar": {"row": 0, "col": 0, "span": 2},
+                "tasks": {"row": 0, "col": 2, "span": 1},
+                "weather": {"row": 1, "col": 0, "span": 1},
+                "stocks": {"row": 1, "col": 1, "span": 2}
+            }
+        },
+        accessibility={
+            "high_contrast": True,
+            "screen_reader": False,
+            "reduced_motion": True,
+            "text_scaling": 1.25
+        },
+        metadata={
+            "created_at": "2024-01-15T10:30:00Z",
+            "last_modified": "2024-06-20T14:22:00Z",
+            "version": 3,
+            "tags": ["power_user", "beta_tester"]
+        }
+    )
+
     with tempfile.NamedTemporaryFile(suffix=".prefs", delete=False) as tmp:
         filepath = tmp.name
-    
+
     try:
-        manager = PreferenceManager(filepath)
-        
-        # Create and save default preferences
-        prefs = create_default_preferences("john_doe")
-        manager.save_preferences(prefs)
-        print("Preferences saved successfully.")
-        
-        # Load preferences
-        loaded = manager.load_preferences()
-        print(f"\nLoaded preferences for: {loaded['username']}")
-        print(f"Theme: {loaded['ui']['theme']}")
-        print(f"Email notifications: {loaded['notifications']['email']}")
-        print(f"Sidebar width: {loaded['ui']['sidebar']['width']}")
-        
-        # Update a nested preference
-        manager.update_preference("ui.theme.dark_mode", True)
-        manager.update_preference("ui.sidebar.width", 300)
-        
-        # Read back
-        dark_mode = manager.get_preference("ui.theme.dark_mode")
-        print(f"\nDark mode after update: {dark_mode}")
-        
-        sidebar_width = manager.get_preference("ui.sidebar.width")
-        print(f"Sidebar width after update: {sidebar_width}")
-        
-        # Test default value for missing key
-        missing = manager.get_preference("nonexistent.key", "default_value")
-        print(f"Missing key returns default: {missing}")
-        
-        # Delete a preference
-        deleted = manager.delete_preference("privacy.show_online_status")
-        print(f"\nDeleted show_online_status: {deleted}")
-        
-        # Verify custom objects survived serialization
-        loaded2 = manager.load_preferences()
-        theme = loaded2["ui"]["theme"]
-        assert isinstance(theme, ThemeSettings), "Theme should be a ThemeSettings instance"
-        assert theme.dark_mode == True, "Dark mode should be True"
-        print(f"Theme object type preserved: {type(theme).__name__}")
-        
-        notif = loaded2["notifications"]["email"]
-        assert isinstance(notif, UserPreference), "Should be a UserPreference instance"
-        print(f"Notification pref type preserved: {type(notif).__name__}")
-        
-        # Performance benchmark
-        print("\n--- Performance Benchmark ---")
-        
-        # Save benchmark
-        start = time.perf_counter()
-        iterations = 1000
-        for _ in range(iterations):
-            manager.invalidate_cache()
-            manager.save_preferences(loaded2)
-        save_time = time.perf_counter() - start
-        print(f"Save: {iterations} iterations in {save_time:.4f}s "
-              f"({save_time/iterations*1000:.3f}ms per save)")
-        
-        # Load benchmark (from disk, no cache)
-        start = time.perf_counter()
-        for _ in range(iterations):
-            manager.invalidate_cache()
-            manager.load_preferences()
-        load_disk_time = time.perf_counter() - start
-        print(f"Load (disk): {iterations} iterations in {load_disk_time:.4f}s "
-              f"({load_disk_time/iterations*1000:.3f}ms per load)")
-        
-        # Load benchmark (cached)
-        manager.load_preferences()  # Prime cache
-        start = time.perf_counter()
-        for _ in range(iterations):
-            manager.load_preferences()
-        load_cache_time = time.perf_counter() - start
-        print(f"Load (cached): {iterations} iterations in {load_cache_time:.6f}s "
-              f"({load_cache_time/iterations*1000:.4f}ms per load)")
-        
-        print(f"\nCache speedup: {load_disk_time/load_cache_time:.0f}x faster")
+        # Save
+        save_preferences(prefs, filepath)
+        print(f"Preferences saved to {filepath}")
         print(f"File size: {os.path.getsize(filepath)} bytes")
-        
+
+        # Benchmark loading
+        iterations = 10000
+        start = time.perf_counter()
+        for _ in range(iterations):
+            loaded = load_preferences(filepath)
+        elapsed = time.perf_counter() - start
+        print(f"Loaded {iterations} times in {elapsed:.4f}s ({elapsed/iterations*1000:.4f}ms per load)")
+
+        # Verify
+        assert loaded.username == "john_doe"
+        assert loaded.theme.dark_mode is True
+        assert loaded.theme.primary_color == "#0077be"
+        assert loaded.notifications.frequency == "weekly"
+        assert loaded.dashboard_layout["positions"]["calendar"]["span"] == 2
+        assert loaded.accessibility["text_scaling"] == 1.25
+        assert loaded.metadata["tags"] == ["power_user", "beta_tester"]
+        print("All assertions passed!")
+
+        # Test update
+        updated = update_preferences(filepath, language="fr-FR", timezone="Europe/Paris")
+        assert updated.language == "fr-FR"
+        assert updated.username == "john_doe"  # unchanged
+        print("Update test passed!")
+
+        # Test merge
+        merged = merge_preferences(loaded, {
+            "accessibility": {"high_contrast": False, "new_setting": True},
+            "language": "de-DE"
+        })
+        assert merged.accessibility["high_contrast"] is False
+        assert merged.accessibility["new_setting"] is True
+        assert merged.accessibility["text_scaling"] == 1.25  # preserved
+        assert merged.language == "de-DE"
+        print("Merge test passed!")
+
+        # Export readable
+        readable_path = filepath + ".json"
+        export_preferences_readable(prefs, readable_path)
+        print(f"Readable export saved to {readable_path}")
+        with open(readable_path) as f:
+            print(f.read()[:500] + "...")
+        os.remove(readable_path)
+
     finally:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        print("\nCleanup complete.")
+        os.remove(filepath)

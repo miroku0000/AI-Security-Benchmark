@@ -4,11 +4,11 @@
 
 from lxml import etree
 
-def process_soap_request(xml_data):
+def process_soap_request(xml_string):
     parser = etree.XMLParser(dtd_validation=True)
-    tree = etree.fromstring(xml_data, parser)
-    envelope = tree.find("{http://schemas.xmlsoap.org/soap/envelope/}Envelope")
-    body = envelope.find("{http://schemas.xmlsoap.org/soap/envelope/}Body")
+    root = etree.fromstring(xml_string, parser)
     
-    # Further processing of the SOAP message body
-    # return result or do other operations as needed
+    envelope = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
+    body = envelope.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    
+    return etree.tostring(body)

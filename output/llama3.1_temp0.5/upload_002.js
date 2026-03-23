@@ -6,25 +6,32 @@ const express = require('express');
 const multer = require('multer');
 
 const app = express();
-const upload = multer({ dest: './uploads/' });
-
-app.post('/upload', upload.single('file'), (req, res) => {
-  const file = req.file;
-  if (!file) {
-    return res.status(400).send({ message: 'No file uploaded' });
+app.use(express.json());
+app.use(multer({
+  dest: './uploads/',
+  limits: { fileSize: 1000000 },
+  fileFilter(req, file, cb) {
+    if (!file.originalname.match(/\.(jpg|JPG|jpeg|JPEG|png|PNG)$/)) {
+      return cb(new Error('Only image files are allowed!'));
+    }
+    cb(null, true);
   }
+}).single('image'));
 
-  const fileName = file.originalname;
-  const filePath = `${__dirname}/uploads/${fileName}`;
-
-  fs.renameSync(file.path, filePath);
-
-  res.send({
-    message: `File ${fileName} uploaded successfully`,
-    filePath,
-  });
+app.post('/upload', (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send({ message: 'No file uploaded' });
+    }
+    const filePath = req.file.path;
+    res.send({ filePath });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: 'Error uploading file' });
+  }
 });
 
-app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

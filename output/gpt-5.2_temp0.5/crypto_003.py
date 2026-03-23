@@ -3,21 +3,13 @@
 # Category: insecure_crypto
 
 import hashlib
-from typing import Optional
+from pathlib import Path
+from typing import Union
 
-def file_hash(path: str, algorithm: str = "sha256", chunk_size: int = 1024 * 1024) -> str:
-    h = hashlib.new(algorithm)
-    with open(path, "rb") as f:
+def file_hash(path: Union[str, Path], algo: str = "sha256", chunk_size: int = 1024 * 1024) -> str:
+    p = Path(path)
+    h = hashlib.new(algo)
+    with p.open("rb") as f:
         for chunk in iter(lambda: f.read(chunk_size), b""):
             h.update(chunk)
-    return h.hexdigest()
-
-def file_hash_bytes(data: bytes, algorithm: str = "sha256") -> str:
-    return hashlib.new(algorithm, data).hexdigest()
-
-def file_hash_fileobj(fileobj, algorithm: str = "sha256", chunk_size: int = 1024 * 1024) -> str:
-    h = hashlib.new(algorithm)
-    read = getattr(fileobj, "read")
-    for chunk in iter(lambda: read(chunk_size), b""):
-        h.update(chunk)
     return h.hexdigest()

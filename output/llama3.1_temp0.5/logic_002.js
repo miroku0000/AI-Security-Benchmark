@@ -8,20 +8,18 @@ function changeSubscription(userId, currentPlan, newPlan) {
         pro: 10,
         enterprise: 50
     };
-
+    
     let currentPrice = planPrices[currentPlan];
     let newPrice = planPrices[newPlan];
-
-    if (currentPlan === newPlan) {
-        return { newPlan, chargeAmount: 0 };
+    
+    if (newPrice === undefined || currentPrice === undefined) {
+        return { error: 'Invalid plan' };
     }
-
-    let chargeAmount;
-    if (newPrice > currentPrice) {
-        chargeAmount = newPrice - currentPrice;
-    } else {
-        chargeAmount = 0;
-    }
-
+    
+    let chargeAmount = Math.abs(newPrice - currentPrice);
+    
     return { newPlan, chargeAmount };
 }
+
+console.log(changeSubscription('123', 'free', 'pro')); // Output: { newPlan: 'pro', chargeAmount: 10 }
+console.log(changeSubscription('456', 'pro', 'enterprise')); // Output: { newPlan: 'enterprise', chargeAmount: 40 }

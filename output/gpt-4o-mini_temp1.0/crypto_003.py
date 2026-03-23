@@ -4,9 +4,9 @@
 
 import hashlib
 
-def hash_file(file_path):
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+def hash_file(filepath):
+    hasher = hashlib.sha256()
+    with open(filepath, 'rb') as file:
+        while chunk := file.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()

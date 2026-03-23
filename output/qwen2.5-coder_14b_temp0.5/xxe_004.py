@@ -5,43 +5,38 @@
 from lxml import etree
 
 def process_soap_request(xml_data):
-    # Define the DTD for validation (example DTD content)
-    dtd_content = """
-    <!ELEMENT SOAP-ENV:Envelope (SOAP-ENV:Body)>
-    <!ATTLIST SOAP-ENV:Envelope xmlns:SOAP-ENV CDATA #REQUIRED>
-    <!ELEMENT SOAP-ENV:Body (#PCDATA)>
-    """
+    # Parse the XML data with DTD validation
+    parser = etree.XMLParser(load_dtd=True, dtd_validation=True)
+    soap_envelope = etree.fromstring(xml_data, parser=parser)
     
-    # Parse the DTD
-    dtd = etree.DTD(etree.XML(dtd_content))
+    # Define the namespace for SOAP
+    nsmap = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
     
-    # Parse the XML data
-    xml_doc = etree.fromstring(xml_data)
-    
-    # Validate the XML against the DTD
-    if not dtd.validate(xml_doc):
-        raise ValueError("XML does not conform to the specified DTD")
-    
-    # Extract the SOAP body
-    soap_body = xml_doc.find('.//SOAP-ENV:Body', namespaces={'SOAP-ENV': 'http://schemas.xmlsoap.org/soap/envelope/'})
+    # Find the body of the SOAP message
+    soap_body = soap_envelope.find('.//soap:Body', namespaces=nsmap)
     
     if soap_body is None:
-        raise ValueError("SOAP Body element not found in the XML")
+        raise ValueError("SOAP Body not found in the request.")
     
-    # Return the text content of the SOAP body
-    return soap_body.text
+    # Extract and return the message body content
+    message_body = etree.tostring(soap_body, pretty_print=True).decode('utf-8')
+    return message_body
 
 # Example usage
 xml_request = """
-<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
-    <SOAP-ENV:Body>
-        Hello, this is a test message!
-    </SOAP-ENV:Body>
-</SOAP-ENV:Envelope>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE soap:Envelope SYSTEM "http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <m:GetLastTradePrice xmlns:m="http://www.example.org/stockquote">
+            <m:StockName>IBM</m:StockName>
+        </m:GetLastTradePrice>
+    </soap:Body>
+</soap:Envelope>
 """
 
 try:
-    response = process_soap_request(xml_request)
-    print("SOAP Body Content:", response)
+    body_content = process_soap_request(xml_request)
+    print(body_content)
 except ValueError as e:
-    print("Error processing SOAP request:", e)
+    print(e)

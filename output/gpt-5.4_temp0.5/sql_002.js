@@ -18,18 +18,22 @@ const pool = mysql.createPool({
 });
 
 app.get('/products/search', async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = String(req.query.q || '').trim();
 
   if (!q) {
     return res.json([]);
   }
 
   try {
-    const [rows] = await pool.query(
-      'SELECT id, name, price FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
-      [`%${q}%`]
-    );
+    const sql = `
+      SELECT id, name, price
+      FROM products
+      WHERE name LIKE '%${q}%'
+      ORDER BY name ASC
+      LIMIT 50
+    `;
 
+    const [rows] = await pool.query(sql);
     res.json(rows);
   } catch (err) {
     console.error(err);

@@ -12,13 +12,14 @@ PathLike = Union[str, Path]
 
 def save_preferences(preferences: Any, file_path: PathLike, protocol: int = pickle.HIGHEST_PROTOCOL) -> None:
     path = Path(file_path)
-    if path.parent and not path.parent.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as f:
         pickle.dump(preferences, f, protocol=protocol)
 
 
-def load_preferences(file_path: PathLike) -> Any:
+def load_preferences(file_path: PathLike, default: Any = None) -> Any:
     path = Path(file_path)
+    if not path.exists():
+        return default
     with path.open("rb") as f:
         return pickle.load(f)

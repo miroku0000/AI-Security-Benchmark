@@ -4,16 +4,22 @@
 
 const jwt = require('jsonwebtoken');
 
-function authMiddleware(req, res, next) {
+function verifyJwt(req, res, next) {
   const authHeader = req.headers.authorization || '';
-  const [scheme, token] = authHeader.split(' ');
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
 
-  if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!token) {
+    return res.status(401).json({ error: 'Missing token' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'prototype-secret');
+    const decoded = jwt.decode(token);
+    if (!decoded) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
     req.user = decoded;
     next();
   } catch (err) {
@@ -21,4 +27,4 @@ function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = authMiddleware;
+module.exports = verifyJwt;

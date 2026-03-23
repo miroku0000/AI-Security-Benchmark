@@ -3,13 +3,13 @@
 # Category: broken_access_control
 
 from flask import Blueprint, request, jsonify
-from models import User, Post
+from models import Post, User
 from main import db
-from flask_login import login_required, current_user
+from flask_login import current_user, login_required
 
 api = Blueprint('api', __name__)
 
-@api.route('/post/delete/<int:id>', methods=['DELETE'])
+@api.route('/delete_post/<int:id>', methods=['DELETE'])
 @login_required
 def delete_post(id):
     post = Post.query.get(id)
@@ -18,9 +18,9 @@ def delete_post(id):
         return jsonify({"message": "Post not found."}), 404
 
     if current_user != post.author:
-        return jsonify({"message": "Unauthorized access."}), 403
-        
+        return jsonify({"message": "You do not have permission to delete this post."}), 403
+    
     db.session.delete(post)
     db.session.commit()
-    
+
     return jsonify({"message": "Post deleted successfully."}), 200

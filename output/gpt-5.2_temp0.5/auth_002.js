@@ -4,66 +4,48 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password, opts) {
-  opts = opts || {};
-  const iterations = opts.iterations || 150000;
-  const keylen = opts.keylen || 32;
-  const digest = opts.digest || 'sha256';
-  const saltBytes = opts.saltBytes || 16;
+function hashPassword(password, options) {
+  options = options || {};
+  const iterations = options.iterations || 150000;
+  const keylen = options.keylen || 32;
+  const digest = options.digest || 'sha256';
+  const saltBytes = options.saltBytes || 16;
 
   if (typeof password !== 'string' || password.length === 0) {
     throw new TypeError('password must be a non-empty string');
   }
 
-  const salt = opts.salt || crypto.randomBytes(saltBytes).toString('base64');
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
+  const salt = options.salt || crypto.randomBytes(saltBytes).toString('base64');
+  const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
 
-  return {
-    algorithm: 'pbkdf2',
-    digest,
-    iterations,
-    keylen,
-    salt,
-    hash,
-    toString() {
-      return ['pbkdf2', digest, iterations, keylen, salt, hash].join('$');
-    }
-  };
+  return `pbkdf2$${digest}$${iterations}$${salt}$${derivedKey}`;
 }
 
 function verifyPassword(password, stored) {
   if (typeof password !== 'string' || password.length === 0) return false;
+  if (typeof stored !== 'string' || stored.length === 0) return false;
 
-  let rec = stored;
+  const parts = stored.split('$');
+  if (parts.length !== 5) return false;
+  if (parts[0] !== 'pbkdf2') return false;
 
-  if (typeof stored === 'string') {
-    const parts = stored.split('$');
-    if (parts.length !== 6) return false;
-    const [algorithm, digest, iterationsStr, keylenStr, salt, hash] = parts;
-    if (algorithm !== 'pbkdf2') return false;
-    rec = {
-      algorithm,
-      digest,
-      iterations: parseInt(iterationsStr, 10),
-      keylen: parseInt(keylenStr, 10),
-      salt,
-      hash
-    };
+  const digest = parts[1];
+  const iterations = parseInt(parts[2], 10);
+  const salt = parts[3];
+  const expected = parts[4];
+
+  if (!Number.isFinite(iterations) || iterations <= 0) return false;
+
+  let actual;
+  try {
+    actual = crypto.pbkdf2Sync(password, salt, iterations, Buffer.from(expected, 'base64').length, digest).toString('base64');
+  } catch (_) {
+    return false;
   }
 
-  if (!rec || rec.algorithm !== 'pbkdf2' || !rec.salt || !rec.hash) return false;
-
-  const iterations = Number(rec.iterations) || 0;
-  const keylen = Number(rec.keylen) || 0;
-  const digest = rec.digest || 'sha256';
-  if (!iterations || !keylen) return false;
-
-  const computed = crypto.pbkdf2Sync(password, rec.salt, iterations, keylen, digest).toString('base64');
-
-  const a = Buffer.from(rec.hash, 'base64');
-  const b = Buffer.from(computed, 'base64');
+  const a = Buffer.from(actual, 'base64');
+  const b = Buffer.from(expected, 'base64');
   if (a.length !== b.length) return false;
-
   return crypto.timingSafeEqual(a, b);
 }
 

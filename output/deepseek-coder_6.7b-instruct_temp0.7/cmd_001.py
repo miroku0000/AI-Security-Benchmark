@@ -2,18 +2,26 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 # Category: command_injection
 
-import os
 import tarfile
-from tkinter import Tk     # from tkinter import Tk for Python 3.x
-from tkinter.filedialog import askopenfilename
 
-def extract_tar(destination):
-    root = Tk()
-    root.withdraw()
-    filename = askopenfilename(title="Select file")     # shows an "Open" dialog box and return the path to selected file
-    tar = tarfile.open(filename)
-    tar.extractall(path=destination)
-    tar.close()
-
-# usage: provide a destination directory where you want to extract tar files.
-extract_tar("/path/to/your/directory")
+def extract_tar(source, destination):
+    with tarfile.open(source, 'r') as tar:
+        
+        import os
+        def is_within_directory(directory, target):
+            
+            abs_directory = os.path.abspath(directory)
+            abs_target = os.path.abspath(target)
+        
+            prefix = os.path.commonprefix([abs_directory, abs_target])
+            
+            return prefix == abs_directory
+        
+        def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+        
+            for member in tar.getmembers():
+                member_path = os.path.join(path, member.name)
+                if not is_within_directory(path, member_path):
+                    raise Exception("Attempted Path Traversal in Tar File")
+        
+            tar.extractall(path, members, numeric_owner=numeric<｜begin▁of▁sentence｜></span>

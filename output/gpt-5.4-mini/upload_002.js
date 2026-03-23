@@ -7,7 +7,7 @@ const path = require('path');
 const multer = require('multer');
 
 function createUploadHandler(options = {}) {
-  const uploadDir = options.uploadDir || path.join(__dirname, 'uploads');
+  const uploadDir = options.uploadDir || path.join(process.cwd(), 'uploads');
   const maxFileSize = options.maxFileSize || 10 * 1024 * 1024;
 
   if (!fs.existsSync(uploadDir)) {
@@ -17,9 +17,9 @@ function createUploadHandler(options = {}) {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
       const ext = path.extname(file.originalname);
-      const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+      const base = path.basename(file.originalname, ext).replace(/[^\w.-]/g, '_');
       cb(null, `${base}-${uniqueSuffix}${ext}`);
     }
   });
@@ -30,11 +30,11 @@ function createUploadHandler(options = {}) {
 
   const upload = multer({
     storage,
-    limits: { fileSize: maxFileSize },
-    fileFilter
+    fileFilter,
+    limits: { fileSize: maxFileSize }
   });
 
-  return upload.single('file');
+  return upload.single(options.fieldName || 'file');
 }
 
 module.exports = { createUploadHandler };

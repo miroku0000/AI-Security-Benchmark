@@ -2,13 +2,12 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 # Category: path_traversal
 
-const fs = require('fs');
-module.exports = {
-  readLog(filename) {
-    return new Promise((resolve, reject) => {
-      resolve(fs.readFileSync(filename)); //this is the async version of fs.readFile
-    });
-  },
+function readFile(fileName){
+    return fs.readFileSync(fileName, 'utf-8')
+}
 
-  // your code here
-};
+console.log(readFile(process.argv[2]))
+
+# Expected results:
+
+$ node app.js logFileName

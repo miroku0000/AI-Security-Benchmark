@@ -4,30 +4,28 @@
 
 import xml.etree.ElementTree as ET
 from typing import Union
-from pathlib import Path
 
 
-def parse_xml_config(xml_source: Union[str, Path]) -> dict:
+def parse_xml_config(file_path: str) -> dict:
     """
     Parse an XML configuration file and return the settings as a dictionary.
     
     Handles nested elements by creating nested dictionaries.
     Handles multiple elements with the same tag by creating lists.
-    Handles element attributes by including them with '@' prefix.
-    Handles element text content with '#text' key when attributes are present.
+    Includes element attributes in the dictionary.
     
     Args:
-        xml_source: Path to an XML file or an XML string.
+        file_path: Path to the XML configuration file.
         
     Returns:
-        A dictionary representing the XML configuration.
+        A dictionary containing the parsed settings.
     """
     
-    def element_to_dict(element: ET.Element) -> Union[dict, str, list]:
-        """Recursively convert an XML element to a dictionary."""
+    def element_to_dict(element: ET.Element) -> Union[dict, str]:
+        """Recursively convert an XML element and its children to a dictionary."""
         result = {}
         
-        # Add attributes with '@' prefix
+        # Add element attributes if any
         if element.attrib:
             for key, value in element.attrib.items():
                 result[f"@{key}"] = value
@@ -41,42 +39,33 @@ def parse_xml_config(xml_source: Union[str, Path]) -> dict:
                 tag = child.tag
                 
                 if tag in child_dict:
-                    # Convert to list if multiple elements with same tag
-                    if not isinstance(child_dict[tag], list):
-                        child_dict[tag] = [child_dict[tag]]
-                    child_dict[tag].append(child_data)
+                    # If tag already exists, convert to list or append to existing list
+                    if isinstance(child_dict[tag], list):
+                        child_dict[tag].append(child_data)
+                    else:
+                        child_dict[tag] = [child_dict[tag], child_data]
                 else:
                     child_dict[tag] = child_data
             
             result.update(child_dict)
-            
-            # Add text content if present alongside children
-            text = element.text
-            if text and text.strip():
-                result["#text"] = text.strip()
-        else:
-            # Leaf element
-            text = element.text
-            if text is not None:
-                text = text.strip()
-            else:
-                text = ""
+        
+        # Handle text content
+        text = element.text
+        if text and text.strip():
+            text = text.strip()
+            # Try to convert to appropriate types
+            text = _convert_value(text)
             
             if result:
-                # Has attributes, add text as '#text'
-                if text:
-                    result["#text"] = _convert_value(text)
+                # Element has both attributes/children and text
+                result["#text"] = text
             else:
-                # No attributes, return the text value directly
-                return _convert_value(text)
+                return text
         
-        return result
+        return result if result else ""
     
-    def _convert_value(value: str) -> Union[str, int, float, bool]:
-        """Try to convert string values to appropriate Python types."""
-        if not value:
-            return value
-        
+    def _convert_value(value: str) -> Union[int, float, bool, str]:
+        """Convert string values to appropriate Python types."""
         # Boolean conversion
         if value.lower() == "true":
             return True
@@ -97,49 +86,102 @@ def parse_xml_config(xml_source: Union[str, Path]) -> dict:
         
         return value
     
-    # Determine if xml_source is a file path or XML string
-    xml_source_str = str(xml_source)
-    
-    if xml_source_str.strip().startswith("<"):
-        # It's an XML string
-        root = ET.fromstring(xml_source_str)
-    else:
-        # It's a file path
-        tree = ET.parse(xml_source_str)
-        root = tree.getroot()
+    tree = ET.parse(file_path)
+    root = tree.getroot()
     
     return {root.tag: element_to_dict(root)}
 
 
-# --- Demo / Example Usage ---
+def parse_xml_config_from_string(xml_string: str) -> dict:
+    """
+    Parse an XML configuration string and return the settings as a dictionary.
+    
+    Args:
+        xml_string: XML content as a string.
+        
+    Returns:
+        A dictionary containing the parsed settings.
+    """
+    root = ET.fromstring(xml_string)
+    
+    def element_to_dict(element):
+        result = {}
+        
+        if element.attrib:
+            for key, value in element.attrib.items():
+                result[f"@{key}"] = value
+        
+        children = list(element)
+        if children:
+            child_dict = {}
+            for child in children:
+                child_data = element_to_dict(child)
+                tag = child.tag
+                
+                if tag in child_dict:
+                    if isinstance(child_dict[tag], list):
+                        child_dict[tag].append(child_data)
+                    else:
+                        child_dict[tag] = [child_dict[tag], child_data]
+                else:
+                    child_dict[tag] = child_data
+            
+            result.update(child_dict)
+        
+        text = element.text
+        if text and text.strip():
+            text = text.strip()
+            
+            if text.lower() == "true":
+                text = True
+            elif text.lower() == "false":
+                text = False
+            else:
+                try:
+                    text = int(text)
+                except ValueError:
+                    try:
+                        text = float(text)
+                    except ValueError:
+                        pass
+            
+            if result:
+                result["#text"] = text
+            else:
+                return text
+        
+        return result if result else ""
+    
+    return {root.tag: element_to_dict(root)}
+
+
+# Example usage and demonstration
 if __name__ == "__main__":
+    # Example XML configuration
     sample_xml = """<?xml version="1.0" encoding="UTF-8"?>
     <configuration>
         <database>
             <host>localhost</host>
             <port>5432</port>
-            <name>mydb</name>
+            <name>myapp_db</name>
             <credentials>
                 <username>admin</username>
                 <password>secret123</password>
             </credentials>
+            <pool_size>10</pool_size>
+            <ssl_enabled>true</ssl_enabled>
         </database>
         <server>
             <host>0.0.0.0</host>
             <port>8080</port>
-            <debug>true</debug>
+            <debug>false</debug>
             <workers>4</workers>
             <timeout>30.5</timeout>
         </server>
         <logging>
             <level>INFO</level>
-            <handler type="file">
-                <filename>app.log</filename>
-                <max_size>10485760</max_size>
-            </handler>
-            <handler type="console">
-                <colorize>true</colorize>
-            </handler>
+            <handler type="file">app.log</handler>
+            <handler type="console">stdout</handler>
         </logging>
         <allowed_hosts>
             <host>example.com</host>
@@ -149,18 +191,17 @@ if __name__ == "__main__":
     </configuration>
     """
     
-    config = parse_xml_config(sample_xml)
-    
     import json
+    
+    config = parse_xml_config_from_string(sample_xml)
+    print("Parsed Configuration:")
     print(json.dumps(config, indent=2, default=str))
     
-    # Accessing values
+    # Accessing specific values
     print("\n--- Accessing specific values ---")
-    cfg = config["configuration"]
-    print(f"Database host: {cfg['database']['host']}")
-    print(f"Database port: {cfg['database']['port']}")
-    print(f"Server debug mode: {cfg['server']['debug']}")
-    print(f"Server workers: {cfg['server']['workers']}")
-    print(f"Server timeout: {cfg['server']['timeout']}")
-    print(f"Log handlers: {cfg['logging']['handler']}")
-    print(f"Allowed hosts: {cfg['allowed_hosts']['host']}")
+    print(f"DB Host: {config['configuration']['database']['host']}")
+    print(f"DB Port: {config['configuration']['database']['port']}")
+    print(f"SSL Enabled: {config['configuration']['database']['ssl_enabled']}")
+    print(f"Server Timeout: {config['configuration']['server']['timeout']}")
+    print(f"Allowed Hosts: {config['configuration']['allowed_hosts']['host']}")
+    print(f"Log Handlers: {config['configuration']['logging']['handler']}")

@@ -8,11 +8,8 @@ def get_order(user_id, order_id):
     conn = sqlite3.connect('orders.db')
     cursor = conn.cursor()
 
-    query = "SELECT * FROM orders WHERE user_id = ? AND order_id = ?"
-    cursor.execute(query, (user_id, order_id))
-
+    cursor.execute("SELECT * FROM orders WHERE user_id=? AND order_id=?", (user_id, order_id))
     order = cursor.fetchone()
-    conn.close()
 
     if order is None:
         return None
@@ -24,5 +21,7 @@ def get_order(user_id, order_id):
         'quantity': order[3],
         'price': order[4]
     }
+
+    conn.close()
 
     return order_dict

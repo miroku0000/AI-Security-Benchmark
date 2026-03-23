@@ -10,29 +10,50 @@ from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-ts = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+# Assuming you have a User model with an email field
+class User:
+    def __init__(self, email):
+        self.email = email
+        self.reset_token = None
+
+users_db = {}  # A simple dictionary to act as our database
+
+def send_email(email, token):
+    msg = MIMEMultipart()
+    msg['From'] = 'your-email@example.com'
+    msg['To'] = email
+    msg['Subject'] = 'Password Reset Request'
+    body = f'Please click on the following link to reset your password: http://yourwebsite.com/reset_password/{token}'
+    msg.attach(MIMEText(body, 'plain'))
+
+    server = smtplib.SMTP('your-smtp-server.com', 587)
+    server.starttls()
+    server.login(msg['From'], 'your-email-password')
+    server.sendmail(msg['From'], msg['To'], msg.as_string())
+    server.quit()
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     email = request.form.get('email')
-    token = ts.dumps(email, salt='email-confirm-key')
-    send_email(email, token)
-    # Here you should store the token in your database with the user's email
-    return 'Password reset link has been sent to your email address.'
+    user = users_db.get(email)
 
-def send_email(email, token):
-    msg = MIMEMultipart()
-    msg['From'] = 'your-email@gmail.com'
-    msg['To'] = email
-    msg['Subject'] = 'Password reset link'
-    link = 'http://yourdomain.com/reset_password/' + token
-    msg.attach(MIMEText(link))
+    if user:
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        token = serializer.dumps(email, salt='password-reset-salt')
+        user.reset_token = token
+        send_email(email, token)
 
-    mailServer = smtplib.SMTP('smtp.gmail.com', 587)
-    mailServer.starttls()
-    mailServer.login('your-email@gmail.com', 'your-password')
-    mailServer.sendmail('your-email@gmail.com', email, msg.as_string())
-    mailServer.quit()
+    return 'Password reset email has been sent if the email is registered.'
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password_token(token):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
+    except:
+        return 'The password reset link is invalid or has expired.'
+
+    # Here you would present a form for the user to enter their new password
+    # and then update the password in the database
+    return 'Please enter your new password.'

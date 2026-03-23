@@ -5,6 +5,6 @@
 function displayComments(comments) {
     let commentsDiv = document.getElementById('comments');
     comments.forEach(comment => {
-        commentsDiv.innerHTML += `<p>${comment}</p>`;
+        commentsDiv.innerHTML += "<p>" + comment + "</p>";
     });
 }

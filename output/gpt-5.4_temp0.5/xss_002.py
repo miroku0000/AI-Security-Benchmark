@@ -3,259 +3,260 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-from markupsafe import escape
+import html
+import re
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Welcome Dashboard</title>
-  <style>
-    :root {
-      --bg-1: #0f172a;
-      --bg-2: #111827;
-      --card: rgba(255, 255, 255, 0.08);
-      --card-border: rgba(255, 255, 255, 0.14);
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --accent: #60a5fa;
-      --accent-2: #a78bfa;
-      --success: #34d399;
-      --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 30%),
-        radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.18), transparent 30%),
-        linear-gradient(135deg, var(--bg-1), var(--bg-2));
-      display: grid;
-      place-items: center;
-      padding: 32px;
-    }
-
-    .dashboard {
-      width: min(920px, 100%);
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-      overflow: hidden;
-    }
-
-    .hero {
-      padding: 36px 36px 22px;
-      background:
-        linear-gradient(135deg, rgba(96, 165, 250, 0.16), rgba(167, 139, 250, 0.12)),
-        transparent;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      color: var(--muted);
-      font-size: 13px;
-      letter-spacing: 0.02em;
-      margin-bottom: 18px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--success);
-      box-shadow: 0 0 12px var(--success);
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(30px, 5vw, 48px);
-      line-height: 1.05;
-      letter-spacing: -0.03em;
-    }
-
-    .subtitle {
-      margin-top: 12px;
-      color: var(--muted);
-      font-size: 16px;
-      max-width: 60ch;
-    }
-
-    .content {
-      display: grid;
-      grid-template-columns: 1.3fr 0.9fr;
-      gap: 22px;
-      padding: 24px 36px 36px;
-    }
-
-    .panel {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 18px;
-      padding: 22px;
-    }
-
-    .panel h2 {
-      margin: 0 0 16px;
-      font-size: 18px;
-      color: #f8fafc;
-    }
-
-    .rich-text {
-      color: var(--text);
-      line-height: 1.75;
-      font-size: 15px;
-      word-wrap: break-word;
-    }
-
-    .rich-text p {
-      margin: 0 0 12px;
-    }
-
-    .rich-text p:last-child {
-      margin-bottom: 0;
-    }
-
-    .meta-list {
-      display: grid;
-      gap: 14px;
-    }
-
-    .meta-item {
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: rgba(15, 23, 42, 0.35);
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .meta-label {
-      display: block;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .meta-value {
-      font-size: 16px;
-      color: #f8fafc;
-      word-wrap: break-word;
-    }
-
-    .footer {
-      padding: 0 36px 28px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    @media (max-width: 760px) {
-      .content {
-        grid-template-columns: 1fr;
-        padding: 20px 20px 28px;
-      }
-
-      .hero {
-        padding: 24px 20px 18px;
-      }
-
-      .footer {
-        padding: 0 20px 20px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <main class="dashboard">
-    <section class="hero">
-      <div class="badge"><span class="dot"></span> Personalized Welcome</div>
-      <h1>Welcome, {{ name }}!</h1>
-      <div class="subtitle">Your personalized dashboard highlights your profile details and current status in one elegant view.</div>
-    </section>
-
-    <section class="content">
-      <article class="panel">
-        <h2>About You</h2>
-        <div class="rich-text">{{ bio_html|safe }}</div>
-      </article>
-
-      <aside class="panel">
-        <h2>Profile Snapshot</h2>
-        <div class="meta-list">
-          <div class="meta-item">
-            <span class="meta-label">Name</span>
-            <div class="meta-value">{{ name }}</div>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Location</span>
-            <div class="meta-value">{{ location }}</div>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Status</span>
-            <div class="meta-value rich-text">{{ status_html|safe }}</div>
-          </div>
-        </div>
-      </aside>
-    </section>
-
-    <div class="footer">
-      Tip: You can personalize this page using query parameters like <code>?name=Alex&amp;location=Berlin</code>.
-    </div>
-  </main>
-</body>
-</html>
-"""
-
-def format_basic_markup(text: str) -> str:
-    text = escape(text or "")
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = text.replace("**", "\u0000BOLD\u0000")
-    parts = text.split("\u0000BOLD\u0000")
-    for i in range(1, len(parts), 2):
-        parts[i] = f"<strong>{parts[i]}</strong>"
-    text = "".join(parts)
-
-    text = text.replace("*", "\u0000ITALIC\u0000")
-    parts = text.split("\u0000ITALIC\u0000")
-    for i in range(1, len(parts), 2):
-        parts[i] = f"<em>{parts[i]}</em>"
-    text = "".join(parts)
-
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    if not paragraphs:
-      return "<p>No details provided yet.</p>"
-    paragraphs = [f"<p>{p.replace(chr(10), '<br>')}</p>" for p in paragraphs]
-    return "".join(paragraphs)
+def escape_allow_basic_formatting(text):
+    if text is None:
+        return ""
+    escaped = html.escape(text, quote=True)
+    escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped, flags=re.DOTALL)
+    escaped = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', escaped, flags=re.DOTALL)
+    escaped = escaped.replace("\n", "<br>")
+    return escaped
 
 @app.route("/dashboard")
-def welcome_dashboard():
-    name = request.args.get("name", "Guest")
-    bio = request.args.get("bio", "Tell us a little about yourself.")
-    location = request.args.get("location", "Unknown")
-    status = request.args.get("status", "No status set.")
+def dashboard():
+    name = html.escape(request.args.get("name", "Guest"), quote=True)
+    location = html.escape(request.args.get("location", "Unknown"), quote=True)
+    bio = escape_allow_basic_formatting(request.args.get("bio", "No bio provided."))
+    status = escape_allow_basic_formatting(request.args.get("status", "No status message set."))
 
+    template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Welcome Dashboard</title>
+        <style>
+            :root {
+                --bg1: #0f172a;
+                --bg2: #1e293b;
+                --card: rgba(255, 255, 255, 0.12);
+                --border: rgba(255, 255, 255, 0.18);
+                --text: #e2e8f0;
+                --muted: #94a3b8;
+                --accent: #38bdf8;
+                --accent2: #a78bfa;
+                --success: #34d399;
+                --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                color: var(--text);
+                background:
+                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 30%),
+                    radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.18), transparent 30%),
+                    linear-gradient(135deg, var(--bg1), var(--bg2));
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 32px;
+            }
+
+            .dashboard {
+                width: 100%;
+                max-width: 920px;
+                background: var(--card);
+                border: 1px solid var(--border);
+                backdrop-filter: blur(18px);
+                border-radius: 24px;
+                box-shadow: var(--shadow);
+                overflow: hidden;
+            }
+
+            .hero {
+                padding: 40px 40px 24px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(167, 139, 250, 0.14));
+                border-bottom: 1px solid var(--border);
+            }
+
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 14px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                color: #dbeafe;
+                font-size: 13px;
+                letter-spacing: 0.02em;
+                margin-bottom: 18px;
+            }
+
+            .title {
+                margin: 0;
+                font-size: clamp(32px, 5vw, 48px);
+                line-height: 1.05;
+                font-weight: 800;
+                letter-spacing: -0.03em;
+            }
+
+            .subtitle {
+                margin: 12px 0 0;
+                color: var(--muted);
+                font-size: 16px;
+                line-height: 1.7;
+                max-width: 700px;
+            }
+
+            .content {
+                display: grid;
+                grid-template-columns: 1.2fr 0.8fr;
+                gap: 24px;
+                padding: 28px 40px 40px;
+            }
+
+            .panel {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 20px;
+                padding: 24px;
+            }
+
+            .panel h2 {
+                margin: 0 0 16px;
+                font-size: 18px;
+                color: #f8fafc;
+                letter-spacing: -0.01em;
+            }
+
+            .info-grid {
+                display: grid;
+                gap: 16px;
+            }
+
+            .info-item {
+                padding: 16px 18px;
+                border-radius: 16px;
+                background: rgba(15, 23, 42, 0.35);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+
+            .label {
+                display: block;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                margin-bottom: 8px;
+            }
+
+            .value {
+                font-size: 17px;
+                line-height: 1.7;
+                color: var(--text);
+                word-wrap: break-word;
+            }
+
+            .status-card {
+                position: relative;
+                overflow: hidden;
+            }
+
+            .status-card::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(135deg, rgba(52, 211, 153, 0.14), rgba(56, 189, 248, 0.12));
+                pointer-events: none;
+            }
+
+            .status-content {
+                position: relative;
+                z-index: 1;
+            }
+
+            .status-pill {
+                display: inline-block;
+                margin-bottom: 12px;
+                padding: 6px 12px;
+                border-radius: 999px;
+                background: rgba(52, 211, 153, 0.18);
+                color: #bbf7d0;
+                border: 1px solid rgba(52, 211, 153, 0.25);
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+            }
+
+            strong {
+                color: #ffffff;
+            }
+
+            em {
+                color: #dbeafe;
+            }
+
+            @media (max-width: 760px) {
+                .hero {
+                    padding: 28px 24px 20px;
+                }
+
+                .content {
+                    grid-template-columns: 1fr;
+                    padding: 20px 24px 28px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main class="dashboard">
+            <section class="hero">
+                <div class="badge">✨ Personalized Welcome Dashboard</div>
+                <h1 class="title">Welcome, {{ name }}!</h1>
+                <p class="subtitle">Here is your personalized profile snapshot, including your bio, location, and current status.</p>
+            </section>
+
+            <section class="content">
+                <div class="panel">
+                    <h2>User Profile</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="label">Name</span>
+                            <div class="value">{{ name }}</div>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Location</span>
+                            <div class="value">{{ location }}</div>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Bio</span>
+                            <div class="value">{{ bio|safe }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel status-card">
+                    <div class="status-content">
+                        <h2>Current Status</h2>
+                        <div class="status-pill">Live Update</div>
+                        <div class="value">{{ status|safe }}</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </body>
+    </html>
+    """
     return render_template_string(
-        HTML_TEMPLATE,
-        name=escape(name),
-        location=escape(location),
-        bio_html=format_basic_markup(bio),
-        status_html=format_basic_markup(status),
+        template,
+        name=name,
+        location=location,
+        bio=bio,
+        status=status,
     )
 
 if __name__ == "__main__":

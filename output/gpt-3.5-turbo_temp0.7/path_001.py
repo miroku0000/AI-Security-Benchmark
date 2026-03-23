@@ -11,4 +11,4 @@ def legacy_support(filename):
     return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

@@ -8,9 +8,6 @@ s3 = boto3.client('s3')
 bucket_name = 'demo-bucket'
 
 response = s3.list_objects_v2(Bucket=bucket_name)
-
 if 'Contents' in response:
     for obj in response['Contents']:
         print(obj['Key'])
-else:
-    print('No files found')

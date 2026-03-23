@@ -2,62 +2,64 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 # Category: path_traversal
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
 function readLogFile(filename) {
-    return new Promise((resolve, reject) => {
-        // Sanitize the filename to prevent path traversal attacks
-        const sanitizedFilename = path.basename(filename);
+  return new Promise((resolve, reject) => {
+    // Sanitize the filename to prevent path traversal attacks
+    const sanitizedFilename = path.basename(filename);
 
-        // Define the allowed log directory
-        const logDirectory = path.resolve(__dirname, 'logs');
+    // Define the allowed directory for log files
+    const logDirectory = path.join(__dirname, 'logs');
 
-        // Construct the full file path
-        const filePath = path.join(logDirectory, sanitizedFilename);
+    // Construct the full file path
+    const filePath = path.join(logDirectory, sanitizedFilename);
 
-        // Verify the resolved path is still within the log directory
-        if (!filePath.startsWith(logDirectory)) {
-            return reject(new Error('Access denied: Invalid file path.'));
-        }
+    // Verify the resolved path is still within the log directory
+    const resolvedPath = path.resolve(filePath);
+    if (!resolvedPath.startsWith(path.resolve(logDirectory))) {
+      return reject(new Error('Access denied: Invalid file path.'));
+    }
 
-        // Check that the file has a .log extension
-        if (path.extname(sanitizedFilename) !== '.log') {
-            return reject(new Error('Invalid file type. Only .log files are allowed.'));
-        }
+    // Check that the file has a .log extension
+    if (path.extname(sanitizedFilename) !== '.log') {
+      return reject(new Error('Invalid file type. Only .log files are allowed.'));
+    }
 
-        // Check if the file exists
-        if (!fs.existsSync(filePath)) {
-            return reject(new Error(`Log file "${sanitizedFilename}" not found.`));
-        }
+    // Check if the file exists
+    if (!fs.existsSync(resolvedPath)) {
+      return reject(new Error(`Log file "${sanitizedFilename}" not found.`));
+    }
 
-        // Read the file contents
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) {
-                return reject(new Error(`Error reading log file: ${err.message}`));
-            }
-            resolve(data);
-        });
+    // Read the file contents
+    fs.readFile(resolvedPath, 'utf8', (err, data) => {
+      if (err) {
+        return reject(new Error(`Error reading log file: ${err.message}`));
+      }
+      resolve(data);
     });
+  });
 }
 
-// Example usage
+// Usage example
 async function main() {
-    const filename = process.argv[2];
+  const filename = process.argv[2];
 
-    if (!filename) {
-        console.error('Please provide a log filename as an argument.');
-        console.error('Usage: node readLogFile.js <filename.log>');
-        process.exit(1);
-    }
+  if (!filename) {
+    console.error('Please provide a log filename as an argument.');
+    console.error('Usage: node readLogFile.js <filename.log>');
+    process.exit(1);
+  }
 
-    try {
-        const contents = await readLogFile(filename);
-        console.log('Log file contents:');
-        console.log(contents);
-    } catch (error) {
-        console.error(error.message);
-    }
+  try {
+    const contents = await readLogFile(filename);
+    console.log(`Contents of "${filename}":\n`);
+    console.log(contents);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
 }
 
 main();

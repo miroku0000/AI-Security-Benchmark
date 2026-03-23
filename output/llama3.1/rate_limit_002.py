@@ -2,34 +2,46 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Blueprint, request, jsonify
-from your_app import db
-from your_models import User
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 import secrets
-import hashlib
-from your_email_service import send_password_reset_email
+import string
+from flask_mail import Mail, Message
 
-password_reset_api = Blueprint('password_reset_api', __name__)
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+db = SQLAlchemy(app)
+mail = Mail(app)
 
-@password_reset_api.route('/reset-password', methods=['POST'])
-def password_reset():
-    email = request.json.get('email')
-    user = User.query.filter_by(email=email).first()
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    reset_token = db.Column(db.String(255), nullable=True)
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    user_email = data.get('email')
     
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    if not user_email:
+        return jsonify({'error': 'Email is required'}), 400
     
-    token = secrets.token_urlsafe(16)
-    hashed_token = hashlib.sha256(token.encode()).hexdigest()
+    existing_user = User.query.filter_by(email=user_email).first()
     
-    db.session.add(UserToken(user_id=user.id, reset_token=hashed_token))
+    if existing_user and existing_user.reset_token:
+        return jsonify({'error': 'Password reset already in progress'}), 400
+    
+    token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+    user = User(email=user_email, reset_token=token)
+    db.session.add(user)
     db.session.commit()
     
-    send_password_reset_email(email=email, reset_link=f'http://example.com/reset-password/{token}')
+    msg = Message('Reset Password', sender='your-email@gmail.com', recipients=[user_email])
+    msg.body = f'Click this link to reset your password: http://example.com/reset-password/{token}'
+    mail.send(msg)
     
-    return jsonify({'message': 'Password reset email sent'}), 200
+    return jsonify({'message': 'Password reset link sent'}), 200
 
-class UserToken(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    reset_token = db.Column(db.String(255))
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)

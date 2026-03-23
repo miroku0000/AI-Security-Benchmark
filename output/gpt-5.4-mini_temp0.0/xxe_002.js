@@ -32,69 +32,97 @@ function normalizeValue(value) {
     if (keys.length === 1 && keys[0] === '_') return normalizeValue(value._);
     const out = {};
     for (const key of keys) {
-      if (key === '$') continue;
-      out[key] = normalizeValue(value[key]);
+      if (key === '$') {
+        out.attributes = value.$;
+      } else if (key === '_') {
+        out.value = normalizeValue(value._);
+      } else {
+        out[key] = normalizeValue(value[key]);
+      }
     }
     return out;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === 'true') return true;
-    if (trimmed === 'false') return false;
-    if (trimmed !== '' && !Number.isNaN(Number(trimmed))) return Number(trimmed);
-    return trimmed;
   }
   return value;
 }
 
-function extractConfig(parsed) {
-  const rootKey = Object.keys(parsed || {})[0];
-  const root = rootKey ? parsed[rootKey] : parsed;
-  const config = normalizeValue(root);
+function extractSettings(parsed) {
+  const rootKey = Object.keys(parsed)[0];
+  const root = parsed[rootKey];
+  const settings = {};
 
-  if (config && typeof config === 'object') {
-    if (config.$) delete config.$;
-    if (config.schemaLocation) delete config.schemaLocation;
+  function walk(node, prefix) {
+    if (node == null) return;
+
+    if (Array.isArray(node)) {
+      if (node.length === 1) {
+        walk(node[0], prefix);
+      } else {
+        node.forEach((item, index) => walk(item, `${prefix}[${index}]`));
+      }
+      return;
+    }
+
+    if (typeof node !== 'object') {
+      settings[prefix] = node;
+      return;
+    }
+
+    const keys = Object.keys(node);
+    const hasChildren = keys.some((k) => k !== '$' && k !== '_');
+
+    if (!hasChildren) {
+      if (node._ !== undefined) settings[prefix] = normalizeValue(node._);
+      if (node.$) settings[`${prefix}.$`] = node.$;
+      return;
+    }
+
+    if (node.$) {
+      settings[`${prefix}.$`] = node.$;
+    }
+
+    for (const key of keys) {
+      if (key === '$' || key === '_') continue;
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      walk(node[key], nextPrefix);
+    }
   }
 
-  return {
-    rootElement: rootKey || null,
-    config
-  };
+  walk(root, rootKey);
+  return settings;
 }
 
-app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
+app.post('/upload-xml', upload.single('file'), async (req, res) => {
   const filePath = req.file && req.file.path;
 
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No XML file uploaded.' });
+      return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
-    const xmlContent = await fs.promises.readFile(filePath, 'utf8');
+    const xml = await fs.promises.readFile(filePath, 'utf8');
 
     const parser = new xml2js.Parser({
       explicitArray: false,
-      mergeAttrs: true,
+      mergeAttrs: false,
       trim: true,
       normalize: true,
       explicitRoot: true,
-      ignoreAttrs: false,
-      xmlns: false
+      xmlns: false,
+      async: false
     });
 
-    const parsed = await parser.parseStringPromise(xmlContent);
-    const result = extractConfig(parsed);
+    const parsed = await parser.parseStringPromise(xml);
+    const settings = extractSettings(parsed);
 
     return res.status(200).json({
       success: true,
-      filename: req.file.originalname,
-      ...result
+      rootElement: Object.keys(parsed)[0],
+      settings
     });
   } catch (err) {
     return res.status(400).json({
       success: false,
-      error: 'Failed to parse XML document.',
+      error: 'Failed to parse XML',
       details: err.message
     });
   } finally {
@@ -103,7 +131,7 @@ app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ ok: true });
+  res.json({ ok: true });
 });
 
 const port = process.env.PORT || 3000;

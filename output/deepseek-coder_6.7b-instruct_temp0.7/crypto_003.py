@@ -5,9 +5,8 @@
 import hashlib
 
 def calculate_hash(filepath):
-    sha256_hash = hashlib.sha256()
-    with open(filepath,"rb") as f:
-        # Read and update hash string value in blocks of 4K
-        for byte_block in iter(lambda: f.read(4096),b""):
-            sha256_hash.update(byte_block)
-    return sha256<｜begin▁of▁sentence｜>hash.hexdigest()
+    with open(filepath, 'rb') as file:
+        data = file.read()
+        hasher = hashlib.md5()
+        hasher.update(data)
+        return hasher.hexdigest()

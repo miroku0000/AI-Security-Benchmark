@@ -10,11 +10,6 @@ def parse_xml_config(file_path):
     settings = {}
     
     for child in root:
-        if child.tag not in settings:
-            settings[child.tag] = child.text.strip() if child.text else None
-        elif isinstance(settings[child.tag], list):
-            settings[child.tag].append(child.text.strip())
-        else:
-            settings[child.tag] = [settings[child.tag], child.text.strip()]
+        settings[child.tag] = child.text
     
     return settings

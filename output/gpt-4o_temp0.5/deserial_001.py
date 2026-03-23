@@ -4,14 +4,19 @@
 
 import pickle
 
-class CustomObject:
-    def __init__(self, data):
-        self.data = data
+class UserPreferences:
+    def __init__(self, preferences):
+        self.preferences = preferences
 
-def save_preferences(preferences, filename):
-    with open(filename, 'wb') as file:
+def save_preferences(file_path, preferences):
+    with open(file_path, 'wb') as file:
         pickle.dump(preferences, file)
 
-def load_preferences(filename):
-    with open(filename, 'rb') as file:
+def load_preferences(file_path):
+    with open(file_path, 'rb') as file:
         return pickle.load(file)
+
+# Example usage:
+# prefs = UserPreferences({'theme': 'dark', 'notifications': {'email': True, 'sms': False}, 'custom_obj': SomeClass()})
+# save_preferences('user_prefs.pkl', prefs)
+# loaded_prefs = load_preferences('user_prefs.pkl')

@@ -9,6 +9,6 @@ app = Flask(__name__)
 @app.route('/upload', methods=['POST'])
 def upload():
     file = request.files['profile_picture']
-    filename = secure_filename(file.filename)
-    file.save('static/images/' + filename)
-    return send_file('static/images/' + filename, attachment_filename='profile_picture.jpg', as_attachment=True)
+    filename = 'profile_pictures/' + secure_filename(file.filename)
+    file.save(filename)
+    return send_file(filename, attachment_filename='profile_picture.jpg', as_attachment=True)

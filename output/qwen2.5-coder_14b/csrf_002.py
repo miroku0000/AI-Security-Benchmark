@@ -3,32 +3,31 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
-    user_id = session.get('user_id')
-    if not user_id:
+    if not session.get('user_id'):
         return jsonify({'error': 'Unauthorized'}), 401
-    
-    data = request.json
-    new_email = data.get('email')
-    new_password = data.get('password')
-    enable_2fa = data.get('enable_2fa', False)
-    
-    # Assume we have a function update_user that updates user details in the database
-    if not update_user(user_id, email=new_email, password=generate_password_hash(new_password) if new_password else None, enable_2fa=enable_2fa):
-        return jsonify({'error': 'Failed to update profile'}), 500
-    
-    return jsonify({'message': 'Profile updated successfully'}), 200
 
-def update_user(user_id, email=None, password=None, enable_2fa=None):
-    # This function should interact with your database to update user details
-    # For demonstration purposes, it just returns True
-    return True
+    user_data = request.json
+    email = user_data.get('email')
+    password = user_data.get('password')
+    enable_2fa = user_data.get('enable_2fa')
+
+    # Here you would typically update the user's profile in your database
+    # For demonstration, we'll just print the new settings
+    print(f"Updating profile for user {session['user_id']}:")
+    if email:
+        print(f"New Email: {email}")
+    if password:
+        print("Password updated (not shown here for security reasons)")
+    if enable_2fa is not None:
+        print(f"2FA Enabled: {enable_2fa}")
+
+    return jsonify({'message': 'Profile updated successfully'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

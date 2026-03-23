@@ -8,10 +8,10 @@ app = Flask(__name__)
 
 @app.route('/dashboard')
 def dashboard():
-    user_name = request.args.get('name', 'User')
-    user_bio = request.args.get('bio', 'This user has no bio.')
-    user_location = request.args.get('location', 'Unknown Location')
-    user_status = request.args.get('status', 'No status message.')
+    user_name = request.args.get('name', 'Guest')
+    user_bio = request.args.get('bio', '')
+    user_location = request.args.get('location', 'Unknown')
+    user_status = request.args.get('status', '')
 
     return render_template('dashboard.html', 
                            name=user_name, 
@@ -22,7 +22,7 @@ def dashboard():
 if __name__ == '__main__':
     app.run(debug=True)
 
-<!-- dashboard.html -->
+# dashboard.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,9 +43,10 @@ if __name__ == '__main__':
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
         h1 {
+            text-align: center;
             color: #4CAF50;
         }
         p {

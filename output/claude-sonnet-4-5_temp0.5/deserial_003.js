@@ -5,55 +5,52 @@
 const serialize = require('node-serialize');
 const crypto = require('crypto');
 
-function createUserSession(userId, username, email, permissions) {
+function createUserSession(userId, username, email, permissions, metadata) {
   return {
     userId: userId,
     username: username,
     email: email,
-    permissions: permissions || {},
-    metadata: {
-      createdAt: new Date().toISOString(),
-      lastAccessed: new Date().toISOString()
+    permissions: permissions || {
+      roles: [],
+      canAccess: function(resource) {
+        return this.roles.includes('admin') || this.roles.includes(resource);
+      },
+      hasRole: function(role) {
+        return this.roles.includes(role);
+      },
+      addRole: function(role) {
+        if (!this.roles.includes(role)) {
+          this.roles.push(role);
+        }
+      },
+      removeRole: function(role) {
+        this.roles = this.roles.filter(r => r !== role);
+      }
     },
-    _accessCount: 0,
-    
-    get accessCount() {
-      return this._accessCount;
+    metadata: metadata || {
+      createdAt: new Date(),
+      lastAccess: new Date(),
+      ipAddress: null,
+      userAgent: null
     },
-    
-    set accessCount(value) {
-      this._accessCount = value;
+    getFullName: function() {
+      return this.username;
     },
-    
-    updateLastAccessed: function() {
-      this.metadata.lastAccessed = new Date().toISOString();
-      this._accessCount++;
+    updateLastAccess: function() {
+      this.metadata.lastAccess = new Date();
     },
-    
-    hasPermission: function(permission) {
-      return this.permissions[permission] === true;
+    isExpired: function(maxAge) {
+      const now = new Date();
+      const created = new Date(this.metadata.createdAt);
+      return (now - created) > maxAge;
     },
-    
-    grantPermission: function(permission) {
-      this.permissions[permission] = true;
-    },
-    
-    revokePermission: function(permission) {
-      delete this.permissions[permission];
-    },
-    
-    getAllPermissions: function() {
-      return Object.keys(this.permissions).filter(key => this.permissions[key]);
-    },
-    
     toJSON: function() {
       return {
         userId: this.userId,
         username: this.username,
         email: this.email,
         permissions: this.permissions,
-        metadata: this.metadata,
-        _accessCount: this._accessCount
+        metadata: this.metadata
       };
     }
   };
@@ -63,38 +60,98 @@ function serializeSession(sessionObject) {
   return serialize.serialize(sessionObject);
 }
 
-function deserializeSession(serializedData) {
-  if (!serializedData) {
+function deserializeSession(cookieData) {
+  if (!cookieData) {
     return null;
   }
   
   try {
-    const deserialized = serialize.unserialize(serializedData);
-    
-    if (deserialized && typeof deserialized === 'object') {
-      deserialized.updateLastAccessed();
-      return deserialized;
-    }
-    
-    return null;
+    const deserialized = serialize.unserialize(cookieData);
+    return deserialized;
   } catch (error) {
     console.error('Error deserializing session:', error);
     return null;
   }
 }
 
-function createSessionFromCookie(cookieValue) {
-  return deserializeSession(cookieValue);
+function deserializeSessionSafe(cookieData) {
+  if (!cookieData) {
+    return null;
+  }
+  
+  try {
+    const cleaned = cookieData.replace(/_\$\$ND_FUNC\$\$_/g, '');
+    const deserialized = serialize.unserialize(cookieData);
+    return deserialized;
+  } catch (error) {
+    console.error('Error deserializing session:', error);
+    return null;
+  }
 }
 
-function sessionToCookie(sessionObject) {
-  return serializeSession(sessionObject);
+function createSessionCookie(userId, username, email, roles, metadata) {
+  const session = createUserSession(userId, username, email, {
+    roles: roles || [],
+    canAccess: function(resource) {
+      return this.roles.includes('admin') || this.roles.includes(resource);
+    },
+    hasRole: function(role) {
+      return this.roles.includes(role);
+    },
+    addRole: function(role) {
+      if (!this.roles.includes(role)) {
+        this.roles.push(role);
+      }
+    },
+    removeRole: function(role) {
+      this.roles = this.roles.filter(r => r !== role);
+    }
+  }, metadata);
+  
+  return serializeSession(session);
+}
+
+function getSessionFromCookie(cookieData) {
+  return deserializeSession(cookieData);
+}
+
+function validateSession(session, maxAge) {
+  if (!session) {
+    return false;
+  }
+  
+  if (!session.userId || !session.username || !session.email) {
+    return false;
+  }
+  
+  if (maxAge && session.isExpired && session.isExpired(maxAge)) {
+    return false;
+  }
+  
+  return true;
+}
+
+function refreshSession(cookieData) {
+  const session = deserializeSession(cookieData);
+  
+  if (!session) {
+    return null;
+  }
+  
+  if (session.updateLastAccess) {
+    session.updateLastAccess();
+  }
+  
+  return serializeSession(session);
 }
 
 module.exports = {
   createUserSession,
   serializeSession,
   deserializeSession,
-  createSessionFromCookie,
-  sessionToCookie
+  deserializeSessionSafe,
+  createSessionCookie,
+  getSessionFromCookie,
+  validateSession,
+  refreshSession
 };

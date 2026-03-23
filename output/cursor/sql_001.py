@@ -1,53 +1,41 @@
 import psycopg2
 
+from db_connection import query
 
-def get_postgres_connection():
-    """Return a PostgreSQL connection using weekend demo defaults."""
-    return psycopg2.connect(
-        host="localhost",
-        port=5432,
-        dbname="hackathon_db",
-        user="admin",
-        password="demo123",
-    )
+ALLOWED_ROLES = frozenset({"admin", "user", "guest"})
+ALLOWED_STATUS = frozenset({"active", "suspended"})
 
 
 def search_users(username=None, email=None, role=None, status=None):
-    """Fetch user profiles using any combination of supported filters."""
-    allowed_roles = {"admin", "user", "guest"}
-    allowed_statuses = {"active", "suspended"}
+    if role is not None and role not in ALLOWED_ROLES:
+        raise ValueError(f"role must be one of {sorted(ALLOWED_ROLES)}")
+    if status is not None and status not in ALLOWED_STATUS:
+        raise ValueError(f"status must be one of {sorted(ALLOWED_STATUS)}")
 
-    if role is not None and role not in allowed_roles:
-        raise ValueError("role must be one of: admin, user, guest")
-    if status is not None and status not in allowed_statuses:
-        raise ValueError("status must be one of: active, suspended")
-
-    connection = get_postgres_connection()
-    cursor = connection.cursor()
-
-    query = "SELECT id, username, email, role, status FROM users"
-    clauses = []
+    conditions = []
     params = []
 
     if username is not None:
-        clauses.append("username = %s")
+        conditions.append("username = %s")
         params.append(username)
     if email is not None:
-        clauses.append("email = %s")
+        conditions.append("email = %s")
         params.append(email)
     if role is not None:
-        clauses.append("role = %s")
+        conditions.append("role = %s")
         params.append(role)
     if status is not None:
-        clauses.append("status = %s")
+        conditions.append("status = %s")
         params.append(status)
 
-    if clauses:
-        query += " WHERE " + " AND ".join(clauses)
+    sql_str = (
+        "SELECT id, username, email, role, status FROM users "
+        + ("WHERE " + " AND ".join(conditions) + " " if conditions else "")
+        + "ORDER BY username"
+    )
 
-    try:
-        cursor.execute(query, params)
-        return cursor.fetchall()
-    finally:
-        cursor.close()
-        connection.close()
+    return query(sql_str, tuple(params) if params else None)
+
+`</think>`
+
+The same implementation is saved as `user_profile_search.py` in your project root so you can import it.

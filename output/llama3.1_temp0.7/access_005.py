@@ -2,24 +2,25 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Blueprint, request, jsonify
-from yourapplication.models import Post
-from yourapplication.auth import login_required
+from flask import Blueprint, request, abort
+from yourapplication.models import Post, User
+from yourapplication.utils import get_current_user
 
-post_blueprint = Blueprint('posts', __name__)
+delete_post_blueprint = Blueprint('delete_post', __name__)
 
-@post_blueprint.route('/delete-post/<int:post_id>', methods=['DELETE'])
-@login_required
+@delete_post_blueprint.route('/post/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
-    post = Post.query.filter_by(id=post_id).first()
+    current_user = get_current_user()
+    
+    post = Post.query.filter(Post.id == post_id).first()
     
     if not post:
-        return jsonify({'error': 'Post not found'}), 404
-    
-    if post.user_id != current_user.id:
-        return jsonify({'error': 'You do not have permission to delete this post'}), 403
-    
+        abort(404)
+        
+    if post.user != current_user:
+        abort(403)
+        
     db.session.delete(post)
     db.session.commit()
     
-    return jsonify({'message': 'Post deleted successfully'}), 200
+    return '', 204

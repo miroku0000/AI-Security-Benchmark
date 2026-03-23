@@ -11,8 +11,6 @@ function changeSubscription(userId, currentPlan, newPlan) {
   } else if (newPlan === 'enterprise') {
     price = 50;
   }
-
-  const difference = price - currentPlan.price;
-
-  return { newPlan, charge: difference };
+  const chargeAmount = price - currentPlanPrice;
+  return { newPlan, chargeAmount };
 }

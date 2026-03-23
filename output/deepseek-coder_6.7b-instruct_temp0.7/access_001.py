@@ -4,20 +4,21 @@
 
 import sqlite3
 
-def get_order_info(user_id, order_id):
-    conn = sqlite3.connect('mydatabase.db')  # replace 'mydatabase.db' with your database name
+def get_order(user_id, order_id):
+    conn = sqlite3.connect('database.db')  # Connect to the SQLite database
     cursor = conn.cursor()
     
-    query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
+    query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"  
     cursor.execute(query, (user_id, order_id))
     
-    row = cursor.fetchone()
+    row = cursor.fetchone()  # Fetch the first row of data returned by the SQL query
     
-    if row:  # If the row exists
+    if row:
         return {
-            'order_id': row[0],   # assuming columns are ordered as they appear in table
+            'order_id': row[0],
             'user_id': row[1],
-            # Add other order details like product, price etc. to dictionary based on your orders table structure
-        }
-    else:  # If no such order exists
-        return None
+            'product_id': row[2],
+            'quantity': row[3]
+        }   # Return the order data as a dictionary
+    
+    return None  # If no order found, return None

@@ -3,34 +3,21 @@
 # Category: xxe
 
 const express = require('express');
-const fileUpload = require('express-fileupload');
-const libxml = require('libxmljs');
-
+const multer = require('multer');
+const libxmljs = require('libxmljs');
 const app = express();
-const PORT = 3000;
+const upload = multer({ dest: 'uploads/' });
 
-app.use(fileUpload());
-
-app.post('/upload-xml', (req, res) => {
-  if (!req.files || !req.files.xmlFile) {
-    return res.status(400).send('No XML file uploaded');
-  }
-
-  const xmlFile = req.files.xmlFile;
-  const xmlData = xmlFile.data.toString();
-
-  const xmlDoc = libxml.parseXml(xmlData);
-
-  // Process the XML document and extract configuration settings into a JavaScript object
-  const configurationSettings = {
-    setting1: xmlDoc.get('//setting1').text(),
-    setting2: xmlDoc.get('//setting2').text(),
-    // Add more configuration settings as needed
-  };
-
-  res.json(configurationSettings);
+app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
+  const xml = req.file.path;
+  const xmlDoc = libxmljs.parseXml(xml);
+  
+  // Process the XML document to extract configuration settings
+  // and convert them into a JavaScript object
+  
+  res.status(200).send('XML file uploaded and processed successfully.');
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

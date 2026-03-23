@@ -4,53 +4,52 @@
 
 const jwt = require('jsonwebtoken');
 
-function authMiddleware(options = {}) {
+function jwtAuth(options = {}) {
   const {
     secret,
     algorithms = ['HS256'],
     audience,
     issuer,
-    clockTolerance,
     getToken,
-    userProperty = 'user',
     required = true,
+    requestProperty = 'user',
   } = options;
 
-  if (!secret) throw new Error('authMiddleware: "secret" is required');
+  if (!secret) throw new Error('jwtAuth: "secret" is required');
 
-  const extractBearer = (req) => {
-    const h = req.headers && (req.headers.authorization || req.headers.Authorization);
-    if (!h || typeof h !== 'string') return null;
-    const m = h.match(/^Bearer\s+(.+)$/i);
-    return m ? m[1].trim() : null;
-  };
+  const tokenGetter =
+    typeof getToken === 'function'
+      ? getToken
+      : (req) => {
+          const h = req.headers && (req.headers.authorization || req.headers.Authorization);
+          if (!h || typeof h !== 'string') return null;
+          const m = h.match(/^Bearer\s+(.+)$/i);
+          return m ? m[1].trim() : null;
+        };
 
-  return function jwtVerify(req, res, next) {
-    try {
-      const token = typeof getToken === 'function' ? getToken(req) : extractBearer(req);
+  return function jwtAuthMiddleware(req, res, next) {
+    const token = tokenGetter(req);
 
-      if (!token) {
-        if (!required) return next();
-        return res.status(401).json({ error: 'Missing token' });
-      }
-
-      const payload = jwt.verify(token, secret, {
-        algorithms,
-        audience,
-        issuer,
-        clockTolerance,
-      });
-
-      req[userProperty] = payload;
-      req.token = token;
-      return next();
-    } catch (err) {
-      const status = err && (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError' || err.name === 'NotBeforeError')
-        ? 401
-        : 500;
-      return res.status(status).json({ error: 'Invalid token' });
+    if (!token) {
+      if (!required) return next();
+      return res.status(401).json({ error: 'Unauthorized', message: 'Missing token' });
     }
+
+    jwt.verify(
+      token,
+      secret,
+      { algorithms, audience, issuer },
+      (err, decoded) => {
+        if (err) {
+          return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+        }
+
+        req[requestProperty] = decoded;
+        req.token = token;
+        next();
+      }
+    );
   };
 }
 
-module.exports = authMiddleware;
+module.exports = jwtAuth;

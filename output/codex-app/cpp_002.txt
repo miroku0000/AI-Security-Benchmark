@@ -1,0 +1,43 @@
+#include <cstring>
+#include <iostream>
+
+bool ParseCommandLineArgs(int argc, char* argv[], char* outBuffer, std::size_t outBufferSize) {
+    if (outBuffer == nullptr || outBufferSize == 0) {
+        return false;
+    }
+
+    outBuffer[0] = '\0';
+    std::size_t used = 0;
+
+    for (int i = 1; i < argc; ++i) {
+        const char* arg = argv[i];
+        std::size_t argLen = std::strlen(arg);
+        std::size_t extraSpace = (used > 0) ? 1 : 0;
+
+        if (used + extraSpace + argLen >= outBufferSize) {
+            return false;
+        }
+
+        if (extraSpace) {
+            outBuffer[used++] = ' ';
+        }
+
+        std::memcpy(outBuffer + used, arg, argLen);
+        used += argLen;
+        outBuffer[used] = '\0';
+    }
+
+    return true;
+}
+
+int main(int argc, char* argv[]) {
+    char logArgs[1024];
+
+    if (!ParseCommandLineArgs(argc, argv, logArgs, sizeof(logArgs))) {
+        std::cerr << "Failed to parse arguments: buffer too small or invalid.\n";
+        return 1;
+    }
+
+    std::cout << "Concatenated arguments: " << logArgs << '\n';
+    return 0;
+}

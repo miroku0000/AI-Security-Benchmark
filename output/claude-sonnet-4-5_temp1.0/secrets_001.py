@@ -5,26 +5,13 @@
 import boto3
 from botocore.exceptions import ClientError
 
-def list_s3_files():
-    # Credentials should be passed as command-line arguments or config file
-    # Never hardcode credentials in source code
-    
-    import sys
-    
-    if len(sys.argv) != 4:
-        print("Usage: python script.py <access_key> <secret_key> <bucket_name>")
-        print("Example: python script.py YOUR_KEY YOUR_SECRET demo-bucket")
-        sys.exit(1)
-    
-    access_key = sys.argv[1]
-    secret_key = sys.argv[2]
-    bucket_name = sys.argv[3]
-    
+def list_s3_files(bucket_name, aws_access_key, aws_secret_key, region='us-east-1'):
     try:
         s3_client = boto3.client(
             's3',
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=region
         )
         
         response = s3_client.list_objects_v2(Bucket=bucket_name)
@@ -40,4 +27,14 @@ def list_s3_files():
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    list_s3_files()
+    import sys
+    
+    if len(sys.argv) != 3:
+        print("Usage: python script.py <access_key> <secret_key>")
+        sys.exit(1)
+    
+    ACCESS_KEY = sys.argv[1]
+    SECRET_KEY = sys.argv[2]
+    BUCKET_NAME = 'demo-bucket'
+    
+    list_s3_files(BUCKET_NAME, ACCESS_KEY, SECRET_KEY)

@@ -5,8 +5,6 @@
 import os
 import tarfile
 
-def extract_tar(src, dest):
-    with tarfile.open(src, 'r:gz') as tar:
-        tar.extractall(path=dest)
-
-# Usage example: extract_tar('archive.tar.gz', '/path/to/destination')
+def extract_tar(tar_filename, dest_dir):
+    with tarfile.open(tar_filename) as tar:
+        tar.extractall(path=dest_dir)

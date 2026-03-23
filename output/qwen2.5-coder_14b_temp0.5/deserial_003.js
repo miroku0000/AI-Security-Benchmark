@@ -4,53 +4,40 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(serializedData) {
-  return new Promise((resolve, reject) => {
-    try {
-      const deserializedObject = serialize.unserialize(serializedData);
-      
-      // Reconstruct the object to include methods and getters/setters
-      const session = {
-        userId: deserializedObject.userId,
-        username: deserializedObject.username,
-        email: deserializedObject.email,
-        permissions: new Permissions(deserializedObject.permissions),
-        metadata: deserializedObject.metadata,
+function deserializeSession(serializedSession) {
+  try {
+    const parsedSession = serialize.parse(serializedSession);
 
-        get isLoggedIn() {
-          return !!this.userId;
-        },
+    // Reconstruct the user object with methods and computed properties
+    const user = {
+      id: parsedSession.id,
+      username: parsedSession.username,
+      email: parsedSession.email,
+      permissions: new Permissions(parsedSession.permissions),
+      metadata: parsedSession.metadata,
 
-        login(userId, username, email) {
-          this.userId = userId;
-          this.username = username;
-          this.email = email;
-        },
+      get fullInfo() {
+        return `${this.username} (${this.email})`;
+      },
 
-        logout() {
-          this.userId = null;
-          this.username = null;
-          this.email = null;
-        }
-      };
+      hasPermission(permission) {
+        return this.permissions.has(permission);
+      }
+    };
 
-      resolve(session);
-    } catch (error) {
-      reject(error);
-    }
-  });
+    return user;
+  } catch (error) {
+    console.error('Error deserializing session:', error);
+    return null;
+  }
 }
 
 class Permissions {
-  constructor(permissionsData) {
-    Object.assign(this, permissionsData);
+  constructor(permissions) {
+    this.permissions = permissions || {};
   }
 
-  canAccessAdmin() {
-    return this.isAdmin === true;
-  }
-
-  canEditContent() {
-    return this.canEdit === true;
+  has(permission) {
+    return this.permissions[permission] === true;
   }
 }

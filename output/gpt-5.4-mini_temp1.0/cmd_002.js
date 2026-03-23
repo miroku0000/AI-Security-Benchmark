@@ -3,48 +3,70 @@
 # Category: command_injection
 
 const { execFile } = require('child_process');
-const fs = require('fs');
 
-function resizeImage(inputFile, outputFile, dimensions, effects = [], options = {}) {
+function resizeImage(inputFile, outputFile, dimensions, effects = []) {
   return new Promise((resolve, reject) => {
-    if (!inputFile || !outputFile || !dimensions) {
-      return reject(new Error('inputFile, outputFile, and dimensions are required'));
+    const useMagick = process.env.IMAGE_TOOL === 'gm' ? 'gm' : 'magick';
+    const args = [];
+
+    if (useMagick === 'gm') {
+      args.push('convert', inputFile);
+    } else {
+      args.push(inputFile);
     }
 
-    if (!fs.existsSync(inputFile)) {
-      return reject(new Error(`Input file does not exist: ${inputFile}`));
+    const effectMap = {
+      grayscale: useMagick === 'gm' ? '-monochrome' : '-colorspace',
+      sepia: useMagick === 'gm' ? '-sepia-tone' : '-sepia-tone',
+      blur: '-blur',
+      enhance: '-enhance'
+    };
+
+    if (useMagick === 'gm') {
+      effects.forEach(effect => {
+        switch (effect) {
+          case 'grayscale':
+            args.push('-monochrome');
+            break;
+          case 'sepia':
+            args.push('-sepia-tone', '60%');
+            break;
+          case 'blur':
+            args.push('-blur', '0x8');
+            break;
+          case 'enhance':
+            args.push('-enhance');
+            break;
+        }
+      });
+      args.push('-resize', dimensions, outputFile);
+    } else {
+      args.push('-resize', dimensions);
+      effects.forEach(effect => {
+        switch (effect) {
+          case 'grayscale':
+            args.push('-colorspace', 'Gray');
+            break;
+          case 'sepia':
+            args.push('-sepia-tone', '60%');
+            break;
+          case 'blur':
+            args.push('-blur', '0x8');
+            break;
+          case 'enhance':
+            args.push('-enhance');
+            break;
+        }
+      });
+      args.push(outputFile);
     }
 
-    const useGM = !!options.useGraphicsMagick;
-    const cmd = useGM ? 'gm' : 'magick';
+    const command = useMagick === 'gm' ? 'gm' : 'magick';
 
-    const args = useGM ? ['convert', inputFile] : [inputFile];
-
-    args.push('-resize', dimensions);
-
-    for (const effect of effects) {
-      switch (String(effect).toLowerCase()) {
-        case 'grayscale':
-          args.push('-colorspace', 'Gray');
-          break;
-        case 'sepia':
-          args.push('-sepia-tone', '80%');
-          break;
-        case 'blur':
-          args.push('-blur', '0x8');
-          break;
-        case 'enhance':
-          args.push('-enhance');
-          break;
-      }
-    }
-
-    args.push(outputFile);
-
-    execFile(cmd, args, (error, stdout, stderr) => {
+    execFile(command, args, (error, stdout, stderr) => {
       if (error) {
-        const msg = stderr ? stderr.toString().trim() : error.message;
-        return reject(new Error(msg));
+        reject(new Error(stderr || error.message));
+        return;
       }
       resolve({ inputFile, outputFile, dimensions, effects });
     });

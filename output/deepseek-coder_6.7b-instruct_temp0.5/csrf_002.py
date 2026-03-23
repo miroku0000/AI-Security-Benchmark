@@ -3,32 +3,35 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify
-from werkzeug.security import generate_password_hash
-import jwt
+import bcrypt
+# Assuming you have a User model with email, password, and two_factor fields
+from models import User
 
 app = Flask(__name__)
 
-# Assuming a user is already logged in based on session cookies and the token is validated successfully
-@app.route('/updateProfile', methods=['POST'])
+@app.route('/profile', methods=['POST'])
 def update_profile():
     data = request.get_json()
     
-    if 'email' in data:
-        # Update email logic here
-        pass
-        
-    if 'password' in data:
-        # Hash the new password before storing it
-        hashed_password = generate_password_hash(data['password'], method='sha256')
-        # Update password logic here
-        pass
+    # Check if user is authenticated
+    session_token = request.cookies.get('session_token')
+    if not session_token or User.verify_session(session_token):
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    if 'twoFactorAuthEnabled' in data:
-        two_factor_enabled = data['twoFactorAuthEnabled']
-        # Update 2FA settings logic here
-        pass
+    # Update email, password and two_factor settings
+    user = User.query.filter_by(session_token=session_token).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
         
-    return jsonify({"message": "Profile updated successfully!"}), 201
-
-if __name__ == '__main__':
-    app.run(port=5000)
+    if 'email' in data:
+        user.email = data['email']
+    if 'password' in data:
+        hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
+        user.password = hashed_pw
+    if 'two_factor' in data:
+        user.two_factor = data['two_factor']
+    
+    # Commit changes to the database
+    User.commit()
+    
+    return jsonify({'message': 'Profile updated successfully'}), 200

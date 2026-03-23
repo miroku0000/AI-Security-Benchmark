@@ -9,27 +9,26 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-// Set up storage engine for multer
+// Set up storage engine for Multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Append the extension name
+    cb(null, Date.now() + path.extname(file.originalname)); // Append the file extension
   }
 });
 
-// Initialize upload middleware with storage engine
+// Initialize upload middleware
 const upload = multer({ storage: storage });
 
 // Create uploads directory if it doesn't exist
 const fs = require('fs');
-const dir = './uploads';
-if (!fs.existsSync(dir)){
-  fs.mkdirSync(dir);
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
 }
 
-// Handle file upload route
+// Route to handle file uploads
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');

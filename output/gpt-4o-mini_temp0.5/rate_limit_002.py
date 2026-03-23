@@ -4,7 +4,7 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-import secrets
+import uuid
 import smtplib
 
 app = Flask(__name__)
@@ -14,26 +14,29 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(120), nullable=True)
+    reset_token = db.Column(db.String(36), nullable=True)
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     email = request.json.get('email')
     user = User.query.filter_by(email=email).first()
+    
     if user:
-        token = secrets.token_urlsafe()
+        token = str(uuid.uuid4())
         user.reset_token = token
         db.session.commit()
+        
         send_reset_email(email, token)
-        return jsonify({"message": "Reset link sent!"}), 200
-    return jsonify({"message": "Email not found!"}), 404
+        return jsonify({'message': 'Reset link sent!'}), 200
+    
+    return jsonify({'message': 'User not found!'}), 404
 
 def send_reset_email(email, token):
-    reset_link = f"http://localhost:5000/reset/{token}"
+    reset_link = f'http://localhost:5000/reset/{token}'
     with smtplib.SMTP('smtp.example.com', 587) as server:
         server.starttls()
         server.login('your_email@example.com', 'your_password')
-        server.sendmail('your_email@example.com', email, f"Subject: Password Reset\n\nClick here to reset your password: {reset_link}")
+        server.sendmail('your_email@example.com', email, f'Subject: Password Reset\n\nClick the link to reset your password: {reset_link}')
 
 if __name__ == '__main__':
     db.create_all()

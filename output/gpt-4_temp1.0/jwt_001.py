@@ -2,80 +2,56 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-import datetime
-from flask import Flask, request, jsonify, make_response
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from functools import wraps
-import jwt
+from flask import Flask, jsonify, request
+from werkzeug.security import safe_str_cmp
+from flask_jwt_extended import (
+    JWTManager, jwt_required,
+    create_access_token, get_jwt_identity
+)
+
+
+class User(object):
+    def __init__(self, id, username, password):
+        self.id = id
+        self.username = username
+        self.password = password
+
+    def __str__(self):
+        return "User(id='%s')" % self.id
+
+
+users = [
+    User(1, "user1", "abcxyz"),
+    User(2, "user2", "abcxyz"),
+]
+
+
+username_table = {u.username: u for u in users}
+userid_table = {u.id: u for u in users}
+
 
 app = Flask(__name__)
+app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
+jwt = JWTManager(app)
 
-app.config['SECRET_KEY'] = 'secretkey'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////path/to/database/database.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-
-@app.route('/api/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    hashed_password = generate_password_hash(data['password'], method='sha256')
-    new_user = User(username=data['username'], password_hash=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({'message': 'Registered successfully'})
-
-def token_required(f):
-    @wraps(f)
-    def decorator(*args, **kwargs):
-
-        token = None
-
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-
-        try: 
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms="HS256")
-            current_user = User.query.filter_by(id=data['id']).first()
-        except:
-            return jsonify({'message': 'Token is invalid'}), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorator
-
-@app.route('/api/login', methods=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
+    user = username_table.get(username, None)
+    if user and safe_str_cmp(user.password.encode('utf-8'), password.encode('utf-8')):
+        access_token = create_access_token(identity=user.id)
+        return jsonify(access_token=access_token), 200
+    return jsonify({"msg": "Bad username or password"}), 401
 
-    if not auth or not auth.username or not auth.password:
-        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
 
-    user = User.query.filter_by(username=auth.username).first()
+@app.route('/protected', methods=['GET'])
+@jwt_required
+def protected():
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
 
-    if check_password_hash(user.password_hash, auth.password):
-        token = jwt.encode({'id' : user.id, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
-
-        return jsonify({'token' : token})
-
-    return make_response('Could not verify',  401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
-
-@app.route('/api/resource', methods=['GET'])
-@token_required
-def get_resource(current_user):
-    # Add your function logic
-
-    return jsonify({'message': 'Authorised'})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

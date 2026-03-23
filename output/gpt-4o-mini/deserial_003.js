@@ -12,26 +12,16 @@ function deserializeSession(cookie) {
         username: sessionData.username,
         email: sessionData.email,
         permissions: {
-            ...sessionData.permissions,
-            hasAccess: function (resource) {
-                return this.accessList.includes(resource);
-            },
-            addAccess: function (resource) {
-                if (!this.accessList.includes(resource)) {
-                    this.accessList.push(resource);
-                }
-            },
-            removeAccess: function (resource) {
-                this.accessList = this.accessList.filter(item => item !== resource);
-            },
-            accessList: sessionData.permissions.accessList || []
+            canEdit: () => sessionData.permissions.canEdit,
+            canDelete: () => sessionData.permissions.canDelete,
+            hasAccess: (resource) => sessionData.permissions.accessControl.includes(resource),
         },
-        metadata: {
-            createdAt: sessionData.metadata.createdAt,
-            lastAccessed: sessionData.metadata.lastAccessed,
-            get sessionDuration() {
-                return Date.now() - this.createdAt;
-            }
-        }
+        get sessionMetadata() {
+            return sessionData.metadata;
+        },
+        set sessionMetadata(value) {
+            sessionData.metadata = value;
+        },
+        computedProperty: () => `${sessionData.username} (${sessionData.userId})`
     };
 }

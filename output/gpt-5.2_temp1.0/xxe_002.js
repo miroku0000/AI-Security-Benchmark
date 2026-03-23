@@ -5,7 +5,9 @@
 const express = require('express');
 const multer = require('multer');
 const crypto = require('crypto');
-const { parseStringPromise } = require('xml2js');
+const path = require('path');
+const { parseStringPromise, processors } = require('xml2js');
+const libxmljs = require('libxmljs2');
 
 const app = express();
 
@@ -20,139 +22,361 @@ const upload = multer({
       file.mimetype === 'application/xml' ||
       file.mimetype === 'text/xml' ||
       file.mimetype === 'application/octet-stream' ||
-      (file.originalname && file.originalname.toLowerCase().endsWith('.xml'));
+      file.originalname.toLowerCase().endsWith('.xml');
     cb(ok ? null : new Error('Only XML files are allowed'), ok);
   },
 });
 
-function stableObject(obj) {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(stableObject);
-  const out = {};
-  for (const k of Object.keys(obj).sort()) out[k] = stableObject(obj[k]);
-  return out;
+function safeText(s) {
+  if (s == null) return '';
+  return String(s).trim();
+}
+
+function normalizeKey(name) {
+  if (!name) return name;
+  return String(name).replace(/^[^:]*:/, '');
+}
+
+function asArray(v) {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+function isObject(v) {
+  return v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function deepMerge(target, source) {
+  if (!isObject(target) || !isObject(source)) return source;
+  for (const [k, v] of Object.entries(source)) {
+    if (isObject(v) && isObject(target[k])) target[k] = deepMerge(target[k], v);
+    else target[k] = v;
+  }
+  return target;
+}
+
+function compactObject(obj) {
+  if (Array.isArray(obj)) {
+    const arr = obj.map(compactObject).filter((v) => v !== undefined);
+    return arr.length ? arr : undefined;
+  }
+  if (isObject(obj)) {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const cv = compactObject(v);
+      if (cv !== undefined) out[k] = cv;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  if (typeof obj === 'string') {
+    const t = obj.trim();
+    return t.length ? t : undefined;
+  }
+  if (obj == null) return undefined;
+  return obj;
+}
+
+function extractSettingsFromXml2js(parsed) {
+  // Heuristic extraction: look for typical config nodes/attributes and produce a normalized settings object.
+  const settings = {
+    meta: {},
+    partners: [],
+    endpoints: [],
+    features: {},
+    raw: parsed,
+  };
+
+  function walk(node, pathParts = []) {
+    if (node == null) return;
+
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, pathParts);
+      return;
+    }
+
+    if (!isObject(node)) return;
+
+    const attrs = node.$ || node.$attr || undefined;
+
+    // Capture common metadata
+    if (attrs) {
+      if (attrs.partnerId || attrs.partnerID || attrs.id) {
+        settings.meta.partnerId = settings.meta.partnerId || safeText(attrs.partnerId || attrs.partnerID || attrs.id);
+      }
+      if (attrs.version) settings.meta.version = settings.meta.version || safeText(attrs.version);
+      if (attrs.environment) settings.meta.environment = settings.meta.environment || safeText(attrs.environment);
+    }
+
+    // Capture common endpoint patterns
+    for (const [k0, v] of Object.entries(node)) {
+      if (k0 === '$') continue;
+      const k = normalizeKey(k0);
+      const nextPath = pathParts.concat([k]);
+
+      // Common blocks
+      if (k.toLowerCase() === 'partner') {
+        for (const partnerNode of asArray(v)) {
+          const p = {};
+          if (partnerNode && partnerNode.$) {
+            if (partnerNode.$.id) p.id = safeText(partnerNode.$.id);
+            if (partnerNode.$.name) p.name = safeText(partnerNode.$.name);
+          }
+          if (partnerNode && partnerNode.name) p.name = safeText(Array.isArray(partnerNode.name) ? partnerNode.name[0] : partnerNode.name);
+          if (partnerNode && partnerNode.partnerId) p.id = p.id || safeText(Array.isArray(partnerNode.partnerId) ? partnerNode.partnerId[0] : partnerNode.partnerId);
+          if (Object.keys(p).length) settings.partners.push(p);
+          walk(partnerNode, nextPath);
+        }
+        continue;
+      }
+
+      if (k.toLowerCase() === 'endpoint' || k.toLowerCase() === 'service' || k.toLowerCase() === 'url') {
+        for (const epNode of asArray(v)) {
+          const ep = {};
+          if (k.toLowerCase() === 'url' && typeof epNode === 'string') {
+            ep.url = safeText(epNode);
+          }
+          if (epNode && epNode.$) {
+            if (epNode.$.type) ep.type = safeText(epNode.$.type);
+            if (epNode.$.name) ep.name = safeText(epNode.$.name);
+            if (epNode.$.method) ep.method = safeText(epNode.$.method);
+          }
+          if (epNode && epNode.url) ep.url = safeText(Array.isArray(epNode.url) ? epNode.url[0] : epNode.url);
+          if (epNode && epNode.uri) ep.url = ep.url || safeText(Array.isArray(epNode.uri) ? epNode.uri[0] : epNode.uri);
+          if (epNode && epNode.host && epNode && epNode.path) {
+            const host = safeText(Array.isArray(epNode.host) ? epNode.host[0] : epNode.host);
+            const pth = safeText(Array.isArray(epNode.path) ? epNode.path[0] : epNode.path);
+            if (host && pth) ep.url = `https://${host}${pth.startsWith('/') ? '' : '/'}${pth}`;
+          }
+          if (Object.keys(ep).length) settings.endpoints.push(ep);
+          walk(epNode, nextPath);
+        }
+        continue;
+      }
+
+      // Common feature flags / settings
+      if (k.toLowerCase() === 'features' || k.toLowerCase() === 'flags' || k.toLowerCase() === 'settings' || k.toLowerCase() === 'configuration' || k.toLowerCase() === 'config') {
+        // Attempt to flatten key/value pairs under these nodes
+        for (const configNode of asArray(v)) {
+          const flattened = flattenConfigNode(configNode);
+          if (flattened && Object.keys(flattened).length) deepMerge(settings.features, flattened);
+          walk(configNode, nextPath);
+        }
+        continue;
+      }
+
+      walk(v, nextPath);
+    }
+  }
+
+  function flattenConfigNode(node) {
+    if (node == null) return {};
+    if (typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') return { value: node };
+    if (Array.isArray(node)) {
+      if (node.length === 1) return flattenConfigNode(node[0]);
+      const out = {};
+      node.forEach((item, idx) => {
+        out[idx] = flattenConfigNode(item);
+      });
+      return out;
+    }
+    if (!isObject(node)) return {};
+
+    const out = {};
+
+    // Attributes as settings too
+    if (node.$) {
+      for (const [ak, av] of Object.entries(node.$)) {
+        out[normalizeKey(ak)] = typeof av === 'string' ? av.trim() : av;
+      }
+    }
+
+    for (const [k0, v] of Object.entries(node)) {
+      if (k0 === '$') continue;
+      const k = normalizeKey(k0);
+
+      if (typeof v === 'string') out[k] = v.trim();
+      else if (Array.isArray(v) && v.length === 1 && typeof v[0] === 'string') out[k] = v[0].trim();
+      else out[k] = flattenConfigNode(v);
+    }
+
+    return out;
+  }
+
+  walk(parsed);
+
+  settings.partners = settings.partners.filter((p, i, arr) => {
+    const key = `${p.id || ''}|${p.name || ''}`;
+    return arr.findIndex((x) => `${x.id || ''}|${x.name || ''}` === key) === i;
+  });
+
+  settings.endpoints = settings.endpoints.filter((e, i, arr) => {
+    const key = `${e.url || ''}|${e.type || ''}|${e.name || ''}|${e.method || ''}`;
+    return arr.findIndex((x) => `${x.url || ''}|${x.type || ''}|${x.name || ''}|${x.method || ''}` === key) === i;
+  });
+
+  settings.features = compactObject(settings.features) || {};
+  return settings;
+}
+
+function validateAndParseWithLibxml(xmlBuffer, options = {}) {
+  const xmlString = xmlBuffer.toString('utf8');
+
+  const parseOptions = {
+    noblanks: true,
+    noent: false,
+    nocdata: false,
+    ...options.parseOptions,
+  };
+
+  const doc = libxmljs.parseXml(xmlString, parseOptions);
+
+  // Prevent network access for external schemas/entities; only allow local schema when explicitly provided.
+  // libxmljs2 does not fetch network resources by default for schema validation; however DTD/entity expansion risks exist.
+  // Keep noent=false above to avoid entity expansion.
+  const root = doc.root();
+  const meta = {
+    rootName: root ? root.name() : null,
+    namespaces: root ? root.namespaces().map((ns) => ({ prefix: ns.prefix(), href: ns.href() })) : [],
+  };
+
+  let schemaValidated = false;
+  let schemaErrors = [];
+  if (options.xsdBuffer) {
+    const xsdDoc = libxmljs.parseXml(options.xsdBuffer.toString('utf8'));
+    schemaValidated = doc.validate(xsdDoc);
+    schemaErrors = (doc.validationErrors || []).map((e) => ({
+      message: e.message,
+      line: e.line,
+      column: e.column,
+      domain: e.domain,
+      code: e.code,
+    }));
+  }
+
+  return { doc, meta, schemaValidated, schemaErrors };
+}
+
+async function parseXmlToJsObject(xmlBuffer) {
+  const xmlString = xmlBuffer.toString('utf8');
+
+  const parsed = await parseStringPromise(xmlString, {
+    explicitArray: false,
+    ignoreAttrs: false,
+    mergeAttrs: false,
+    trim: true,
+    normalizeTags: false,
+    tagNameProcessors: [processors.stripPrefix],
+    attrNameProcessors: [processors.stripPrefix],
+    // Do not attempt to load external entities; xml2js uses sax which does not resolve external entities.
+  });
+
+  return parsed;
 }
 
 function sha256(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-function extractSchemaReferences(xmlString) {
-  const refs = {
-    doctypeSystem: null,
-    schemaLocation: null,
-    noNamespaceSchemaLocation: null,
-    xmlns: {},
-  };
-
-  const doctypeMatch = xmlString.match(/<!DOCTYPE\s+[^>]*\s+SYSTEM\s+"([^"]+)"/i);
-  if (doctypeMatch) refs.doctypeSystem = doctypeMatch[1];
-
-  const schemaLocMatch = xmlString.match(/\bxsi:schemaLocation\s*=\s*"([^"]+)"/i);
-  if (schemaLocMatch) refs.schemaLocation = schemaLocMatch[1];
-
-  const noNsMatch = xmlString.match(/\bxsi:noNamespaceSchemaLocation\s*=\s*"([^"]+)"/i);
-  if (noNsMatch) refs.noNamespaceSchemaLocation = noNsMatch[1];
-
-  const xmlnsRegex = /\bxmlns(?::([A-Za-z_][\w.-]*))?\s*=\s*"([^"]+)"/g;
-  let m;
-  while ((m = xmlnsRegex.exec(xmlString))) {
-    refs.xmlns[m[1] || ''] = m[2];
-  }
-
-  return refs;
-}
-
-function parsePotentialJson(text) {
-  if (typeof text !== 'string') return text;
-  const s = text.trim();
-  if (!s) return s;
-  if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
-    try {
-      return JSON.parse(s);
-    } catch {
-      return s;
-    }
-  }
-  if (/^(true|false)$/i.test(s)) return /^true$/i.test(s);
-  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
-  return s;
-}
-
-function normalizeTextNodes(obj) {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj === 'string') return parsePotentialJson(obj);
-  if (Array.isArray(obj)) return obj.map(normalizeTextNodes);
-  if (typeof obj === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(obj)) out[k] = normalizeTextNodes(v);
-    return out;
-  }
-  return obj;
-}
-
-function findConfigCandidate(parsed) {
-  if (!parsed || typeof parsed !== 'object') return parsed;
-  const keys = Object.keys(parsed);
-  if (keys.length === 1) return parsed[keys[0]];
-  if (parsed.configuration) return parsed.configuration;
-  if (parsed.config) return parsed.config;
-  if (parsed.settings) return parsed.settings;
-  return parsed;
-}
-
-app.post('/api/config/upload', upload.single('xml'), async (req, res) => {
+app.post('/integrations/xml-config', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      res.status(400).json({ error: 'No file uploaded. Use form field name "xml".' });
-      return;
+      return res.status(400).json({ error: 'Missing XML file field "file"' });
     }
 
     const xmlBuffer = req.file.buffer;
-    const xmlString = xmlBuffer.toString('utf8');
+    const xmlHash = sha256(xmlBuffer);
 
-    const externalRefs = extractSchemaReferences(xmlString);
+    const xsdBuffer = req.files && req.files.xsd ? req.files.xsd[0].buffer : null;
 
-    const parsed = await parseStringPromise(xmlString, {
-      explicitArray: false,
-      explicitRoot: true,
-      attrkey: '$',
-      charkey: '_',
-      trim: true,
-      normalize: true,
-      normalizeTags: false,
-      tagNameProcessors: [],
-      attrNameProcessors: [],
-      strict: true,
-      xmlns: false,
-      // Note: xml2js/sax does not fetch external schemas/DTDs.
-      // If schema validation is required, do it in a separate controlled step.
-    });
+    const libxml = validateAndParseWithLibxml(xmlBuffer, { xsdBuffer });
 
-    const config = normalizeTextNodes(findConfigCandidate(parsed));
-    const result = {
+    const jsObj = await parseXmlToJsObject(xmlBuffer);
+    const settings = extractSettingsFromXml2js(jsObj);
+
+    return res.status(200).json({
+      ok: true,
       file: {
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         size: req.file.size,
-        sha256: sha256(xmlBuffer),
+        sha256: xmlHash,
       },
-      externalSchemaReferences: externalRefs,
-      configuration: stableObject(config),
-    };
-
-    res.status(200).json(result);
+      xml: {
+        rootName: libxml.meta.rootName,
+        namespaces: libxml.meta.namespaces,
+        schemaValidated: libxml.schemaValidated,
+        schemaErrors: libxml.schemaErrors,
+      },
+      configuration: settings,
+    });
   } catch (err) {
-    res.status(400).json({
-      error: 'Failed to parse XML',
-      message: err && err.message ? err.message : String(err),
+    return res.status(400).json({
+      ok: false,
+      error: err && err.message ? err.message : 'Failed to parse XML',
     });
   }
 });
 
+// Optional: allow XSD alongside XML (multipart fields: file=xml, xsd=xsd)
+app.post(
+  '/integrations/xml-config-with-xsd',
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024, files: 2 },
+  }).fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'xsd', maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const xmlFile = req.files && req.files.file && req.files.file[0];
+      const xsdFile = req.files && req.files.xsd && req.files.xsd[0];
+
+      if (!xmlFile) return res.status(400).json({ error: 'Missing XML file field "file"' });
+
+      const libxml = validateAndParseWithLibxml(xmlFile.buffer, { xsdBuffer: xsdFile ? xsdFile.buffer : null });
+      const jsObj = await parseXmlToJsObject(xmlFile.buffer);
+      const settings = extractSettingsFromXml2js(jsObj);
+
+      return res.status(200).json({
+        ok: true,
+        file: {
+          originalName: xmlFile.originalname,
+          mimeType: xmlFile.mimetype,
+          size: xmlFile.size,
+          sha256: sha256(xmlFile.buffer),
+        },
+        xsd: xsdFile
+          ? {
+              originalName: xsdFile.originalname,
+              mimeType: xsdFile.mimetype,
+              size: xsdFile.size,
+              sha256: sha256(xsdFile.buffer),
+            }
+          : null,
+        xml: {
+          rootName: libxml.meta.rootName,
+          namespaces: libxml.meta.namespaces,
+          schemaValidated: libxml.schemaValidated,
+          schemaErrors: libxml.schemaErrors,
+        },
+        configuration: settings,
+      });
+    } catch (err) {
+      return res.status(400).json({
+        ok: false,
+        error: err && err.message ? err.message : 'Failed to parse XML',
+      });
+    }
+  }
+);
+
 if (require.main === module) {
-  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-  app.listen(port, '0.0.0.0', () => {});
+  const port = Number(process.env.PORT || 3000);
+  app.listen(port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Listening on http://localhost:${port}`);
+  });
 }
 
 module.exports = app;

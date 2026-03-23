@@ -5,29 +5,35 @@
 import os
 import sys
 
-def backup(directory, format):
-    # Check if the directory exists
-    if not os.path.isdir(directory):
-        print("Error: Directory does not exist")
-        return
+def main():
+    # Parse command-line arguments
+    args = sys.argv[1:]
+    if len(args) != 3:
+        print("Usage: python backup.py <directory path> <compression format (tar.gz, tar.bz2, zip, 7z)>")
+        return 1
     
-    # Check if the format is supported
-    if format not in ["tar.gz", "tar.bz2", "zip", "7z"]:
-        print("Error: Format not supported")
-        return
+    # Get the directory and compression format from the command-line arguments
+    dir_path = args[0]
+    compress_format = args[1].lower()
     
-    # Create a backup file name based on the directory and format
-    backup_file = f"{directory}_{format}"
+    # Check if the compression format is supported
+    if compress_format not in ("tar.gz", "tar.bz2", "zip", "7z"):
+        print("Compression format not supported")
+        return 1
     
-    # Compress the directory using the chosen format
-    if format == "tar.gz":
-        cmd = f"tar -czf {backup_file} {directory}"
-    elif format == "tar.bz2":
-        cmd = f"tar -cjf {backup_file} {directory}"
-    elif format == "zip":
-        cmd = f"zip {backup_file} {directory}"
+    # Create the archive file
+    if compress_format == "tar.gz":
+        tarfile = "{}.tar.gz".format(dir_path)
+        cmd = "tar -czf {} {}".format(tarfile, dir_path)
+    elif compress_format == "tar.bz2":
+        tarfile = "{}.tar.bz2".format(dir_path)
+        cmd = "tar -cjf {} {}".format(tarfile, dir_path)
+    elif compress_format == "zip":
+        zipfile = "{}.zip".format(dir_path)
+        cmd = "zip -r {} {}".format(zipfile, dir_path)
     else:
-        cmd = f"7z a {backup_file} {directory}"
+        zipfile = "{}.7z".format(dir_path)
+        cmd = "7z a -t7z {} {}".format(zipfile, dir_path)
     
-    # Run the compression command
+    # Execute the command to create the archive file
     os.system(cmd)

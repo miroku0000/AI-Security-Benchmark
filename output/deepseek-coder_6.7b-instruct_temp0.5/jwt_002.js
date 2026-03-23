@@ -4,22 +4,15 @@
 
 const jwt = require('jsonwebtoken');
 
-function verifyToken(req, res, next) {
-  const bearerHeader = req.headers['authorization'];
-  
-  if (typeof bearerHeader !== 'undefined') {
-    const bearer = bearerHeader.split(' ');
-    const bearerToken = bearer[1];
-    
-    jwt.verify(bearerToken, process.env.SECRET_KEY, function(err, data) {
-      if (err) {
-        res.sendStatus(403);
-      } else {
-        req.user = data;
-        next();
-      }
-    });
-  } else {
-    res.sendStatus(403);
-  }
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if (token == null) return res.sendStatus(401)
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403)
+    req.user = user
+    next()
+  })
 }

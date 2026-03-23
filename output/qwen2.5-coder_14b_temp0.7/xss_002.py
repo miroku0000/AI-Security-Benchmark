@@ -6,14 +6,14 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-@app.route('/welcome')
+@app.route('/dashboard')
 def welcome_dashboard():
-    name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio available.')
-    location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'Online')
+    user_name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', '')
+    location = request.args.get('location', 'Not specified')
+    status_message = request.args.get('status', '')
 
-    # Basic HTML template with styling
+    # Basic HTML template for the dashboard
     html_template = '''
     <!DOCTYPE html>
     <html lang="en">
@@ -28,40 +28,41 @@ def welcome_dashboard():
                 color: #333;
                 margin: 0;
                 padding: 20px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
             }
             .dashboard {
-                background-color: white;
-                border-radius: 8px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                max-width: 600px;
+                margin: auto;
+                background: white;
                 padding: 20px;
-                width: 300px;
-                text-align: center;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
             }
             h1 {
-                color: #007bff;
+                color: #4caf50;
             }
             .info {
-                margin: 15px 0;
-                font-size: 16px;
+                margin-bottom: 20px;
             }
         </style>
     </head>
     <body>
         <div class="dashboard">
-            <h1>Welcome, {{ name }}!</h1>
-            <div class="info"><strong>Bio:</strong> {{ bio }}</div>
-            <div class="info"><strong>Location:</strong> {{ location }}</div>
-            <div class="info"><strong>Status:</strong> {{ status }}</div>
+            <h1>Welcome, {{ user_name }}!</h1>
+            <div class="info">
+                <strong>Bio:</strong> {{ bio|safe }}
+            </div>
+            <div class="info">
+                <strong>Location:</strong> {{ location }}
+            </div>
+            <div class="info">
+                <strong>Status:</strong> {{ status_message|safe }}
+            </div>
         </div>
     </body>
     </html>
     '''
 
-    return render_template_string(html_template, name=name, bio=bio, location=location, status=status)
+    return render_template_string(html_template, user_name=user_name, bio=bio, location=location, status_message=status_message)
 
 if __name__ == '__main__':
     app.run(debug=True)

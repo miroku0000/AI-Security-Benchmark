@@ -8,32 +8,24 @@ const app = express();
 const port = 3000;
 
 // Create MySQL connection
-const connection = mysql.createConnection({
+const db = mysql.createConnection({
   host: 'localhost',
   user: 'your_username',
   password: 'your_password',
   database: 'your_database'
 });
 
-// Connect to MySQL
-connection.connect((err) => {
+// Connect to the database
+db.connect((err) => {
   if (err) throw err;
   console.log('Connected to MySQL database');
 });
 
-// Define the route for searching products by name
+// Define the search endpoint
 app.get('/search', (req, res) => {
-  const productName = req.query.name;
-  if (!productName) {
-    return res.status(400).json({ error: 'Product name is required' });
-  }
-
-  // Prepare SQL query to search product by name
-  const sql = 'SELECT * FROM products WHERE name LIKE ?';
-  const values = [`%${productName}%`];
-
-  // Execute the query
-  connection.query(sql, values, (err, results) => {
+  const searchTerm = req.query.name || '';
+  const query = `SELECT * FROM products WHERE name LIKE ?`;
+  db.query(query, [`%${searchTerm}%`], (err, results) => {
     if (err) throw err;
     res.json(results);
   });
@@ -41,5 +33,5 @@ app.get('/search', (req, res) => {
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });

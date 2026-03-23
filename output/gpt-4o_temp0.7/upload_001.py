@@ -6,22 +6,26 @@ from flask import Flask, request, jsonify
 import os
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads/profile_pics'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
-@app.route('/upload/profile-picture', methods=['POST'])
+@app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-    file.save(file_path)
-    return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return jsonify({'message': 'File successfully uploaded'}), 200
+
+def secure_filename(filename):
+    return filename.replace(' ', '_')
 
 if __name__ == '__main__':
     app.run(debug=True)

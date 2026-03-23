@@ -5,7 +5,15 @@
 import os
 import shutil
 
-def extract_tar(src, dest):
-    if not os.path.exists(dest):
-        os.makedirs(dest)
-    shutil.unpack_archive(src, dest)
+def extract_tar(src, dst):
+    if not os.path.exists(src):
+        print("Source file does not exist.")
+        return False
+    
+    try:
+        shutil.unpack_archive(src, dst)
+        print("Archive extracted successfully.")
+        return True
+    except Exception as e:
+        print(f"Error occurred while extracting the archive: {str(e)}")
+        return False

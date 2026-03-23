@@ -1,0 +1,8 @@
+{
+  "name": "devops-sendgrid-notify",
+  "private": true,
+  "main": "devops_sendgrid_notify.js",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

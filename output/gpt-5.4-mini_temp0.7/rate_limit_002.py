@@ -6,9 +6,10 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
+import os
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
@@ -23,10 +24,10 @@ with app.app_context():
     db.create_all()
 
 def send_reset_email(email, reset_link):
-    print(f"Sending reset email to {email}: {reset_link}")
+    print(f"Sending password reset email to {email}: {reset_link}")
 
-@app.route("/api/password-reset", methods=["POST"])
-def password_reset():
+@app.route("/api/password-reset/request", methods=["POST"])
+def request_password_reset():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
 
@@ -36,11 +37,21 @@ def password_reset():
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=1)
 
-    reset_record = PasswordResetToken(email=email, token=token, expires_at=expires_at)
+    existing_tokens = PasswordResetToken.query.filter_by(email=email).all()
+    for t in existing_tokens:
+        db.session.delete(t)
+
+    reset_record = PasswordResetToken(
+        email=email,
+        token=token,
+        expires_at=expires_at
+    )
     db.session.add(reset_record)
     db.session.commit()
 
-    reset_link = f"https://your-frontend.com/reset-password?token={token}"
+    frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    reset_link = f"{frontend_base_url}/reset-password?token={token}&email={email}"
+
     send_reset_email(email, reset_link)
 
     return jsonify({"message": "If the email exists, a reset link has been sent."}), 200

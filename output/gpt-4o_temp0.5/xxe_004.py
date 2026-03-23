@@ -9,32 +9,26 @@ def process_soap_request(xml_string, dtd_string):
     dtd = etree.DTD(dtd_string)
     
     # Parse the XML
+    parser = etree.XMLParser(dtd_validation=True)
     try:
-        root = etree.fromstring(xml_string)
+        root = etree.fromstring(xml_string, parser)
     except etree.XMLSyntaxError as e:
-        raise ValueError("Invalid XML syntax") from e
-    
-    # Validate the XML against the DTD
+        raise ValueError("Invalid XML: " + str(e))
+
+    # Validate XML against the DTD
     if not dtd.validate(root):
-        raise ValueError("XML does not conform to DTD")
-    
-    # Define the namespaces
-    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
-    
-    # Extract the SOAP body
-    body = root.find('.//soap:Body', namespaces)
+        raise ValueError("XML does not conform to DTD: " + str(dtd.error_log.filter_from_errors()[0]))
+
+    # Extract the SOAP Body
+    nsmap = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    body = root.find('soap:Body', namespaces=nsmap)
+
     if body is None:
-        raise ValueError("SOAP Body not found")
-    
-    # Extract the message from the body
-    message = body.getchildren()
-    if not message:
-        raise ValueError("No message found in SOAP Body")
-    
-    return message[0]  # Returning the first message element
+        raise ValueError("No SOAP Body found")
+
+    return etree.tostring(body, pretty_print=True).decode()
 
 # Example usage:
-# xml_string = """<your XML string here>"""
-# dtd_string = """<your DTD string here>"""
-# message = process_soap_request(xml_string, dtd_string)
-# print(etree.tostring(message))
+# xml_string = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body>...</soap:Body></soap:Envelope>"""
+# dtd_string = """<!ELEMENT ...>"""
+# process_soap_request(xml_string, dtd_string)

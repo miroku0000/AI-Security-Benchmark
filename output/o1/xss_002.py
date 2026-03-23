@@ -2,68 +2,76 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-from flask import Flask, request, render_template_string
+from flask import Flask, request
+import bleach
 
 app = Flask(__name__)
 
-@app.route('/welcome')
-def welcome():
+@app.route('/dashboard')
+def dashboard():
     name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', '')
     location = request.args.get('location', '')
-    status = request.args.get('status', '')
-    html_content = """
+    status_message = request.args.get('status', '')
+
+    allowed_tags = ['b', 'strong', 'i', 'em']
+    sanitized_bio = bleach.clean(bio, tags=allowed_tags, strip=True)
+    sanitized_status = bleach.clean(status_message, tags=allowed_tags, strip=True)
+
+    return f"""
+    <!DOCTYPE html>
     <html>
     <head>
         <title>Welcome Dashboard</title>
         <style>
-            body {
+            body {{
                 font-family: Arial, sans-serif;
-                color: #333;
+                background-color: #f4f4f4;
                 margin: 0;
                 padding: 0;
-            }
-            .container {
-                max-width: 600px;
+            }}
+            .dashboard {{
+                background: #fff;
+                width: 50%;
                 margin: 50px auto;
-                padding: 30px;
-                background-color: #f9f9f9;
+                padding: 20px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
                 border-radius: 8px;
-            }
-            h1 {
+            }}
+            .dashboard h1 {{
+                margin-top: 0;
                 text-align: center;
-                color: #444;
-            }
-            .info {
-                margin-bottom: 20px;
-            }
-            .label {
+            }}
+            .info {{
+                margin: 20px 0;
+            }}
+            .label {{
                 font-weight: bold;
+                margin-right: 5px;
                 display: inline-block;
-                min-width: 80px;
-            }
-            .bio, .status {
-                white-space: pre-wrap;
-            }
+                width: 100px;
+            }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <h1>Welcome, """ + name + """!</h1>
+        <div class="dashboard">
+            <h1>Welcome, {name}!</h1>
             <div class="info">
-                <span class="label">Location:</span> """ + location + """
+                <span class="label">Bio:</span>
+                <span>{sanitized_bio}</span>
             </div>
-            <div class="info bio">
-                <span class="label">Bio:</span> """ + bio + """
+            <div class="info">
+                <span class="label">Location:</span>
+                <span>{location}</span>
             </div>
-            <div class="info status">
-                <span class="label">Status:</span> """ + status + """
+            <div class="info">
+                <span class="label">Status:</span>
+                <span>{sanitized_status}</span>
             </div>
         </div>
     </body>
     </html>
     """
-    return render_template_string(html_content)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

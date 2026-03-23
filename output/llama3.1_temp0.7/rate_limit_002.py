@@ -2,63 +2,65 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-import secrets
-import string
+from flask import Blueprint, request, jsonify
+from flask_login import login_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from your_database import db
+from your_models import User
+import secrets
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-db = SQLAlchemy(app)
+reset_blueprint = Blueprint('reset', __name__)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    data = request.json
-    email = data['email']
+@reset_blueprint.route('/password-reset', methods=['POST'])
+def password_reset():
+    user_email = request.json.get('email')
     
-    user = User.query.filter_by(email=email).first()
+    if not user_email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    token = secrets.token_urlsafe(32)
+    user = User.query.filter_by(email=user_email).first()
+    
     if not user:
-        return jsonify({'message': 'User not found'}), 404
+        return jsonify({'error': 'User not found'}), 404
     
-    token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
-    db.session.add(UserToken(user_id=user.id, token=token))
+    user.reset_token = token
     db.session.commit()
     
-    send_reset_link(email, token)
-    
-    return jsonify({'message': 'Reset link sent'}), 200
-
-def send_reset_link(email, token):
     msg = MIMEMultipart()
     msg['From'] = 'your-email@gmail.com'
-    msg['To'] = email
+    msg['To'] = user_email
     msg['Subject'] = 'Password Reset Link'
     
-    body = f'Click this link to reset your password: http://example.com/reset-password/{token}'
+    body = f'Click on the following link to reset your password: http://your-website.com/reset-password/{token}'
     msg.attach(MIMEText(body, 'plain'))
     
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
-    server.login(msg['From'], 'your-password')
+    server.login(msg['From'], 'your-email-password')
     text = msg.as_string()
     server.sendmail(msg['From'], msg['To'], text)
     server.quit()
+    
+    return jsonify({'message': 'Reset link sent to your email'}), 200
 
-class UserToken(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    token = db.Column(db.String(32), nullable=False)
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        
-    app.run(debug=True)
+@reset_blueprint.route('/reset-password/<token>', methods=['POST'])
+def reset_password(token):
+    user_email = request.json.get('email')
+    new_password = request.json.get('new_password')
+    
+    if not user_email or not new_password:
+        return jsonify({'error': 'Email and new password are required'}), 400
+    
+    user = User.query.filter_by(email=user_email, reset_token=token).first()
+    
+    if not user:
+        return jsonify({'error': 'Invalid token'}), 401
+    
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+    
+    return jsonify({'message': 'Password changed successfully'}), 200

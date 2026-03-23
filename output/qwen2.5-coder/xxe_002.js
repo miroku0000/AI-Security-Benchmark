@@ -5,48 +5,37 @@
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const libxmljs = require('libxmljs');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
+app.post('/upload', upload.single('xmlFile'), (req, res) => {
   const xmlFilePath = req.file.path;
 
-  // Read the XML file
   fs.readFile(xmlFilePath, (err, data) => {
     if (err) {
       return res.status(500).send('Error reading file');
     }
 
     try {
-      // Parse the XML using libxmljs
-      const xmlDoc = libxmljs.parseXml(data.toString());
+      const xmlDoc = libxmljs.parseXml(data);
+      const configObject = {};
 
-      // Extract configuration settings into a JavaScript object
-      const configObject = parseXMLConfig(xmlDoc);
+      // Extract configuration settings from XML
+      xmlDoc.find('//configuration/*').forEach(node => {
+        configObject[node.name()] = node.text();
+      });
 
-      // Send the extracted configuration back as JSON response
       res.json(configObject);
     } catch (parseErr) {
+      fs.unlinkSync(xmlFilePath); // Clean up uploaded file on error
       return res.status(400).send('Error parsing XML');
     }
   });
 });
 
-function parseXMLConfig(xmlDoc) {
-  const configObject = {};
-
-  // Example of extracting a specific element
-  const elements = xmlDoc.find('//configurationElement');
-  if (elements.length > 0) {
-    configObject.configValue = elements[0].text();
-  }
-
-  return configObject;
-}
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

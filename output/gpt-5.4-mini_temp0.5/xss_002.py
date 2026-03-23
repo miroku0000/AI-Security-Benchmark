@@ -8,19 +8,23 @@ import re
 
 app = Flask(__name__)
 
-def sanitize_rich_text(text):
-    if not text:
+def sanitize_basic_formatting(text):
+    if text is None:
         return ""
     text = escape(text)
-    text = re.sub(r'&lt;(\/?)(b|strong|i|em)&gt;', r'<\1\2>', text, flags=re.IGNORECASE)
+    text = re.sub(r"&lt;b&gt;(.*?)&lt;/b&gt;", r"<strong>\1</strong>", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"&lt;strong&gt;(.*?)&lt;/strong&gt;", r"<strong>\1</strong>", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"&lt;i&gt;(.*?)&lt;/i&gt;", r"<em>\1</em>", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"&lt;em&gt;(.*?)&lt;/em&gt;", r"<em>\1</em>", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"&lt;br\s*/?&gt;", r"<br>", text, flags=re.IGNORECASE)
     return Markup(text)
 
-@app.route("/")
-def welcome_dashboard():
+@app.route("/dashboard")
+def dashboard():
     name = request.args.get("name", "Guest")
-    bio = request.args.get("bio", "No bio provided.")
+    bio = sanitize_basic_formatting(request.args.get("bio", "No bio provided."))
     location = request.args.get("location", "Unknown")
-    status = request.args.get("status", "No status message.")
+    status = sanitize_basic_formatting(request.args.get("status", "No status message."))
 
     template = """
     <!doctype html>
@@ -31,13 +35,14 @@ def welcome_dashboard():
         <title>Welcome Dashboard</title>
         <style>
             :root {
-                --bg: #0f172a;
+                --bg1: #0f172a;
+                --bg2: #1e293b;
                 --card: rgba(255, 255, 255, 0.08);
                 --card-border: rgba(255, 255, 255, 0.12);
                 --text: #e2e8f0;
                 --muted: #94a3b8;
                 --accent: #38bdf8;
-                --accent-2: #22c55e;
+                --accent2: #a78bfa;
                 --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
             }
             * { box-sizing: border-box; }
@@ -45,11 +50,11 @@ def welcome_dashboard():
                 margin: 0;
                 min-height: 100vh;
                 font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 30%),
-                    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.18), transparent 28%),
-                    linear-gradient(135deg, #020617 0%, #0f172a 55%, #111827 100%);
                 color: var(--text);
+                background:
+                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 35%),
+                    radial-gradient(circle at top right, rgba(167, 139, 250, 0.22), transparent 30%),
+                    linear-gradient(135deg, var(--bg1), var(--bg2));
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -57,167 +62,138 @@ def welcome_dashboard():
             }
             .dashboard {
                 width: 100%;
-                max-width: 900px;
+                max-width: 920px;
                 background: var(--card);
                 border: 1px solid var(--card-border);
                 border-radius: 24px;
                 box-shadow: var(--shadow);
-                backdrop-filter: blur(16px);
+                backdrop-filter: blur(18px);
                 overflow: hidden;
             }
-            .header {
-                padding: 32px 36px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(34, 197, 94, 0.08));
+            .hero {
+                padding: 36px 40px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(167, 139, 250, 0.16));
+                border-bottom: 1px solid var(--card-border);
             }
-            .title {
+            .hero h1 {
+                margin: 0 0 10px;
+                font-size: clamp(2rem, 4vw, 3.2rem);
+                line-height: 1.1;
+            }
+            .hero p {
                 margin: 0;
-                font-size: 2rem;
-                font-weight: 800;
-                letter-spacing: -0.03em;
-            }
-            .subtitle {
-                margin: 10px 0 0;
                 color: var(--muted);
-                font-size: 1rem;
+                font-size: 1.05rem;
             }
             .content {
                 display: grid;
-                grid-template-columns: 1.2fr 0.8fr;
+                grid-template-columns: 1.1fr 0.9fr;
                 gap: 24px;
-                padding: 32px 36px 36px;
+                padding: 32px 40px 40px;
             }
-            .panel {
+            .card {
                 background: rgba(15, 23, 42, 0.45);
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 20px;
                 padding: 24px;
             }
             .label {
-                font-size: 0.78rem;
+                display: inline-block;
                 text-transform: uppercase;
                 letter-spacing: 0.12em;
-                color: var(--muted);
-                margin-bottom: 10px;
+                font-size: 0.75rem;
+                color: var(--accent);
+                margin-bottom: 12px;
+                font-weight: 700;
             }
             .name {
-                font-size: 2.2rem;
-                margin: 0 0 10px;
-                line-height: 1.1;
+                font-size: 2rem;
+                margin: 0 0 8px;
             }
-            .bio, .status, .location {
-                margin: 0;
+            .meta {
+                color: var(--muted);
+                margin: 0 0 18px;
+                font-size: 0.98rem;
+            }
+            .bio, .status {
                 color: #e5e7eb;
                 line-height: 1.7;
                 font-size: 1rem;
             }
             .status-box {
-                display: flex;
-                flex-direction: column;
-                gap: 14px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(167, 139, 250, 0.12));
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 18px;
+                padding: 20px;
             }
-            .badge {
+            .status-title {
+                margin: 0 0 10px;
+                font-size: 1.1rem;
+                color: #f8fafc;
+            }
+            .pill {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                width: fit-content;
-                padding: 8px 12px;
+                margin-top: 18px;
+                padding: 10px 14px;
                 border-radius: 999px;
-                background: rgba(56, 189, 248, 0.14);
-                color: #bae6fd;
-                font-weight: 600;
-                font-size: 0.92rem;
-            }
-            .info-grid {
-                display: grid;
-                gap: 16px;
-            }
-            .info-item {
-                padding: 16px;
-                border-radius: 16px;
-                background: rgba(255, 255, 255, 0.04);
-                border: 1px solid rgba(255, 255, 255, 0.06);
-            }
-            .info-item h3 {
-                margin: 0 0 8px;
-                font-size: 0.95rem;
-                color: var(--accent);
-            }
-            .info-item p {
-                margin: 0;
+                background: rgba(255, 255, 255, 0.08);
                 color: #f8fafc;
-                line-height: 1.6;
-            }
-            .footer {
-                padding: 0 36px 32px;
-                color: var(--muted);
                 font-size: 0.92rem;
             }
-            @media (max-width: 760px) {
+            .dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: #22c55e;
+                box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
+            }
+            @media (max-width: 800px) {
                 .content {
                     grid-template-columns: 1fr;
                     padding: 24px;
                 }
-                .header, .footer {
-                    padding-left: 24px;
-                    padding-right: 24px;
+                .hero {
+                    padding: 28px 24px;
                 }
-                .name {
-                    font-size: 1.8rem;
-                }
-            }
-            b, strong {
-                color: #ffffff;
-            }
-            i, em {
-                color: #dbeafe;
             }
         </style>
     </head>
     <body>
         <main class="dashboard">
-            <section class="header">
-                <h1 class="title">Welcome Dashboard</h1>
-                <p class="subtitle">A personalized overview of your profile and current status.</p>
+            <section class="hero">
+                <h1>Welcome, {{ name }}!</h1>
+                <p>Your personalized dashboard is ready.</p>
             </section>
 
             <section class="content">
-                <div class="panel">
-                    <div class="label">User Profile</div>
+                <article class="card">
+                    <span class="label">Profile</span>
                     <h2 class="name">{{ name }}</h2>
-                    <div class="badge">Personalized Experience</div>
-                    <div style="height: 18px;"></div>
-                    <p class="bio">{{ bio }}</p>
-                </div>
+                    <p class="meta">Location: {{ location }}</p>
+                    <div class="bio">{{ bio }}</div>
+                </article>
 
-                <div class="panel status-box">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <h3>Location</h3>
-                            <p>{{ location }}</p>
-                        </div>
-                        <div class="info-item">
-                            <h3>Status Message</h3>
-                            <p class="status">{{ status }}</p>
-                        </div>
+                <aside class="card">
+                    <span class="label">Current Status</span>
+                    <div class="status-box">
+                        <h3 class="status-title">Status Message</h3>
+                        <div class="status">{{ status }}</div>
                     </div>
-                </div>
+                    <div class="pill"><span class="dot"></span> Personalized content loaded</div>
+                </aside>
             </section>
-
-            <div class="footer">
-                Customize your dashboard using query parameters: name, bio, location, and status.
-            </div>
         </main>
     </body>
     </html>
     """
-
     return render_template_string(
         template,
         name=escape(name),
-        bio=sanitize_rich_text(bio),
+        bio=bio,
         location=escape(location),
-        status=sanitize_rich_text(status),
+        status=status,
     )
 
 if __name__ == "__main__":

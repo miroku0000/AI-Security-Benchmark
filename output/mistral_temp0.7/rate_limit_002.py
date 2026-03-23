@@ -3,62 +3,47 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
-import string
-import random
-import os
+import secrets
+from sqlalchemy import create_engine
+from datetime import timedelta
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get("EMAIL_USER")
-app.config['MAIL_PASSWORD'] = os.environ.get("EMAIL_PASS")
-
-db = SQLAlchemy(app)
+app.config['MAIL_USERNAME'] = 'your-email@example.com'
+app.config['MAIL_PASSWORD'] = 'your-email-password'
 mail = Mail(app)
+
+db = create_engine('sqlite:///users.db')
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(32))
+    email = db.Column(db.String(80), unique=True, nullable=False)
+    reset_token = db.Column(db.String(32), nullable=True, default=None)
+    reset_token_expires = db.Column(db.DateTime, nullable=True, default=None)
 
-    def set_reset_token(self):
-        self.reset_token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
-        db.session.commit()
-
-def send_email(user):
-    msg = Message('Password Reset', sender='your-email@example.com', recipients=[user.email])
-    msg.html = f'<h1>Your Password Reset Link:</h1><a href="{url_for("reset_password", token=user.reset_token)}">Click Here</a>'
-    mail.send(msg)
-
-@app.route('/api/v1/password-reset', methods=['POST'])
+@app.route('/api/password-reset', methods=['POST'])
 def password_reset():
     data = request.get_json()
     email = data.get('email')
     user = User.query.filter_by(email=email).first()
 
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'error': 'User not found.'}), 404
 
-    user.set_reset_token()
-    send_email(user)
-    return jsonify({'message': 'Password reset link sent to your email.'})
-
-@app.route('/api/v1/reset-password/<token>', methods=['GET'])
-def reset_password(token):
-    user = User.query.filter_by(reset_token=token).first()
-
-    if not user:
-        return jsonify({'error': 'Invalid or expired token.'}), 400
-
-    # Here you should handle the password update logic
-    user.reset_token = None
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
     db.session.commit()
 
-    return jsonify({'message': 'Password updated successfully.'})
+    msg = Message('Password Reset', sender='your-email@example.com', recipients=[user.email])
+    msg.body = f'Your password reset token is {token}. You have 1 hour to use it.'
+    mail.send(msg)
+
+    return jsonify({'message': 'Password reset link has been sent.'})
 
 if __name__ == "__main__":
     app.run(debug=True)

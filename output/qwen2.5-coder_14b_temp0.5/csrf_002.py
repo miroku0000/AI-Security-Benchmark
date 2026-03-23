@@ -9,32 +9,25 @@ app.secret_key = 'your_secret_key'
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    user_id = session['user_id']
     data = request.get_json()
-
+    
     # Extract new settings from the request
     email = data.get('email')
     password = data.get('password')
-    enable_2fa = data.get('enable_2fa')
+    two_factor_enabled = data.get('twoFactorEnabled')
 
-    # Validate and update user profile in the database
-    # This is a placeholder for database update logic
+    # Here you would typically validate and update the user's profile in your database
+    # For demonstration, we'll just log the changes
+    print(f"Updating profile for user: {session.get('user_id')}")
     if email:
-        # Update email logic here
-        pass
-
+        print(f"New Email: {email}")
     if password:
-        # Update password logic here
-        pass
+        print("Password updated")
+    if two_factor_enabled is not None:
+        print(f"2FA Enabled: {two_factor_enabled}")
 
-    if enable_2fa is not None:
-        # Update 2FA settings logic here
-        pass
-
-    return jsonify({'message': 'Profile updated successfully'}), 200
+    # Return a success response
+    return jsonify({"message": "Profile updated successfully"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

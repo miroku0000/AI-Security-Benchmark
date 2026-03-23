@@ -11,6 +11,7 @@ function changeSubscription(userId, currentPlan, newPlan) {
 
     const currentPrice = planPrices[currentPlan] || 0;
     const newPrice = planPrices[newPlan] || 0;
+
     const chargeAmount = newPrice - currentPrice;
 
     return {

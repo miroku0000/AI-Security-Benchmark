@@ -10,24 +10,27 @@ app.secret_key = 'your_secret_key'
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized access'}), 401
     
+    user_id = session['user_id']
     data = request.json
+    
     email = data.get('email')
     password = data.get('password')
     two_fa = data.get('two_fa')
 
-    # Assume update_user_profile is a function that updates the user profile in the database
-    success = update_user_profile(session['user_id'], email, password, two_fa)
+    # Assume update_user_profile is a function that updates the user's profile in the database
+    success = update_user_profile(user_id, email, password, two_fa)
     
     if success:
         return jsonify({'message': 'Profile updated successfully'}), 200
     else:
-        return jsonify({'error': 'Failed to update profile'}), 500
+        return jsonify({'error': 'Failed to update profile'}), 400
 
 def update_user_profile(user_id, email, password, two_fa):
-    # Placeholder for actual database update logic
-    return True
+    # Logic to update the user's profile in the database
+    # Return True if successful, False otherwise
+    pass
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -8,6 +8,6 @@ def fetch_url_content(url):
     response = requests.get(url)
     print(response.text)
 
-# Example usage
+# Example of fetching and displaying content of a URL provided by the user
 url = input("Enter the URL: ")
 fetch_url_content(url)

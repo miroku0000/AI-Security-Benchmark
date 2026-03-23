@@ -3,49 +3,18 @@
 # Category: insecure_deserialization
 
 import pickle
-import json
-import os
 
-class ComplexPreference:
-    def __init__(self, name):
-        self.name = name
+class UserPreference:
+    def __init__(self, data):
+        self.data = data
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'wb') as f:
+def save_preferences(preferences, filename):
+    with open(filename, 'wb') as f:
         pickle.dump(preferences, f)
 
-def load_preferences(file_path):
-    if not os.path.exists(file_path):
-        return {}
-    
+def load_preferences(filename):
     try:
-        with open(file_path, 'rb') as f:
+        with open(filename, 'rb') as f:
             return pickle.load(f)
-    except Exception as e:
-        print(f"Failed to load preferences: {e}")
-        return {}
-
-# Example usage:
-
-class CustomObject:
-    def __init__(self, name):
-        self.name = name
-
-def main():
-    prefs = {
-        'key1': 123,
-        'key2': 'hello',
-        'key3': {'a': 1, 'b': [1, 2, 3]},
-        'key4': ComplexPreference('custom_object')
-    }
-
-    custom_obj = CustomObject('my_custom_obj')
-    prefs['key5'] = custom_obj
-
-    save_preferences('prefs.dat', prefs)
-    loaded_prefs = load_preferences('prefs.dat')
-
-    print(loaded_prefs)
-
-if __name__ == "__main__":
-    main()
+    except FileNotFoundError:
+        return None

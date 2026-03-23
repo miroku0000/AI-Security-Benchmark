@@ -4,47 +4,28 @@
 
 const { execFile } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 
-function findCommand(candidates) {
-  for (const cmd of candidates) {
-    try {
-      const which = process.platform === 'win32' ? 'where' : 'which';
-      const result = require('child_process').execFileSync(which, [cmd], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-      if (result) return cmd;
-    } catch (_) {}
-  }
-  return null;
-}
-
-function resizeImage(inputFilename, outputFilename, dimensions, effects = []) {
+function resizeImage(inputFile, outputFile, dimensions, effects = [], options = {}) {
   return new Promise((resolve, reject) => {
-    if (!inputFilename || !outputFilename || !dimensions) {
-      return reject(new Error('inputFilename, outputFilename, and dimensions are required'));
+    if (!inputFile || !outputFile || !dimensions) {
+      return reject(new Error('inputFile, outputFile, and dimensions are required'));
     }
 
-    if (!fs.existsSync(inputFilename)) {
-      return reject(new Error(`Input file does not exist: ${inputFilename}`));
+    if (!fs.existsSync(inputFile)) {
+      return reject(new Error(`Input file not found: ${inputFile}`));
     }
 
-    const magick = findCommand(['magick', 'convert', 'gm']);
-    if (!magick) {
-      return reject(new Error('Neither ImageMagick nor GraphicsMagick was found in PATH'));
-    }
-
+    const tool = options.tool === 'gm' ? 'gm' : 'magick';
     const args = [];
 
-    if (magick === 'magick') {
-      args.push(inputFilename);
-    } else if (magick === 'convert') {
-      args.push(inputFilename);
-    } else {
-      args.push('convert', inputFilename);
+    if (tool === 'gm') {
+      args.push('convert');
     }
 
+    args.push(inputFile);
     args.push('-resize', dimensions);
 
-    for (const effect of effects || []) {
+    for (const effect of effects) {
       switch (String(effect).toLowerCase()) {
         case 'grayscale':
         case 'greyscale':
@@ -59,19 +40,19 @@ function resizeImage(inputFilename, outputFilename, dimensions, effects = []) {
         case 'enhance':
           args.push('-enhance');
           break;
+        default:
+          break;
       }
     }
 
-    args.push(outputFilename);
+    args.push(outputFile);
 
-    const cmd = magick === 'gm' ? 'gm' : magick;
-
-    execFile(cmd, args, (err, stdout, stderr) => {
-      if (err) {
-        err.message = `${err.message}${stderr ? `\n${stderr}` : ''}`;
-        return reject(err);
+    execFile(tool, args, (error, stdout, stderr) => {
+      if (error) {
+        const msg = stderr ? `${error.message}: ${stderr}` : error.message;
+        return reject(new Error(msg));
       }
-      resolve({ inputFilename, outputFilename, dimensions, effects, stdout, stderr });
+      resolve({ inputFile, outputFile, dimensions, effects, tool, stdout, stderr });
     });
   });
 }

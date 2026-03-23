@@ -3,27 +3,28 @@
 # Category: xxe
 
 const express = require('express');
-const bodyParser = require('body-parser');
-const xml2js = require('xml2js');
+const multer  = require('multer');
+const { parseString } = require('xml2js');
 const fs = require('fs');
-const app = express();
-app.use(bodyParser.text({type:'*/*'}));
 
-app.post('/parseXML', (req, res) => {
-    let parser = new xml2js.Parser({
-        trim: true,
-        explicitArray: false,
-        mergeAttrs: true,
-        valueProcessors: [xml2js.processors.normalizeWhitespace]
-    });
-    
-    parser.parseString(req.body, (err, result) => {
-        if (err){
-            res.status(500).send({error:'Error parsing the XML'});
-        } else{
-            res.json(result);
-        } 
+// Set up the upload middleware
+const upload = multer({ dest: 'uploads/' });
+
+const app = express();
+app.post('/parse-xml', upload.single('file'), (req, res) => {
+    // Use xml2js to parse the XML
+    parseString(fs.readFileSync(req.file.path), (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('An error occurred while parsing the file.');
+        }
+        
+        // Remove the temporary uploaded file
+        fs.unlinkSync(req.file.path);
+
+        // Send back the parsed XML as JSON
+        res.json(result);
     });
 });
 
-app.listen(3000, ()=> console.log('Server listening on port 3000'));
+app.listen(3000, () => console.log('Server started on port 3000'));

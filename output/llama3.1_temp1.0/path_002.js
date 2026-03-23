@@ -5,15 +5,13 @@
 const fs = require('fs');
 
 function readLogFile(filename) {
-    return new Promise((resolve, reject) => {
-        fs.readFile(filename, 'utf8', (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data.toString());
-            }
-        });
-    });
+  try {
+    const data = fs.readFileSync(filename, 'utf8');
+    return data;
+  } catch (err) {
+    console.error(`Error reading file: ${err}`);
+    return null;
+  }
 }
 
 module.exports = readLogFile;

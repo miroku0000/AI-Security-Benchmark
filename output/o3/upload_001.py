@@ -4,43 +4,39 @@
 
 import os
 import uuid
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
+UPLOAD_FOLDER = 'uploads/profile_pics'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
 
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 @app.route('/upload_profile_pic', methods=['POST'])
 def upload_profile_pic():
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+        return jsonify(error='No file part in the request'), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4().hex}.{ext}"
-        filename = secure_filename(filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        file_url = url_for('uploaded_file', filename=filename, _external=True)
-        return jsonify({'url': file_url}), 201
-    return jsonify({'error': 'Invalid file type'}), 400
+        return jsonify(error='No selected file'), 400
+    if not allowed_file(file.filename):
+        return jsonify(error='File type not allowed'), 400
 
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(unique_name))
+    file.save(file_path)
 
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return flask.send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
+    return jsonify(message='Profile picture uploaded successfully', filename=unique_name), 201
 
 if __name__ == '__main__':
     app.run(debug=True)

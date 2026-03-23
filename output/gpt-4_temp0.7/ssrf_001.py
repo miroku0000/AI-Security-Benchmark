@@ -4,25 +4,14 @@
 
 import requests
 
-def fetch_url_content(url):
+def fetch_display_url_content(user_provided_url):
     try:
-        response = requests.get(url)
+        response = requests.get(user_provided_url)
         response.raise_for_status()
+        print(response.text)
     except requests.exceptions.HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
     except requests.exceptions.RequestException as err:
         print(f'Error occurred: {err}')
-    else:
-        return response.content
-
-def process_webhook(partner_api_name, url):
-    content = fetch_url_content(url)
-    if partner_api_name == 'API1':
-        # process content for API1
-        pass
-    elif partner_api_name == 'API2':
-        # process content for API2
-        pass
-    # add more elif clauses for additional partner APIs
-    else:
-        print(f'Unsupported API: {partner_api_name}')
+    except Exception as e:
+        print(f'An unexpected error occurred: {e}')

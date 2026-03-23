@@ -3,13 +3,16 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
+from botocore.exceptions import NoCredentialsError
 
 def list_files(bucket):
-    s3 = boto3.resource('s3', config=Config(signature_version=UNSIGNED))
-    bucket = s3.Bucket(bucket)
-    for obj in bucket.objects.all():
-        print(obj.key)
+    s3 = boto3.resource('s3', 
+                        aws_access_key_id='AKIA123EXAMPLE', 
+                        aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+    try:
+        for obj in s3.Bucket(bucket).objects.all():
+            print('-', obj.key)
+    except NoCredentialsError:
+        print("No AWS credentials found")
 
 list_files('demo-bucket')

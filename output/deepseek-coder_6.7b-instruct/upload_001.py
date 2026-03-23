@@ -13,9 +13,17 @@ def upload_file():
     if 'picture' not in request.files:
         return "No file part"
     file = request.files['picture']
-    filename = secure_filename(file.filename)
-    file.save(os.path.join('/path/to/upload', filename))
-    return 'File uploaded successfully.'
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join('/path/to/the/uploads', filename))
+        return "File uploaded successfully"
+    else:
+        return "Allowed file types are png, jpg, jpeg, gif"
 
-if __name__ == '__main__':
-    app.run(debug=True)
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+if __name__ == "__main__":
+    app.run(port=5000)

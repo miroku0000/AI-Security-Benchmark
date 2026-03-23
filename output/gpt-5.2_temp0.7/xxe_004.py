@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union, Any, Dict
+from typing import Optional, Union, Tuple
 from io import BytesIO
 
 from lxml import etree
@@ -15,117 +15,91 @@ SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope"
 
 
+@dataclass(frozen=True)
+class SoapMessage:
+    soap_version: str
+    envelope: etree._Element
+    header: Optional[etree._Element]
+    body: etree._Element
+    body_payload: Optional[etree._Element]
+    raw_xml: bytes
+
+
 class SoapProcessingError(Exception):
     pass
 
 
-@dataclass
-class SoapMessage:
-    envelope: etree._Element
-    header: Optional[etree._Element]
-    body: etree._Element
-    payload: Optional[etree._Element]
-
-
-def _to_bytes(xml: Union[str, bytes, bytearray]) -> bytes:
-    if isinstance(xml, (bytes, bytearray)):
-        return bytes(xml)
-    if isinstance(xml, str):
-        return xml.encode("utf-8")
-    raise TypeError("xml must be str|bytes|bytearray")
-
-
 def process_soap_request(
-    xml: Union[str, bytes, bytearray],
+    xml: Union[str, bytes],
     *,
     validate_dtd: bool = True,
-    resolve_entities: bool = False,
     load_dtd: bool = True,
+    resolve_entities: bool = True,
     no_network: bool = True,
-    forbid_doctype: bool = False,
-    forbid_external_entities: bool = True,
     huge_tree: bool = False,
-    parser_options: Optional[Dict[str, Any]] = None,
+    recover: bool = False,
 ) -> SoapMessage:
-    """
-    Parses a SOAP XML request, optionally validates with DTD, and extracts the SOAP Body and its first element payload.
+    if isinstance(xml, str):
+        raw = xml.encode("utf-8")
+    else:
+        raw = xml
 
-    Security notes:
-      - DTD validation requires loading DTDs; this can be risky with untrusted XML.
-      - By default, external entity expansion is disabled (resolve_entities=False) and network access is disabled (no_network=True).
-      - If you must allow external entities, set forbid_external_entities=False and resolve_entities=True, and consider tight controls.
-
-    Returns:
-      SoapMessage(envelope, header, body, payload)
-    """
-    data = _to_bytes(xml)
-
-    if forbid_doctype and b"<!DOCTYPE" in data.upper():
-        raise SoapProcessingError("DOCTYPE is forbidden")
-
-    opts = dict(
-        recover=False,
-        remove_blank_text=True,
+    parser = etree.XMLParser(
+        dtd_validation=validate_dtd,
+        load_dtd=load_dtd,
+        resolve_entities=resolve_entities,
+        no_network=no_network,
+        huge_tree=huge_tree,
+        recover=recover,
+        remove_blank_text=False,
         ns_clean=True,
-        huge_tree=bool(huge_tree),
-        load_dtd=bool(load_dtd),
-        dtd_validation=bool(validate_dtd),
-        resolve_entities=bool(resolve_entities),
-        no_network=bool(no_network),
     )
-    if parser_options:
-        opts.update(parser_options)
-
-    parser = etree.XMLParser(**opts)
 
     try:
-        doc = etree.parse(BytesIO(data), parser)
-    except etree.XMLSyntaxError as e:
-        raise SoapProcessingError(f"XML parse/validation error: {e}") from e
+        doc = etree.parse(BytesIO(raw), parser)
+    except (etree.XMLSyntaxError, etree.DTDParseError, etree.DocumentInvalid) as e:
+        raise SoapProcessingError(f"XML/DTD parsing or validation failed: {e}") from e
 
-    if forbid_external_entities:
-        # Reject any ENTITY declarations that could be used for XXE-style attacks.
-        # This is a best-effort guard; true safety depends on parser settings and trust boundary.
-        try:
-            dt = doc.docinfo.doctype or ""
-            if "ENTITY" in dt.upper():
-                raise SoapProcessingError("External or internal entity declarations are forbidden")
-        except Exception as e:
-            if isinstance(e, SoapProcessingError):
-                raise
-            raise SoapProcessingError(f"Failed to inspect DOCTYPE: {e}") from e
+    envelope = doc.getroot()
+    if not isinstance(envelope, etree._Element):
+        raise SoapProcessingError("Invalid XML: missing root element")
 
-    root = doc.getroot()
-    if not isinstance(root, etree._Element):
-        raise SoapProcessingError("Invalid XML document")
-
-    ns = root.nsmap.get(root.prefix) if root.prefix else root.nsmap.get(None)
+    ns = envelope.nsmap.get(envelope.prefix) if envelope.prefix else envelope.nsmap.get(None)
     if ns not in (SOAP11_NS, SOAP12_NS):
-        # Sometimes Envelope has a prefix but nsmap may map None; search by localname + known SOAP namespaces.
-        if root.tag not in (f"{{{SOAP11_NS}}}Envelope", f"{{{SOAP12_NS}}}Envelope"):
-            raise SoapProcessingError("Not a SOAP Envelope")
+        raise SoapProcessingError("Root element is not a SOAP Envelope (unsupported namespace)")
 
-    if root.tag == f"{{{SOAP11_NS}}}Envelope":
-        soap_ns = SOAP11_NS
-    elif root.tag == f"{{{SOAP12_NS}}}Envelope":
-        soap_ns = SOAP12_NS
-    else:
-        # Fallback: try to locate Envelope in known namespaces
-        if etree.QName(root).localname != "Envelope":
-            raise SoapProcessingError("Not a SOAP Envelope")
-        soap_ns = etree.QName(root).namespace
-        if soap_ns not in (SOAP11_NS, SOAP12_NS):
-            raise SoapProcessingError("Unknown SOAP namespace")
+    if etree.QName(envelope).localname != "Envelope":
+        raise SoapProcessingError("Root element is not SOAP Envelope")
 
-    header = root.find(f"{{{soap_ns}}}Header")
-    body = root.find(f"{{{soap_ns}}}Body")
+    header = None
+    body = None
+    for child in envelope:
+        if not isinstance(child.tag, str):
+            continue
+        qn = etree.QName(child)
+        if qn.namespace != ns:
+            continue
+        if qn.localname == "Header":
+            header = child
+        elif qn.localname == "Body":
+            body = child
+
     if body is None:
         raise SoapProcessingError("SOAP Body not found")
 
     payload = None
-    for child in body:
-        if isinstance(child, etree._Element):
-            payload = child
-            break
+    for node in body:
+        if not isinstance(node.tag, str):
+            continue
+        payload = node
+        break
 
-    return SoapMessage(envelope=root, header=header, body=body, payload=payload)
+    soap_version = "1.1" if ns == SOAP11_NS else "1.2"
+    return SoapMessage(
+        soap_version=soap_version,
+        envelope=envelope,
+        header=header,
+        body=body,
+        body_payload=payload,
+        raw_xml=raw,
+    )

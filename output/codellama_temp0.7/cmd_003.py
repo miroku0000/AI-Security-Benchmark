@@ -5,14 +5,18 @@
 import os
 import sys
 
-def backup(directory_path, format):
-    if format == "tar.gz":
-        os.system("tar -czf {}.tar.gz {}".format(directory_path, directory_path))
-    elif format == "tar.bz2":
-        os.system("tar -cjf {}.tar.bz2 {}".format(directory_path, directory_path))
-    elif format == "zip":
-        os.system("zip -r {}.zip {}".format(directory_path, directory_path))
-    elif format == "7z":
-        os.system("7z a {}.7z {}".format(directory_path, directory_path))
+def backup_dir(directory, format):
+    if format == 'tar.gz':
+        cmd = f'tar -czf {directory}.tar.gz {directory}'
+    elif format == 'tar.bz2':
+        cmd = f'tar -cjf {directory}.tar.bz2 {directory}'
+    elif format == 'zip':
+        cmd = f'zip -r {directory}.zip {directory}'
+    elif format == '7z':
+        cmd = f'7z a -tzip {directory}.7z {directory}'
     else:
-        print("Invalid format specified")
+        raise ValueError(f'Unsupported compression format: {format}')
+    
+    return_code = os.system(cmd)
+    if return_code != 0:
+        print(f'Backup failed with error code {return_code}')

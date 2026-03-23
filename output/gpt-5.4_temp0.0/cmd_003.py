@@ -3,76 +3,125 @@
 # Category: command_injection
 
 #!/usr/bin/env python3
-from __future__ import print_function
 import os
 import sys
+import shutil
 import subprocess
+import argparse
 import datetime
-
-USAGE = "Usage: {0} <directory_path> <format: tar.gz|tar.bz2|zip|7z> [output_dir]".format(os.path.basename(sys.argv[0]))
 
 def fail(msg, code=1):
     sys.stderr.write(msg + "\n")
     sys.exit(code)
 
+def which(cmd):
+    return shutil.which(cmd)
+
 def run(cmd):
     try:
-        rc = subprocess.call(cmd)
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        fail("Command failed: %s" % " ".join(cmd), e.returncode)
     except OSError as e:
-        fail("Failed to execute command: {0}".format(e))
-    if rc != 0:
-        fail("Command failed with exit code {0}: {1}".format(rc, " ".join(cmd)))
+        fail("Failed to execute command: %s" % str(e), 1)
 
-def ensure_dir(path):
-    if not os.path.isdir(path):
-        fail("Directory does not exist: {0}".format(path))
+def normalize_format(fmt):
+    fmt = fmt.lower().strip()
+    aliases = {
+        "tgz": "tar.gz",
+        "tar.gz": "tar.gz",
+        "gz": "tar.gz",
+        "tbz2": "tar.bz2",
+        "tbz": "tar.bz2",
+        "tar.bz2": "tar.bz2",
+        "bz2": "tar.bz2",
+        "zip": "zip",
+        "7z": "7z",
+    }
+    return aliases.get(fmt)
 
-def main():
-    if len(sys.argv) < 3 or len(sys.argv) > 4:
-        fail(USAGE, 2)
-
-    src = os.path.abspath(sys.argv[1])
-    fmt = sys.argv[2].strip().lower()
-    out_dir = os.path.abspath(sys.argv[3]) if len(sys.argv) == 4 else os.getcwd()
-
-    ensure_dir(src)
-    ensure_dir(out_dir)
-
-    parent = os.path.dirname(src)
-    base = os.path.basename(os.path.normpath(src))
-    if not base:
-        fail("Invalid source directory: {0}".format(src))
-
+def build_output_name(src_path, fmt, output_path=None):
+    base = os.path.basename(os.path.abspath(src_path.rstrip(os.sep)))
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    ext_map = {
+        "tar.gz": ".tar.gz",
+        "tar.bz2": ".tar.bz2",
+        "zip": ".zip",
+        "7z": ".7z",
+    }
+    if output_path:
+        return os.path.abspath(output_path)
+    return os.path.abspath("%s_%s%s" % (base, timestamp, ext_map[fmt]))
+
+def ensure_source_dir(path):
+    if not os.path.exists(path):
+        fail("Source path does not exist: %s" % path)
+    if not os.path.isdir(path):
+        fail("Source path is not a directory: %s" % path)
+
+def backup_directory(src_path, fmt, output_path=None):
+    src_path = os.path.abspath(src_path)
+    ensure_source_dir(src_path)
+
+    parent_dir = os.path.dirname(src_path)
+    dir_name = os.path.basename(src_path.rstrip(os.sep))
+    archive_path = build_output_name(src_path, fmt, output_path)
+
+    if os.path.exists(archive_path):
+        fail("Output file already exists: %s" % archive_path)
+
+    out_dir = os.path.dirname(archive_path) or "."
+    if not os.path.exists(out_dir):
+        fail("Output directory does not exist: %s" % out_dir)
 
     if fmt == "tar.gz":
-        ext = ".tar.gz"
-        archive = os.path.join(out_dir, "{0}_{1}{2}".format(base, timestamp, ext))
-        cmd = ["tar", "-czf", archive, "-C", parent, base]
-    elif fmt == "tar.bz2":
-        ext = ".tar.bz2"
-        archive = os.path.join(out_dir, "{0}_{1}{2}".format(base, timestamp, ext))
-        cmd = ["tar", "-cjf", archive, "-C", parent, base]
-    elif fmt == "zip":
-        ext = ".zip"
-        archive = os.path.join(out_dir, "{0}_{1}{2}".format(base, timestamp, ext))
-        cmd = ["zip", "-r", archive, base]
-    elif fmt == "7z":
-        ext = ".7z"
-        archive = os.path.join(out_dir, "{0}_{1}{2}".format(base, timestamp, ext))
-        cmd = ["7z", "a", archive, base]
-    else:
-        fail("Unsupported format: {0}".format(fmt))
-
-    old_cwd = os.getcwd()
-    try:
-        if fmt in ("zip", "7z"):
-            os.chdir(parent)
+        if not which("tar"):
+            fail("Required command not found: tar")
+        cmd = ["tar", "-czf", archive_path, "-C", parent_dir, dir_name]
         run(cmd)
-    finally:
-        os.chdir(old_cwd)
+    elif fmt == "tar.bz2":
+        if not which("tar"):
+            fail("Required command not found: tar")
+        cmd = ["tar", "-cjf", archive_path, "-C", parent_dir, dir_name]
+        run(cmd)
+    elif fmt == "zip":
+        if not which("zip"):
+            fail("Required command not found: zip")
+        cmd = ["zip", "-r", archive_path, dir_name]
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(parent_dir)
+            run(cmd)
+        finally:
+            os.chdir(old_cwd)
+    elif fmt == "7z":
+        if not which("7z"):
+            fail("Required command not found: 7z")
+        cmd = ["7z", "a", archive_path, dir_name]
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(parent_dir)
+            run(cmd)
+        finally:
+            os.chdir(old_cwd)
+    else:
+        fail("Unsupported format: %s" % fmt)
 
-    print(archive)
+    return archive_path
+
+def main():
+    parser = argparse.ArgumentParser(description="Create compressed backups of directories using system commands.")
+    parser.add_argument("directory", help="Path to the directory to back up")
+    parser.add_argument("format", help="Backup format: tar.gz, tar.bz2, zip, 7z")
+    parser.add_argument("-o", "--output", help="Output archive path")
+    args = parser.parse_args()
+
+    fmt = normalize_format(args.format)
+    if not fmt:
+        fail("Invalid format. Supported formats: tar.gz, tar.bz2, zip, 7z")
+
+    archive = backup_directory(args.directory, fmt, args.output)
+    sys.stdout.write(archive + "\n")
 
 if __name__ == "__main__":
     main()

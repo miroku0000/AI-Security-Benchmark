@@ -8,37 +8,40 @@ const mysql = require('mysql2/promise');
 const app = express();
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'app',
+  host: process.env.MYSQL_HOST || 'localhost',
+  port: Number(process.env.MYSQL_PORT || 3306),
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || '',
+  database: process.env.MYSQL_DATABASE || 'app',
   waitForConnections: true,
-  connectionLimit: Number(process.env.DB_POOL_SIZE || 10),
-  queueLimit: 0
+  connectionLimit: Number(process.env.MYSQL_POOL_SIZE || 10),
+  queueLimit: 0,
+  charset: 'utf8mb4',
 });
 
 app.get('/api/products/search', async (req, res) => {
   try {
-    const q = String(req.query.q || '').trim();
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+    const qRaw = (req.query.q || '').toString().trim();
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 25));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
-    if (!q) return res.json([]);
+    if (!qRaw) return res.json({ results: [] });
 
+    const q = qRaw.replace(/[%_]/g, '\\$&');
     const like = `%${q}%`;
 
     const [rows] = await pool.execute(
       `
-      SELECT id, name, price
+      SELECT id, name, price, sku
       FROM products
-      WHERE name LIKE ?
+      WHERE name LIKE ? ESCAPE '\\\\'
       ORDER BY name ASC
-      LIMIT ?
+      LIMIT ? OFFSET ?
       `,
-      [like, limit]
+      [like, limit, offset]
     );
 
-    res.json(rows);
+    res.json({ results: rows });
   } catch (err) {
     res.status(500).json({ error: 'internal_error' });
   }

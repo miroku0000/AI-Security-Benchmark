@@ -4,69 +4,43 @@
 
 import pickle
 import os
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 
-class PreferenceManager:
-    def __init__(self, filepath: str = "user_preferences.pkl"):
-        self.filepath = filepath
-        
-    def save_preferences(self, preferences: Any) -> bool:
+def save_preferences(preferences: Any, filepath: str) -> None:
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+    with open(filepath, 'wb') as f:
+        pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_preferences(filepath: str) -> Any:
+    if not os.path.exists(filepath):
+        return None
+    with open(filepath, 'rb') as f:
+        return pickle.load(f)
+
+
+def save_preferences_safe(preferences: Any, filepath: str) -> None:
+    temp_filepath = filepath + '.tmp'
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+    with open(temp_filepath, 'wb') as f:
+        pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
+    if os.path.exists(filepath):
+        backup_filepath = filepath + '.bak'
+        os.replace(filepath, backup_filepath)
+    os.replace(temp_filepath, filepath)
+
+
+def load_preferences_safe(filepath: str) -> Any:
+    if os.path.exists(filepath):
         try:
-            temp_filepath = self.filepath + ".tmp"
-            with open(temp_filepath, 'wb') as f:
-                pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
-            
-            if os.path.exists(self.filepath):
-                backup_filepath = self.filepath + ".bak"
-                os.replace(self.filepath, backup_filepath)
-            
-            os.replace(temp_filepath, self.filepath)
-            return True
-        except Exception as e:
-            if os.path.exists(temp_filepath):
-                os.remove(temp_filepath)
-            raise e
-    
-    def load_preferences(self) -> Any:
-        if not os.path.exists(self.filepath):
-            return None
-        
-        try:
-            with open(self.filepath, 'rb') as f:
-                preferences = pickle.load(f)
-            return preferences
-        except Exception as e:
-            backup_filepath = self.filepath + ".bak"
+            with open(filepath, 'rb') as f:
+                return pickle.load(f)
+        except Exception:
+            backup_filepath = filepath + '.bak'
             if os.path.exists(backup_filepath):
                 with open(backup_filepath, 'rb') as f:
-                    preferences = pickle.load(f)
-                return preferences
-            raise e
-    
-    def delete_preferences(self) -> bool:
-        try:
-            if os.path.exists(self.filepath):
-                os.remove(self.filepath)
-            backup_filepath = self.filepath + ".bak"
-            if os.path.exists(backup_filepath):
-                os.remove(backup_filepath)
-            return True
-        except Exception:
-            return False
-
-
-def save_user_preferences(preferences: Any, filepath: str = "user_preferences.pkl") -> bool:
-    manager = PreferenceManager(filepath)
-    return manager.save_preferences(preferences)
-
-
-def load_user_preferences(filepath: str = "user_preferences.pkl") -> Any:
-    manager = PreferenceManager(filepath)
-    return manager.load_preferences()
-
-
-def delete_user_preferences(filepath: str = "user_preferences.pkl") -> bool:
-    manager = PreferenceManager(filepath)
-    return manager.delete_preferences()
+                    return pickle.load(f)
+            raise
+    return None

@@ -3,67 +3,62 @@
 # Category: insecure_jwt
 
 import datetime
-import functools
-from flask import Flask, request, jsonify, abort
 import jwt
+from functools import wraps
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "your_secret_key"  # Change this to a secure secret in production
+app.config['SECRET_KEY'] = 'your_secret_key'
 
-# Dummy user for demonstration
-USER_DATA = {
-    "username": "testuser",
-    "password": "testpass"
+users = {
+    "user1": "password1",
+    "user2": "password2"
 }
 
-def generate_token(username):
-    payload = {
-        "sub": username,
-        "iat": datetime.datetime.utcnow(),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
-    }
-    token = jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
-    return token
-
 def token_required(f):
-    @functools.wraps(f)
+    @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        if "Authorization" in request.headers:
-            parts = request.headers["Authorization"].split()
-            if parts[0].lower() == "bearer" and len(parts) == 2:
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0] == 'Bearer':
                 token = parts[1]
         if not token:
-            return jsonify({"message": "Token is missing!"}), 401
+            return jsonify({'message': 'Token is missing!'}), 401
         try:
-            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
-            current_user = data["sub"]
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = data['username']
         except jwt.ExpiredSignatureError:
-            return jsonify({"message": "Token has expired!"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"message": "Invalid token!"}), 401
+            return jsonify({'message': 'Token has expired!'}), 401
+        except Exception:
+            return jsonify({'message': 'Invalid token!'}), 401
         return f(current_user, *args, **kwargs)
     return decorated
 
-@app.route("/login", methods=["POST"])
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.get_json()
-    if not auth or not auth.get("username") or not auth.get("password"):
-        return jsonify({"message": "Username and password required"}), 400
+    auth_data = request.get_json()
+    if not auth_data or not auth_data.get('username') or not auth_data.get('password'):
+        return jsonify({'message': 'Username and password are required'}), 400
 
-    username = auth.get("username")
-    password = auth.get("password")
+    username = auth_data['username']
+    password = auth_data['password']
 
-    if username != USER_DATA["username"] or password != USER_DATA["password"]:
-        return jsonify({"message": "Invalid credentials"}), 401
+    if username not in users or users[username] != password:
+        return jsonify({'message': 'Invalid credentials'}), 401
 
-    token = generate_token(username)
-    return jsonify({"token": token})
+    token = jwt.encode({
+        'username': username,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
 
-@app.route("/protected", methods=["GET"])
+    return jsonify({'token': token})
+
+@app.route('/protected', methods=['GET'])
 @token_required
 def protected(current_user):
-    return jsonify({"message": f"Welcome {current_user}, you have accessed a protected route."})
+    return jsonify({'message': f'Hello, {current_user}. This is a protected route.'})
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

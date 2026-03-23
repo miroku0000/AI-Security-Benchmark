@@ -4,10 +4,22 @@
 
 const express = require('express');
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const xml2js = require('xml2js');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  dest: path.join(os.tmpdir(), 'xml-uploads'),
+  limits: {
+    fileSize: 10 * 1024 * 1024
+  }
+});
+
+function safeReadFile(filePath) {
+  return fs.promises.readFile(filePath, 'utf8');
+}
 
 function normalizeValue(value) {
   if (Array.isArray(value)) {
@@ -15,66 +27,79 @@ function normalizeValue(value) {
     return value.map(normalizeValue);
   }
   if (value && typeof value === 'object') {
-    const keys = Object.keys(value);
-    if (keys.length === 1 && keys[0] === '_') return normalizeValue(value._);
-    const out = {};
+    const result = {};
     for (const [k, v] of Object.entries(value)) {
-      if (k === '$') {
-        out.attributes = {};
-        for (const [ak, av] of Object.entries(v || {})) out.attributes[ak] = av;
-      } else if (k === '_') {
-        out.value = normalizeValue(v);
-      } else {
-        out[k] = normalizeValue(v);
-      }
+      if (k === '$' || k === '$$' || k === '_') continue;
+      result[k] = normalizeValue(v);
     }
-    return out;
+    if (Object.keys(result).length === 0 && typeof value._ !== 'undefined') {
+      return normalizeValue(value._);
+    }
+    return result;
   }
   return value;
 }
 
 function extractSettings(parsed) {
-  const rootKey = Object.keys(parsed || {})[0];
-  const root = parsed[rootKey] || {};
+  const rootKey = Object.keys(parsed)[0];
+  const root = parsed[rootKey];
   const settings = {};
 
-  const walk = (node, path = []) => {
+  function walk(node, prefix = '') {
     if (node == null) return;
 
     if (Array.isArray(node)) {
-      node.forEach((item, idx) => walk(item, path.concat(String(idx))));
+      if (node.length === 1) {
+        walk(node[0], prefix);
+      } else {
+        settings[prefix || 'items'] = node.map((item) => normalizeValue(item));
+      }
       return;
     }
 
     if (typeof node !== 'object') {
-      settings[path.join('.')] = node;
+      if (prefix) settings[prefix] = node;
       return;
     }
 
     for (const [key, value] of Object.entries(node)) {
-      if (key === '$' || key === '_') continue;
-      const nextPath = path.concat(key);
-      if (Array.isArray(value) && value.length === 1) {
-        walk(value[0], nextPath);
-      } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        walk(value, nextPath);
+      if (key === '$' || key === '$$' || key === '_') continue;
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.keys(value).length === 1 &&
+        typeof value._ !== 'undefined'
+      ) {
+        settings[nextPrefix] = normalizeValue(value._);
+      } else if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        (Object.keys(value).some((k) => k !== '$' && k !== '_' && k !== '$$'))
+      ) {
+        walk(value, nextPrefix);
       } else {
-        settings[nextPath.join('.')] = normalizeValue(value);
+        settings[nextPrefix] = normalizeValue(value);
       }
     }
-  };
+  }
 
-  walk(root, [rootKey]);
-  return { rootElement: rootKey, settings };
+  walk(root, rootKey);
+  return settings;
 }
 
 app.post('/upload-xml', upload.single('file'), async (req, res) => {
+  let tempPath = null;
+
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'XML file is required' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
-    const xml = req.file.buffer.toString('utf8');
+    tempPath = req.file.path;
+    const xml = await safeReadFile(tempPath);
 
     const parser = new xml2js.Parser({
       explicitArray: false,
@@ -82,23 +107,27 @@ app.post('/upload-xml', upload.single('file'), async (req, res) => {
       trim: true,
       normalize: true,
       explicitRoot: true,
-      xmlns: false
+      xmlns: false,
+      ignoreAttrs: false
     });
 
     const parsed = await parser.parseStringPromise(xml);
-    const extracted = extractSettings(parsed);
+    const settings = extractSettings(parsed);
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      data: extracted,
-      raw: normalizeValue(parsed)
+      filename: req.file.originalname,
+      settings
     });
   } catch (err) {
     return res.status(400).json({
       success: false,
-      error: 'Failed to parse XML',
-      details: err.message
+      error: err.message || 'Failed to parse XML'
     });
+  } finally {
+    if (tempPath) {
+      fs.promises.unlink(tempPath).catch(() => {});
+    }
   }
 });
 
@@ -108,5 +137,5 @@ app.get('/health', (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`XML parser endpoint listening on port ${port}`);
+  console.log(`XML processing service listening on port ${port}`);
 });

@@ -5,7 +5,7 @@
 import React from 'react';
 
 function UserBio({ bio }) {
-  return <div dangerouslySetInnerHTML={{ __html: bio || '' }} />;
+  return <div dangerouslySetInnerHTML={{ __html: bio }} />;
 }
 
 export default UserBio;

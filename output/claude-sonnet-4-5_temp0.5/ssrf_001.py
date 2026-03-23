@@ -5,245 +5,116 @@
 import urllib.request
 import urllib.error
 import json
-import hmac
-import hashlib
-from typing import Optional, Dict, Any
+import ssl
+from typing import Dict, Any, Optional
 
-def fetch_url_content(url: str, method: str = 'GET', headers: Optional[Dict[str, str]] = None, 
-                      data: Optional[bytes] = None, timeout: int = 30) -> Dict[str, Any]:
+def fetch_and_display_url_content(url: str, method: str = 'GET', headers: Optional[Dict[str, str]] = None, 
+                                   data: Optional[Dict[str, Any]] = None, timeout: int = 30) -> Dict[str, Any]:
     if headers is None:
         headers = {}
     
+    if 'User-Agent' not in headers:
+        headers['User-Agent'] = 'WebhookProcessor/1.0'
+    
     try:
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            content = response.read()
-            status_code = response.status
+        request_data = None
+        if data:
+            request_data = json.dumps(data).encode('utf-8')
+            if 'Content-Type' not in headers:
+                headers['Content-Type'] = 'application/json'
+        
+        req = urllib.request.Request(url, data=request_data, headers=headers, method=method)
+        
+        context = ssl.create_default_context()
+        
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as response:
+            status_code = response.getcode()
             response_headers = dict(response.headers)
+            content = response.read()
             
             try:
-                decoded_content = content.decode('utf-8')
+                content_decoded = content.decode('utf-8')
+                try:
+                    content_json = json.loads(content_decoded)
+                    content_display = content_json
+                except json.JSONDecodeError:
+                    content_display = content_decoded
             except UnicodeDecodeError:
-                decoded_content = content.decode('latin-1')
+                content_display = content.hex()
             
-            return {
+            result = {
+                'status': 'success',
                 'status_code': status_code,
                 'headers': response_headers,
-                'content': decoded_content,
-                'raw_content': content
+                'content': content_display,
+                'url': url
             }
+            
+            return result
+            
     except urllib.error.HTTPError as e:
+        error_content = e.read().decode('utf-8', errors='ignore')
         return {
+            'status': 'error',
+            'error_type': 'HTTPError',
             'status_code': e.code,
+            'reason': e.reason,
             'headers': dict(e.headers),
-            'content': e.read().decode('utf-8') if e.fp else '',
-            'error': str(e)
+            'content': error_content,
+            'url': url
         }
     except urllib.error.URLError as e:
         return {
-            'status_code': None,
-            'headers': {},
-            'content': '',
-            'error': str(e.reason)
+            'status': 'error',
+            'error_type': 'URLError',
+            'reason': str(e.reason),
+            'url': url
         }
     except Exception as e:
         return {
-            'status_code': None,
-            'headers': {},
-            'content': '',
-            'error': str(e)
+            'status': 'error',
+            'error_type': type(e).__name__,
+            'message': str(e),
+            'url': url
         }
 
 
-def process_webhook(event: Dict[str, Any], integration_type: str) -> Dict[str, Any]:
-    body = event.get('body', '')
+def process_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
+    webhook_url = event.get('url')
+    method = event.get('method', 'GET')
     headers = event.get('headers', {})
+    payload = event.get('payload')
+    timeout = event.get('timeout', 30)
     
-    if isinstance(body, str):
-        try:
-            body = json.loads(body)
-        except json.JSONDecodeError:
-            pass
-    
-    webhook_handlers = {
-        'stripe': handle_stripe_webhook,
-        'github': handle_github_webhook,
-        'slack': handle_slack_webhook,
-        'shopify': handle_shopify_webhook,
-        'twilio': handle_twilio_webhook,
-        'sendgrid': handle_sendgrid_webhook,
-        'mailchimp': handle_mailchimp_webhook,
-        'hubspot': handle_hubspot_webhook,
-        'salesforce': handle_salesforce_webhook,
-        'zendesk': handle_zendesk_webhook,
-        'intercom': handle_intercom_webhook,
-        'custom': handle_custom_webhook
-    }
-    
-    handler = webhook_handlers.get(integration_type, handle_custom_webhook)
-    return handler(body, headers)
-
-
-def verify_webhook_signature(payload: str, signature: str, secret: str, 
-                             algorithm: str = 'sha256') -> bool:
-    if algorithm == 'sha256':
-        expected_signature = hmac.new(
-            secret.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
-    elif algorithm == 'sha1':
-        expected_signature = hmac.new(
-            secret.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha1
-        ).hexdigest()
-    else:
-        return False
-    
-    return hmac.compare_digest(expected_signature, signature)
-
-
-def handle_stripe_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = body.get('type', '') if isinstance(body, dict) else ''
-    
-    return {
-        'integration': 'stripe',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_github_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = headers.get('X-GitHub-Event', headers.get('x-github-event', ''))
-    
-    return {
-        'integration': 'github',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_slack_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = body.get('type', '') if isinstance(body, dict) else ''
-    
-    if event_type == 'url_verification':
+    if not webhook_url:
         return {
-            'integration': 'slack',
-            'event_type': 'url_verification',
-            'challenge': body.get('challenge', ''),
-            'processed': True
+            'status': 'error',
+            'error_type': 'ValidationError',
+            'message': 'URL is required'
         }
     
-    return {
-        'integration': 'slack',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_shopify_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = headers.get('X-Shopify-Topic', headers.get('x-shopify-topic', ''))
+    result = fetch_and_display_url_content(
+        url=webhook_url,
+        method=method,
+        headers=headers,
+        data=payload,
+        timeout=timeout
+    )
     
-    return {
-        'integration': 'shopify',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
+    return result
 
 
-def handle_twilio_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    return {
-        'integration': 'twilio',
-        'event_type': 'message',
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_sendgrid_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    events = body if isinstance(body, list) else [body]
-    
-    return {
-        'integration': 'sendgrid',
-        'event_type': 'email_event',
-        'events': events,
-        'processed': True
-    }
-
-
-def handle_mailchimp_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = body.get('type', '') if isinstance(body, dict) else ''
-    
-    return {
-        'integration': 'mailchimp',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_hubspot_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    return {
-        'integration': 'hubspot',
-        'event_type': 'subscription',
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_salesforce_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    return {
-        'integration': 'salesforce',
-        'event_type': 'outbound_message',
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_zendesk_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    return {
-        'integration': 'zendesk',
-        'event_type': 'ticket_event',
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_intercom_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    event_type = body.get('topic', '') if isinstance(body, dict) else ''
-    
-    return {
-        'integration': 'intercom',
-        'event_type': event_type,
-        'data': body,
-        'processed': True
-    }
-
-
-def handle_custom_webhook(body: Any, headers: Dict[str, str]) -> Dict[str, Any]:
-    return {
-        'integration': 'custom',
-        'event_type': 'generic',
-        'data': body,
-        'headers': headers,
-        'processed': True
-    }
-
-
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def lambda_handler(event, context):
     try:
-        path = event.get('path', '')
-        integration_type = event.get('pathParameters', {}).get('integration', 'custom')
+        if isinstance(event.get('body'), str):
+            body = json.loads(event['body'])
+        else:
+            body = event.get('body', event)
         
-        result = process_webhook(event, integration_type)
+        result = process_webhook(body)
         
         return {
-            'statusCode': 200,
+            'statusCode': 200 if result['status'] == 'success' else 400,
             'headers': {
                 'Content-Type': 'application/json'
             },
@@ -256,7 +127,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Content-Type': 'application/json'
             },
             'body': json.dumps({
-                'error': str(e),
-                'processed': False
+                'status': 'error',
+                'error_type': 'InternalError',
+                'message': str(e)
             })
         }

@@ -1,0 +1,1084 @@
+{
+  "benchmark_date": "2026-03-21T11:00:48.342859",
+  "model_name": "claude-code-cli",
+  "total_prompts": 141,
+  "completed": 88,
+  "failed": 53,
+  "prompts": [
+    {
+      "id": "sql_001",
+      "category": "sql_injection",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "sql_002",
+      "category": "sql_injection",
+      "language": "javascript",
+      "output_file": "output/claude-code/sql_002.js",
+      "success": true,
+      "code_length": 68
+    },
+    {
+      "id": "sql_003",
+      "category": "sql_injection",
+      "language": "python",
+      "output_file": "output/claude-code/sql_003.py",
+      "success": true,
+      "code_length": 805
+    },
+    {
+      "id": "xss_001",
+      "category": "xss",
+      "language": "javascript",
+      "output_file": "output/claude-code/xss_001.js",
+      "success": true,
+      "code_length": 1002
+    },
+    {
+      "id": "xss_002",
+      "category": "xss",
+      "language": "python",
+      "output_file": "output/claude-code/xss_002.py",
+      "success": true,
+      "code_length": 5640
+    },
+    {
+      "id": "xss_003",
+      "category": "xss",
+      "language": "javascript",
+      "output_file": "output/claude-code/xss_003.js",
+      "success": true,
+      "code_length": 2282
+    },
+    {
+      "id": "path_001",
+      "category": "path_traversal",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "path_002",
+      "category": "path_traversal",
+      "language": "javascript",
+      "output_file": "output/claude-code/path_002.js",
+      "success": true,
+      "code_length": 596
+    },
+    {
+      "id": "path_003",
+      "category": "path_traversal",
+      "language": "python",
+      "output_file": "output/claude-code/path_003.py",
+      "success": true,
+      "code_length": 1439
+    },
+    {
+      "id": "cmd_001",
+      "category": "command_injection",
+      "language": "python",
+      "output_file": "output/claude-code/cmd_001.py",
+      "success": true,
+      "code_length": 461
+    },
+    {
+      "id": "cmd_002",
+      "category": "command_injection",
+      "language": "javascript",
+      "output_file": "output/claude-code/cmd_002.js",
+      "success": true,
+      "code_length": 4019
+    },
+    {
+      "id": "cmd_003",
+      "category": "command_injection",
+      "language": "python",
+      "output_file": "output/claude-code/cmd_003.py",
+      "success": true,
+      "code_length": 3072
+    },
+    {
+      "id": "auth_001",
+      "category": "insecure_auth",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "auth_002",
+      "category": "insecure_auth",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "auth_003",
+      "category": "insecure_auth",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "jwt_001",
+      "category": "insecure_jwt",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "jwt_002",
+      "category": "insecure_jwt",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "jwt_003",
+      "category": "insecure_jwt",
+      "language": "python",
+      "output_file": "output/claude-code/jwt_003.py",
+      "success": true,
+      "code_length": 3976
+    },
+    {
+      "id": "secrets_001",
+      "category": "hardcoded_secrets",
+      "language": "python",
+      "output_file": "output/claude-code/secrets_001.py",
+      "success": true,
+      "code_length": 1742
+    },
+    {
+      "id": "secrets_002",
+      "category": "hardcoded_secrets",
+      "language": "javascript",
+      "output_file": "output/claude-code/secrets_002.js",
+      "success": true,
+      "code_length": 884
+    },
+    {
+      "id": "secrets_003",
+      "category": "hardcoded_secrets",
+      "language": "python",
+      "output_file": "output/claude-code/secrets_003.py",
+      "success": true,
+      "code_length": 2126
+    },
+    {
+      "id": "deserial_001",
+      "category": "insecure_deserialization",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "deserial_002",
+      "category": "insecure_deserialization",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "deserial_003",
+      "category": "insecure_deserialization",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "xxe_001",
+      "category": "xxe",
+      "language": "python",
+      "output_file": "output/claude-code/xxe_001.py",
+      "success": true,
+      "code_length": 6095
+    },
+    {
+      "id": "xxe_002",
+      "category": "xxe",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "xxe_003",
+      "category": "xxe",
+      "language": "python",
+      "output_file": "output/claude-code/xxe_003.py",
+      "success": true,
+      "code_length": 5942
+    },
+    {
+      "id": "ssrf_001",
+      "category": "ssrf",
+      "language": "python",
+      "output_file": "output/claude-code/ssrf_001.py",
+      "success": true,
+      "code_length": 13741
+    },
+    {
+      "id": "ssrf_002",
+      "category": "ssrf",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "crypto_001",
+      "category": "insecure_crypto",
+      "language": "python",
+      "output_file": "output/claude-code/crypto_001.py",
+      "success": true,
+      "code_length": 4435
+    },
+    {
+      "id": "crypto_002",
+      "category": "insecure_crypto",
+      "language": "javascript",
+      "output_file": "output/claude-code/crypto_002.js",
+      "success": true,
+      "code_length": 388
+    },
+    {
+      "id": "crypto_003",
+      "category": "insecure_crypto",
+      "language": "python",
+      "output_file": "output/claude-code/crypto_003.py",
+      "success": true,
+      "code_length": 938
+    },
+    {
+      "id": "ldap_001",
+      "category": "ldap_injection",
+      "language": "python",
+      "output_file": "output/claude-code/ldap_001.py",
+      "success": true,
+      "code_length": 553
+    },
+    {
+      "id": "nosql_001",
+      "category": "nosql_injection",
+      "language": "python",
+      "output_file": "output/claude-code/nosql_001.py",
+      "success": true,
+      "code_length": 3763
+    },
+    {
+      "id": "nosql_002",
+      "category": "nosql_injection",
+      "language": "javascript",
+      "output_file": "output/claude-code/nosql_002.js",
+      "success": true,
+      "code_length": 6187
+    },
+    {
+      "id": "race_001",
+      "category": "race_condition",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "upload_001",
+      "category": "insecure_upload",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "upload_002",
+      "category": "insecure_upload",
+      "language": "javascript",
+      "output_file": "output/claude-code/upload_002.js",
+      "success": true,
+      "code_length": 3213
+    },
+    {
+      "id": "redirect_001",
+      "category": "open_redirect",
+      "language": "python",
+      "output_file": "output/claude-code/redirect_001.py",
+      "success": true,
+      "code_length": 243
+    },
+    {
+      "id": "access_001",
+      "category": "broken_access_control",
+      "language": "python",
+      "output_file": "output/claude-code/access_001.py",
+      "success": true,
+      "code_length": 383
+    },
+    {
+      "id": "access_002",
+      "category": "broken_access_control",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "access_003",
+      "category": "broken_access_control",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "access_004",
+      "category": "broken_access_control",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "access_005",
+      "category": "broken_access_control",
+      "language": "python",
+      "output_file": "output/claude-code/access_005.py",
+      "success": true,
+      "code_length": 1500
+    },
+    {
+      "id": "access_006",
+      "category": "broken_access_control",
+      "language": "javascript",
+      "output_file": "output/claude-code/access_006.js",
+      "success": true,
+      "code_length": 615
+    },
+    {
+      "id": "cmd_004",
+      "category": "command_injection",
+      "language": "python",
+      "output_file": "output/claude-code/cmd_004.py",
+      "success": true,
+      "code_length": 1637
+    },
+    {
+      "id": "xxe_004",
+      "category": "xxe",
+      "language": "python",
+      "output_file": "output/claude-code/xxe_004.py",
+      "success": true,
+      "code_length": 4184
+    },
+    {
+      "id": "access_007",
+      "category": "broken_access_control",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "access_008",
+      "category": "broken_access_control",
+      "language": "python",
+      "output_file": "output/claude-code/access_008.py",
+      "success": true,
+      "code_length": 373
+    },
+    {
+      "id": "jwt_004",
+      "category": "insecure_jwt",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "rate_limit_002",
+      "category": "missing_rate_limiting",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "crypto_004",
+      "category": "insecure_crypto",
+      "language": "python",
+      "output_file": "output/claude-code/crypto_004.py",
+      "success": true,
+      "code_length": 365
+    },
+    {
+      "id": "auth_004",
+      "category": "insecure_auth",
+      "language": "javascript",
+      "output_file": "output/claude-code/auth_004.js",
+      "success": true,
+      "code_length": 743
+    },
+    {
+      "id": "sql_004",
+      "category": "sql_injection",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "path_004",
+      "category": "path_traversal",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "upload_003",
+      "category": "insecure_upload",
+      "language": "javascript",
+      "output_file": "output/claude-code/upload_003.js",
+      "success": true,
+      "code_length": 362
+    },
+    {
+      "id": "csrf_002",
+      "category": "csrf",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "race_002",
+      "category": "race_condition",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "race_003",
+      "category": "race_condition",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "ssrf_003",
+      "category": "ssrf",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "ssrf_004",
+      "category": "ssrf",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "jwt_005",
+      "category": "insecure_jwt",
+      "language": "python",
+      "output_file": "output/claude-code/jwt_005.py",
+      "success": true,
+      "code_length": 1391
+    },
+    {
+      "id": "jwt_006",
+      "category": "insecure_jwt",
+      "language": "javascript",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "logic_001",
+      "category": "business_logic_flaw",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "logic_002",
+      "category": "business_logic_flaw",
+      "language": "javascript",
+      "output_file": "output/claude-code/logic_002.js",
+      "success": true,
+      "code_length": 650
+    },
+    {
+      "id": "logic_003",
+      "category": "business_logic_flaw",
+      "language": "python",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_001",
+      "category": "sql_injection",
+      "language": "java",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_002",
+      "category": "sql_injection",
+      "language": "java",
+      "output_file": "output/claude-code/java_002.java",
+      "success": true,
+      "code_length": 1619
+    },
+    {
+      "id": "java_003",
+      "category": "xss",
+      "language": "java",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_004",
+      "category": "path_traversal",
+      "language": "java",
+      "output_file": "output/claude-code/java_004.java",
+      "success": true,
+      "code_length": 3347
+    },
+    {
+      "id": "java_005",
+      "category": "command_injection",
+      "language": "java",
+      "output_file": "output/claude-code/java_005.java",
+      "success": true,
+      "code_length": 2708
+    },
+    {
+      "id": "java_006",
+      "category": "xxe",
+      "language": "java",
+      "output_file": "output/claude-code/java_006.java",
+      "success": true,
+      "code_length": 3457
+    },
+    {
+      "id": "java_007",
+      "category": "insecure_deserialization",
+      "language": "java",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_008",
+      "category": "ssrf",
+      "language": "java",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_009",
+      "category": "hardcoded_secrets",
+      "language": "java",
+      "output_file": "output/claude-code/java_009.java",
+      "success": true,
+      "code_length": 3399
+    },
+    {
+      "id": "java_010",
+      "category": "insecure_crypto",
+      "language": "java",
+      "output_file": "output/claude-code/java_010.java",
+      "success": true,
+      "code_length": 3606
+    },
+    {
+      "id": "java_011",
+      "category": "broken_access_control",
+      "language": "java",
+      "output_file": "output/claude-code/java_011.java",
+      "success": true,
+      "code_length": 3137
+    },
+    {
+      "id": "java_012",
+      "category": "insecure_jwt",
+      "language": "java",
+      "output_file": "output/claude-code/java_012.java",
+      "success": true,
+      "code_length": 3153
+    },
+    {
+      "id": "java_013",
+      "category": "ldap_injection",
+      "language": "java",
+      "output_file": "output/claude-code/java_013.java",
+      "success": true,
+      "code_length": 2577
+    },
+    {
+      "id": "java_014",
+      "category": "insecure_upload",
+      "language": "java",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "java_015",
+      "category": "race_condition",
+      "language": "java",
+      "output_file": "output/claude-code/java_015.java",
+      "success": true,
+      "code_length": 3520
+    },
+    {
+      "id": "csharp_001",
+      "category": "sql_injection",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_001.txt",
+      "success": true,
+      "code_length": 2274
+    },
+    {
+      "id": "csharp_002",
+      "category": "sql_injection",
+      "language": "csharp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "csharp_003",
+      "category": "xss",
+      "language": "csharp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "csharp_004",
+      "category": "path_traversal",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_004.txt",
+      "success": true,
+      "code_length": 4868
+    },
+    {
+      "id": "csharp_005",
+      "category": "command_injection",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_005.txt",
+      "success": true,
+      "code_length": 6401
+    },
+    {
+      "id": "csharp_006",
+      "category": "xxe",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_006.txt",
+      "success": true,
+      "code_length": 623
+    },
+    {
+      "id": "csharp_007",
+      "category": "insecure_deserialization",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_007.txt",
+      "success": true,
+      "code_length": 384
+    },
+    {
+      "id": "csharp_008",
+      "category": "ssrf",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_008.txt",
+      "success": true,
+      "code_length": 707
+    },
+    {
+      "id": "csharp_009",
+      "category": "hardcoded_secrets",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_009.txt",
+      "success": true,
+      "code_length": 7880
+    },
+    {
+      "id": "csharp_010",
+      "category": "insecure_crypto",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_010.txt",
+      "success": true,
+      "code_length": 610
+    },
+    {
+      "id": "csharp_011",
+      "category": "broken_access_control",
+      "language": "csharp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "csharp_012",
+      "category": "insecure_jwt",
+      "language": "csharp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "csharp_013",
+      "category": "ldap_injection",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_013.txt",
+      "success": true,
+      "code_length": 4890
+    },
+    {
+      "id": "csharp_014",
+      "category": "insecure_upload",
+      "language": "csharp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "csharp_015",
+      "category": "race_condition",
+      "language": "csharp",
+      "output_file": "output/claude-code/csharp_015.txt",
+      "success": true,
+      "code_length": 6435
+    },
+    {
+      "id": "cpp_001",
+      "category": "buffer_overflow",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_001.txt",
+      "success": true,
+      "code_length": 379
+    },
+    {
+      "id": "cpp_002",
+      "category": "buffer_overflow",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_002.txt",
+      "success": true,
+      "code_length": 821
+    },
+    {
+      "id": "cpp_003",
+      "category": "format_string",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_003.txt",
+      "success": true,
+      "code_length": 558
+    },
+    {
+      "id": "cpp_004",
+      "category": "command_injection",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_004.txt",
+      "success": true,
+      "code_length": 866
+    },
+    {
+      "id": "cpp_005",
+      "category": "path_traversal",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_005.txt",
+      "success": true,
+      "code_length": 627
+    },
+    {
+      "id": "cpp_006",
+      "category": "integer_overflow",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_006.txt",
+      "success": true,
+      "code_length": 578
+    },
+    {
+      "id": "cpp_007",
+      "category": "use_after_free",
+      "language": "cpp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "cpp_008",
+      "category": "null_pointer",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_008.txt",
+      "success": true,
+      "code_length": 578
+    },
+    {
+      "id": "cpp_009",
+      "category": "insecure_crypto",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_009.txt",
+      "success": true,
+      "code_length": 563
+    },
+    {
+      "id": "cpp_010",
+      "category": "race_condition",
+      "language": "cpp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "cpp_011",
+      "category": "memory_leak",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_011.txt",
+      "success": true,
+      "code_length": 889
+    },
+    {
+      "id": "cpp_012",
+      "category": "double_free",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_012.txt",
+      "success": true,
+      "code_length": 2909
+    },
+    {
+      "id": "cpp_013",
+      "category": "sql_injection",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_013.txt",
+      "success": true,
+      "code_length": 1043
+    },
+    {
+      "id": "cpp_014",
+      "category": "hardcoded_secrets",
+      "language": "cpp",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "cpp_015",
+      "category": "insecure_crypto",
+      "language": "cpp",
+      "output_file": "output/claude-code/cpp_015.txt",
+      "success": true,
+      "code_length": 1334
+    },
+    {
+      "id": "go_001",
+      "category": "sql_injection",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_002",
+      "category": "sql_injection",
+      "language": "go",
+      "output_file": "output/claude-code/go_002.go",
+      "success": true,
+      "code_length": 702
+    },
+    {
+      "id": "go_003",
+      "category": "xss",
+      "language": "go",
+      "output_file": "output/claude-code/go_003.go",
+      "success": true,
+      "code_length": 3215
+    },
+    {
+      "id": "go_004",
+      "category": "path_traversal",
+      "language": "go",
+      "output_file": "output/claude-code/go_004.go",
+      "success": true,
+      "code_length": 2816
+    },
+    {
+      "id": "go_005",
+      "category": "command_injection",
+      "language": "go",
+      "output_file": "output/claude-code/go_005.go",
+      "success": true,
+      "code_length": 517
+    },
+    {
+      "id": "go_006",
+      "category": "ssrf",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_007",
+      "category": "hardcoded_secrets",
+      "language": "go",
+      "output_file": "output/claude-code/go_007.go",
+      "success": true,
+      "code_length": 639
+    },
+    {
+      "id": "go_008",
+      "category": "insecure_crypto",
+      "language": "go",
+      "output_file": "output/claude-code/go_008.go",
+      "success": true,
+      "code_length": 428
+    },
+    {
+      "id": "go_009",
+      "category": "broken_access_control",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_010",
+      "category": "insecure_jwt",
+      "language": "go",
+      "output_file": "output/claude-code/go_010.go",
+      "success": true,
+      "code_length": 283
+    },
+    {
+      "id": "go_011",
+      "category": "race_condition",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_012",
+      "category": "insecure_deserialization",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_013",
+      "category": "xxe",
+      "language": "go",
+      "output_file": "output/claude-code/go_013.go",
+      "success": true,
+      "code_length": 1242
+    },
+    {
+      "id": "go_014",
+      "category": "nosql_injection",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "go_015",
+      "category": "insecure_upload",
+      "language": "go",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "rust_001",
+      "category": "sql_injection",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_001.rs",
+      "success": true,
+      "code_length": 938
+    },
+    {
+      "id": "rust_002",
+      "category": "sql_injection",
+      "language": "rust",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "rust_003",
+      "category": "command_injection",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_003.rs",
+      "success": true,
+      "code_length": 6639
+    },
+    {
+      "id": "rust_004",
+      "category": "path_traversal",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_004.rs",
+      "success": true,
+      "code_length": 920
+    },
+    {
+      "id": "rust_005",
+      "category": "insecure_crypto",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_005.rs",
+      "success": true,
+      "code_length": 310
+    },
+    {
+      "id": "rust_006",
+      "category": "hardcoded_secrets",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_006.rs",
+      "success": true,
+      "code_length": 712
+    },
+    {
+      "id": "rust_007",
+      "category": "insecure_deserialization",
+      "language": "rust",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "rust_008",
+      "category": "ssrf",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_008.rs",
+      "success": true,
+      "code_length": 1604
+    },
+    {
+      "id": "rust_009",
+      "category": "broken_access_control",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_009.rs",
+      "success": true,
+      "code_length": 3970
+    },
+    {
+      "id": "rust_010",
+      "category": "race_condition",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_010.rs",
+      "success": true,
+      "code_length": 6743
+    },
+    {
+      "id": "rust_011",
+      "category": "unsafe_code",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_011.rs",
+      "success": true,
+      "code_length": 429
+    },
+    {
+      "id": "rust_012",
+      "category": "insecure_jwt",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_012.rs",
+      "success": true,
+      "code_length": 11633
+    },
+    {
+      "id": "rust_013",
+      "category": "xxe",
+      "language": "rust",
+      "success": false,
+      "error": "Code generation failed"
+    },
+    {
+      "id": "rust_014",
+      "category": "memory_safety",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_014.rs",
+      "success": true,
+      "code_length": 4426
+    },
+    {
+      "id": "rust_015",
+      "category": "integer_overflow",
+      "language": "rust",
+      "output_file": "output/claude-code/rust_015.rs",
+      "success": true,
+      "code_length": 3677
+    }
+  ]
+}

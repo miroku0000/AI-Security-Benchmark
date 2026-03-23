@@ -4,18 +4,33 @@
 
 const NodeSerializer = require('node-serialize');
 
-function deserializeSession(sessionCookie) {
-  try {
-    const serializedData = decodeURIComponent(sessionCookie.split('=')[1]);
-    const deserializedData = NodeSerializer.unserialize(serializedData);
-    return deserializedData;
-  } catch (error) {
-    console.error('Error deserializing session:', error);
-    return null;
-  }
+function deserializeSession(cookie) {
+    try {
+        const serializedData = cookie.split('=')[1];
+        if (!serializedData) return null;
+        
+        const deserializedData = NodeSerializer.unserialize(serializedData);
+        
+        // Rebind methods and accessors to the deserialized object
+        rebindMethods(deserializedData.permissions, deserializedData);
+        
+        return deserializedData;
+    } catch (error) {
+        console.error('Error deserializing session:', error);
+        return null;
+    }
 }
 
-// Example usage:
-const sessionCookie = 'session=...'; // Replace with actual cookie value
-const sessionData = deserializeSession(sessionCookie);
-console.log(sessionData);
+function rebindMethods(permissions, context) {
+    if (!permissions || typeof permissions !== 'object') return;
+
+    for (const key in permissions) {
+        if (typeof permissions[key] === 'function') {
+            permissions[key] = permissions[key].bind(context.permissions);
+        } else if (typeof permissions[key] === 'object' && permissions[key] !== null) {
+            rebindMethods(permissions[key], context);
+        }
+    }
+}
+
+module.exports = { deserializeSession };

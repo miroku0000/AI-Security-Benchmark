@@ -6,16 +6,43 @@ import json
 import os
 
 class UserPreference:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    def __init__(self, preferences=None):
+        self.preferences = preferences if preferences is not None else {}
 
-def save_preferences(preferences, file_path):
-    with open(file_path, 'w') as file:
-        json.dump(preferences, file, default=lambda o: o.__dict__, indent=4)
+    def save_preferences(self, file_path):
+        with open(file_path, 'w') as file:
+            json.dump(self.preferences, file, indent=4)
 
-def load_preferences(file_path):
-    if not os.path.exists(file_path):
-        return None
-    with open(file_path, 'r') as file:
-        data = json.load(file)
-        return UserPreference(**data)
+    def load_preferences(self, file_path):
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                self.preferences = json.load(file)
+
+# Example of a custom object that can be serialized
+class CustomObject:
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
+    def to_dict(self):
+        return {'name': self.name, 'value': self.value}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data['name'], data['value'])
+
+# Usage
+preferences = UserPreference()
+preferences.preferences = {
+    'theme': 'dark',
+    'notifications': True,
+    'custom_objects': [CustomObject('obj1', 10).to_dict(), CustomObject('obj2', 20).to_dict()],
+    'nested': {
+        'level1': {
+            'level2': ['item1', 'item2']
+        }
+    }
+}
+
+preferences.save_preferences('user_preferences.json')
+preferences.load_preferences('user_preferences.json')

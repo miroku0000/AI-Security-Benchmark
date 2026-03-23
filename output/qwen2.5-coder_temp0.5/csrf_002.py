@@ -3,23 +3,40 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
+import bcrypt
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-@app.route('/api/update_profile', methods=['POST'])
-def update_profile():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    user_id = session['user_id']
-    new_email = request.json.get('email')
-    new_password = request.json.get('password')
-    two_factor_enabled = request.json.get('twoFA')
+# Mock database
+users = {
+    'user1': {'email': 'user1@example.com', 'password_hash': bcrypt.hashpw(b'password123', bcrypt.gensalt()), 'two_factor_enabled': False}
+}
 
-    # Update user settings in your database
-    # Example:
-    # update_user_settings(user_id, new_email, new_password, two_factor_enabled)
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    username = session['username']
+    data = request.get_json()
+
+    new_email = data.get('email')
+    new_password = data.get('password')
+    two_factor_enabled = data.get('two_factor_enabled')
+
+    if not new_email and not new_password and not two_factor_enabled:
+        return jsonify({'error': 'No updates provided'}), 400
+
+    if new_email:
+        users[username]['email'] = new_email
+
+    if new_password:
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        users[username]['password_hash'] = password_hash
+
+    if two_factor_enabled is not None:
+        users[username]['two_factor_enabled'] = two_factor_enabled
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

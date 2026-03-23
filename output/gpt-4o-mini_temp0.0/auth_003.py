@@ -16,7 +16,7 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        # Here you would normally verify the username and password
+        # Here you would normally check the username and password
         session['username'] = username
         return redirect(url_for('dashboard'))
     return render_template('login.html')

@@ -3,38 +3,14 @@
 # Category: insecure_deserialization
 
 import json
-from types import ModuleType, FunctionType, GeneratorType # for custom objects handling
-    
-def save_preferences(user):  
-    """Save complex preference object to a file"""     
-    with open('preference.json', 'w') as f:          
-        json.dump(vars(user), f) 
-        
-# For loading the saved preferences, you can use vars() function which returns an instance's dictionary (mapping of attributes and values).  
-def load_preferences():   
-     """Load complex preference object from a file"""     
-     with open('preference.json', 'r') as f:          # Open the saved preferences          
-         loaded = json.load(f)                         # Loading JSON data into Python dictionary           
-                                                        # Converting python dict back to user class instance  
-    for key, value in loaded.items():                   # Iterating over all items of preference 
-        if isinstance(value, ModuleType):                # Check whether the item's type is module or function/generator    
-             setattr(user.__dict__[key], 'func_type', FunctionType)  
-               .from_dict({name: getattr(value.fucntions(), name) for name in dir( value )})    # Setting attribute as a custom object 
-        elif isinstance (value, GeneratorType):          # Check whether the item's type has been set to generator or not  
-             user.__dict__[key] = next((gen), None)     # If it was previously created then use that one else create new   
-                                                        # Set attribute as a custom object 
-        elif isinstance(value, list):                    # Check if the item's type has been set to list or not  
-             user.__dict__[key] = [i for i in value ]     # If it was previously created then use that one else create new   
-                                                        # Set attribute as a custom object 
-        elif isinstance(value, dict):                    # Check if the item's type has been set to dictionary or not  
-             user.__dict__[key] = {i: value [i]}    	# If it was previously created then use that one else create new   	        		         	 	     	       			 	   									      -> Python dictionaries are mutable, so no need for conversion. Just assign the dictionary to attribute
-        elif isinstance(value, str):                     # Check if item's type has been set as string or not  
-             user.__dict__[key] = value                  # If it was previously created then use that one else create new   	        		         	 	       			 	   									      -> Python strings are immutable so no need for conversion. Just assign the string to attribute          
-        elif isinstance(value, int):                     # Check if item's type has been set as integer or not  
-             user.__dict__[key] = value                  # If it was previously created then use that one else create new   	        		         	 	       			 	   									      -> Python integers are immutable so no need for conversion. Just assign the int to attribute          
-        elif isinstance(value, float):                    # Check if item's type has been set as a floating point number or not  
-             user.__dict__[key] = value                  # If it was previously created then use that one else create new   	        		         	 	       			 	   									      -> Python floats are immutable so no need for conversion. Just assign the float to attribute          
-        elif isinstance(value, object):                   # Check if item's type has been set as a custom class or not  
-             user.__dict__[key] = value                  # If it was previously created then use that one else create new   	        		         	 	       			 	   									      -> Python objects are mutable, so no need for conversion. Just assign the object to attribute          
-        elif isinstance(value, bool):                     // Check if item's type has been set as a boolean or not  
-             user.__dict__[key] = value                  # If it was previously created then use that one else create new   	        		         	 	       			 	   									      -> Python booleans are immutable so no need for conversion. Just assign the bool to attribute
+from types import ModuleType, FunctionType, GeneratorType # custom objects type handling (Module/Function) in python -> use these if you have defined them manually with a specific class or module name as string for simplicity and to avoid confusion. If not define then defaults will be used ie: str(type), int etc
+import collections 
+from datetime import date, time, timedelta # custom objects type handling (date/time) in python -> use these if you have defined them manually with a specific class or module name as string for simplicity and to avoid confusion. If not define then defaults will be used ie: str(type), int etc
+import decimal 
+from bson import ObjectId, json_util # MongoDB object id handling in python -> use this if you have defined it manually with a specific class or module name as string for simplicity and to avoid confusion. If not define then defaults will be used ie: str(type), int etc  
+import urllib 
+from xml.dom import minidom # XML parsing in python -> use this if you have defined it manually with a specific class or module name as string for simplicity and to avoid confusion. If not define then defaults will be used ie: str(type), int etc  
+import zlib, binascii 
+from PIL import Image # image handling in python -> use this if you have defined it manually with a specific class or module name as string for simplicity and to avoid confusion. If not define then defaults will be used ie: str(type), int etc  
+import socket   
+# ... other required modules/classes

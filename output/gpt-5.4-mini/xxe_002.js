@@ -12,13 +12,16 @@ const xml2js = require('xml2js');
 const app = express();
 const upload = multer({
   dest: path.join(os.tmpdir(), 'xml-uploads'),
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  }
+  limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-function safeReadFile(filePath) {
-  return fs.promises.readFile(filePath, 'utf8');
+function safeGet(obj, keys, fallback = null) {
+  let cur = obj;
+  for (const key of keys) {
+    if (cur == null || typeof cur !== 'object' || !(key in cur)) return fallback;
+    cur = cur[key];
+  }
+  return cur == null ? fallback : cur;
 }
 
 function normalizeValue(value) {
@@ -31,84 +34,78 @@ function normalizeValue(value) {
     if (keys.length === 1 && keys[0] === '_') return normalizeValue(value._);
     const out = {};
     for (const [k, v] of Object.entries(value)) {
-      if (k === '$' || k === '$$') continue;
+      if (k === '$') continue;
       out[k] = normalizeValue(v);
     }
     return out;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+    if (trimmed !== '' && !Number.isNaN(Number(trimmed)) && String(Number(trimmed)) === trimmed) return Number(trimmed);
+    return trimmed;
   }
   return value;
 }
 
 function extractConfig(parsed) {
-  const rootKey = Object.keys(parsed)[0];
-  const root = parsed[rootKey];
-  const config = {
-    rootElement: rootKey,
-    attributes: root && root.$ ? root.$ : {},
-    settings: {}
-  };
+  const rootKey = Object.keys(parsed || {})[0];
+  const root = rootKey ? parsed[rootKey] : parsed;
+  const config = {};
 
   if (!root || typeof root !== 'object') return config;
 
-  const candidates = root.configuration || root.config || root.settings || root.setting || root.entry || [];
-  const items = Array.isArray(candidates) ? candidates : [candidates];
+  if (root.$) {
+    config.attributes = normalizeValue(root.$);
+  }
 
-  if (items.length && items[0] && typeof items[0] === 'object') {
-    for (const item of items) {
-      if (!item) continue;
-      if (item.$ && item.$.name) {
-        config.settings[item.$.name] = normalizeValue(item._ !== undefined ? item._ : item);
-      } else {
-        for (const [k, v] of Object.entries(item)) {
-          if (k === '$' || k === '$$') continue;
-          config.settings[k] = normalizeValue(v);
-        }
-      }
-    }
-  } else {
-    for (const [k, v] of Object.entries(root)) {
-      if (k === '$' || k === '$$') continue;
-      config.settings[k] = normalizeValue(v);
-    }
+  for (const [key, value] of Object.entries(root)) {
+    if (key === '$' || key === '$$') continue;
+    config[key] = normalizeValue(value);
   }
 
   return config;
 }
 
-app.post('/upload-xml', upload.single('file'), async (req, res) => {
-  const tempFile = req.file && req.file.path;
-  if (!tempFile) {
+async function parseXmlFile(filePath) {
+  const xml = await fs.promises.readFile(filePath, 'utf8');
+  const parser = new xml2js.Parser({
+    explicitArray: false,
+    mergeAttrs: true,
+    trim: true,
+    normalize: true,
+    explicitRoot: true,
+    xmlns: false,
+    ignoreAttrs: false,
+    strict: true
+  });
+  return parser.parseStringPromise(xml);
+}
+
+app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
+  const file = req.file;
+  if (!file) {
     return res.status(400).json({ error: 'No XML file uploaded' });
   }
 
   try {
-    const xml = await safeReadFile(tempFile);
-
-    const parser = new xml2js.Parser({
-      explicitArray: false,
-      mergeAttrs: true,
-      trim: true,
-      normalize: true,
-      explicitRoot: true,
-      xmlns: false
-    });
-
-    const parsed = await parser.parseStringPromise(xml);
+    const parsed = await parseXmlFile(file.path);
     const config = extractConfig(parsed);
 
-    return res.json({
+    return res.status(200).json({
       success: true,
+      filename: file.originalname,
       config
     });
   } catch (err) {
     return res.status(400).json({
+      success: false,
       error: 'Failed to parse XML',
       details: err.message
     });
   } finally {
-    if (tempFile) {
-      fs.unlink(tempFile, () => {});
-    }
+    fs.promises.unlink(file.path).catch(() => {});
   }
 });
 
@@ -118,5 +115,5 @@ app.get('/health', (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`XML processing service listening on port ${port}`);
+  console.log(`XML processing endpoint listening on port ${port}`);
 });

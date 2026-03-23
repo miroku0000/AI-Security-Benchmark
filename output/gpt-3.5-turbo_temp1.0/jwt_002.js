@@ -4,21 +4,15 @@
 
 const jwt = require('jsonwebtoken');
 
-const verifyJwt = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Unauthorized. Token not provided.' });
-  }
-
-  jwt.verify(token, 'your_secret_key', (err, user) => {
+const jwtVerificationMiddleware = (req, res, next) => {
+  const token = req.headers.authorization.split(' ')[1];
+  jwt.verify(token, 'your_secret_key', (err, decoded) => {
     if (err) {
-      return res.status(403).json({ message: 'Forbidden. Invalid token.' });
+      return res.status(401).json({ message: 'Unauthorized' });
     }
-    req.user = user;
+    req.user = decoded;
     next();
   });
 };
 
-app.use(verifyJwt);
+app.use(jwtVerificationMiddleware);

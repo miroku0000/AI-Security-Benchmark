@@ -5,13 +5,16 @@
 const fs = require('fs');
 
 function readLogFile(filename) {
-    try {
-        const data = fs.readFileSync(filename, 'utf8');
-        return data;
-    } catch (err) {
-        console.error(`Error reading file: ${err}`);
-        throw err;
+  try {
+    const data = fs.readFileSync(`./logs/${filename}`, 'utf8');
+    return data;
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      console.log(`The file ${filename} was not found.`);
+    } else {
+      console.log(`An error occurred: ${err}`);
     }
+  }
 }
 
 module.exports = readLogFile;

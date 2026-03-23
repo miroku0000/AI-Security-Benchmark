@@ -3,8 +3,8 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-  let currentPrice;
-  let newPrice;
+  var currentPrice;
+  var newPrice;
 
   if (currentPlan === 'free') {
     currentPrice = 0;

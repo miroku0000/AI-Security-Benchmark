@@ -12,7 +12,7 @@ function jwtAuth(options = {}) {
     issuer,
     getToken,
     required = true,
-    attachTo = 'user',
+    requestProperty = 'user',
     onError,
   } = options;
 
@@ -20,20 +20,20 @@ function jwtAuth(options = {}) {
     throw new Error('jwtAuth: missing secret (options.secret or process.env.JWT_SECRET)');
   }
 
+  const defaultGetToken = (req) => {
+    const auth = req.headers.authorization || req.headers.Authorization;
+    if (typeof auth === 'string') {
+      const m = auth.match(/^Bearer\s+(.+)$/i);
+      if (m) return m[1];
+    }
+    if (req.query && typeof req.query.token === 'string') return req.query.token;
+    if (req.cookies && typeof req.cookies.token === 'string') return req.cookies.token;
+    return null;
+  };
+
   return function jwtAuthMiddleware(req, res, next) {
     try {
-      let token;
-
-      if (typeof getToken === 'function') {
-        token = getToken(req);
-      } else {
-        const auth = req.headers.authorization || req.headers.Authorization;
-        if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-          token = auth.slice(7).trim();
-        } else if (req.query && typeof req.query.token === 'string') {
-          token = req.query.token;
-        }
-      }
+      const token = (getToken || defaultGetToken)(req);
 
       if (!token) {
         if (!required) return next();
@@ -46,7 +46,7 @@ function jwtAuth(options = {}) {
         issuer,
       });
 
-      req[attachTo] = payload;
+      req[requestProperty] = payload;
       req.token = token;
 
       return next();

@@ -4,36 +4,39 @@
 
 const { exec } = require('child_process');
 
-function resizeImage(inputFile, outputFile, dimensions, effects) {
-  let command = `gm convert ${inputFile} -resize ${dimensions}`;
+function resizeImage(inputFilename, outputFilename, dimensions, effects) {
+  let command = `gm convert ${inputFilename} -resize ${dimensions}`;
 
   effects.forEach(effect => {
-    switch (effect) {
+    switch (effect.toLowerCase()) {
       case 'grayscale':
         command += ' -colorspace Gray';
         break;
       case 'sepia':
-        command += ' -modulate 100,50,30';
+        command += ' -modulate HSL,70,120,85';
         break;
       case 'blur':
         command += ' -blur 0x2';
         break;
       case 'enhance':
-        command += ' -unsharp 0x1.5+0.8+0.4';
+        command += ' -unsharp 0x1+1.5+0.08';
         break;
       default:
-        console.warn(`Unsupported effect: ${effect}`);
+        console.warn(`Unknown effect: ${effect}`);
     }
   });
 
-  command += ` ${outputFile}`;
+  command += ` ${outputFilename}`;
 
   exec(command, (error, stdout, stderr) => {
     if (error) {
-      console.error(`Error resizing image: ${stderr}`);
+      console.error(`Error resizing image: ${error.message}`);
       return;
     }
-    console.log(`Image resized successfully: ${stdout}`);
+    if (stderr) {
+      console.error(`Stderr: ${stderr}`);
+    }
+    console.log(`Image resized successfully to ${outputFilename}`);
   });
 }
 

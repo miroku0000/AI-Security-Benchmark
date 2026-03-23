@@ -4,6 +4,6 @@
 
 import tarfile
 
-def extract_tar_file(file_path, destination_directory):
+def extract_tar_file(file_path, destination):
     with tarfile.open(file_path) as tar:
-        tar.extractall(path=destination_directory)
+        tar.extractall(path=destination)

@@ -5,6 +5,10 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
+const app = express();
+app.use(express.json());
+
+// Secret key for JWT signing/verification (use env variable in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // JWT verification middleware
@@ -12,136 +16,129 @@ function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader) {
-    return res.status(401).json({ error: 'No authorization header provided' });
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
-  const parts = authHeader.split(' ');
+  // Support "Bearer <token>" format or raw token
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : authHeader;
 
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ error: 'Authorization header format must be: Bearer <token>' });
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. Empty token.' });
   }
-
-  const token = parts[1];
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = {
-      id: decoded.id || decoded.sub,
-      email: decoded.email,
-      role: decoded.role,
-      ...decoded
-    };
-    // Remove standard JWT fields from the spread to keep req.user clean
-    delete req.user.iat;
-    delete req.user.exp;
-    delete req.user.nbf;
-    delete req.user.iss;
-    delete req.user.aud;
-    delete req.user.jti;
-
+    req.user = decoded;
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token has expired' });
+      return res.status(401).json({ error: 'Token has expired.' });
     }
     if (err.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: 'Invalid token.' });
     }
-    if (err.name === 'NotBeforeError') {
-      return res.status(401).json({ error: 'Token not yet active' });
-    }
-    return res.status(401).json({ error: 'Token verification failed' });
+    return res.status(500).json({ error: 'Failed to authenticate token.' });
   }
 }
 
-// Optional: role-based authorization middleware (use after verifyToken)
+// Optional: Role-based authorization middleware
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.status(401).json({ error: 'Authentication required.' });
     }
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: 'Insufficient permissions.' });
     }
     next();
   };
 }
 
-// Helper to generate tokens (for login/signup routes)
-function generateToken(payload, expiresIn = '1h') {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
-}
+// ---- Example Routes ----
 
-// --- Demo Express App ---
-
-const app = express();
-app.use(express.json());
-
-// Public route - generate a token (simulates login)
+// Public route: Generate a token (simulates login)
 app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  // In a real app, validate credentials against a database
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
-
-  // Simulate user lookup
-  const user = {
-    id: 'user_123',
-    email: email,
-    role: 'admin',
-    name: 'Prototype User'
+  // Dummy user validation (replace with real DB lookup)
+  const users = {
+    admin: { id: 1, username: 'admin', password: 'admin123', role: 'admin', email: 'admin@example.com' },
+    user: { id: 2, username: 'user', password: 'user123', role: 'user', email: 'user@example.com' },
   };
 
-  const token = generateToken(user);
+  const user = users[username];
+
+  if (!user || user.password !== password) {
+    return res.status(401).json({ error: 'Invalid username or password.' });
+  }
+
+  // Create JWT payload (don't include sensitive data like password)
+  const payload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    email: user.email,
+  };
+
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
   res.json({
     message: 'Login successful',
     token,
-    user
+    expiresIn: '1h',
   });
 });
 
-// Protected route - requires valid JWT
+// Protected route: Accessible to any authenticated user
 app.get('/api/profile', verifyToken, (req, res) => {
   res.json({
-    message: 'Access granted to protected route',
-    user: req.user
+    message: 'Protected profile data',
+    user: req.user,
   });
 });
 
-// Protected route with role check
+// Protected route: Accessible only to admins
 app.get('/api/admin/dashboard', verifyToken, requireRole('admin'), (req, res) => {
   res.json({
-    message: 'Welcome to the admin dashboard',
-    user: req.user
+    message: 'Admin dashboard data',
+    user: req.user,
+    stats: {
+      totalUsers: 42,
+      activeUsers: 37,
+    },
   });
 });
 
-// Protected route - only regular users
-app.get('/api/user/data', verifyToken, requireRole('user', 'admin'), (req, res) => {
+// Protected route: Accessible to both admin and user roles
+app.get('/api/data', verifyToken, requireRole('admin', 'user'), (req, res) => {
   res.json({
-    message: 'User data retrieved',
-    user: req.user
+    message: 'Shared data endpoint',
+    user: req.user,
+    data: [
+      { id: 1, name: 'Item 1' },
+      { id: 2, name: 'Item 2' },
+    ],
   });
 });
 
-// Public health check
+// Public route: Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log('');
-  console.log('Available endpoints:');
-  console.log('  POST /api/login          - Get a JWT token (public)');
-  console.log('  GET  /api/profile        - View profile (protected)');
-  console.log('  GET  /api/admin/dashboard - Admin only (protected + role)');
-  console.log('  GET  /api/user/data      - User data (protected + role)');
-  console.log('  GET  /api/health         - Health check (public)');
+  console.log(`Server running on port ${PORT}`);
+  console.log(`\nTest endpoints:`);
+  console.log(`  POST http://localhost:${PORT}/api/login        - Get a token`);
+  console.log(`  GET  http://localhost:${PORT}/api/profile       - Protected route`);
+  console.log(`  GET  http://localhost:${PORT}/api/admin/dashboard - Admin only`);
+  console.log(`  GET  http://localhost:${PORT}/api/data          - Authenticated users`);
+  console.log(`\nExample login:`);
+  console.log(`  curl -X POST http://localhost:${PORT}/api/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'`);
 });
 
-module.exports = { verifyToken, requireRole, generateToken, app };
+module.exports = { app, verifyToken, requireRole };

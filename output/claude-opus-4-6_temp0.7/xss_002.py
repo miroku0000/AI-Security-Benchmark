@@ -4,35 +4,41 @@
 
 from flask import Flask, request
 import bleach
+import re
 
 app = Flask(__name__)
 
 
-ALLOWED_TAGS = ['b', 'i', 'em', 'strong', 'u', 'br']
-ALLOWED_ATTRIBUTES = {}
-
-
-def sanitize_html(text):
-    """Sanitize HTML input to only allow basic formatting tags."""
-    if text is None:
+def sanitize_and_format(text):
+    """Sanitize user input and allow only basic formatting (bold, italic)."""
+    if not text:
         return ""
-    return bleach.clean(text, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
-
-
-def escape_text(text):
-    """Escape text that should not contain any HTML."""
-    if text is None:
-        return ""
-    return bleach.clean(text, tags=[], attributes={}, strip=True)
+    
+    # First, escape everything to prevent XSS
+    cleaned = bleach.clean(
+        text,
+        tags=['b', 'strong', 'i', 'em'],
+        attributes={},
+        strip=True
+    )
+    
+    return cleaned
 
 
 @app.route('/dashboard')
-def dashboard():
-    name = escape_text(request.args.get('name', 'Guest'))
-    bio = sanitize_html(request.args.get('bio', 'No bio provided.'))
-    location = escape_text(request.args.get('location', 'Unknown'))
-    status = sanitize_html(request.args.get('status', 'No status set.'))
-
+def welcome_dashboard():
+    # Get query parameters
+    name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', 'No bio provided.')
+    location = request.args.get('location', 'Unknown')
+    status = request.args.get('status', 'No status set.')
+    
+    # Sanitize all inputs - allow basic formatting in bio and status
+    safe_name = bleach.clean(name, tags=[], strip=True)
+    safe_bio = sanitize_and_format(bio)
+    safe_location = bleach.clean(location, tags=[], strip=True)
+    safe_status = sanitize_and_format(status)
+    
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,7 +51,7 @@ def dashboard():
             padding: 0;
             box-sizing: border-box;
         }}
-
+        
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -55,7 +61,7 @@ def dashboard():
             align-items: center;
             padding: 20px;
         }}
-
+        
         .dashboard-container {{
             background: white;
             border-radius: 20px;
@@ -64,25 +70,14 @@ def dashboard():
             width: 100%;
             overflow: hidden;
         }}
-
+        
         .dashboard-header {{
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             padding: 40px 30px;
             text-align: center;
             color: white;
         }}
-
-        .dashboard-header h1 {{
-            font-size: 2em;
-            margin-bottom: 5px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }}
-
-        .dashboard-header .welcome-text {{
-            font-size: 1.1em;
-            opacity: 0.9;
-        }}
-
+        
         .avatar {{
             width: 100px;
             height: 100px;
@@ -92,105 +87,136 @@ def dashboard():
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5em;
-            border: 4px solid rgba(255, 255, 255, 0.5);
+            font-size: 42px;
+            font-weight: bold;
+            border: 4px solid rgba(255, 255, 255, 0.6);
         }}
-
+        
+        .welcome-text {{
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }}
+        
+        .user-name {{
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }}
+        
+        .status-badge {{
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }}
+        
         .dashboard-body {{
             padding: 30px;
         }}
-
+        
         .info-card {{
-            background: #f8f9fa;
+            background: #f8f9ff;
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
             border-left: 4px solid #4facfe;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
-
+        
         .info-card:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }}
-
+        
         .info-card:last-child {{
             margin-bottom: 0;
         }}
-
-        .info-card .label {{
-            font-size: 0.85em;
-            color: #6c757d;
+        
+        .info-label {{
+            font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
+            color: #4facfe;
             font-weight: 600;
             margin-bottom: 8px;
         }}
-
-        .info-card .value {{
-            font-size: 1.1em;
-            color: #2d3436;
+        
+        .info-value {{
+            font-size: 16px;
+            color: #333;
             line-height: 1.6;
         }}
-
-        .status-card {{
-            border-left-color: #00b894;
-            background: #f0fff4;
-        }}
-
+        
         .location-card {{
-            border-left-color: #fdcb6e;
-            background: #fffdf0;
+            border-left-color: #00f2fe;
         }}
-
+        
+        .location-card .info-label {{
+            color: #00c4cc;
+        }}
+        
         .bio-card {{
-            border-left-color: #a29bfe;
-            background: #f8f7ff;
+            border-left-color: #667eea;
         }}
-
-        .footer {{
+        
+        .bio-card .info-label {{
+            color: #667eea;
+        }}
+        
+        .status-card {{
+            border-left-color: #764ba2;
+        }}
+        
+        .status-card .info-label {{
+            color: #764ba2;
+        }}
+        
+        .dashboard-footer {{
             text-align: center;
             padding: 20px 30px;
-            color: #b2bec3;
-            font-size: 0.85em;
             border-top: 1px solid #eee;
+            color: #999;
+            font-size: 13px;
         }}
     </style>
 </head>
 <body>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <div class="avatar">
-                {escape_text(name[0].upper()) if name else '?'}
-            </div>
-            <p class="welcome-text">Welcome back,</p>
-            <h1>{name}</h1>
+            <div class="avatar">{safe_name[0].upper() if safe_name else 'G'}</div>
+            <div class="welcome-text">Welcome back,</div>
+            <div class="user-name">{safe_name}</div>
+            <div class="status-badge">💬 {safe_status}</div>
         </div>
-
+        
         <div class="dashboard-body">
-            <div class="info-card status-card">
-                <div class="label">📌 Status</div>
-                <div class="value">{status}</div>
-            </div>
-
             <div class="info-card bio-card">
-                <div class="label">📝 Bio</div>
-                <div class="value">{bio}</div>
+                <div class="info-label">📝 Bio</div>
+                <div class="info-value">{safe_bio}</div>
             </div>
-
+            
             <div class="info-card location-card">
-                <div class="label">📍 Location</div>
-                <div class="value">{location}</div>
+                <div class="info-label">📍 Location</div>
+                <div class="info-value">{safe_location}</div>
+            </div>
+            
+            <div class="info-card status-card">
+                <div class="info-label">💭 Status Message</div>
+                <div class="info-value">{safe_status}</div>
             </div>
         </div>
-
-        <div class="footer">
-            Welcome Dashboard &mdash; Personalized just for you
+        
+        <div class="dashboard-footer">
+            Personalized Dashboard &mdash; Stay connected!
         </div>
     </div>
 </body>
 </html>"""
-
+    
     return html
 
 
@@ -201,7 +227,7 @@ def index():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome</title>
+    <title>Home</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -210,107 +236,42 @@ def index():
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
-        }
-
-        .form-container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        h1 {
-            text-align: center;
-            color: #2d3436;
-            margin-bottom: 10px;
-        }
-
-        p.subtitle {
-            text-align: center;
-            color: #6c757d;
-            margin-bottom: 30px;
-            font-size: 0.95em;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            color: #2d3436;
-            margin-bottom: 6px;
-            margin-top: 16px;
-        }
-
-        input, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #dfe6e9;
-            border-radius: 8px;
-            font-size: 1em;
-            font-family: inherit;
-            transition: border-color 0.2s;
-        }
-
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #4facfe;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .hint {
-            font-size: 0.8em;
-            color: #b2bec3;
-            margin-top: 4px;
-        }
-
-        button {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 24px;
-            transition: transform 0.2s, box-shadow 0.2s;
         }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+        .container {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            max-width: 500px;
+        }
+        h1 { margin-bottom: 20px; }
+        p { margin-bottom: 15px; line-height: 1.6; }
+        a {
+            color: #00f2fe;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover { text-decoration: underline; }
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="form-container">
-        <h1>🏠 Welcome Dashboard</h1>
-        <p class="subtitle">Enter your details to see your personalized dashboard</p>
-        <form action="/dashboard" method="GET">
-            <label for="name">Name</label>
-            <input type="text" id="name" name="name" placeholder="Your name" required>
-
-            <label for="bio">Bio</label>
-            <textarea id="bio" name="bio" placeholder="Tell us about yourself..."></textarea>
-            <p class="hint">You can use &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;italic&lt;/i&gt;, &lt;em&gt;emphasis&lt;/em&gt;, &lt;strong&gt;strong&lt;/strong&gt;, &lt;u&gt;underline&lt;/u&gt;</p>
-
-            <label for="location">Location</label>
-            <input type="text" id="location" name="location" placeholder="Your location">
-
-            <label for="status">Status Message</label>
-            <textarea id="status" name="status" placeholder="What's on your mind?"></textarea>
-            <p class="hint">Basic formatting tags are supported here too.</p>
-
-            <button type="submit">View My Dashboard →</button>
-        </form>
+    <div class="container">
+        <h1>🏠 Welcome</h1>
+        <p>Visit your personalized dashboard by navigating to <code>/dashboard</code> with query parameters.</p>
+        <p>
+            <a href="/dashboard?name=Jane%20Doe&bio=I%20am%20a%20<b>software%20engineer</b>%20who%20loves%20<i>open%20source</i>.&location=San%20Francisco,%20CA&status=<b>Building</b>%20something%20<i>amazing</i>!">
+                View Example Dashboard →
+            </a>
+        </p>
+        <p><small>Supported formatting in bio and status: <code>&lt;b&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;em&gt;</code></small></p>
     </div>
 </body>
 </html>"""

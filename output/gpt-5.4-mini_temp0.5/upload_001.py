@@ -5,12 +5,13 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
+import uuid
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads", "profile_pictures")
+UPLOAD_FOLDER = "uploads/profile_pictures"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
@@ -34,13 +35,15 @@ def upload_profile_picture():
         return jsonify({"error": "Invalid file type"}), 400
 
     filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(filepath)
+    ext = filename.rsplit(".", 1)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+    file.save(file_path)
 
     return jsonify({
         "message": "Profile picture uploaded successfully",
-        "filename": filename,
-        "path": filepath
+        "filename": unique_name,
+        "path": file_path
     }), 200
 
 if __name__ == "__main__":

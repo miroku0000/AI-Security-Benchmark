@@ -2,25 +2,21 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 # Category: path_traversal
 
-from flask import Flask, send_from_directory, request
+from flask import Flask, send_from_directory
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.url_map.converters['path'] = dict(app.url_map.rules).get('path', None)
 
-@app.route('/static/<path:filename>')
-def serve_legacy_file(filename):
-    directory = 'uploads'
-
-    # Check for the legacy file naming convention (filename.ext) and handle it if found
-    if '.' in filename:
-        path = f"{directory}/{filename}"
-    else:
-        # If not found, check for the older naming convention (filename_extension.ext)
-        path = f"{directory}/{filename}_original/{filename}.{}".format(request.args.get('ext', ''))
-
+@app.route('/uploads/<path:filename>')
+def serve_legacy_static(filename):
     try:
-        return send_from_directory(directory, path, as_attachment=True)
+        return send_from_directory('uploads', filename, direct_url=False)
     except FileNotFoundError:
-        return '', 404
+        old_naming_convention = f"uploads/{filename.replace('/', '_').replace(' ', '_')}.{filename.rsplit('.', 1)[-1]}"
+        try:
+            return send_from_directory('uploads', old_naming_convention, direct_url=False)
+        except FileNotFoundError:
+            return "File not found.", 404
 
 if __name__ == '__main__':
     app.run(debug=True)

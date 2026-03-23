@@ -41,27 +41,36 @@ function elementToObject(element) {
   );
 
   if (childElements.length === 0) {
-    // Leaf node — return text content (with attributes if any)
+    // Leaf node - return text content (with attributes if any)
     const text = (element.text() || '').trim();
     if (attrs.length > 0) {
-      obj['#text'] = text;
+      obj['@text'] = text;
       return obj;
     }
     return text;
   }
 
-  // Group child elements by tag name to handle repeated tags as arrays
-  const childMap = {};
+  // Group child elements by name to detect arrays
+  const childGroups = {};
   for (const child of childElements) {
-    const tagName = child.name();
-    if (!childMap[tagName]) {
-      childMap[tagName] = [];
+    const name = child.name();
+    if (!childGroups[name]) {
+      childGroups[name] = [];
     }
-    childMap[tagName].push(elementToObject(child));
+    childGroups[name].push(child);
   }
 
-  for (const [key, values] of Object.entries(childMap)) {
-    obj[key] = values.length === 1 ? values[0] : values;
+  for (const [name, children] of Object.entries(childGroups)) {
+    if (children.length > 1) {
+      obj[name] = children.map((child) => elementToObject(child));
+    } else {
+      obj[name] = elementToObject(children[0]);
+    }
+  }
+
+  // If we have attributes, merge them in
+  if (attrs.length > 0) {
+    return obj;
   }
 
   return obj;
@@ -76,114 +85,166 @@ function extractConfigurationSettings(xmlObj) {
     metadata: {},
     settings: {},
     integrations: [],
+    mappings: [],
     raw: xmlObj
   };
 
-  // Try to extract common metadata fields
+  // Extract metadata from root-level attributes
   if (xmlObj['@attributes']) {
     config.metadata = { ...xmlObj['@attributes'] };
   }
 
-  // Walk top-level keys and categorize
-  for (const [key, value] of Object.entries(xmlObj)) {
-    if (key === '@attributes') continue;
-
-    const lowerKey = key.toLowerCase();
-
-    if (lowerKey.includes('metadata') || lowerKey.includes('header') || lowerKey.includes('info')) {
-      config.metadata[key] = value;
-    } else if (lowerKey.includes('integration') || lowerKey.includes('partner') || lowerKey.includes('endpoint')) {
-      if (Array.isArray(value)) {
-        config.integrations.push(...value);
-      } else {
-        config.integrations.push(value);
-      }
-    } else {
-      config.settings[key] = value;
+  // Look for common configuration node patterns
+  const configKeys = ['configuration', 'config', 'settings', 'Configuration', 'Config', 'Settings'];
+  for (const key of configKeys) {
+    if (xmlObj[key]) {
+      config.settings = typeof xmlObj[key] === 'object' ? { ...config.settings, ...xmlObj[key] } : { value: xmlObj[key] };
     }
+  }
+
+  // Look for integration/partner definitions
+  const integrationKeys = ['integrations', 'partners', 'endpoints', 'Integrations', 'Partners', 'Endpoints'];
+  for (const key of integrationKeys) {
+    if (xmlObj[key]) {
+      const integrationData = xmlObj[key];
+      // Check for nested arrays
+      for (const subKey of Object.keys(integrationData)) {
+        const val = integrationData[subKey];
+        if (Array.isArray(val)) {
+          config.integrations.push(...val);
+        } else if (typeof val === 'object') {
+          config.integrations.push(val);
+        }
+      }
+    }
+  }
+
+  // Look for field mappings
+  const mappingKeys = ['mappings', 'fieldMappings', 'Mappings', 'FieldMappings'];
+  for (const key of mappingKeys) {
+    if (xmlObj[key]) {
+      const mappingData = xmlObj[key];
+      for (const subKey of Object.keys(mappingData)) {
+        const val = mappingData[subKey];
+        if (Array.isArray(val)) {
+          config.mappings.push(...val);
+        } else if (typeof val === 'object') {
+          config.mappings.push(val);
+        }
+      }
+    }
+  }
+
+  // If no specific sections found, treat entire object as settings
+  if (Object.keys(config.settings).length === 0 && config.integrations.length === 0) {
+    config.settings = { ...xmlObj };
+    delete config.settings['@attributes'];
   }
 
   return config;
 }
 
 /**
- * POST /api/upload-xml
- * Accepts an XML file upload, parses it securely, and returns extracted configuration.
+ * POST /api/upload-config
+ * Accepts an XML configuration file upload from B2B partners.
+ * Parses the XML safely (with external entity loading disabled) and
+ * returns the extracted configuration as JSON.
  */
-app.post('/api/upload-xml', upload.single('xmlFile'), (req, res) => {
+app.post('/api/upload-config', upload.single('xmlfile'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        error: 'No XML file uploaded. Please upload a file with field name "xmlFile".'
+        error: 'No XML file uploaded. Please upload a file with field name "xmlfile".'
       });
     }
 
     const xmlContent = req.file.buffer.toString('utf-8');
 
-    // Security: Disable external entity loading and network access to prevent XXE attacks
-    // noent: false — do not substitute entities
-    // nonet: true — forbid network access
-    // dtdload: false — do not load external DTDs
-    // dtdvalid: false — do not validate against DTD
-    const parseOptions = {
-      noent: false,
-      nonet: true,
-      dtdload: false,
-      dtdvalid: false,
-      nocdata: false,
-      noblanks: true
-    };
+    if (!xmlContent.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Uploaded XML file is empty.'
+      });
+    }
 
+    // Parse XML with security settings to prevent XXE attacks
+    // noent: false - do not substitute entities
+    // nonet: true - disable network access for external resources
+    // dtdload: false - do not load external DTDs
+    // dtdvalid: false - do not validate against DTD
     let xmlDoc;
     try {
-      xmlDoc = libxmljs.parseXml(xmlContent, parseOptions);
+      xmlDoc = libxmljs.parseXml(xmlContent, {
+        noent: false,
+        nonet: true,
+        dtdload: false,
+        dtdvalid: false,
+        nocdata: false,
+        noblanks: true
+      });
     } catch (parseError) {
-      return res.status(422).json({
+      return res.status(400).json({
         success: false,
-        error: 'Failed to parse XML document.',
+        error: 'Invalid XML document.',
         details: parseError.message
       });
     }
 
-    // Check for parse errors
-    const validationErrors = xmlDoc.errors;
-    if (validationErrors && validationErrors.length > 0) {
-      const errorMessages = validationErrors.map((e) => e.message || e.toString());
-      // Log warnings but continue processing if the document was still parsed
-      console.warn('XML parsing warnings:', errorMessages);
+    // Check for parsing errors
+    const errors = xmlDoc.errors;
+    if (errors && errors.length > 0) {
+      const criticalErrors = errors.filter((e) => e.level && e.level > 1);
+      if (criticalErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'XML document contains errors.',
+          details: criticalErrors.map((e) => e.message)
+        });
+      }
     }
 
     const root = xmlDoc.root();
     if (!root) {
-      return res.status(422).json({
+      return res.status(400).json({
         success: false,
         error: 'XML document has no root element.'
       });
     }
 
     // Convert XML to JavaScript object
-    const rootTagName = root.name();
-    const xmlObject = {};
-    xmlObject[rootTagName] = elementToObject(root);
+    const rootName = root.name();
+    const xmlObj = elementToObject(root);
 
     // Extract structured configuration settings
-    const configuration = extractConfigurationSettings(xmlObject[rootTagName]);
+    const configSettings = extractConfigurationSettings(xmlObj);
+
+    // Add root element info to metadata
+    configSettings.metadata.rootElement = rootName;
+    configSettings.metadata.fileName = req.file.originalname;
+    configSettings.metadata.fileSize = req.file.size;
+    configSettings.metadata.uploadedAt = new Date().toISOString();
+
+    // Extract namespace info if present
+    const namespaces = root.namespaces();
+    if (namespaces && namespaces.length > 0) {
+      configSettings.metadata.namespaces = namespaces.map((ns) => ({
+        prefix: ns.prefix() || 'default',
+        href: ns.href()
+      }));
+    }
 
     return res.status(200).json({
       success: true,
-      message: 'XML configuration processed successfully.',
-      fileName: req.file.originalname,
-      rootElement: rootTagName,
-      configuration,
-      parsedXml: xmlObject
+      message: 'XML configuration parsed successfully.',
+      configuration: configSettings
     });
   } catch (error) {
     console.error('Error processing XML upload:', error);
     return res.status(500).json({
       success: false,
-      error: 'Internal server error while processing XML.',
-      details: error.message
+      error: 'Internal server error while processing the XML document.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -210,14 +271,12 @@ app.use((err, req, res, next) => {
       error: `Upload error: ${err.message}`
     });
   }
-
   if (err.message === 'Only XML files are allowed') {
-    return res.status(415).json({
+    return res.status(400).json({
       success: false,
       error: err.message
     });
   }
-
   console.error('Unhandled error:', err);
   return res.status(500).json({
     success: false,
@@ -228,8 +287,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`B2B XML Configuration Processor running on port ${PORT}`);
-  console.log(`Upload endpoint: POST http://localhost:${PORT}/api/upload-xml`);
-  console.log(`Health check: GET http://localhost:${PORT}/api/health`);
 });
 
 module.exports = app;

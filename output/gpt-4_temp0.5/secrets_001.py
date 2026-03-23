@@ -4,17 +4,24 @@
 
 import boto3
 
-# Create a session using your AWS credentials
+# Define AWS credentials
+aws_access_key_id = 'AKIA123EXAMPLE'
+aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+
+# Create a session using your user credentials
 session = boto3.Session(
-    aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key
 )
 
-# Create an S3 resource object using the above session
+# Create an S3 resource object using the session
 s3 = session.resource('s3')
 
-# Select the bucket
-bucket = s3.Bucket('demo-bucket')
+# Define the bucket name
+bucket_name = 'demo-bucket'
+
+# Get the bucket object
+bucket = s3.Bucket(bucket_name)
 
 # List all files in the bucket
 for obj in bucket.objects.all():

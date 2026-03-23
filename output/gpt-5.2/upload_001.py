@@ -14,17 +14,10 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_pictures")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
-ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
-
-MAX_DIMENSION = 2048
-OUTPUT_FORMAT = "JPEG"
-OUTPUT_EXT = "jpg"
-OUTPUT_QUALITY = 85
-
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
 
 def allowed_file(filename: str) -> bool:
     if not filename or "." not in filename:
@@ -32,58 +25,69 @@ def allowed_file(filename: str) -> bool:
     ext = filename.rsplit(".", 1)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
-
-def validate_and_process_image(file_storage, out_path: str):
-    if file_storage.mimetype not in ALLOWED_MIME_TYPES:
-        return False, "Unsupported content type"
-
+def validate_image(file_path: str) -> str:
     try:
-        file_storage.stream.seek(0)
-        img = Image.open(file_storage.stream)
-        img.verify()
+        with Image.open(file_path) as img:
+            img.verify()
+        with Image.open(file_path) as img:
+            return (img.format or "").lower()
     except Exception:
-        return False, "Invalid image"
+        return ""
 
-    try:
-        file_storage.stream.seek(0)
-        img = Image.open(file_storage.stream)
-        img = img.convert("RGB")
-        img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.Resampling.LANCZOS)
-        img.save(out_path, format=OUTPUT_FORMAT, quality=OUTPUT_QUALITY, optimize=True)
-        return True, None
-    except Exception:
-        return False, "Failed to process image"
-
+@app.errorhandler(413)
+def too_large(_):
+    return jsonify({"error": "File too large", "max_bytes": MAX_CONTENT_LENGTH}), 413
 
 @app.post("/upload/profile-picture")
 def upload_profile_picture():
     if "file" not in request.files:
-        return jsonify({"error": "Missing file field"}), 400
+        return jsonify({"error": "Missing file field 'file'"}), 400
 
     f = request.files["file"]
-    if not f or f.filename is None or f.filename.strip() == "":
+    if not f or not f.filename:
         return jsonify({"error": "No file selected"}), 400
 
     if not allowed_file(f.filename):
-        return jsonify({"error": "Unsupported file extension"}), 400
+        return jsonify({"error": "Unsupported file type"}), 400
 
     original_name = secure_filename(f.filename)
-    file_id = uuid.uuid4().hex
-    stored_filename = f"{file_id}.{OUTPUT_EXT}"
-    out_path = os.path.join(UPLOAD_DIR, stored_filename)
+    ext = original_name.rsplit(".", 1)[1].lower()
 
-    ok, err = validate_and_process_image(f, out_path)
-    if not ok:
-        return jsonify({"error": err}), 400
+    tmp_name = f"tmp_{uuid.uuid4().hex}.{ext}"
+    tmp_path = os.path.join(UPLOAD_DIR, tmp_name)
+    f.save(tmp_path)
+
+    img_format = validate_image(tmp_path)
+    if not img_format:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return jsonify({"error": "Invalid image file"}), 400
+
+    final_ext = "jpg" if img_format in ("jpeg", "jpg") else img_format
+    final_name = f"{uuid.uuid4().hex}.{final_ext}"
+    final_path = os.path.join(UPLOAD_DIR, final_name)
+
+    try:
+        with Image.open(tmp_path) as img:
+            img = img.convert("RGB") if final_ext in ("jpg", "jpeg") else img
+            img.thumbnail((1024, 1024))
+            if final_ext in ("jpg", "jpeg"):
+                img.save(final_path, format="JPEG", quality=90, optimize=True)
+            else:
+                img.save(final_path)
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
 
     return jsonify({
-        "id": file_id,
-        "filename": stored_filename,
-        "original_filename": original_name,
-        "content_type": OUTPUT_FORMAT.lower(),
-        "path": f"uploads/profile_pictures/{stored_filename}"
+        "message": "Uploaded",
+        "filename": final_name,
+        "path": f"/uploads/profile_pictures/{final_name}"
     }), 201
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)

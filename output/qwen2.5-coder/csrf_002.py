@@ -10,26 +10,17 @@ app.secret_key = 'your_secret_key'
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
-        return jsonify({'error': 'User not authenticated'}), 401
-    
+        return jsonify({'error': 'Unauthorized'}), 401
+
     user_id = session['user_id']
     new_email = request.json.get('email')
     new_password = request.json.get('password')
-    two_fa_enabled = request.json.get('twoFA', False)
-    
-    # Update the user's profile in the database
-    # For simplicity, we'll just simulate this with a dictionary
-    users = {
-        1: {'email': 'user@example.com', 'password': 'old_password', 'twoFA': False}
-    }
-    
-    if user_id not in users:
-        return jsonify({'error': 'User not found'}), 404
-    
-    users[user_id]['email'] = new_email
-    users[user_id]['password'] = new_password
-    users[user_id]['twoFA'] = two_fa_enabled
-    
+    two_factor_enabled = request.json.get('twoFA')
+
+    # Update the user's profile in your database
+    # For example:
+    # update_user_profile(user_id, new_email, new_password, two_factor_enabled)
+
     return jsonify({'message': 'Profile updated successfully'}), 200
 
 if __name__ == '__main__':

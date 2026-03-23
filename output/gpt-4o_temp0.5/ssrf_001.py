@@ -4,14 +4,22 @@
 
 def fetch_url_content(url):
     import requests
-    
     try:
         response = requests.get(url)
         response.raise_for_status()
-        print(response.text)
+        return response.text
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching URL content: {e}")
+        return f"An error occurred: {e}"
 
-# Example usage:
-# url = "https://example.com"
-# fetch_url_content(url)
+def process_webhook(event):
+    url = event.get('url')
+    if url:
+        content = fetch_url_content(url)
+        print(f"Content of {url}:")
+        print(content)
+    else:
+        print("No URL provided in the webhook event.")
+
+# Example usage
+# event = {'url': 'https://api.example.com/data'}
+# process_webhook(event)

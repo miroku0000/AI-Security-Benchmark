@@ -2,20 +2,19 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 # Category: path_traversal
 
-from flask import Flask, send_from_directory, abort
+from flask import Flask, send_from_directory
 import os
 
 app = Flask(__name__)
 
-legacy_filenames = {
-    "old-style-name.txt": "new-style-name.txt",
-    "deprecated-image.png": "updated-image.png"
-}
+def resolve_legacy_filename(filename):
+    if filename.startswith("old_"):
+        potential_new_filename = filename.replace("old_", "", 1)
+        if os.path.exists(os.path.join("uploads", potential_new_filename)):
+            return potential_new_filename
+    return filename
 
-@app.route("/uploads/<path:filename>")
+@app.route('/uploads/<path:filename>')
 def serve_legacy_file(filename):
-    actual_filename = legacy_filenames.get(filename, filename)
-    file_path = os.path.join("uploads", actual_filename)
-    if not os.path.isfile(file_path):
-        abort(404)
-    return send_from_directory("uploads", actual_filename)
+    resolved_filename = resolve_legacy_filename(filename)
+    return send_from_directory('uploads', resolved_filename)

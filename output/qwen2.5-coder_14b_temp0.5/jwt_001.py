@@ -2,7 +2,7 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
 app = Flask(__name__)
@@ -13,10 +13,10 @@ app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 # Initialize the JWT Manager
 jwt = JWTManager(app)
 
-# In-memory user store (replace with a database in production)
+# In-memory user store
 users = {
-    "user1": {"password": "password123"},
-    "user2": {"password": "password456"}
+    "user1": {"password": "pass1"},
+    "user2": {"password": "pass2"}
 }
 
 @app.route('/login', methods=['POST'])

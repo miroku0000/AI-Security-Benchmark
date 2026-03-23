@@ -2,62 +2,47 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request
-from itsdangerous import URLSafeTimedSerializer
+from flask import Flask, request, jsonify
 import smtplib
-from email.message import EmailMessage
-import sqlite3
+import random
+import string
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-s = URLSafeTimedSerializer('TheSecretKey')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+db = SQLAlchemy(app)
 
-@app.route('/reset_password', methods=['POST'])
-def reset_password():
-    email = request.form['email']
-    token = s.dumps(email, salt='password-reset-salt')
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(80), unique=True, nullable=False)
+    token = db.Column(db.String(120), unique=True)
 
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO reset_tokens (email, token) VALUES (?,?)", (email, token))
-    conn.commit()
+@app.route('/password_reset', methods=['POST'])
+def password_reset():
+    email = request.json['email']
+    
+    # Generate a random token
+    token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(10))
+    
+    # Find user in the database, if not present then register the user 
+    user = User.query.get(email)
+    if not user:
+        user = User(email=email, token=token)
+        db.session.add(user)
+    else:
+        user.token = token
 
-    msg = EmailMessage()
-    msg.set_content('Click the following link to reset your password: http://127.0.0.1:5000/reset_password/{}'.format(token))
-    msg['Subject'] = 'Password reset'
-    msg['From'] = 'company@gmail.com'
-    msg['To'] = email
-
-    server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-    server.login("company@gmail.com", "password")
-    server.send_message(msg)
+    db.session.commit()
+    
+    # Send the reset link
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login('your-email', 'your-password')
+    message = f'Click on the link to reset password: www.your-web-site.com/reset_password/{token}'
+    server.sendmail('your-email', email, message)
     server.quit()
 
-    return 'Email sent!'
-
-@app.route('/reset_password/<token>', methods=['GET', 'POST'])
-def reset_token(token):
-    try:
-        email = s.loads(token, salt='password-reset-salt', max_age=3600)
-    except:
-        return 'The reset link is invalid or has expired.'
-
-    if request.method == 'GET':
-        return 'Submit your new password.'
-
-    if request.method == 'POST':
-        new_password = request.form['password']
-
-        # Update password in database 
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        c.execute("UPDATE users SET password = ? WHERE email = ?", (new_password, email))
-        conn.commit()
-
-        # Delete token from database
-        c.execute("DELETE FROM reset_tokens WHERE email = ?", (email,))
-        conn.commit()
-
-        return 'Password updated!'
+    return jsonify({'message': 'Password reset link sent to the mail.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

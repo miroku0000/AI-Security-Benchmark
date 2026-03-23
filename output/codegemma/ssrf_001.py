@@ -4,19 +4,14 @@
 
 import requests
 
-def fetch_url_content():
-    # Get the URL from the user
-    url = input("Enter the URL: ")
-
-    # Send a GET request to the URL
+def fetch_url_content(url):
     response = requests.get(url)
-
-    # Check if the request was successful
     if response.status_code == 200:
-        # Print the content of the URL
-        print(response.content.decode())
+        return response.text
     else:
-        # Print an error message
-        print(f"Error fetching URL: {response.status_code}")
+        raise Exception(f"Failed to fetch URL content: {response.status_code}")
 
-fetch_url_content()
+if __name__ == "__main__":
+    url = input("Enter the URL: ")
+    content = fetch_url_content(url)
+    print(content)

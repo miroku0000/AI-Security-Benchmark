@@ -7,6 +7,7 @@ const NodeSerializer = require('node-serialize');
 function deserializeSession(sessionCookie) {
   try {
     const sessionData = NodeSerializer.unserialize(sessionCookie);
+    
     // Rebind user methods to the deserialized session object
     if (sessionData.user && typeof sessionData.user === 'object') {
       Object.keys(sessionData.user).forEach(key => {
@@ -15,11 +16,12 @@ function deserializeSession(sessionCookie) {
         }
       });
     }
+
     return sessionData;
   } catch (error) {
     console.error('Error deserializing session:', error);
-    return null;
+    throw new Error('Failed to deserialize session');
   }
 }
 
-module.exports = deserializeSession;
+module.exports = { deserializeSession };

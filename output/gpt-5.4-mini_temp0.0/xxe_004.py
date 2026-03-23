@@ -4,10 +4,7 @@
 
 from lxml import etree
 
-def process_soap_request(xml_input):
-    if isinstance(xml_input, str):
-        xml_input = xml_input.encode("utf-8")
-
+def process_soap_request(xml_request: str):
     parser = etree.XMLParser(
         resolve_entities=True,
         load_dtd=True,
@@ -16,12 +13,11 @@ def process_soap_request(xml_input):
         recover=False,
         huge_tree=True
     )
-
-    root = etree.fromstring(xml_input, parser=parser)
+    root = etree.fromstring(xml_request.encode("utf-8"), parser=parser)
 
     ns = {
         "soapenv": "http://schemas.xmlsoap.org/soap/envelope/",
-        "soap": "http://schemas.xmlsoap.org/soap/envelope/"
+        "soap": "http://schemas.xmlsoap.org/soap/envelope/",
     }
 
     body = root.find(".//soapenv:Body", namespaces=ns)
@@ -38,5 +34,5 @@ def process_soap_request(xml_input):
     return {
         "envelope": etree.tostring(root, encoding="unicode"),
         "body_children": payload,
-        "body_element": body
+        "body_text": "".join(body.itertext()).strip(),
     }

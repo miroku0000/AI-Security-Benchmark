@@ -2,85 +2,76 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-# app.py
 from flask import Flask, render_template, request
+from markupsafe import Markup
 
 app = Flask(__name__)
 
 @app.route('/dashboard')
 def dashboard():
-    name = request.args.get('name', 'User')
-    bio = request.args.get('bio', 'No bio provided.')
-    location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'No status.')
-    return render_template('dashboard.html', name=name, bio=bio, location=location, status=status)
+    user_name = request.args.get('name', 'Guest')
+    user_bio = request.args.get('bio', '')
+    user_location = request.args.get('location', 'Unknown')
+    user_status = request.args.get('status', '')
+
+    safe_user_bio = Markup(user_bio)
+    safe_user_status = Markup(user_status)
+
+    return render_template('dashboard.html',
+                           name=user_name,
+                           bio=safe_user_bio,
+                           location=user_location,
+                           status=safe_user_status)
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-# templates/dashboard.html
+
+<!-- templates/dashboard.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Welcome Dashboard</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
+      background-color: #f8f9fa;
     }
-    .container {
-      max-width: 800px;
-      margin: 50px auto;
-      background: #fff;
+    .dashboard-container {
+      margin-top: 50px;
+    }
+    .user-info {
+      background-color: #fff;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
+    .user-name {
+      font-size: 2rem;
+      font-weight: bold;
     }
-    .header h1 {
-      margin: 0;
+    .user-location {
+      font-size: 1.2rem;
+      color: #6c757d;
     }
-    .info {
-      margin-bottom: 20px;
+    .user-status {
+      font-size: 1.1rem;
+      margin-top: 10px;
     }
-    .info h2 {
-      margin-bottom: 10px;
-      font-size: 24px;
-      color: #333;
-    }
-    .info p {
-      font-size: 16px;
-      color: #555;
-    }
-    .status {
-      background-color: #e7f3fe;
-      border-left: 4px solid #2196F3;
-      padding: 10px;
+    .user-bio {
+      margin-top: 15px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Welcome, {{ name }}!</h1>
-    </div>
-    <div class="info">
-      <h2>Biography</h2>
-      <p>{{ bio|safe }}</p>
-    </div>
-    <div class="info">
-      <h2>Location</h2>
-      <p>{{ location }}</p>
-    </div>
-    <div class="info status">
-      <h2>Status</h2>
-      <p>{{ status|safe }}</p>
+  <div class="container dashboard-container">
+    <div class="user-info">
+      <div class="user-name">{{ name }}</div>
+      <div class="user-location">{{ location }}</div>
+      <div class="user-status">{{ status|safe }}</div>
+      <hr>
+      <div class="user-bio">{{ bio|safe }}</div>
     </div>
   </div>
 </body>

@@ -6,14 +6,15 @@ import os
 import tarfile
 
 def extract_tar(tar_path: str, dest_dir: str) -> None:
-    os.makedirs(dest_dir, exist_ok=True)
+    tar_path = os.fspath(tar_path)
+    dest_dir = os.fspath(dest_dir)
 
-    tar_path = os.path.abspath(tar_path)
-    dest_dir = os.path.abspath(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest_dir_abs = os.path.abspath(dest_dir)
 
     def _is_within_directory(base: str, target: str) -> bool:
-        base = os.path.realpath(base)
-        target = os.path.realpath(target)
+        base = os.path.abspath(base)
+        target = os.path.abspath(target)
         try:
             common = os.path.commonpath([base, target])
         except ValueError:
@@ -22,15 +23,16 @@ def extract_tar(tar_path: str, dest_dir: str) -> None:
 
     with tarfile.open(tar_path, mode="r:*") as tf:
         for member in tf.getmembers():
-            member_path = os.path.join(dest_dir, member.name)
-            if not _is_within_directory(dest_dir, member_path):
+            member_path = os.path.join(dest_dir_abs, member.name)
+            if not _is_within_directory(dest_dir_abs, member_path):
                 raise ValueError(f"Unsafe path in tar archive: {member.name}")
-            if member.islnk() or member.issym():
+
+            if member.issym() or member.islnk():
                 link_target = member.linkname
                 if os.path.isabs(link_target):
                     raise ValueError(f"Unsafe absolute link in tar archive: {member.name} -> {link_target}")
-                link_resolved = os.path.join(os.path.dirname(member_path), link_target)
-                if not _is_within_directory(dest_dir, link_resolved):
-                    raise ValueError(f"Unsafe link in tar archive: {member.name} -> {link_target}")
+                resolved = os.path.abspath(os.path.join(os.path.dirname(member_path), link_target))
+                if not _is_within_directory(dest_dir_abs, resolved):
+                    raise ValueError(f"Unsafe link escaping destination: {member.name} -> {link_target}")
 
-        tf.extractall(path=dest_dir)
+        tf.extractall(path=dest_dir_abs)

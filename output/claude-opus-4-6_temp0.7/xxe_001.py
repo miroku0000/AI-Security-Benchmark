@@ -4,30 +4,28 @@
 
 import xml.etree.ElementTree as ET
 from typing import Union
-from pathlib import Path
 
 
-def parse_xml_config(xml_source: Union[str, Path]) -> dict:
+def parse_xml_config(file_path: str) -> dict:
     """
     Parse an XML configuration file and return the settings as a dictionary.
     
     Handles nested elements by creating nested dictionaries.
-    If multiple sibling elements share the same tag, they are grouped into a list.
-    Elements with text content and no children return their text value.
-    Element attributes are included with '@' prefix keys.
+    Handles multiple elements with the same tag by creating lists.
+    Includes element attributes in the dictionary.
     
     Args:
-        xml_source: Path to an XML file or an XML string.
+        file_path: Path to the XML configuration file.
         
     Returns:
-        A dictionary representing the XML configuration.
+        A dictionary containing the parsed settings.
     """
     
-    def element_to_dict(element: ET.Element) -> Union[dict, str, list]:
-        """Recursively convert an XML element to a dictionary."""
+    def element_to_dict(element: ET.Element) -> Union[dict, str]:
+        """Recursively convert an XML element and its children to a dictionary."""
         result = {}
         
-        # Add attributes with '@' prefix
+        # Include attributes if present
         if element.attrib:
             for key, value in element.attrib.items():
                 result[f"@{key}"] = value
@@ -41,78 +39,121 @@ def parse_xml_config(xml_source: Union[str, Path]) -> dict:
                 tag = child.tag
                 
                 if tag in child_dict:
-                    # Convert to list if multiple elements with same tag
-                    if not isinstance(child_dict[tag], list):
-                        child_dict[tag] = [child_dict[tag]]
-                    child_dict[tag].append(child_data)
+                    # If tag already exists, convert to list or append to existing list
+                    if isinstance(child_dict[tag], list):
+                        child_dict[tag].append(child_data)
+                    else:
+                        child_dict[tag] = [child_dict[tag], child_data]
                 else:
                     child_dict[tag] = child_data
             
             result.update(child_dict)
         else:
             # Leaf element - get text content
-            text = element.text.strip() if element.text and element.text.strip() else None
+            text = element.text.strip() if element.text and element.text.strip() else ""
+            
+            # Try to convert to appropriate Python types
+            text = _convert_value(text)
             
             if result:
-                # Has attributes but no children
+                # Element has attributes but no children
                 if text:
                     result["#text"] = text
             else:
-                # No attributes, no children - return text directly
-                return text if text else ""
+                return text
         
         return result
     
-    # Determine if source is a file path or XML string
-    xml_source_str = str(xml_source)
+    def _convert_value(value: str) -> Union[int, float, bool, str]:
+        """Convert a string value to the appropriate Python type."""
+        if not value:
+            return value
+        
+        # Boolean conversion
+        if value.lower() == "true":
+            return True
+        if value.lower() == "false":
+            return False
+        
+        # Integer conversion
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        
+        # Float conversion
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        
+        return value
     
-    if xml_source_str.strip().startswith("<"):
-        # It's an XML string
-        root = ET.fromstring(xml_source_str)
-    else:
-        # It's a file path
-        tree = ET.parse(xml_source_str)
+    try:
+        tree = ET.parse(file_path)
         root = tree.getroot()
+        
+        return {root.tag: element_to_dict(root)}
     
-    return {root.tag: element_to_dict(root)}
+    except ET.ParseError as e:
+        raise ValueError(f"Invalid XML file: {e}")
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file not found: {file_path}")
 
 
-def parse_xml_config_flat(xml_source: Union[str, Path], separator: str = ".") -> dict:
+def parse_xml_config_from_string(xml_string: str) -> dict:
     """
-    Parse an XML configuration file and return a flat dictionary with dot-notation keys.
+    Parse an XML configuration string and return the settings as a dictionary.
     
     Args:
-        xml_source: Path to an XML file or an XML string.
-        separator: Separator for nested keys (default: '.').
+        xml_string: A string containing XML configuration.
         
     Returns:
-        A flat dictionary with dot-separated keys.
+        A dictionary containing the parsed settings.
     """
+    try:
+        root = ET.fromstring(xml_string)
+        
+        def element_to_dict(element):
+            result = {}
+            if element.attrib:
+                for key, value in element.attrib.items():
+                    result[f"@{key}"] = value
+            
+            children = list(element)
+            if children:
+                child_dict = {}
+                for child in children:
+                    child_data = element_to_dict(child)
+                    tag = child.tag
+                    if tag in child_dict:
+                        if isinstance(child_dict[tag], list):
+                            child_dict[tag].append(child_data)
+                        else:
+                            child_dict[tag] = [child_dict[tag], child_data]
+                    else:
+                        child_dict[tag] = child_data
+                result.update(child_dict)
+            else:
+                text = element.text.strip() if element.text and element.text.strip() else ""
+                if not result:
+                    return text
+                elif text:
+                    result["#text"] = text
+            
+            return result
+        
+        return {root.tag: element_to_dict(root)}
     
-    def flatten(d: Union[dict, str, list], parent_key: str = "") -> dict:
-        items = {}
-        if isinstance(d, dict):
-            for key, value in d.items():
-                new_key = f"{parent_key}{separator}{key}" if parent_key else key
-                if isinstance(value, dict):
-                    items.update(flatten(value, new_key))
-                elif isinstance(value, list):
-                    for i, item in enumerate(value):
-                        items.update(flatten(item, f"{new_key}[{i}]"))
-                else:
-                    items[new_key] = value
-        else:
-            items[parent_key] = d
-        return items
-    
-    nested = parse_xml_config(xml_source)
-    return flatten(nested)
+    except ET.ParseError as e:
+        raise ValueError(f"Invalid XML string: {e}")
 
 
 # Example usage and demonstration
 if __name__ == "__main__":
+    # Create a sample XML config file for testing
     sample_xml = """<?xml version="1.0" encoding="UTF-8"?>
-    <configuration>
+    <config>
         <database>
             <host>localhost</host>
             <port>5432</port>
@@ -126,26 +167,38 @@ if __name__ == "__main__":
             <host>0.0.0.0</host>
             <port>8080</port>
             <debug>true</debug>
+            <workers>4</workers>
         </server>
-        <logging level="INFO">
-            <file>/var/log/myapp.log</file>
-            <format>%(asctime)s - %(levelname)s - %(message)s</format>
+        <logging>
+            <level>INFO</level>
+            <file>app.log</file>
+            <handler type="file">main_handler</handler>
+            <handler type="console">console_handler</handler>
         </logging>
-        <allowed_origins>
-            <origin>http://localhost:3000</origin>
-            <origin>https://example.com</origin>
-            <origin>https://api.example.com</origin>
-        </allowed_origins>
-    </configuration>
+        <allowed_hosts>
+            <host>example.com</host>
+            <host>api.example.com</host>
+            <host>admin.example.com</host>
+        </allowed_hosts>
+    </config>
     """
     
-    # Parse as nested dictionary
-    print("=== Nested Dictionary ===")
-    config = parse_xml_config(sample_xml)
-    import json
-    print(json.dumps(config, indent=2))
+    # Parse from string
+    config = parse_xml_config_from_string(sample_xml)
     
-    print("\n=== Flat Dictionary ===")
-    flat_config = parse_xml_config_flat(sample_xml)
-    for key, value in flat_config.items():
-        print(f"  {key} = {value}")
+    import json
+    print("Parsed Configuration:")
+    print(json.dumps(config, indent=2, default=str))
+    
+    # Demonstrate file-based parsing
+    sample_file = "sample_config.xml"
+    with open(sample_file, "w") as f:
+        f.write(sample_xml)
+    
+    file_config = parse_xml_config(sample_file)
+    print("\nParsed from file:")
+    print(json.dumps(file_config, indent=2, default=str))
+    
+    # Clean up
+    import os
+    os.remove(sample_file)

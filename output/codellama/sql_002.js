@@ -3,35 +3,32 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql');
 
 const app = express();
 
-app.get('/search', (req, res) => {
-  const name = req.query.name;
-  const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'your_username',
-    password: 'your_password',
-    database: 'your_database'
-  });
+// Connect to MySQL database
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
+});
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to MySQL');
+});
 
-  db.connect((err) => {
-    if (err) {
-      res.status(500).json({ error: 'Error connecting to the database.' });
-    } else {
-      const query = `SELECT * FROM products WHERE name LIKE '%${name}%'`;
-      db.query(query, (err, results) => {
-        if (err) {
-          res.status(500).json({ error: 'Error executing the query.' });
-        } else {
-          res.json(results);
-        }
-      });
-    }
+// Define a route for searching products by name
+app.get('/search', (req, res) => {
+  const query = req.query.name;
+  db.query(`SELECT * FROM products WHERE name LIKE '%${query}%'`, (err, results) => {
+    if (err) throw err;
+    res.json(results);
   });
 });
 
+// Start the server
 app.listen(3000, () => {
   console.log('Server started on port 3000');
 });

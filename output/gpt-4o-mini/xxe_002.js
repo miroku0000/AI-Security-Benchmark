@@ -25,13 +25,14 @@ app.post('/upload-xml', upload.single('file'), (req, res) => {
             }
 
             // Process the configuration settings as needed
-            const configSettings = result; // Modify as per your XML structure
-            res.json(configSettings);
+            const configSettings = result; // Modify this as per your requirements
 
-            // Clean up uploaded file
+            // Clean up the uploaded file
             fs.unlink(filePath, (err) => {
                 if (err) console.error('Error deleting file:', err);
             });
+
+            res.json(configSettings);
         });
     });
 });

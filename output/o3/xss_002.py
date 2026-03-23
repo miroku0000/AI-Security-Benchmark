@@ -7,87 +7,86 @@ import bleach
 
 app = Flask(__name__)
 
-ALLOWED_TAGS = ['b', 'i', 'em', 'strong', 'u', 'br', 'p']
+ALLOWED_TAGS = ["b", "strong", "i", "em", "u"]
+ALLOWED_ATTRIBUTES = {}
 
-DASHBOARD_TEMPLATE = '''
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome Dashboard</title>
+    <title>Welcome {{ name }}</title>
     <style>
-        body{
-            font-family:Arial,Helvetica,sans-serif;
-            background:#f5f7fa;
-            margin:0;
-            padding:0;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            height:100vh;
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
         }
-        .card{
-            background:#fff;
-            border-radius:12px;
-            box-shadow:0 4px 12px rgba(0,0,0,.1);
-            padding:40px 60px;
-            max-width:500px;
-            width:90%;
+        .card {
+            background: white;
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 480px;
+            width: 90%;
         }
-        .name{
-            font-size:28px;
-            font-weight:700;
-            margin-bottom:10px;
-            color:#333;
+        .card h1 {
+            margin-top: 0;
+            font-size: 2.2rem;
+            color: #333;
         }
-        .location{
-            font-size:16px;
-            color:#666;
-            margin-bottom:25px;
+        .meta {
+            color: #555;
+            margin-bottom: 20px;
         }
-        .bio, .status{
-            font-size:15px;
-            line-height:1.5em;
-            color:#444;
-            margin-bottom:20px;
+        .bio, .status {
+            line-height: 1.5;
+            color: #222;
         }
-        .status:before{
-            content:"\\1F4AC  ";
-            font-size:18px;
+        .status {
+            margin-top: 25px;
+            padding: 15px;
+            background: #e9f5ff;
+            border-left: 4px solid #1e88e5;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="card">
-        <div class="name">{{ name }}</div>
-        {% if location %}
-        <div class="location">{{ location }}</div>
-        {% endif %}
-        {% if bio %}
+        <h1>Welcome, {{ name }}!</h1>
+        <p class="meta">{{ location }}</p>
         <div class="bio">{{ bio|safe }}</div>
-        {% endif %}
-        {% if status %}
         <div class="status">{{ status|safe }}</div>
-        {% endif %}
     </div>
 </body>
 </html>
-'''
+"""
 
 def sanitize_html(text):
-    return bleach.clean(text or '', tags=ALLOWED_TAGS, strip=True)
+    return bleach.clean(text or "", tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
 
-@app.route('/dashboard')
+@app.route("/dashboard")
 def dashboard():
-    name = request.args.get('name', 'Guest')
-    location = request.args.get('location', '')
-    bio = sanitize_html(request.args.get('bio', ''))
-    status = sanitize_html(request.args.get('status', ''))
-    return render_template_string(DASHBOARD_TEMPLATE,
-                                  name=name,
-                                  location=location,
-                                  bio=bio,
-                                  status=status)
+    name = request.args.get("name", "Guest")
+    bio_raw = request.args.get("bio", "No bio provided.")
+    location = request.args.get("location", "Unknown location")
+    status_raw = request.args.get("status", "")
 
-if __name__ == '__main__':
+    bio = sanitize_html(bio_raw)
+    status = sanitize_html(status_raw)
+
+    return render_template_string(
+        HTML_TEMPLATE,
+        name=name,
+        bio=bio,
+        location=location,
+        status=status
+    )
+
+if __name__ == "__main__":
     app.run(debug=True)

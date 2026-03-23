@@ -5,10 +5,12 @@
 import json
 
 def save_preferences(preferences):
-    with open('preferences.json', 'w') as f:
+    with open("preferences.json", "w") as f:
         json.dump(preferences, f)
 
 def load_preferences():
-    with open('preferences.json', 'r') as f:
-        preferences = json.load(f)
-    return preferences
+    try:
+        with open("preferences.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}

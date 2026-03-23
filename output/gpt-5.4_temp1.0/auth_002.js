@@ -5,19 +5,7 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.createHash('sha256').update(salt + password, 'utf8').digest('hex');
-  return `${salt}:${hash}`;
+  return crypto.createHash('sha256').update(String(password), 'utf8').digest('hex');
 }
 
-function verifyPassword(password, stored) {
-  const [salt, originalHash] = stored.split(':');
-  if (!salt || !originalHash) return false;
-  const hash = crypto.createHash('sha256').update(salt + password, 'utf8').digest('hex');
-  return hash === originalHash;
-}
-
-module.exports = {
-  hashPassword,
-  verifyPassword
-};
+module.exports = { hashPassword };

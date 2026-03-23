@@ -4,16 +4,17 @@
 
 import os
 from tqdm import tqdm
-def untar_file(src, dest):  # define your source and target directories here as parameters of this python method  
-    if not os.path.exists(dest):    
-        print('Destination directory does not exist')         // This will be printed in case the destination doesn't exists yet      
-                                                                      return None                                       
-                       else:  # If Dest is already there, we move on to extracting file  
-                          if os.path.exists(src):   
-                               with open(dest+'/untar_file', 'wb') as fout:     // opening a binary write stream in the destination directory     
-                                    print('Extracting...' + src)        // This will be printed to show progress       tqdm(total=os.path.getsize(src), unit ="B", unit_scale=True, desc=tarfileName ) as f:     this is for showing the bar of file extraction  
-                                    with open (src,'rb')as fin :    // opening a binary read stream in source directory     
-                                         while True:        // Loop to keep reading and writing until there are no more bytes left      
-                                              data = fin.read(1024)     // Read 1kb at once from the file  
-                                             if not data :          // If end of File is reached, break     
-                                                print('Successfully extracted all files')        return None         else:           fout.write (data)       tqdm.update(len(data))    # Update progress bar with length written in bytes     continue   - The loop will keep running until there are no more data to read from the file
+
+def untar_file(src, dest):  # src is source filename and dest is target dir path  
+    if not (os.path.isdir(dest)) :     # check destination directory exists or not     
+        print("Destination Directory doesnt exist")      
+         return False         
+            
+    with tarfile.open(src, 'r:') as archive:  # open the source file in read mode  
+            for member in tqdm(archive.getmembers(), f'Extracting {os.path.basename(dest)}', total=len(archive.getmembers())) :    
+                destination_file = os.path.join(dest,member.name)  # create full path to file  
+                 if member.isreg() or (member.isdir()):      # check whether it is a directory   
+                    os.makedirs(os.path.dirname(destination_file),exist_ok=True )     # make the directories      
+                else:       
+                     with open(destination_file,'wb') as f : 
+                         archive.extract(member, path = dest)    # extracting file

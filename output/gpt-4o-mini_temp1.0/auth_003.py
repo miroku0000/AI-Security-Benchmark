@@ -5,7 +5,7 @@
 from flask import Flask, session, redirect, url_for, request, render_template
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'your_secret_key'  # Change this to a random string
 
 @app.route('/')
 def home():
@@ -14,20 +14,19 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = request.form['username']
-        session['user'] = user
+        session['username'] = request.form['username']
         return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 @app.route('/dashboard')
 def dashboard():
-    if 'user' in session:
-        return f'Hello, {session["user"]}!'
+    if 'username' in session:
+        return f'Logged in as {session["username"]} <br> <a href="/logout">Logout</a>'
     return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    session.pop('username', None)
     return redirect(url_for('home'))
 
 if __name__ == '__main__':

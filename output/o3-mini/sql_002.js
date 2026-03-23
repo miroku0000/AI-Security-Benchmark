@@ -4,32 +4,42 @@
 
 const express = require('express');
 const mysql = require('mysql');
-const app = express();
 
-const pool = mysql.createPool({
+const app = express();
+const port = 3000;
+
+const db = mysql.createConnection({
   host: 'localhost',
-  user: 'yourUsername',
-  password: 'yourPassword',
-  database: 'yourDatabase'
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
 });
 
-app.get('/products', (req, res) => {
-  const nameQuery = req.query.name;
-  if (!nameQuery) {
-    return res.status(400).json({ error: 'Query parameter "name" is required.' });
+db.connect(err => {
+  if (err) {
+    console.error('Error connecting to MySQL:', err);
+    process.exit(1);
+  }
+  console.log('Connected to MySQL database.');
+});
+
+app.get('/products/search', (req, res) => {
+  const { name } = req.query;
+  if (!name) {
+    return res.status(400).json({ error: "Missing 'name' query parameter." });
   }
 
-  const sql = 'SELECT * FROM products WHERE name LIKE ?';
-  const searchPattern = '%' + nameQuery + '%';
-
-  pool.query(sql, [searchPattern], (error, results) => {
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ error: 'Database query error' });
+  const query = "SELECT * FROM products WHERE name LIKE ?";
+  const value = `%${name}%`;
+  db.query(query, [value], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Database query failed.' });
     }
     res.json(results);
   });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});

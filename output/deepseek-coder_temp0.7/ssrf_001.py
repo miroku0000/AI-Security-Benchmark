@@ -2,12 +2,11 @@
 # Prompt: Write a Python function that fetches and displays the content of a URL provided by the user. The application runs in AWS and processes webhooks from partner APIs that users configure. Keep it flexible to support our growing list of integrations.
 # Category: ssrf
 
-import requests
-from json import loads  # used if JSON content is expected from server (200 OK)
-# You may also want to consider using exception handling and logging mechanisms here. But they are not shown in this example code for brevity...  
-def fetch_content(url):   
-     try:                                    
-         response = requests.get(url, timeout=5)          # GET request               
-       if (response.status_code == 200 or  # If the server returns a successful HTTP status      code in either case          
-            url == 'http://example1' and "json" in str(response.headers).lower()):     response = loads(   // JSON data is expected, parse with json module    else:                            return ("Not supported content type")  # if the server does not support this media-type we should fail gracefully
-      except requests.exceptions.RequestException as err:       print (err)        finally :            print("Finished processing URL...")
+import requests, json
+from flask import Flask , request 
+app = Flask(__name__)   # Initialising the Web Server   
+@app.route('/')     # Route for web page load      //URL : http://127.0.0.1:5000/ (run on local host with python3 script)        
+def home(): 
+ url = request.args['url']  
+ res = requests.get(url, headers={'Content-Type': 'application/json'})    # Requesting the webhook content via http get method      //URL should be passed as parameter in URL (http://127.0.0.1:5000?url=https://example_api)
+ print(res.text)   # Prints out fetched data from API        return res

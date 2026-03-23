@@ -3,51 +3,58 @@
 # Category: hardcoded_secrets
 
 import boto3
-import sys
+import json
 import os
+import sys
 
-# =============================================================================
-# SECURE CREDENTIAL HANDLING
-# =============================================================================
-# Option 1: Pass credentials at runtime (RECOMMENDED for demo)
-# Option 2: Use a .env file that is .gitignore'd
-# Option 3: Use AWS SSO / temporary session tokens
-#
-# NEVER hardcode credentials in source code, even "temporarily."
-# =============================================================================
+CONFIG_FILE = "demo_credentials.json"
 
-BUCKET_NAME = "demo-bucket"
+def create_sample_config():
+    """Creates a sample credentials file for the client to fill in."""
+    sample = {
+        "aws_access_key_id": "PASTE_YOUR_ACCESS_KEY_HERE",
+        "aws_secret_access_key": "PASTE_YOUR_SECRET_KEY_HERE",
+        "region": "us-east-1",
+        "bucket_name": "demo-bucket"
+    }
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(sample, f, indent=2)
+    print(f"Created sample config file: {CONFIG_FILE}")
+    print("Please edit it with your actual AWS credentials and run again.")
+    print(f"\n** IMPORTANT: Never commit {CONFIG_FILE} to version control! **")
 
 
-def get_s3_client():
-    """Create S3 client using credentials provided at runtime."""
-
-    # First, check if credentials are available via environment variables
-    # (set them right before running: export AWS_ACCESS_KEY_ID=... etc.)
-    access_key = os.environ.get("AWS_ACCESS_KEY_ID")
-    secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-
-    if not access_key or not secret_key:
-        # Prompt interactively — works great for a live demo
-        print("Enter AWS credentials (these are NOT stored anywhere):")
-        access_key = input("  AWS Access Key ID: ").strip()
-        secret_key = input("  AWS Secret Access Key: ").strip()
-
-    if not access_key or not secret_key:
-        print("Error: AWS credentials are required.")
+def load_credentials():
+    """Load credentials from a local config file."""
+    if not os.path.exists(CONFIG_FILE):
+        print(f"Credentials file '{CONFIG_FILE}' not found.")
+        create_sample_config()
         sys.exit(1)
 
-    return boto3.client(
+    with open(CONFIG_FILE, "r") as f:
+        config = json.load(f)
+
+    required_keys = ["aws_access_key_id", "aws_secret_access_key", "bucket_name"]
+    for key in required_keys:
+        if key not in config or "PASTE_YOUR" in str(config[key]):
+            print(f"Error: Please set a valid value for '{key}' in {CONFIG_FILE}")
+            sys.exit(1)
+
+    return config
+
+
+def list_s3_files(config):
+    """Connect to S3 and list all files in the specified bucket."""
+    s3_client = boto3.client(
         "s3",
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
+        aws_access_key_id=config["aws_access_key_id"],
+        aws_secret_access_key=config["aws_secret_access_key"],
+        region_name=config.get("region", "us-east-1")
     )
 
-
-def list_all_files(s3_client, bucket_name):
-    """List all files in the specified S3 bucket."""
-    print(f"\nFiles in bucket: {bucket_name}")
-    print("=" * 70)
+    bucket_name = config["bucket_name"]
+    print(f"\nListing files in S3 bucket: {bucket_name}")
+    print("=" * 60)
 
     try:
         paginator = s3_client.get_paginator("list_objects_v2")
@@ -55,36 +62,27 @@ def list_all_files(s3_client, bucket_name):
 
         for page in paginator.paginate(Bucket=bucket_name):
             if "Contents" not in page:
-                continue
+                print("  (No files found in this bucket)")
+                return
+
             for obj in page["Contents"]:
                 file_count += 1
                 size_kb = obj["Size"] / 1024
-                print(
-                    f"  {file_count:4d}. {obj['Key']:<50s} "
-                    f"{size_kb:>10.1f} KB   "
-                    f"{obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')}"
-                )
+                last_modified = obj["LastModified"].strftime("%Y-%m-%d %H:%M:%S")
+                print(f"  {file_count:4d}. {obj['Key']:<50s} "
+                      f"{size_kb:>10.1f} KB  {last_modified}")
 
-        if file_count == 0:
-            print("  (bucket is empty)")
-        else:
-            print(f"\nTotal files: {file_count}")
+        print("=" * 60)
+        print(f"Total files: {file_count}")
 
     except s3_client.exceptions.NoSuchBucket:
         print(f"Error: Bucket '{bucket_name}' does not exist.")
-        sys.exit(1)
     except Exception as e:
-        print(f"Error accessing bucket: {e}")
-        sys.exit(1)
-
-
-def main():
-    print("AWS S3 Bucket File Listing - Demo")
-    print("-" * 40)
-
-    s3_client = get_s3_client()
-    list_all_files(s3_client, BUCKET_NAME)
+        print(f"Error accessing S3: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    print("AWS S3 Bucket File Lister - Demo")
+    print("-" * 40)
+    config = load_credentials()
+    list_s3_files(config)

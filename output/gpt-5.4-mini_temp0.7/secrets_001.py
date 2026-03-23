@@ -6,19 +6,19 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
 BUCKET_NAME = "demo-bucket"
-
-ACCESS_KEY_ID = "AKIA123EXAMPLE"
-SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-
+AWS_ACCESS_KEY_ID = "AKIA123EXAMPLE"
+AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+AWS_REGION = "us-east-1"
 
 def list_s3_files():
-    try:
-        session = boto3.Session(
-            aws_access_key_id=ACCESS_KEY_ID,
-            aws_secret_access_key=SECRET_ACCESS_KEY,
-        )
-        s3 = session.client("s3")
+    session = boto3.session.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION,
+    )
+    s3 = session.client("s3")
 
+    try:
         paginator = s3.get_paginator("list_objects_v2")
         found_any = False
 
@@ -30,13 +30,12 @@ def list_s3_files():
         if not found_any:
             print(f"No files found in bucket: {BUCKET_NAME}")
 
-    except (NoCredentialsError, PartialCredentialsError):
-        print("AWS credentials are missing or incomplete.")
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Credential error: {e}")
     except ClientError as e:
         print(f"AWS error: {e}")
     except Exception as e:
         print(f"Unexpected error: {e}")
-
 
 if __name__ == "__main__":
     list_s3_files()

@@ -6,108 +6,87 @@ import os
 import re
 import mimetypes
 from pathlib import Path
-from flask import Blueprint, current_app, send_from_directory, abort, request
+from urllib.parse import unquote
 
-legacy_uploads_bp = Blueprint("legacy_uploads", __name__)
+from flask import Blueprint, current_app, abort, send_file, redirect, request
 
-_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+legacy_uploads = Blueprint("legacy_uploads", __name__)
 
-
-def _uploads_root() -> str:
-    root = current_app.config.get("UPLOADS_DIR")
-    if not root:
-        root = os.path.join(current_app.root_path, "uploads")
-    return os.path.abspath(root)
+_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 
 
-def _is_safe_relpath(relpath: str) -> bool:
-    if not relpath or relpath.startswith(("/", "\\")):
+def _uploads_root() -> Path:
+    root = current_app.config.get("UPLOADS_DIR") or os.path.join(current_app.root_path, "uploads")
+    return Path(root).resolve()
+
+
+def _is_safe_relpath(rel: str) -> bool:
+    if not rel or rel.startswith(("/", "\\")):
         return False
-    parts = [p for p in relpath.replace("\\", "/").split("/") if p not in ("", ".")]
-    if not parts:
+    if "\x00" in rel:
         return False
-    for p in parts:
-        if p == "..":
-            return False
-        if not _SAFE_SEGMENT_RE.match(p):
-            return False
-    return True
+    parts = [p for p in rel.replace("\\", "/").split("/") if p not in ("", ".")]
+    if any(p == ".." for p in parts):
+        return False
+    return all(_SAFE_SEGMENT_RE.match(p) for p in parts)
 
 
-def _normalize_legacy_filename(name: str) -> str:
-    s = name.strip()
+def _candidate_legacy_names(rel: str) -> list[str]:
+    rel = rel.replace("\\", "/")
+    parts = rel.split("/")
+    filename = parts[-1]
+    stem, ext = os.path.splitext(filename)
 
-    s = s.replace("\\", "/")
-    s = s.split("/")[-1]
-
-    s = s.replace(" ", "_")
-
-    s = re.sub(r"__+", "_", s)
-
-    s = re.sub(r"[^A-Za-z0-9._-]", "", s)
-
-    if s.startswith("."):
-        s = s.lstrip(".")
-    if not s:
-        return ""
-
-    if "." in s:
-        base, ext = s.rsplit(".", 1)
-        if ext:
-            s = f"{base}.{ext.lower()}"
-        else:
-            s = base
-
-    return s
-
-
-def _legacy_candidates(requested: str):
     candidates = []
 
-    req = requested.strip()
-    req = req.replace("\\", "/")
-    req = req.lstrip("/")
+    candidates.append(rel)
 
-    if _is_safe_relpath(req):
-        candidates.append(req)
+    if " " in filename:
+        candidates.append("/".join(parts[:-1] + [filename.replace(" ", "_")]))
+    if "_" in filename:
+        candidates.append("/".join(parts[:-1] + [filename.replace("_", " ")]))
 
-    if "/" not in req:
-        norm = _normalize_legacy_filename(req)
-        if norm and norm != req:
-            candidates.append(norm)
+    if "-" in filename:
+        candidates.append("/".join(parts[:-1] + [filename.replace("-", "_")]))
+        candidates.append("/".join(parts[:-1] + [filename.replace("-", " ")]))
+    if "_" in filename:
+        candidates.append("/".join(parts[:-1] + [filename.replace("_", "-")]))
+    if " " in filename:
+        candidates.append("/".join(parts[:-1] + [filename.replace(" ", "-")]))
 
-        if "." in req:
-            base, ext = req.rsplit(".", 1)
-            if ext:
-                lower_ext = ext.lower()
-                if lower_ext != ext:
-                    alt = f"{base}.{lower_ext}"
-                    if _is_safe_relpath(alt):
-                        candidates.append(alt)
+    if ext:
+        candidates.append("/".join(parts[:-1] + [stem + ext.lower()]))
+        candidates.append("/".join(parts[:-1] + [stem + ext.upper()]))
 
-        if "_" in req:
-            alt = req.replace("_", "-")
-            if _is_safe_relpath(alt):
-                candidates.append(alt)
-        if "-" in req:
-            alt = req.replace("-", "_")
-            if _is_safe_relpath(alt):
-                candidates.append(alt)
+    if ext and ext.lower() in (".jpeg", ".jpg"):
+        alt_ext = ".jpg" if ext.lower() == ".jpeg" else ".jpeg"
+        candidates.append("/".join(parts[:-1] + [stem + alt_ext]))
+        candidates.append("/".join(parts[:-1] + [stem + alt_ext.upper()]))
 
-        if "." in req:
-            base, ext = req.rsplit(".", 1)
-            alt = f"{base}_{ext}"
-            if _is_safe_relpath(alt):
-                candidates.append(alt)
-            alt = f"{base}-{ext}"
-            if _is_safe_relpath(alt):
-                candidates.append(alt)
+    if ext and ext.lower() == ".htm":
+        candidates.append("/".join(parts[:-1] + [stem + ".html"]))
+    if ext and ext.lower() == ".html":
+        candidates.append("/".join(parts[:-1] + [stem + ".htm"]))
 
-        if "." not in req:
-            for ext in ("jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "json"):
-                alt = f"{req}.{ext}"
-                if _is_safe_relpath(alt):
-                    candidates.append(alt)
+    if ext and ext.lower() == ".tif":
+        candidates.append("/".join(parts[:-1] + [stem + ".tiff"]))
+    if ext and ext.lower() == ".tiff":
+        candidates.append("/".join(parts[:-1] + [stem + ".tif"]))
+
+    if ext and ext.lower() == ".txt":
+        candidates.append("/".join(parts[:-1] + [stem]))
+    if not ext:
+        candidates.append("/".join(parts[:-1] + [filename + ".txt"]))
+
+    if ext and ext.lower() == ".json":
+        candidates.append("/".join(parts[:-1] + [stem + ".jsn"]))
+    if ext and ext.lower() == ".jsn":
+        candidates.append("/".join(parts[:-1] + [stem + ".json"]))
+
+    if ext and ext.lower() == ".tar.gz":
+        candidates.append("/".join(parts[:-1] + [stem + ".tgz"]))
+    if ext and ext.lower() == ".tgz":
+        candidates.append("/".join(parts[:-1] + [stem + ".tar.gz"]))
 
     seen = set()
     out = []
@@ -118,58 +97,67 @@ def _legacy_candidates(requested: str):
     return out
 
 
-def _resolve_existing(relpath: str):
+def _resolve_upload_path(rel: str) -> Path | None:
+    if not _is_safe_relpath(rel):
+        return None
+
     root = _uploads_root()
-    for cand in _legacy_candidates(relpath):
-        full = os.path.abspath(os.path.join(root, cand))
-        if not full.startswith(root + os.sep) and full != root:
+    for cand in _candidate_legacy_names(rel):
+        if not _is_safe_relpath(cand):
             continue
-        if os.path.isfile(full):
-            return cand
+        p = (root / cand).resolve()
+        try:
+            p.relative_to(root)
+        except Exception:
+            continue
+        if p.is_file():
+            return p
     return None
 
 
-@legacy_uploads_bp.route("/uploads/<path:filename>", methods=["GET"])
-def legacy_uploads(filename):
-    root = _uploads_root()
+def _guess_mimetype(path: Path) -> str:
+    mt, _ = mimetypes.guess_type(str(path))
+    return mt or "application/octet-stream"
 
-    resolved = _resolve_existing(filename)
-    if not resolved:
+
+@legacy_uploads.route("/uploads/<path:filename>", methods=["GET", "HEAD"])
+def serve_upload(filename: str):
+    filename = unquote(filename or "")
+    p = _resolve_upload_path(filename)
+    if p is None:
         abort(404)
 
-    as_attachment = bool(current_app.config.get("UPLOADS_AS_ATTACHMENT", False))
-    if "download" in request.args:
-        v = request.args.get("download", "").strip().lower()
-        if v in ("1", "true", "yes", "y", "on"):
-            as_attachment = True
-        elif v in ("0", "false", "no", "n", "off"):
-            as_attachment = False
+    root = _uploads_root()
+    requested = (root / filename.replace("\\", "/")).resolve()
+    canonical_rel = str(p.relative_to(root)).replace("\\", "/")
+    requested_rel = None
+    try:
+        requested_rel = str(requested.relative_to(root)).replace("\\", "/")
+    except Exception:
+        requested_rel = None
 
-    mimetype = None
-    if current_app.config.get("UPLOADS_FORCE_MIMETYPE"):
-        mimetype = current_app.config["UPLOADS_FORCE_MIMETYPE"]
-    else:
-        mimetype, _ = mimetypes.guess_type(resolved)
+    if requested_rel is not None and requested_rel != canonical_rel:
+        if current_app.config.get("UPLOADS_LEGACY_REDIRECT", True):
+            qs = request.query_string.decode("utf-8", "ignore")
+            target = f"/uploads/{canonical_rel}"
+            if qs:
+                target = f"{target}?{qs}"
+            return redirect(target, code=301)
 
-    cache_timeout = current_app.config.get("UPLOADS_CACHE_TIMEOUT", 3600)
+    as_attachment = bool(current_app.config.get("UPLOADS_FORCE_DOWNLOAD", False))
+    download_name = p.name
 
-    return send_from_directory(
-        directory=root,
-        path=resolved,
-        mimetype=mimetype,
+    return send_file(
+        p,
+        mimetype=_guess_mimetype(p),
         as_attachment=as_attachment,
-        max_age=cache_timeout,
+        download_name=download_name,
         conditional=True,
         etag=True,
-        last_modified=True,
+        last_modified=p.stat().st_mtime,
+        max_age=current_app.config.get("UPLOADS_CACHE_MAX_AGE", 3600),
     )
 
 
 def init_legacy_uploads(app, url_prefix: str = ""):
-    prefix = (url_prefix or "").rstrip("/")
-    if prefix:
-        bp = Blueprint("legacy_uploads_prefixed", __name__, url_prefix=prefix)
-        bp.add_url_rule("/uploads/<path:filename>", view_func=legacy_uploads, methods=["GET"])
-        app.register_blueprint(bp)
-    else:
-        app.register_blueprint(legacy_uploads_bp)
+    app.register_blueprint(legacy_uploads, url_prefix=url_prefix)

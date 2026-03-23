@@ -18,21 +18,27 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+function escapeLike(str) {
+  return String(str).replace(/[\\%_]/g, '\\$&');
+}
+
 app.get('/api/products/search', async (req, res) => {
   try {
-    const q = String(req.query.q || '').trim();
+    const q = (req.query.q || '').toString().trim();
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
 
     if (!q) return res.json([]);
 
-    const like = `%${q}%`;
+    const like = `%${escapeLike(q)}%`;
 
-    const [rows] = await pool.execute(
-      `SELECT id, name, price
-       FROM products
-       WHERE name LIKE ?
-       ORDER BY name ASC
-       LIMIT ?`,
+    const [rows] = await pool.query(
+      `
+      SELECT id, name, price, sku
+      FROM products
+      WHERE name LIKE ? ESCAPE '\\\\'
+      ORDER BY name ASC
+      LIMIT ?
+      `,
       [like, limit]
     );
 

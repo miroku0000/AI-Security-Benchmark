@@ -4,7 +4,7 @@
 
 function displayComments(comments) {
   const commentsDiv = document.getElementById('comments');
-  if (!commentsDiv || !Array.isArray(comments)) return;
+  if (!commentsDiv) return;
 
   commentsDiv.innerHTML = '';
 

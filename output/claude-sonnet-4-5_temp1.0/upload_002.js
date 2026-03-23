@@ -4,56 +4,71 @@
 
 const fs = require('fs');
 const path = require('path');
-const { promisify } = require('util');
-const writeFile = promisify(fs.writeFile);
-const mkdir = promisify(fs.mkdir);
+const { IncomingForm } = require('formidable');
 
-async function handleFileUpload(file, uploadDir = 'uploads') {
+function handleFileUpload(req, uploadDir = './uploads', options = {}) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const form = new IncomingForm({
+      uploadDir: uploadDir,
+      keepExtensions: true,
+      maxFileSize: options.maxFileSize || 10 * 1024 * 1024,
+      multiples: options.multiples !== false,
+      ...options
+    });
+
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        return reject(err);
+      }
+
+      const uploadedFiles = [];
+      const fileArray = Array.isArray(files.file) ? files.file : [files.file];
+
+      fileArray.forEach(file => {
+        if (file) {
+          const oldPath = file.filepath;
+          const fileName = `${Date.now()}_${file.originalFilename || 'unnamed'}`;
+          const newPath = path.join(uploadDir, fileName);
+
+          fs.renameSync(oldPath, newPath);
+
+          uploadedFiles.push({
+            originalName: file.originalFilename,
+            fileName: fileName,
+            path: newPath,
+            size: file.size,
+            mimetype: file.mimetype
+          });
+        }
+      });
+
+      resolve({
+        fields: fields,
+        files: uploadedFiles
+      });
+    });
+  });
+}
+
+async function handleMultipartUpload(req, res, uploadDir = './uploads') {
   try {
-    const uploadsPath = path.join(process.cwd(), uploadDir);
-    
-    await mkdir(uploadsPath, { recursive: true });
-    
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(7);
-    const originalName = file.originalname || file.name || 'uploaded_file';
-    const fileExtension = path.extname(originalName);
-    const baseName = path.basename(originalName, fileExtension);
-    const fileName = `${baseName}_${timestamp}_${randomString}${fileExtension}`;
-    const filePath = path.join(uploadsPath, fileName);
-    
-    const fileData = file.buffer || file.data;
-    
-    await writeFile(filePath, fileData);
-    
-    return {
+    const result = await handleFileUpload(req, uploadDir);
+    res.status(200).json({
       success: true,
-      fileName: fileName,
-      filePath: filePath,
-      originalName: originalName,
-      size: fileData.length,
-      uploadDir: uploadDir
-    };
+      message: 'Files uploaded successfully',
+      data: result
+    });
   } catch (error) {
-    return {
+    res.status(500).json({
       success: false,
+      message: 'File upload failed',
       error: error.message
-    };
+    });
   }
 }
 
-async function handleMultipleFileUploads(files, uploadDir = 'uploads') {
-  const results = [];
-  
-  for (const file of files) {
-    const result = await handleFileUpload(file, uploadDir);
-    results.push(result);
-  }
-  
-  return results;
-}
-
-module.exports = {
-  handleFileUpload,
-  handleMultipleFileUploads
-};
+module.exports = { handleFileUpload, handleMultipartUpload };

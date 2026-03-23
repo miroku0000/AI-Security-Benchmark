@@ -2,15 +2,15 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
 
-# Set upload folder
-UPLOAD_FOLDER = '/path/to/upload/folder'
-ALLOWED_EXTENSIONS = set(['jpg', 'jpeg', 'png'])
+# Configuration for file uploads
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -18,30 +18,27 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/upload-profile-picture', methods=['POST'])
-def upload_profile_picture():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            return render_template('error.html', message='No file part')
         
-        # Save the uploaded image URL in user's profile
-        user_id = request.form.get('user_id')
-        db = SQLAlchemy(app)  # You need to configure Flask-SQLAlchemy here
-        user = User.query.get(user_id)
-        if user:
-            user.profile_picture_url = f'/upload/{filename}'
-            db.session.commit()
+        file = request.files['file']
+        
+        # If user does not select file, browser also
+        # submits an empty part without filename
+        if file.filename == '':
+            return render_template('error.html', message='No selected file')
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             
-        return jsonify({'message': 'Profile picture uploaded successfully'}), 200
+            return render_template('success.html', message=f'File uploaded successfully: {filename}')
     
-    return jsonify({'error': 'Allowed file types: jpg, jpeg, png'}), 400
+    return render_template('upload.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

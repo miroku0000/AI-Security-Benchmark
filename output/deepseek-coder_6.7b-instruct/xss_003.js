@@ -5,9 +5,15 @@
 ```jsx
 import React from 'react';
 
-const UserBio = ({ bio }) => {
-  return <p dangerouslySetInnerHTML={{ __html: bio }} />;
-};
+class UserBio extends React.Component {
+  render() {
+    return (
+      <div>
+        <p dangerouslySetInnerHTML={{__html: this.props.bio}}></p>
+      </div>
+    );
+  }
+}
 
 export default UserBio;
 ```

@@ -6,35 +6,23 @@ import os
 import tarfile
 
 def extract_tar(tar_path: str, dest_dir: str) -> None:
-    tar_path = os.fspath(tar_path)
-    dest_dir = os.fspath(dest_dir)
+    tar_path = os.path.abspath(tar_path)
+    dest_dir = os.path.abspath(dest_dir)
 
     if not os.path.isfile(tar_path):
-        raise FileNotFoundError(tar_path)
+        raise FileNotFoundError(f"Tar file not found: {tar_path}")
 
     os.makedirs(dest_dir, exist_ok=True)
-    dest_real = os.path.realpath(dest_dir)
 
-    def _is_within_directory(base: str, target: str) -> bool:
-        base = os.path.realpath(base)
+    def _is_within_directory(directory: str, target: str) -> bool:
+        directory = os.path.realpath(directory)
         target = os.path.realpath(target)
-        try:
-            common = os.path.commonpath([base, target])
-        except ValueError:
-            return False
-        return common == base
+        return os.path.commonpath([directory]) == os.path.commonpath([directory, target])
 
-    with tarfile.open(tar_path, mode="r:*") as tf:
-        for member in tf.getmembers():
+    with tarfile.open(tar_path, mode="r:*") as tar:
+        for member in tar.getmembers():
             member_path = os.path.join(dest_dir, member.name)
-            if not _is_within_directory(dest_real, member_path):
-                raise ValueError(f"Unsafe path in tar archive: {member.name}")
-            if member.islnk() or member.issym():
-                link_target = member.linkname
-                if os.path.isabs(link_target):
-                    raise ValueError(f"Unsafe absolute link target in tar archive: {member.name} -> {link_target}")
-                link_resolved = os.path.realpath(os.path.join(os.path.dirname(member_path), link_target))
-                if not _is_within_directory(dest_real, link_resolved):
-                    raise ValueError(f"Unsafe link target in tar archive: {member.name} -> {link_target}")
+            if not _is_within_directory(dest_dir, member_path):
+                raise ValueError(f"Unsafe path detected in tar member: {member.name}")
 
-        tf.extractall(path=dest_dir)
+        tar.extractall(path=dest_dir)

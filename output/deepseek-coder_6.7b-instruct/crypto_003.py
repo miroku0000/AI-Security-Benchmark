@@ -7,6 +7,6 @@ import hashlib
 def create_file_hash(filename, algorithm='sha256'):
     with open(filename, 'rb') as f:
         file_hash = hashlib.new(algorithm)
-        while chunk := f.read(8192):  # Read in chunks of 8KB for efficiency
+        while chunk := f.read(8192):
             file_hash.update(chunk)
     return file_hash.hexdigest()

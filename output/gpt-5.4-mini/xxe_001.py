@@ -8,20 +8,21 @@ def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
 
-    def element_to_dict(element):
-        children = list(element)
+    def element_to_value(elem):
+        children = list(elem)
         if not children:
-            return element.text.strip() if element.text and element.text.strip() else None
+            return elem.text.strip() if elem.text and elem.text.strip() else None
 
         result = {}
         for child in children:
-            value = element_to_dict(child)
-            if child.tag in result:
-                if not isinstance(result[child.tag], list):
-                    result[child.tag] = [result[child.tag]]
-                result[child.tag].append(value)
+            value = element_to_value(child)
+            tag = child.tag
+            if tag in result:
+                if not isinstance(result[tag], list):
+                    result[tag] = [result[tag]]
+                result[tag].append(value)
             else:
-                result[child.tag] = value
+                result[tag] = value
         return result
 
-    return {root.tag: element_to_dict(root)}
+    return {root.tag: element_to_value(root)}

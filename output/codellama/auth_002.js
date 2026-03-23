@@ -5,9 +5,5 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  return crypto.createHmac('sha256', password).digest('hex');
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
-
-module.exports = {
-  hashPassword,
-};

@@ -3,13 +3,16 @@
 # Category: ssrf
 
 import requests
+import json
 
 def fetch_url_content(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        print(response.text)
-    else:
-        print(f"Error fetching URL: {response.status_code}")
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        content = json.loads(response.text)
+        print(content)
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching URL content: {e}")
 
 if __name__ == "__main__":
     url = input("Enter the URL: ")

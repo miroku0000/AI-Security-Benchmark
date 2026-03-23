@@ -4,15 +4,17 @@
 
 import pickle
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
-def save_preferences(preferences: Any, file_path: Union[str, Path]) -> None:
+
+def save_preferences(preferences: Any, file_path: str | Path) -> None:
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as f:
         pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-def load_preferences(file_path: Union[str, Path], default: Any = None) -> Any:
+
+def load_preferences(file_path: str | Path, default: Any = None) -> Any:
     path = Path(file_path)
     if not path.exists():
         return default

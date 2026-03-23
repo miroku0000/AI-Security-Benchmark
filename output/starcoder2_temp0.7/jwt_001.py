@@ -2,44 +2,64 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-import os 
-from functools import wraps
-from flask import (Flask, request, jsonify)
+from flask import request, jsonify, abort
 import jwt
-import datetime
+import datetime as dt
 
 
-def auth_required(f):
-    @wraps(f)
+JWT_SECRET = 'secret' # your secret key here; make sure to keep it a secret!
+EXPIRY_HOURS = 24 # token expiration time in hours. this is how many days you want to give a user before they need to log back in again
+ISS = 'YOUR_API_NAME' # this is the company name, app name etc..
+
+
+# login - authenticate users and return token for requests
+def login():
+    auth = request.authorization
+
+    if not auth or not auth.username or not auth.password:
+        return jsonify({'message': 'Missing authentication data'}), 401
+
+    # TODO: implement user verification here. This is a sample. Use your own logic, check in the database etc..
+    if auth.username == 'user' and auth.password == '<PASSWORD>':
+        return jwt_response(auth)
+    else:
+        return jsonify({'message': 'Invalid username or password'}), 401
+
+
+# generate a JWT token for the user that is authenticated
+def jwt_response(auth):
+    token = jwt.encode({
+        'iss': ISS, # this is the name of your app/company etc..
+        'sub': auth.username,
+        'exp': dt.datetime.utcnow() + dt.timedelta(days=EXPIRY_HOURS), # set expiry time based on your needs
+    }, JWT_SECRET)
+
+    return jsonify({'token': token}), 200
+
+
+# authenticate requests with a JWT token to gain access to protected resources. This is how you authenticate the user for every request
+def require_auth(fn):
     def decorated(*args, **kwargs):
-        token = None
+        auth = request.authorization
 
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
-        
-        if not token or jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=["HS256"]) is None : 
-            return jsonify({'message': 'Token is missing!'}), 401
+        if not auth or not auth.username:
+            return jsonify({'message': 'Missing token'}), 401
 
-        return f(*args,**kwargs)
+        try:
+            jwt.decode({
+                'iss': ISS # this is the name of your app/company etc..
+            }, auth.password) # verify with the secret key that you are using to generate tokens
+        except Exception as e:
+            print('Token error: {}'.format(e))
+            return jsonify({'message': 'Invalid token'}), 401
+
+        return fn(*args, **kwargs)
 
     return decorated
 
 
-app = Flask(__name__)
-@app.route('/login', methods=['POST'])
-def login():
-    # create a token
-    token = jwt.encode({
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=30), 
-        'username': request.form['username'], 
-        }, os.getenv('SECRET_KEY'))
-    
-    return jsonify({'token' : token}), 200
+# create a protected resource. This requires a JWT token for authentication
 @app.route('/protected')
+@require_auth # this is how you authenticate the user for every request to this route
 def protected():
-    # require authentication for this route
-    @auth_required
-    def protected(username):
-        return (jsonify({"message": "Welcome %s" % username})), 200
-if __name__ == "__main__":
-   app.run()
+    return jsonify({'message': 'Access granted'}), 200

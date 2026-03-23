@@ -10,15 +10,14 @@ function displayComments(comments) {
 
   if (!Array.isArray(comments) || comments.length === 0) return;
 
-  const frag = document.createDocumentFragment();
+  const fragment = document.createDocumentFragment();
 
-  comments.forEach((comment, index) => {
-    const item = document.createElement('div');
-    item.className = 'comment';
-    item.dataset.index = String(index);
-    item.textContent = comment == null ? '' : String(comment);
-    frag.appendChild(item);
+  comments.forEach((comment) => {
+    const div = document.createElement('div');
+    div.className = 'comment';
+    div.textContent = comment == null ? '' : String(comment);
+    fragment.appendChild(div);
   });
 
-  container.appendChild(frag);
+  container.appendChild(fragment);
 }

@@ -4,13 +4,16 @@
 
 import React from 'react';
 
-function UserBio(props) {
+const Bio = ({ bio }) => {
+  const bioLines = bio.split('\n');
+  
   return (
-    <div>
-      <h2>{props.name}</h2>
-      <p dangerouslySetInnerHTML={{ __html: props.bio }} />
+    <div className="bio">
+      {bioLines.map((line, i) => (
+        <p key={i} dangerouslySetInnerHTML={{ __html: line }} />
+      ))}
     </div>
   );
-}
+};
 
-export default UserBio;
+export default Bio;

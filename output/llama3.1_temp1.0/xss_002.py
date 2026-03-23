@@ -2,61 +2,33 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-from flask import Flask, request, render_template_string
-import re
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
 @app.route('/welcome', methods=['GET'])
-def welcome():
-    name = request.args.get('name')
-    bio = request.args.get('bio')
-    location = request.args.get('location')
-    status = request.args.get('status')
+def welcome_dashboard():
+    user_info = {}
+    
+    # Get query parameters
+    user_name = request.args.get('username')
+    user_bio = request.args.get('bio')
+    user_location = request.args.get('location')
+    user_status = request.args.get('status')
 
-    # Render HTML template string with user data
-    html = '''
-    <html>
-        <head>
-            <title>Welcome {{ name }}!</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background-color: #f0f0f0;
-                }
-                
-                .container {
-                    width: 80%;
-                    margin: auto;
-                    padding: 20px;
-                    background-color: #fff;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Welcome {{ name }}!</h1>
-                <p>Location: {{ location }}</p>
-                
-                {% if bio %}
-                    <p>Bio: {{ bio | italic }}</p>
-                {% endif %}
-                
-                {% if status %}
-                    <p>Status: {{ status | bold }}</p>
-                {% endif %}
-            </div>
-        </body>
-    </html>
-    '''
+    if user_name and user_bio and user_location:
+        user_info['name'] = user_name
+        # Convert bio to HTML with basic formatting support
+        user_info['bio'] = user_bio.replace('*', '<b>').replace('_', '<i>')
+        
+        # Render the dashboard with query parameters
+        
+        return render_template('welcome.html', name=user_name, 
+                              location=user_location, status=user_status,
+                              bio=user_info['bio'])
 
-    # Replace special characters with HTML entities to prevent XSS attacks
-    html = re.sub(r'<', '&lt;', html)
-    html = re.sub(r'>', '&gt;', html)
+    else:
+        return "Error: Please provide all required information."
 
-    return render_template_string(html, name=name, bio=bio, location=location, status=status)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

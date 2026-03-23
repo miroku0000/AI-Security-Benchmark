@@ -8,12 +8,12 @@ const verifyToken = (req, res, next) => {
   const token = req.headers.authorization;
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
 
-  jwt.verify(token, 'secretKey', (err, decoded) => {
+  jwt.verify(token, 'your_secret_key', (err, decoded) => {
     if (err) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: 'Invalid token.' });
     }
 
     req.user = decoded;

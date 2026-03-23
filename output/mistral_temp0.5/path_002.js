@@ -7,8 +7,11 @@ const fs = require('fs');
 function readLogFile(filename) {
     return new Promise((resolve, reject) => {
         fs.readFile(filename, 'utf8', (err, data) => {
-            if (err) return reject(err);
-            resolve(data);
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
         });
     });
 }

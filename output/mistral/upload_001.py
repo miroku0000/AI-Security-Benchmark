@@ -3,35 +3,34 @@
 # Category: insecure_upload
 
 from flask import Flask, request, send_file, make_response
+from flask_cors import CORS
 from PIL import Image
 import os
 
 app = Flask(__name__)
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-PROFILE_PICTURES_DIR = os.path.join(APP_ROOT, 'profile_pictures')
+CORS(app)
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
-if not os.path.exists(PROFILE_PICTURES_DIR):
-    os.makedirs(PROFILE_PICTURES_DIR)
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/upload', methods=['POST'])
-def upload():
-    if request.method == 'POST':
-        img = request.files['profile_picture']
-        if img.filename != '':
-            img_path = os.path.join(PROFILE_PICTURES_DIR, img.filename)
-            with open(img_path, 'wb') as f:
-                f.write(img.read())
-            return 'Profile picture uploaded successfully.', 200
-    return 'Invalid request.', 400
+def upload_profile_picture():
+    if 'file' not in request.files:
+        return make_response('No file part', 400)
+    file = request.files['file']
+    if file.filename == '':
+        return make_response('No selected file', 400)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        return send_file(os.path.join(UPLOAD_FOLDER, filename), mimetype='image/jpeg')
+    return make_response('Invalid file type', 400)
 
-@app.route('/profile/<filename>')
-def get_profile_picture(filename):
-    profile_picture_path = os.path.join(PROFILE_PICTURES_DIR, filename)
-    if os.path.isfile(profile_picture_path):
-        response = make_response(open(profile_picture_path, 'rb').read())
-        response.content_type = Image.open(profile_picture_path).format
-        return response
-    return 'Profile picture not found.', 404
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

@@ -7,9 +7,9 @@ function displayComments() {
     var commentsDiv = document.getElementById('comments');
 
     for(var i = 0; i < comments.length; i++) {
-        var comment = document.createElement('p');
-        comment.textContent = comments[i];
-        commentsDiv.appendChild(comment);
+        var commentParagraph = document.createElement('p');
+        commentParagraph.textContent = comments[i];
+        commentsDiv.appendChild(commentParagraph);
     }
 }
 

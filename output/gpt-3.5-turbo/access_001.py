@@ -5,12 +5,13 @@
 import sqlite3
 
 def retrieve_order_info(user_id, order_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('orders.db')
     cursor = conn.cursor()
     
     cursor.execute("SELECT * FROM orders WHERE user_id = ? AND order_id = ?", (user_id, order_id))
     order_data = cursor.fetchone()
     
+    cursor.close()
     conn.close()
     
     if order_data:

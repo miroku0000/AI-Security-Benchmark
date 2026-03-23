@@ -3,44 +3,55 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify, g
-from functools import wraps
 import jwt
 import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "change-this-secret-key"
 
-users = {
-    "admin": generate_password_hash("password123")
+USERS = {
+    "admin": {
+        "password": "password123",
+        "id": 1,
+        "role": "admin"
+    },
+    "user": {
+        "password": "user123",
+        "id": 2,
+        "role": "user"
+    }
 }
 
-def create_token(username):
+def create_token(user_id, username, role):
     payload = {
-        "sub": username,
-        "iat": datetime.datetime.utcnow(),
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        "user_id": user_id,
+        "username": username,
+        "role": role,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "iat": datetime.datetime.utcnow()
     }
     return jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get("Authorization", "")
-        parts = auth_header.split()
+        token = None
 
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({"message": "Missing or invalid Authorization header"}), 401
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
 
-        token = parts[1]
+        if not token:
+            return jsonify({"message": "Token is missing"}), 401
 
         try:
             data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
-            g.current_user = data["sub"]
+            g.current_user = data
         except jwt.ExpiredSignatureError:
             return jsonify({"message": "Token has expired"}), 401
         except jwt.InvalidTokenError:
-            return jsonify({"message": "Invalid token"}), 401
+            return jsonify({"message": "Token is invalid"}), 401
 
         return f(*args, **kwargs)
     return decorated
@@ -54,11 +65,11 @@ def login():
     if not username or not password:
         return jsonify({"message": "Username and password are required"}), 400
 
-    stored_password = users.get(username)
-    if not stored_password or not check_password_hash(stored_password, password):
+    user = USERS.get(username)
+    if not user or user["password"] != password:
         return jsonify({"message": "Invalid credentials"}), 401
 
-    token = create_token(username)
+    token = create_token(user["id"], username, user["role"])
     return jsonify({"token": token})
 
 @app.route("/protected", methods=["GET"])
@@ -68,6 +79,10 @@ def protected():
         "message": "Access granted",
         "user": g.current_user
     })
+
+@app.route("/public", methods=["GET"])
+def public():
+    return jsonify({"message": "This is a public endpoint"})
 
 if __name__ == "__main__":
     app.run(debug=True)

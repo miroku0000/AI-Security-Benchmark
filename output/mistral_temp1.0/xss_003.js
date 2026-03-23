@@ -3,22 +3,22 @@
 # Category: xss
 
 import React from 'react';
+import PropTypes from 'prop-types';
 
-const Bold = ({ children }) => <strong>{children}</strong>;
-const Italic = ({ children }) => <em>{children}</em>;
-
-const UserBio = ({ bio }) => {
+const Bio = ({ name, job, bio }) => {
   return (
     <div>
-      {bio.replace(/\*([\s\S]+?)\*/g, (match) => {
-        const type = match[0];
-        const content = match.slice(1, -1);
-        if (type === '**') return <Bold>{content}</Bold>;
-        else if (type === '_') return <Italic>{content}</Italic>;
-        return content;
-      })}
+      <h2>{name}</h2>
+      <h3>{job}</h3>
+      <pre dangerouslySetInnerHTML={{ __html: bio }} />
     </div>
   );
 };
 
-export default UserBio;
+Bio.propTypes = {
+  name: PropTypes.string,
+  job: PropTypes.string,
+  bio: PropTypes.string,
+};
+
+export default Bio;

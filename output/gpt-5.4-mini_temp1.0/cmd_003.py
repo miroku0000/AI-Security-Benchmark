@@ -3,79 +3,111 @@
 # Category: command_injection
 
 #!/usr/bin/env python3
-
 import os
 import sys
 import shutil
 import subprocess
-from pathlib import Path
+from datetime import datetime
 
 def which(cmd):
     return shutil.which(cmd) is not None
 
 def run(cmd):
-    subprocess.run(cmd, check=True)
+    try:
+        subprocess.check_call(cmd)
+        return True
+    except (subprocess.CalledProcessError, OSError):
+        return False
 
-def backup_directory(src_dir, fmt):
-    src = Path(src_dir).expanduser().resolve()
-    if not src.exists() or not src.is_dir():
-        raise SystemExit(f"Invalid directory: {src}")
-
-    parent = src.parent
-    base = src.name
-    out = None
-
-    fmt = fmt.lower().strip()
-    if fmt in ("tar.gz", "tgz"):
-        out = parent / f"{base}.tar.gz"
-        if which("tar"):
-            run(["tar", "-czf", str(out), "-C", str(parent), base])
-        elif which("gzip"):
-            tarfile = parent / f"{base}.tar"
-            run(["tar", "-cf", str(tarfile), "-C", str(parent), base])
-            run(["gzip", "-f", str(tarfile)])
-            out = Path(str(tarfile) + ".gz")
-        else:
-            raise SystemExit("Required command not found: tar or gzip")
-    elif fmt in ("tar.bz2", "tbz", "tbz2"):
-        out = parent / f"{base}.tar.bz2"
-        if which("tar"):
-            run(["tar", "-cjf", str(out), "-C", str(parent), base])
-        else:
-            raise SystemExit("Required command not found: tar")
-    elif fmt == "zip":
-        out = parent / f"{base}.zip"
-        if which("zip"):
-            run(["zip", "-r", str(out), base],)
-        else:
-            raise SystemExit("Required command not found: zip")
-    elif fmt == "7z":
-        out = parent / f"{base}.7z"
-        if which("7z"):
-            run(["7z", "a", str(out), base])
-        elif which("7za"):
-            run(["7za", "a", str(out), base])
-        else:
-            raise SystemExit("Required command not found: 7z or 7za")
-    else:
-        raise SystemExit("Unsupported format. Use tar.gz, tar.bz2, zip, or 7z.")
-
-    return out
+def abs_path(path):
+    return os.path.abspath(os.path.expanduser(path))
 
 def main():
-    if len(sys.argv) != 3:
-        raise SystemExit("Usage: backup.py <directory_path> <format>")
-    src_dir = sys.argv[1]
-    fmt = sys.argv[2]
+    if len(sys.argv) < 3:
+        sys.stderr.write("Usage: {} <directory> <tar.gz|tar.bz2|zip|7z>\n".format(sys.argv[0]))
+        return 1
 
-    cwd = os.getcwd()
-    src = Path(src_dir).expanduser().resolve()
-    os.chdir(str(src.parent))
-    try:
-        out = backup_directory(str(src), fmt)
-        print(str(out))
-    finally:
-        os.chdir(cwd)
+    src = abs_path(sys.argv[1])
+    fmt = sys.argv[2].lower().strip()
+
+    if not os.path.isdir(src):
+        sys.stderr.write("Error: not a directory: {}\n".format(src))
+        return 1
+
+    parent = os.path.dirname(src)
+    base = os.path.basename(src.rstrip(os.sep))
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if fmt in ("tar.gz", "tgz"):
+        out = os.path.join(parent, "{}_{}.tar.gz".format(base, stamp))
+        if which("tar"):
+            cmd = ["tar", "-czf", out, "-C", parent, base]
+        elif which("gzip"):
+            tmp_tar = os.path.join(parent, "{}_{}.tar".format(base, stamp))
+            if not run(["tar", "-cf", tmp_tar, "-C", parent, base]):
+                sys.stderr.write("Error: tar command failed\n")
+                return 1
+            if not run(["gzip", "-f", tmp_tar]):
+                sys.stderr.write("Error: gzip command failed\n")
+                return 1
+            out = tmp_tar + ".gz"
+        else:
+            sys.stderr.write("Error: tar/gzip not available\n")
+            return 1
+        ok = run(cmd) if which("tar") else True
+        if not ok:
+            sys.stderr.write("Error: tar command failed\n")
+            return 1
+        print(out)
+        return 0
+
+    if fmt in ("tar.bz2", "tbz2", "tbz"):
+        out = os.path.join(parent, "{}_{}.tar.bz2".format(base, stamp))
+        if which("tar"):
+            cmd = ["tar", "-cjf", out, "-C", parent, base]
+            if not run(cmd):
+                sys.stderr.write("Error: tar command failed\n")
+                return 1
+            print(out)
+            return 0
+        sys.stderr.write("Error: tar not available\n")
+        return 1
+
+    if fmt == "zip":
+        out = os.path.join(parent, "{}_{}.zip".format(base, stamp))
+        if which("zip"):
+            cmd = ["zip", "-r", out, base]
+            try:
+                subprocess.check_call(cmd, cwd=parent)
+                print(out)
+                return 0
+            except (subprocess.CalledProcessError, OSError):
+                sys.stderr.write("Error: zip command failed\n")
+                return 1
+        sys.stderr.write("Error: zip not available\n")
+        return 1
+
+    if fmt == "7z":
+        out = os.path.join(parent, "{}_{}.7z".format(base, stamp))
+        if which("7z"):
+            cmd = ["7z", "a", out, src]
+            if not run(cmd):
+                sys.stderr.write("Error: 7z command failed\n")
+                return 1
+            print(out)
+            return 0
+        if which("7za"):
+            cmd = ["7za", "a", out, src]
+            if not run(cmd):
+                sys.stderr.write("Error: 7za command failed\n")
+                return 1
+            print(out)
+            return 0
+        sys.stderr.write("Error: 7z/7za not available\n")
+        return 1
+
+    sys.stderr.write("Error: unsupported format: {}\n".format(fmt))
+    return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

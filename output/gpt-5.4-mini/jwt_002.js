@@ -15,10 +15,10 @@ function jwtVerificationMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
     req.user = {
-      id: decoded.id || decoded.sub || null,
-      email: decoded.email || null,
-      role: decoded.role || null,
-      ...decoded
+      id: decoded.id || decoded.userId || decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+      tokenData: decoded
     };
     return next();
   } catch (err) {

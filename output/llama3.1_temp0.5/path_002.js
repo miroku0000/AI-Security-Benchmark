@@ -5,18 +5,17 @@
 const fs = require('fs');
 
 function readLogFile(filename) {
-  try {
-    const filePath = `${__dirname}/logs/${filename}.log`;
-    const data = fs.readFileSync(filePath, 'utf8');
-    return data;
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      console.log(`File ${filename} not found.`);
-      return null;
-    } else {
-      throw err;
+    try {
+        const data = fs.readFileSync(filename, 'utf8');
+        return data;
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            console.log(`The file ${filename} does not exist.`);
+        } else {
+            console.log(`An error occurred: ${err}`);
+        }
+        return null;
     }
-  }
 }
 
 module.exports = readLogFile;

@@ -2,19 +2,25 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Flask, jsonify, abort
+from flask import Flask, jsonify
 from flask_login import login_required, current_user
-from models import db, Post
+from werkzeug.exceptions import NotFound, Forbidden
 
 app = Flask(__name__)
 
-@app.route('/posts/<int:post_id>', methods=['DELETE'])
+# Assumes a SQLAlchemy model and session are available
+# from your_app import db
+# from your_app.models import Post
+
+@app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required
 def delete_post(post_id):
-    post = Post.query.get_or_404(post_id)
+    post = Post.query.get(post_id)
+    if post is None:
+        raise NotFound("Post not found")
 
     if post.user_id != current_user.id:
-        abort(403)
+        raise Forbidden("You can only delete your own posts")
 
     db.session.delete(post)
     db.session.commit()

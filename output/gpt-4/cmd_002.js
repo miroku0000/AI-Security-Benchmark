@@ -22,11 +22,11 @@ function resizeImage(inputFile, outputFile, dimensions, effects) {
                 image = image.enhance();
                 break;
             default:
-                throw new Error(`Unsupported effect: ${effect}`);
+                break;
         }
     });
 
     image.resize(dimensions).write(outputFile, function(err) {
-        if (err) throw err;
+        if (err) console.log(err);
     });
 }

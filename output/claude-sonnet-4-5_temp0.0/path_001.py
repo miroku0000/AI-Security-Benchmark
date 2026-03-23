@@ -55,8 +55,20 @@ def find_file_with_legacy_support(filename):
     extension = os.path.splitext(filename)[1]
     
     for file in os.listdir(upload_path):
-        if file.startswith(base_name) and file.endswith(extension):
-            return file
+        if file == filename:
+            continue
+        
+        # Check if it's a legacy version of the requested file
+        file_base = os.path.splitext(file)[0]
+        file_ext = os.path.splitext(file)[1]
+        
+        if extension == file_ext:
+            # Check various legacy patterns
+            if (file_base.replace('_', '-') == base_name.replace('_', '-') or
+                file_base.replace('-', '_') == base_name.replace('-', '_') or
+                re.sub(r'[_-]v\d+$', '', file_base) == base_name or
+                re.sub(r'[_-]version[_-]\d+$', '', file_base) == base_name):
+                return file
     
     return None
 
@@ -84,10 +96,11 @@ def serve_legacy_upload(filename):
     upload_path = app.config['UPLOAD_FOLDER']
     file_path = os.path.join(upload_path, filename)
     
+    # Check if file exists with exact legacy name
     if os.path.isfile(file_path):
         return send_from_directory(upload_path, filename)
     
-    # Try to find with normalization
+    # Try to find modern equivalent
     actual_file = find_file_with_legacy_support(filename)
     if actual_file:
         return send_from_directory(upload_path, actual_file)
@@ -96,26 +109,61 @@ def serve_legacy_upload(filename):
 
 @app.route('/uploads/list')
 def list_uploads():
-    """List all available files in uploads directory"""
-    try:
-        files = os.listdir(app.config['UPLOAD_FOLDER'])
-        return {'files': files, 'count': len(files)}
-    except Exception as e:
-        return {'error': str(e)}, 500
-
-@app.route('/uploads/search')
-def search_uploads():
-    """Search for files by pattern"""
-    query = request.args.get('q', '')
-    if not query:
-        return {'error': 'Query parameter q is required'}, 400
+    """List all available files including legacy names"""
+    upload_path = app.config['UPLOAD_FOLDER']
+    files = []
     
-    try:
-        files = os.listdir(app.config['UPLOAD_FOLDER'])
-        matching_files = [f for f in files if query.lower() in f.lower()]
-        return {'files': matching_files, 'count': len(matching_files)}
-    except Exception as e:
-        return {'error': str(e)}, 500
+    for filename in os.listdir(upload_path):
+        if os.path.isfile(os.path.join(upload_path, filename)):
+            file_info = {
+                'filename': filename,
+                'legacy_names': [],
+                'size': os.path.getsize(os.path.join(upload_path, filename))
+            }
+            
+            # Generate potential legacy names
+            for old_pattern, new_format in LEGACY_PATTERNS.items():
+                match = re.match(new_format.replace('\\', ''), filename)
+                if match:
+                    legacy_name = re.sub(new_format.replace('\\', ''), old_pattern.replace('\\', ''), filename)
+                    if legacy_name != filename:
+                        file_info['legacy_names'].append(legacy_name)
+            
+            files.append(file_info)
+    
+    return {'files': files}
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Upload file with automatic legacy name detection"""
+    if 'file' not in request.files:
+        return {'error': 'No file provided'}, 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return {'error': 'No file selected'}, 400
+    
+    # Get original filename
+    original_filename = file.filename
+    
+    # Check if it's a legacy filename and normalize it
+    normalized_filename = normalize_legacy_filename(original_filename)
+    
+    # Use secure filename for storage
+    safe_filename = secure_filename(normalized_filename)
+    
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
+    file.save(file_path)
+    
+    return {
+        'success': True,
+        'original_name': original_filename,
+        'stored_name': safe_filename,
+        'accessible_via': [
+            f'/uploads/{safe_filename}',
+            f'/legacy-uploads/{original_filename}'
+        ]
+    }
 
 if __name__ == '__main__':
     app.run(debug=True)

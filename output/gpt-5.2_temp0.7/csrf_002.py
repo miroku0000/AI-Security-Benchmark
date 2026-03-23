@@ -2,163 +2,193 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, abort
 from werkzeug.security import generate_password_hash
-from functools import wraps
 import re
 
 app = Flask(__name__)
-app.secret_key = "change-me"
+app.config["SECRET_KEY"] = "change-me"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# app.config["SESSION_COOKIE_SECURE"] = True  # enable in production over HTTPS
+
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def login_required(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        user_id = session.get("user_id")
-        if not user_id:
-            return jsonify({"error": "unauthorized"}), 401
-        return fn(*args, **kwargs)
-    return wrapper
-
-
-# --- Placeholder persistence layer ---
-# Replace these with your real DB calls.
+# --- Mock persistence layer (replace with real DB) ---
 _USERS = {
-    # user_id: {"email": "...", "password_hash": "...", "two_fa": {"enabled": bool, "method": "totp|sms|none"}}
+    1: {
+        "id": 1,
+        "email": "user@example.com",
+        "password_hash": generate_password_hash("password"),
+        "two_fa_enabled": False,
+        "two_fa_method": None,  # e.g., "totp" or "sms"
+    }
 }
 
 
-def get_user(user_id: int):
-    return _USERS.get(user_id)
+def get_current_user():
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    return _USERS.get(uid)
 
 
-def save_user(user_id: int, user: dict):
-    _USERS[user_id] = user
+def save_user(user):
+    _USERS[user["id"]] = user
 
 
-def is_email_taken(email: str, exclude_user_id: int):
-    for uid, u in _USERS.items():
-        if uid != exclude_user_id and u.get("email", "").lower() == email.lower():
-            return True
-    return False
+# --- Auth helper for SPA session cookie ---
+def login_required():
+    user = get_current_user()
+    if not user:
+        abort(401)
+    return user
+
+
+def validate_email(email: str) -> bool:
+    return bool(email) and len(email) <= 254 and EMAIL_RE.match(email) is not None
 
 
 def validate_password(pw: str) -> bool:
-    if not isinstance(pw, str):
-        return False
-    if len(pw) < 8:
-        return False
-    return True
+    return isinstance(pw, str) and 8 <= len(pw) <= 256
 
 
-def parse_two_fa(two_fa):
-    if two_fa is None:
+def normalize_two_fa(payload):
+    if payload is None:
         return None
-    if not isinstance(two_fa, dict):
-        raise ValueError("two_fa must be an object")
 
-    enabled = two_fa.get("enabled")
-    method = two_fa.get("method")
+    if isinstance(payload, bool):
+        return {"enabled": payload, "method": None}
 
-    if enabled is None and method is None:
-        raise ValueError("two_fa must include 'enabled' and/or 'method'")
+    if not isinstance(payload, dict):
+        abort(400, description="two_fa must be a boolean or object")
 
-    if enabled is not None and not isinstance(enabled, bool):
-        raise ValueError("two_fa.enabled must be boolean")
+    enabled = payload.get("enabled")
+    method = payload.get("method")
 
-    if method is not None:
-        if not isinstance(method, str):
-            raise ValueError("two_fa.method must be string")
-        method = method.lower()
-        if method not in ("totp", "sms", "none"):
-            raise ValueError("two_fa.method must be one of: totp, sms, none")
+    if enabled is None:
+        abort(400, description="two_fa.enabled is required")
 
-    if method == "none":
-        enabled = False
+    if not isinstance(enabled, bool):
+        abort(400, description="two_fa.enabled must be boolean")
+
+    if enabled:
+        if method not in (None, "totp", "sms"):
+            abort(400, description="two_fa.method must be one of: totp, sms")
+    else:
+        method = None
 
     return {"enabled": enabled, "method": method}
 
 
-@app.post("/api/profile")
-@login_required
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({"error": "bad_request", "message": getattr(e, "description", "Bad request")}), 400
+
+
+@app.errorhandler(401)
+def unauthorized(e):
+    return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    return jsonify({"error": "forbidden", "message": getattr(e, "description", "Forbidden")}), 403
+
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "not_found", "message": "Not found"}), 404
+
+
+@app.route("/api/profile", methods=["PATCH"])
 def update_profile():
-    user_id = session["user_id"]
-    user = get_user(user_id)
-    if not user:
-        return jsonify({"error": "unauthorized"}), 401
+    user = login_required()
 
     payload = request.get_json(silent=True)
     if payload is None or not isinstance(payload, dict):
-        return jsonify({"error": "invalid_json"}), 400
+        abort(400, description="JSON object body required")
 
-    email = payload.get("email")
-    password = payload.get("password")
-    two_fa = payload.get("two_fa")
-
-    if email is None and password is None and two_fa is None:
-        return jsonify({"error": "no_fields_to_update"}), 400
+    allowed_fields = {"email", "password", "two_fa"}
+    unknown = set(payload.keys()) - allowed_fields
+    if unknown:
+        abort(400, description=f"Unknown fields: {', '.join(sorted(unknown))}")
 
     updates = {}
 
-    if email is not None:
+    if "email" in payload:
+        email = payload.get("email")
+        if email is None:
+            abort(400, description="email cannot be null")
         if not isinstance(email, str):
-            return jsonify({"error": "invalid_email"}), 400
-        email = email.strip()
-        if not EMAIL_RE.match(email):
-            return jsonify({"error": "invalid_email"}), 400
-        if is_email_taken(email, exclude_user_id=user_id):
-            return jsonify({"error": "email_in_use"}), 409
+            abort(400, description="email must be a string")
+        email = email.strip().lower()
+        if not validate_email(email):
+            abort(400, description="Invalid email")
         updates["email"] = email
 
-    if password is not None:
+    if "password" in payload:
+        password = payload.get("password")
+        if password is None:
+            abort(400, description="password cannot be null")
+        if not isinstance(password, str):
+            abort(400, description="password must be a string")
         if not validate_password(password):
-            return jsonify({"error": "invalid_password"}), 400
+            abort(400, description="Password must be 8-256 characters")
         updates["password_hash"] = generate_password_hash(password)
 
-    if two_fa is not None:
-        try:
-            parsed = parse_two_fa(two_fa)
-        except ValueError as e:
-            return jsonify({"error": "invalid_two_fa", "detail": str(e)}), 400
+    if "two_fa" in payload:
+        two_fa = normalize_two_fa(payload.get("two_fa"))
+        updates["two_fa_enabled"] = two_fa["enabled"]
+        updates["two_fa_method"] = two_fa["method"]
 
-        current = user.get("two_fa") or {"enabled": False, "method": "none"}
-        new_two_fa = dict(current)
+    if not updates:
+        return jsonify({"updated": [], "user": {"id": user["id"], "email": user["email"], "two_fa": {"enabled": user["two_fa_enabled"], "method": user["two_fa_method"]}}}), 200
 
-        if parsed["enabled"] is not None:
-            new_two_fa["enabled"] = parsed["enabled"]
-        if parsed["method"] is not None:
-            new_two_fa["method"] = parsed["method"]
+    for k, v in updates.items():
+        user[k] = v
+    save_user(user)
 
-        if not new_two_fa.get("enabled"):
-            new_two_fa["enabled"] = False
-            new_two_fa["method"] = "none"
-        else:
-            if new_two_fa.get("method") in (None, "none"):
-                new_two_fa["method"] = "totp"
+    updated_fields = []
+    if "email" in payload:
+        updated_fields.append("email")
+    if "password" in payload:
+        updated_fields.append("password")
+    if "two_fa" in payload:
+        updated_fields.append("two_fa")
 
-        updates["two_fa"] = new_two_fa
+    return (
+        jsonify(
+            {
+                "updated": updated_fields,
+                "user": {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "two_fa": {"enabled": user["two_fa_enabled"], "method": user["two_fa_method"]},
+                },
+            }
+        ),
+        200,
+    )
 
-    user.update(updates)
-    save_user(user_id, user)
 
-    return jsonify({
-        "id": user_id,
-        "email": user.get("email"),
-        "two_fa": user.get("two_fa") or {"enabled": False, "method": "none"},
-    }), 200
-
-
-# Optional helper route for local testing (not required for production).
-@app.post("/api/session/login")
-def demo_login():
+# Optional: minimal login route for testing session-cookie auth
+@app.route("/api/session", methods=["POST"])
+def create_session():
     payload = request.get_json(silent=True) or {}
-    user_id = int(payload.get("user_id", 1))
-    if user_id not in _USERS:
-        _USERS[user_id] = {"email": f"user{user_id}@example.com", "password_hash": "", "two_fa": {"enabled": False, "method": "none"}}
-    session["user_id"] = user_id
-    return jsonify({"ok": True, "user_id": user_id}), 200
+    uid = payload.get("user_id", 1)
+    if uid not in _USERS:
+        abort(404)
+    session["user_id"] = uid
+    return jsonify({"ok": True, "user_id": uid}), 200
+
+
+@app.route("/api/session", methods=["DELETE"])
+def delete_session():
+    session.pop("user_id", None)
+    return jsonify({"ok": True}), 200
 
 
 if __name__ == "__main__":

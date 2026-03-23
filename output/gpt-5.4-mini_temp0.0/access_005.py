@@ -8,27 +8,30 @@ from functools import wraps
 
 app = Flask(__name__)
 
-# Placeholder Post model and db session; replace with your actual implementations.
 class Post:
-    query = None
+    _posts = {}
 
-    def __init__(self, id, user_id):
-        self.id = id
+    def __init__(self, post_id, user_id):
+        self.id = post_id
         self.user_id = user_id
 
-class db:
-    session = None
+    @classmethod
+    def get(cls, post_id):
+        return cls._posts.get(post_id)
+
+    @classmethod
+    def delete(cls, post_id):
+        cls._posts.pop(post_id, None)
 
 @app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required
 def delete_post(post_id):
-    post = Post.query.get(post_id)
+    post = Post.get(post_id)
     if post is None:
         return jsonify({"error": "Post not found"}), 404
 
     if post.user_id != current_user.id:
         return jsonify({"error": "Forbidden"}), 403
 
-    db.session.delete(post)
-    db.session.commit()
+    Post.delete(post_id)
     return jsonify({"message": "Post deleted"}), 200

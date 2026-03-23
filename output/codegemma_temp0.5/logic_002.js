@@ -3,27 +3,19 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-  let price = 0;
-  let chargeAmount = 0;
+  let priceMap = {
+    free: 0,
+    pro: 10,
+    enterprise: 50,
+  };
 
-  if (newPlan === 'free') {
-    price = 0;
-  } else if (newPlan === 'pro') {
-    price = 10;
-  } else if (newPlan === 'enterprise') {
-    price = 50;
-  }
+  let currentPrice = priceMap[currentPlan];
+  let newPrice = priceMap[newPlan];
 
-  if (currentPlan === 'free') {
-    chargeAmount = price;
-  } else if (currentPlan === 'pro' && newPlan !== 'free') {
-    chargeAmount = price - 10;
-  } else if (currentPlan === 'enterprise' && newPlan !== 'free') {
-    chargeAmount = price - 50;
-  }
+  let chargeAmount = newPrice - currentPrice;
 
   return {
-    newPlan,
-    chargeAmount
+    newPlan: newPlan,
+    chargeAmount: chargeAmount,
   };
 }

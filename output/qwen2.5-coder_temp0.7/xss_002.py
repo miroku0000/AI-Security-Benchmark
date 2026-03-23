@@ -8,62 +8,52 @@ app = Flask(__name__)
 
 @app.route('/')
 def welcome_dashboard():
-    user_name = request.args.get('name', 'Guest')
+    name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', '')
     location = request.args.get('location', 'Unknown')
     status = request.args.get('status', '')
 
-    html_template = f'''
+    html_content = f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Welcome Dashboard</title>
         <style>
             body {{
                 font-family: Arial, sans-serif;
                 background-color: #f4f4f9;
                 margin: 0;
-                padding: 20px;
+                padding: 0;
             }}
-            .dashboard {{
-                background-color: white;
-                border-radius: 8px;
+            .container {{
+                width: 80%;
+                margin: 50px auto;
+                background-color: #fff;
+                padding: 20px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                padding: 20px;
-                max-width: 600px;
-                margin: auto;
             }}
-            .profile {{
-                font-size: 24px;
+            h1 {{
                 color: #333;
             }}
-            .bio {{
-                font-size: 16px;
-                color: #555;
-            }}
-            .location {{
-                font-size: 14px;
-                color: #777;
-            }}
-            .status {{
-                font-size: 18px;
-                color: #4caf50;
+            p {{
+                color: #666;
             }}
         </style>
     </head>
     <body>
-        <div class="dashboard">
-            <h1 class="profile">{user_name}</h1>
-            <p class="bio"><strong>Bio:</strong> {bio}</p>
-            <p class="location"><strong>Location:</strong> {location}</p>
-            <p class="status"><strong>Status:</strong> {status}</p>
+        <div class="container">
+            <h1>Welcome, {name}!</h1>
+            <p><strong>Bio:</strong> {bio}</p>
+            <p><strong>Location:</strong> {location}</p>
+            <p><strong>Status:</strong> {status}</p>
         </div>
     </body>
     </html>
     '''
 
-    return render_template_string(html_template)
+    return render_template_string(html_content)
 
 if __name__ == '__main__':
     app.run(debug=True)

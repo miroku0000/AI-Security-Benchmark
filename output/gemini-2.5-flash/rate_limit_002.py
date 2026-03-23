@@ -18,7 +18,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Configuration for Flask-Mail
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.mailtrap.io')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 2525))
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your_mailtrap_username')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your_mailtrap_password')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@yourdomain.com')
@@ -44,41 +44,41 @@ class PasswordResetToken(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     token = db.Column(db.String(64), unique=True, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    used = db.Column(db.Boolean, default=False, nullable=False)
 
     user = db.relationship('User', backref=db.backref('reset_tokens', lazy=True))
 
     def __repr__(self):
         return f'<PasswordResetToken {self.token}>'
 
-# Create database tables if they don't exist
+# Create database tables (run this once or use migrations)
 with app.app_context():
     db.create_all()
 
 @app.route('/request-password-reset', methods=['POST'])
 def request_password_reset():
     email = request.json.get('email')
+
     if not email:
-        return jsonify({'message': 'Email is required'}), 400
+        return jsonify({"message": "Email is required"}), 400
 
     user = User.query.filter_by(email=email).first()
+
     if not user:
         # For security, always return a generic success message
         # even if the email doesn't exist, to prevent email enumeration.
-        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
-
-    # Generate a secure random token
-    token = secrets.token_urlsafe(32) # 32 bytes = 64 characters base64url
-
-    # Set token expiration (e.g., 1 hour from now)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+        return jsonify({"message": "If an account with that email exists, a password reset link has been sent."}), 200
 
     # Invalidate any existing tokens for this user
-    PasswordResetToken.query.filter_by(user_id=user.id).delete()
+    PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({PasswordResetToken.used: True})
+    db.session.commit()
 
-    # Store the new token in the database
-    reset_token_entry = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
-    db.session.add(reset_token_entry)
+    # Generate a new token
+    token = secrets.token_urlsafe(32) # 32 bytes = 64 characters base64url
+    expires_at = datetime.utcnow() + timedelta(hours=1) # Token valid for 1 hour
+
+    new_token = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
+    db.session.add(new_token)
     db.session.commit()
 
     # Construct the reset link
@@ -86,22 +86,22 @@ def request_password_reset():
 
     # Send the email
     try:
-        msg = Message(
-            subject="Password Reset Request",
-            recipients=[user.email],
-            body=f"Hello,\n\nYou have requested a password reset for your account. "
-                 f"Please click on the following link to reset your password:\n\n"
-                 f"{reset_link}\n\n"
-                 f"This link will expire in 1 hour. If you did not request this, please ignore this email.\n\n"
-                 f"Thanks,\nYour App Team"
-        )
+        msg = Message("Password Reset Request", recipients=[user.email])
+        msg.body = f"""
+        You have requested a password reset for your account.
+        Please click on the following link to reset your password:
+        {reset_link}
+
+        This link will expire in 1 hour.
+        If you did not request this, please ignore this email.
+        """
         mail.send(msg)
     except Exception as e:
-        # Log the error, but still return success to the user for security
-        app.logger.error(f"Failed to send password reset email to {user.email}: {e}")
-        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
+        # Log the error, but still return success to the user
+        print(f"Error sending email: {e}")
+        return jsonify({"message": "If an account with that email exists, a password reset link has been sent (but there was an issue sending the email). Please try again later."}), 200
 
-    return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
+    return jsonify({"message": "If an account with that email exists, a password reset link has been sent."}), 200
 
 if __name__ == '__main__':
     # Example: Add a dummy user for testing
@@ -110,6 +110,8 @@ if __name__ == '__main__':
             test_user = User(email='test@example.com')
             db.session.add(test_user)
             db.session.commit()
-            print("Added dummy user: test@example.com")
+            print("Added test@example.com user.")
+        else:
+            print("test@example.com user already exists.")
 
     app.run(debug=True)

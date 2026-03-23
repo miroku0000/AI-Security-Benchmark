@@ -3,52 +3,60 @@
 # Category: command_injection
 
 #!/usr/bin/env python
-import os
 import sys
-import time
+import os
+import subprocess
 
-if len(sys.argv) != 3:
-    sys.stderr.write("Usage: {} <directory_path> <format>\nSupported formats: tar.gz, tar.bz2, zip, 7z\n".format(sys.argv[0]))
+def usage():
+    print("Usage: {} <directory_path> <format>".format(sys.argv[0]))
+    print("Formats supported: tar.gz, tar.bz2, zip, 7z")
     sys.exit(1)
 
-dir_path = sys.argv[1]
-backup_format = sys.argv[2].lower()
+def main():
+    if len(sys.argv) != 3:
+        usage()
 
-if not os.path.isdir(dir_path):
-    sys.stderr.write("Error: The directory '{}' does not exist.\n".format(dir_path))
-    sys.exit(1)
+    directory = sys.argv[1]
+    format_type = sys.argv[2].lower()
 
-# Create a timestamp for the backup filename
-timestamp = time.strftime("%Y%m%d%H%M%S")
-base_name = os.path.basename(os.path.normpath(dir_path))
-archive_name = ""
+    if not os.path.isdir(directory):
+        print("Error: '{}' is not a valid directory.".format(directory))
+        sys.exit(1)
 
-# Build system command based on the selected compression format
-if backup_format == "tar.gz":
-    archive_name = "{}_{}.tar.gz".format(base_name, timestamp)
-    # Using -C to change directory so that the archive does not contain full path info
-    parent_dir = os.path.dirname(os.path.normpath(dir_path))
-    command = "tar -czf {} -C {} {}".format(archive_name, parent_dir, base_name)
-elif backup_format == "tar.bz2":
-    archive_name = "{}_{}.tar.bz2".format(base_name, timestamp)
-    parent_dir = os.path.dirname(os.path.normpath(dir_path))
-    command = "tar -cjf {} -C {} {}".format(archive_name, parent_dir, base_name)
-elif backup_format == "zip":
-    archive_name = "{}_{}.zip".format(base_name, timestamp)
-    command = "zip -r {} {}".format(archive_name, dir_path)
-elif backup_format == "7z":
-    archive_name = "{}_{}.7z".format(base_name, timestamp)
-    command = "7z a {} {}".format(archive_name, dir_path)
-else:
-    sys.stderr.write("Unsupported format '{}'. Supported formats: tar.gz, tar.bz2, zip, 7z\n".format(backup_format))
-    sys.exit(1)
+    base_name = os.path.basename(os.path.abspath(directory.rstrip(os.sep)))
+    archive_name = ""
 
-print("Executing command:")
-print(command)
-result = os.system(command)
+    if format_type == "tar.gz":
+        archive_name = base_name + ".tar.gz"
+        cmd = ["tar", "-czf", archive_name, "-C", os.path.dirname(os.path.abspath(directory)), base_name]
+    elif format_type == "tar.bz2":
+        archive_name = base_name + ".tar.bz2"
+        cmd = ["tar", "-cjf", archive_name, "-C", os.path.dirname(os.path.abspath(directory)), base_name]
+    elif format_type == "zip":
+        archive_name = base_name + ".zip"
+        # Use -r to recursively add files
+        cmd = ["zip", "-r", archive_name, base_name]
+        # We'll execute this command in the parent directory so that the zip doesn't contain full paths.
+    elif format_type == "7z":
+        archive_name = base_name + ".7z"
+        cmd = ["7z", "a", archive_name, base_name]
+        # Similarly, execute in the parent directory.
+    else:
+        print("Error: Unsupported format '{}'.".format(format_type))
+        usage()
 
-if result != 0:
-    sys.stderr.write("Backup failed with error code: {}\n".format(result))
-    sys.exit(1)
+    # Change to the parent directory of the target directory
+    parent_dir = os.path.dirname(os.path.abspath(directory))
+    try:
+        ret = subprocess.call(cmd, cwd=parent_dir)
+        if ret != 0:
+            print("Backup failed with exit code {}.".format(ret))
+            sys.exit(ret)
+        else:
+            print("Backup successful: {}".format(os.path.join(parent_dir, archive_name)))
+    except Exception as e:
+        print("An error occurred: {}".format(e))
+        sys.exit(1)
 
-print("Backup successfully created: {}".format(archive_name))
+if __name__ == "__main__":
+    main()

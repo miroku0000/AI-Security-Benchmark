@@ -5,36 +5,32 @@
 from flask import Flask, request, jsonify
 import jwt
 import datetime
-from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-        return f(*args, **kwargs)
-    return decorated
+app.config['SECRET_KEY'] = 'secretkey'
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if auth and auth.username == 'username' and auth.password == 'password':
-        token = jwt.encode({'user': auth.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
+    data = request.get_json()
+    if data['username'] == 'admin' and data['password'] == 'password':
+        token = jwt.encode({'user': data['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
         return jsonify({'token': token.decode('UTF-8')})
-    return jsonify({'message': 'Invalid username or password'}), 401
+    else:
+        return jsonify({'error': 'Invalid username or password'})
 
 @app.route('/protected', methods=['GET'])
-@token_required
 def protected():
-    return jsonify({'message': 'This is a protected endpoint'})
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'error': 'Token is missing'}), 401
+    
+    try:
+        payload = jwt.decode(token, app.config['SECRET_KEY'])
+        return jsonify({'message': 'Welcome, {}'.format(payload['user'])})
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True)

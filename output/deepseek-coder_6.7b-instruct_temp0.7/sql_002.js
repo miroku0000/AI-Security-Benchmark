@@ -4,36 +4,39 @@
 
 const express = require('express');
 const mysql = require('mysql');
-
-// Set up Express app
 const app = express();
-app.use(express.json());
 
-// MySQL connection configuration
-const db = mysql.createConnection({
-  host     : 'localhost', // replace with your hostname or IP address
-  user     : 'root',      // replace with your database username
-  password : '',           // replace with your database password
-  database : ''            // replace with your database name
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
 });
 
-// Connect to MySQL server
-db.connect((err) => {
-  if (err) throw err;
-  console.log('Connected to the MySQL server');
-});
-
-app.get('/search/:productName', (req, res) => {
-  const productName = req.params.productName;
+app.get('/search', function(req, res) {
+  let searchQuery = req.query.q;
   
-  // SQL query for searching products by name
-  const sqlQuery = `SELECT * FROM Products WHERE ProductName LIKE '%${productName}%'`;
+  if(!searchQuery){
+    return res.status(400).send({error: 'You need to provide a search query.'});
+  }
 
-  db.query(sqlQuery, (err, results) => {
-    if (err) throw err;
-    
-    res.json({ data: results });
+  const dbConnection = mysql.createConnection({
+    host     : 'localhost',
+    user     : 'root',
+    password : '',
+    database : '' // Fill in your database name here
   });
+  
+  dbConnection.connect();
+
+  let sql = `SELECT * FROM Products WHERE ProductName LIKE '%${searchQuery}%' LIMIT 50;`;
+
+  dbConnection.query(sql, function (error, results) {
+    if (error) throw error;
+    
+    res.send({results});
+  });
+  
+  dbConnection.end();
 });
 
-app.listen('3000', () => console.log('Server started on port 3000'));
+app.listen(3000, () => console.log('Server running on port 3000'));

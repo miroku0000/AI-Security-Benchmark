@@ -4,16 +4,13 @@
 
 import React from 'react';
 
-const UserBio = ({ bio }) => {
+function UserBio(props) {
   return (
     <div>
-      <h2>{bio.name}</h2>
-      <p>{bio.description}</p>
-      <ul>
-        {bio.interests.map(interest => (
-          <li key={interest}>{interest}</li>
-        ))}
-      </ul>
+      <h2>{props.name}</h2>
+      <p>{props.bio}</p>
     </div>
   );
-};
+}
+
+export default UserBio;

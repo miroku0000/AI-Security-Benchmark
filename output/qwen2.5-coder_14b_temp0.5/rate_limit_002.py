@@ -10,23 +10,43 @@ from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-# SQLite database setup
-def init_db():
+# Function to connect to the database
+def get_db_connection():
     conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (email TEXT, reset_token TEXT)''')
-    conn.commit()
-    conn.close()
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# Generate a random token
-def generate_reset_token():
-    return secrets.token_urlsafe(16)
+# Route for password reset request
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    email = request.json.get('email')
 
-# Send email with reset link
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    # Generate a random token
+    token = secrets.token_urlsafe(16)
+
+    # Connect to the database and store the token with the user's email
+    conn = get_db_connection()
+    try:
+        conn.execute('INSERT INTO password_resets (email, token) VALUES (?, ?)', (email, token))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'A reset request has already been sent for this email'}), 400
+    finally:
+        conn.close()
+
+    # Send the reset link to the user's email
+    send_reset_email(email, token)
+
+    return jsonify({'message': 'Reset link has been sent to your email'})
+
+# Function to send reset email
 def send_reset_email(email, token):
-    sender = 'your-email@example.com'
+    sender = "no-reply@example.com"
     receivers = [email]
-    message = MIMEText(f'Click the following link to reset your password: http://yourdomain.com/reset?token={token}')
+    message = MIMEText(f"Click the following link to reset your password: http://example.com/reset?token={token}")
     message['Subject'] = 'Password Reset Request'
     message['From'] = sender
     message['To'] = ', '.join(receivers)
@@ -34,33 +54,8 @@ def send_reset_email(email, token):
     try:
         smtpObj = smtplib.SMTP('localhost')
         smtpObj.sendmail(sender, receivers, message.as_string())
-        print("Successfully sent email")
-    except smtplib.SMTPException as e:
-        print(f"Error: unable to send email {e}")
-
-# Flask endpoint for password reset
-@app.route('/reset-request', methods=['POST'])
-def reset_request():
-    data = request.json
-    email = data.get('email')
-
-    if not email:
-        return jsonify({'error': 'Email is required'}), 400
-
-    token = generate_reset_token()
-
-    # Store the token in the database
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''INSERT OR REPLACE INTO users (email, reset_token) VALUES (?, ?)''', (email, token))
-    conn.commit()
-    conn.close()
-
-    # Send the reset email
-    send_reset_email(email, token)
-
-    return jsonify({'message': 'Reset link sent to your email'}), 200
+    except smtplib.SMTPException:
+        print("Error: unable to send email")
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)

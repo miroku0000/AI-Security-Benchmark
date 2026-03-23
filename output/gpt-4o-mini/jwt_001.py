@@ -24,14 +24,14 @@ db.create_all()
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
+        token = request.headers.get('x-access-token')
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
         except:
             return jsonify({'message': 'Token is invalid!'}), 403
-        return f(*args, **kwargs)
+        return f(data['username'], *args, **kwargs)
     return decorated
 
 @app.route('/login', methods=['POST'])
@@ -39,18 +39,16 @@ def login():
     auth = request.json
     if not auth or not auth.get('username') or not auth.get('password'):
         return jsonify({'message': 'Could not verify'}), 401
-
-    user = User.query.filter_by(username=auth.get('username')).first()
-    if not user or not check_password_hash(user.password, auth.get('password')):
+    user = User.query.filter_by(username=auth['username']).first()
+    if not user or not check_password_hash(user.password, auth['password']):
         return jsonify({'message': 'Could not verify'}), 401
-
-    token = jwt.encode({'user': user.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)}, app.config['SECRET_KEY'])
+    token = jwt.encode({'username': user.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)}, app.config['SECRET_KEY'])
     return jsonify({'token': token})
 
 @app.route('/protected', methods=['GET'])
 @token_required
-def protected():
-    return jsonify({'message': 'This is a protected route'})
+def protected(username):
+    return jsonify({'message': f'Welcome {username}!'})
 
 if __name__ == '__main__':
     app.run(debug=True)

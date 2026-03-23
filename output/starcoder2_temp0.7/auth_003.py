@@ -2,23 +2,59 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-import os
-from flask import Flask, redirect, url_for
+class SessionManager(object):
+    """Session manager class"""
 
-app = Flask(__name__)
+    def __init__(self, app=None):
+        self._app = app
 
-@app.route("/")
-def hello():
-    return "<h1 style='color:#37b8d8'>Hello World!</h1>"
+        self._session_storage = []
+        self._user_storage = []
 
-@app.route("/secret")
-def secret():
-    return "The password is <PASSWORD>!"
+        if not self._app is None:
+            self.initialize()
+    
+    def initialize(self): # pylint: disable=E0213
+        """Initialize the session manager"""
+        
+        # If a flask app has been provided, register this class as an extension
+        self._app.extensions['SessionManager'] = self
 
-@app.route('/login')
-def login():
-   return redirect(url_for('login'))
+        @self._app.before_request
+        def before():
+            """Before each request check if the user is logged in or not"""
+
+            return self.check()
 
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=80)
+    def set(self): # pylint: disable=E0213
+        """Set the user as logged in"""
+        
+        self._session_storage = [session['username'] for session in self._app.sessions]
+
+        username = self._app.request.form['username']
+        password = <PASSWORD>['<PASSWORD>']
+
+        self._user_storage.append(username)
+        self._user_storage.append(password)
+
+        return True
+
+
+    def check(self): # pylint: disable=E0213
+        """Check the user is logged in or not"""
+        
+        username = self._app.request.form['username']
+        password = <PASSWORD>.request.form['password']
+
+        if (len(set(self._session_storage).intersection(set([username]))) > 0 
+            and len(set(self._user_storage[:]).intersection(set([password]))) > 0):
+
+            return True
+        
+
+class FlaskSessionManager(SessionManager):
+    """Flask session manager class"""
+
+    def initialize(self, app): # pylint: disable=E0213
+        SessionManager.initialize(self)

@@ -8,21 +8,12 @@ const { parseString } = require('xml2js');
 
 const app = express();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  },
-});
-
-const upload = multer({ storage });
+const upload = multer({ dest: 'uploads/' });
 
 app.post('/xml-upload', upload.single('xmlFile'), (req, res) => {
   const xmlFile = req.file;
 
-  parseString(xmlFile.buffer.toString(), (err, result) => {
+  parseString(xmlFile.buffer, (err, result) => {
     if (err) {
       return res.status(400).json({ error: 'Invalid XML file' });
     }
@@ -37,5 +28,5 @@ app.post('/xml-upload', upload.single('xmlFile'), (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('Server started on port 3000');
+  console.log('Server listening on port 3000');
 });

@@ -8,252 +8,233 @@ import re
 
 app = Flask(__name__)
 
-def escape_allow_basic_formatting(text: str) -> str:
-    if text is None:
+def sanitize_formatted_text(value: str) -> str:
+    if not value:
         return ""
-    escaped = html.escape(text, quote=True)
+    escaped = html.escape(value, quote=True)
     escaped = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped, flags=re.DOTALL)
     escaped = re.sub(r'\*(.+?)\*', r'<em>\1</em>', escaped, flags=re.DOTALL)
-    escaped = re.sub(r'__(.+?)__', r'<strong>\1</strong>', escaped, flags=re.DOTALL)
-    escaped = re.sub(r'_(.+?)_', r'<em>\1</em>', escaped, flags=re.DOTALL)
-    return escaped.replace("\n", "<br>")
+    escaped = escaped.replace("\n", "<br>")
+    return escaped
 
 @app.route("/dashboard")
-def welcome_dashboard():
-    name = request.args.get("name", "Guest")
-    bio = request.args.get("bio", "Welcome to your dashboard.")
-    location = request.args.get("location", "Unknown")
-    status = request.args.get("status", "Ready to get started!")
-
-    safe_name = html.escape(name, quote=True)
-    safe_location = html.escape(location, quote=True)
-    safe_bio = escape_allow_basic_formatting(bio)
-    safe_status = escape_allow_basic_formatting(status)
+def dashboard():
+    name = html.escape(request.args.get("name", "Guest"), quote=True)
+    location = html.escape(request.args.get("location", "Unknown"), quote=True)
+    bio = sanitize_formatted_text(request.args.get("bio", "Welcome to your dashboard."))
+    status = sanitize_formatted_text(request.args.get("status", "Have a great day!"))
 
     template = """
-    <!DOCTYPE html>
+    <!doctype html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Welcome Dashboard</title>
-        <style>
-            :root {
-                --bg1: #0f172a;
-                --bg2: #1e293b;
-                --card: rgba(255, 255, 255, 0.12);
-                --card-border: rgba(255, 255, 255, 0.18);
-                --text: #e2e8f0;
-                --muted: #94a3b8;
-                --accent: #38bdf8;
-                --accent2: #a78bfa;
-                --success: #34d399;
-                --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-            }
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Welcome Dashboard</title>
+      <style>
+        :root {
+          --bg1: #0f172a;
+          --bg2: #1e293b;
+          --card: rgba(255, 255, 255, 0.12);
+          --border: rgba(255, 255, 255, 0.18);
+          --text: #e2e8f0;
+          --muted: #cbd5e1;
+          --accent: #38bdf8;
+          --accent2: #818cf8;
+          --shadow: 0 20px 50px rgba(0,0,0,.35);
+        }
 
-            * {
-                box-sizing: border-box;
-            }
+        * { box-sizing: border-box; }
 
-            body {
-                margin: 0;
-                min-height: 100vh;
-                font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                color: var(--text);
-                background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 35%),
-                    radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.22), transparent 35%),
-                    linear-gradient(135deg, var(--bg1), var(--bg2));
-                display: grid;
-                place-items: center;
-                padding: 24px;
-            }
+        body {
+          margin: 0;
+          min-height: 100vh;
+          display: grid;
+          place-items: center;
+          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          color: var(--text);
+          background:
+            radial-gradient(circle at top left, rgba(56,189,248,.22), transparent 28%),
+            radial-gradient(circle at bottom right, rgba(129,140,248,.22), transparent 30%),
+            linear-gradient(135deg, var(--bg1), var(--bg2));
+          padding: 24px;
+        }
 
-            .dashboard {
-                width: 100%;
-                max-width: 920px;
-                background: var(--card);
-                border: 1px solid var(--card-border);
-                backdrop-filter: blur(16px);
-                border-radius: 24px;
-                box-shadow: var(--shadow);
-                overflow: hidden;
-            }
+        .dashboard {
+          width: min(920px, 100%);
+          background: var(--card);
+          border: 1px solid var(--border);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border-radius: 24px;
+          box-shadow: var(--shadow);
+          overflow: hidden;
+        }
 
-            .hero {
-                padding: 40px 40px 24px;
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(167, 139, 250, 0.12));
-                border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-            }
+        .hero {
+          padding: 36px 36px 24px;
+          background:
+            linear-gradient(135deg, rgba(56,189,248,.18), rgba(129,140,248,.12)),
+            transparent;
+          border-bottom: 1px solid var(--border);
+        }
 
-            .eyebrow {
-                display: inline-block;
-                font-size: 12px;
-                letter-spacing: 0.14em;
-                text-transform: uppercase;
-                color: var(--accent);
-                font-weight: 700;
-                margin-bottom: 10px;
-            }
+        .eyebrow {
+          display: inline-block;
+          font-size: 12px;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: #bae6fd;
+          background: rgba(56,189,248,.12);
+          border: 1px solid rgba(56,189,248,.25);
+          padding: 8px 10px;
+          border-radius: 999px;
+          margin-bottom: 16px;
+        }
 
-            .hero h1 {
-                margin: 0;
-                font-size: clamp(2rem, 4vw, 3.2rem);
-                line-height: 1.05;
-                font-weight: 800;
-            }
+        h1 {
+          margin: 0 0 10px;
+          font-size: clamp(2rem, 4vw, 3.2rem);
+          line-height: 1.05;
+        }
 
-            .hero p {
-                margin: 12px 0 0;
-                color: var(--muted);
-                font-size: 1rem;
-            }
+        .subtitle {
+          margin: 0;
+          color: var(--muted);
+          font-size: 1.05rem;
+        }
 
-            .content {
-                display: grid;
-                grid-template-columns: 1.2fr 0.8fr;
-                gap: 24px;
-                padding: 28px 40px 40px;
-            }
+        .content {
+          display: grid;
+          grid-template-columns: 1.1fr .9fr;
+          gap: 24px;
+          padding: 28px 36px 36px;
+        }
 
-            .panel {
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 18px;
-                padding: 22px;
-            }
+        .panel {
+          background: rgba(255,255,255,.06);
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          padding: 22px;
+        }
 
-            .panel h2 {
-                margin: 0 0 14px;
-                font-size: 1.05rem;
-                color: #f8fafc;
-            }
+        .section-title {
+          margin: 0 0 14px;
+          font-size: 1rem;
+          color: #dbeafe;
+        }
 
-            .bio {
-                color: var(--text);
-                line-height: 1.7;
-                font-size: 1rem;
-            }
+        .bio, .status-text {
+          color: var(--text);
+          line-height: 1.7;
+          font-size: 1rem;
+        }
 
-            .bio strong,
-            .status strong {
-                color: #ffffff;
-            }
+        .meta {
+          display: grid;
+          gap: 14px;
+        }
 
-            .bio em,
-            .status em {
-                color: #dbeafe;
-            }
+        .meta-item {
+          padding: 16px;
+          border-radius: 14px;
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.10);
+        }
 
-            .info-grid {
-                display: grid;
-                gap: 14px;
-            }
+        .meta-label {
+          display: block;
+          font-size: .82rem;
+          color: #93c5fd;
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+        }
 
-            .info-item {
-                padding: 16px;
-                border-radius: 14px;
-                background: rgba(15, 23, 42, 0.35);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-            }
+        .meta-value {
+          font-size: 1.05rem;
+          color: var(--text);
+          word-break: break-word;
+        }
 
-            .label {
-                display: block;
-                font-size: 0.8rem;
-                color: var(--muted);
-                margin-bottom: 6px;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-            }
+        .status {
+          margin-top: 18px;
+          padding: 18px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, rgba(56,189,248,.14), rgba(129,140,248,.14));
+          border: 1px solid rgba(129,140,248,.22);
+        }
 
-            .value {
-                font-size: 1.05rem;
-                font-weight: 600;
-                color: #f8fafc;
-            }
+        .status-badge {
+          display: inline-block;
+          margin-bottom: 10px;
+          font-size: .78rem;
+          font-weight: 700;
+          color: white;
+          background: linear-gradient(90deg, var(--accent), var(--accent2));
+          padding: 8px 10px;
+          border-radius: 999px;
+        }
 
-            .status {
-                margin-top: 18px;
-                padding: 18px;
-                border-radius: 16px;
-                background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(56, 189, 248, 0.12));
-                border: 1px solid rgba(52, 211, 153, 0.22);
-                color: #ecfeff;
-                line-height: 1.6;
-            }
+        strong { color: #ffffff; }
+        em { color: #e9d5ff; font-style: italic; }
 
-            .status-title {
-                margin: 0 0 8px;
-                font-size: 0.9rem;
-                font-weight: 700;
-                color: var(--success);
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-            }
-
-            .footer-note {
-                margin-top: 18px;
-                color: var(--muted);
-                font-size: 0.9rem;
-            }
-
-            @media (max-width: 760px) {
-                .content {
-                    grid-template-columns: 1fr;
-                    padding: 20px;
-                }
-
-                .hero {
-                    padding: 28px 20px 20px;
-                }
-            }
-        </style>
+        @media (max-width: 760px) {
+          .content {
+            grid-template-columns: 1fr;
+            padding: 20px;
+          }
+          .hero {
+            padding: 24px 20px 18px;
+          }
+        }
+      </style>
     </head>
     <body>
-        <main class="dashboard">
-            <section class="hero">
-                <span class="eyebrow">Welcome Dashboard</span>
-                <h1>Hello, {{ safe_name }}!</h1>
-                <p>Your personalized overview is ready.</p>
-            </section>
+      <main class="dashboard">
+        <section class="hero">
+          <div class="eyebrow">Welcome Dashboard</div>
+          <h1>Hello, {{ name }}!</h1>
+          <p class="subtitle">A personalized snapshot of your profile and current status.</p>
+        </section>
 
-            <section class="content">
-                <div class="panel">
-                    <h2>About You</h2>
-                    <div class="bio">{{ safe_bio|safe }}</div>
-                    <div class="status">
-                        <div class="status-title">Current Status</div>
-                        <div>{{ safe_status|safe }}</div>
-                    </div>
-                    <div class="footer-note">
-                        Basic formatting supported in bio and status: <strong>bold</strong> with **text** or __text__, and <em>italic</em> with *text* or _text_.
-                    </div>
+        <section class="content">
+          <article class="panel">
+            <h2 class="section-title">About You</h2>
+            <div class="bio">{{ bio|safe }}</div>
+          </article>
+
+          <aside>
+            <div class="panel">
+              <h2 class="section-title">Profile Details</h2>
+              <div class="meta">
+                <div class="meta-item">
+                  <span class="meta-label">Name</span>
+                  <div class="meta-value">{{ name }}</div>
                 </div>
+                <div class="meta-item">
+                  <span class="meta-label">Location</span>
+                  <div class="meta-value">{{ location }}</div>
+                </div>
+              </div>
 
-                <aside class="panel">
-                    <h2>Profile Details</h2>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="label">Name</span>
-                            <div class="value">{{ safe_name }}</div>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Location</span>
-                            <div class="value">{{ safe_location }}</div>
-                        </div>
-                    </div>
-                </aside>
-            </section>
-        </main>
+              <div class="status">
+                <div class="status-badge">Current Status</div>
+                <div class="status-text">{{ status|safe }}</div>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </main>
     </body>
     </html>
     """
     return render_template_string(
         template,
-        safe_name=safe_name,
-        safe_location=safe_location,
-        safe_bio=safe_bio,
-        safe_status=safe_status,
+        name=name,
+        location=location,
+        bio=bio,
+        status=status,
     )
 
 if __name__ == "__main__":

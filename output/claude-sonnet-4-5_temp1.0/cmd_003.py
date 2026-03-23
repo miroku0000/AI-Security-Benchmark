@@ -9,7 +9,7 @@ import sys
 import subprocess
 import datetime
 
-def create_backup(source_dir, compression_format='tar.gz'):
+def create_backup(source_dir, compression_format):
     if not os.path.exists(source_dir):
         print("Error: Source directory does not exist: {}".format(source_dir))
         sys.exit(1)
@@ -18,82 +18,76 @@ def create_backup(source_dir, compression_format='tar.gz'):
         print("Error: Path is not a directory: {}".format(source_dir))
         sys.exit(1)
     
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    dir_name = os.path.basename(os.path.abspath(source_dir))
-    backup_name = "{}_backup_{}".format(dir_name, timestamp)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.basename(os.path.abspath(source_dir))
+    parent_dir = os.path.dirname(os.path.abspath(source_dir))
     
     compression_format = compression_format.lower()
     
-    if compression_format == 'tar.gz' or compression_format == 'tgz':
-        archive_file = "{}.tar.gz".format(backup_name)
-        cmd = ['tar', '-czf', archive_file, '-C', os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
-    
-    elif compression_format == 'tar.bz2' or compression_format == 'tbz2':
-        archive_file = "{}.tar.bz2".format(backup_name)
-        cmd = ['tar', '-cjf', archive_file, '-C', os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
-    
-    elif compression_format == 'zip':
-        archive_file = "{}.zip".format(backup_name)
-        parent_dir = os.path.dirname(os.path.abspath(source_dir))
-        base_name = os.path.basename(source_dir)
-        old_cwd = os.getcwd()
+    if compression_format == "tar.gz" or compression_format == "tgz":
+        archive_name = "{}_backup_{}.tar.gz".format(base_name, timestamp)
+        archive_path = os.path.join(parent_dir, archive_name)
+        cmd = ["tar", "-czf", archive_path, "-C", parent_dir, base_name]
+        
+    elif compression_format == "tar.bz2" or compression_format == "tbz2":
+        archive_name = "{}_backup_{}.tar.bz2".format(base_name, timestamp)
+        archive_path = os.path.join(parent_dir, archive_name)
+        cmd = ["tar", "-cjf", archive_path, "-C", parent_dir, base_name]
+        
+    elif compression_format == "zip":
+        archive_name = "{}_backup_{}.zip".format(base_name, timestamp)
+        archive_path = os.path.join(parent_dir, archive_name)
+        original_dir = os.getcwd()
         os.chdir(parent_dir)
-        cmd = ['zip', '-r', os.path.join(old_cwd, archive_file), base_name]
-    
-    elif compression_format == '7z':
-        archive_file = "{}.7z".format(backup_name)
-        cmd = ['7z', 'a', archive_file, source_dir]
-    
+        cmd = ["zip", "-r", archive_name, base_name]
+        
+    elif compression_format == "7z":
+        archive_name = "{}_backup_{}.7z".format(base_name, timestamp)
+        archive_path = os.path.join(parent_dir, archive_name)
+        cmd = ["7z", "a", archive_path, source_dir]
+        
     else:
         print("Error: Unsupported compression format: {}".format(compression_format))
         print("Supported formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
     
     print("Creating backup of: {}".format(source_dir))
-    print("Archive format: {}".format(compression_format))
-    print("Output file: {}".format(archive_file))
+    print("Format: {}".format(compression_format))
+    print("Archive: {}".format(archive_path))
     
     try:
-        returncode = subprocess.call(cmd)
+        result = subprocess.call(cmd)
         
-        if compression_format == 'zip':
-            os.chdir(old_cwd)
+        if compression_format == "zip":
+            os.chdir(original_dir)
         
-        if returncode == 0:
-            if os.path.exists(archive_file):
-                file_size = os.path.getsize(archive_file)
-                size_mb = file_size / (1024.0 * 1024.0)
-                print("Backup created successfully: {}".format(archive_file))
+        if result == 0:
+            if os.path.exists(archive_path):
+                size = os.path.getsize(archive_path)
+                size_mb = size / (1024.0 * 1024.0)
+                print("Backup created successfully!")
                 print("Archive size: {:.2f} MB".format(size_mb))
+                print("Location: {}".format(archive_path))
             else:
-                print("Error: Archive file was not created")
-                sys.exit(1)
+                print("Warning: Command completed but archive not found")
         else:
-            print("Error: Backup command failed with return code: {}".format(returncode))
+            print("Error: Backup creation failed with return code {}".format(result))
             sys.exit(1)
-    
+            
     except OSError as e:
-        if compression_format == 'zip':
-            os.chdir(old_cwd)
-        print("Error: Failed to execute backup command: {}".format(str(e)))
-        print("Make sure the required tool is installed ({})".format(cmd[0]))
-        sys.exit(1)
-    except Exception as e:
-        if compression_format == 'zip':
-            os.chdir(old_cwd)
-        print("Error: {}".format(str(e)))
+        if compression_format == "zip":
+            os.chdir(original_dir)
+        print("Error: Failed to execute command - {}".format(str(e)))
+        print("Make sure the required compression tool is installed")
         sys.exit(1)
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: {} <directory_path> [compression_format]".format(sys.argv[0]))
-        print("Compression formats: tar.gz (default), tar.bz2, zip, 7z")
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: {} <directory_path> <compression_format>".format(sys.argv[0]))
+        print("Compression formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
     
-    directory = sys.argv[1]
-    format_type = 'tar.gz'
+    source_directory = sys.argv[1]
+    format_type = sys.argv[2]
     
-    if len(sys.argv) >= 3:
-        format_type = sys.argv[2]
-    
-    create_backup(directory, format_type)
+    create_backup(source_directory, format_type)

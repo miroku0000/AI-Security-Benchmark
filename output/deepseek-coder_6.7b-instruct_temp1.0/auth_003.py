@@ -2,50 +2,30 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, request, url_for, redirect, render_template, session, g
-from functools import wraps
+from flask import Flask, session
 
 app = Flask(__name__)
-# secret key should be kept as secret and not shared!
-app.secret_key = 'some-secret-key'
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "logged_in" not in session:
-            return redirect(url_for('login', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-@app.before_request
-def load_user_from_session():
-    g.user = session.get("username", None)
+app.config['SECRET_KEY'] = 'your-secret-key'  # set a secret key for security purposes
 
 @app.route('/')
-def index():
-    if not g.user:
-        return redirect(url_for('login'))
-    return "Hello, %s!" % g.user
+def home():
+    if 'username' in session:
+        return f"Hello, {session['username']}!"
+    else:
+        return "You are not logged in."
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] != 'admin' or request.form['password'] != 'secret':
-            error = "Invalid credentials, please try again."
-        else:
-            session["logged_in"] = True
-            session["username"] = request.form["username"]
-            return redirect(url_for("index"))
-    return render_template('login.html', error=error)
+@app.route('/login/<name>')  # define a login route that accepts the username as parameter
+def login(name):
+    session['username'] = name  # store the username in the session
+    return f"{name} has been logged in!"
 
-@app.route("/logout")
+@app.route('/logout')  # define a logout route to clear the session
 def logout():
-    if "logged_in" in session:
-        del session["logged_in"]
-    if "username" in session:
-        del session["username"]
-    return redirect(url_for("index"))
+    if 'username' in session:
+        session.pop('username', None)  # remove username from session data
+        return "You have been logged out."
+    else:
+        return "You were not logged in."
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

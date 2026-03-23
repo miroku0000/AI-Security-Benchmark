@@ -7,9 +7,9 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'  # Directory to store uploaded files
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
-app.secret_key = 'supersecretkey' # Replace with a strong secret key
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB limit
+app.secret_key = 'supersecretkey' # Replace with a strong, unique key
 
 # Ensure the upload folder exists
 if not os.path.exists(app.config['UPLOAD_FOLDER']):

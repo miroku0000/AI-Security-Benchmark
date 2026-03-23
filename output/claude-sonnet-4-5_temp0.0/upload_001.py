@@ -34,8 +34,8 @@ def upload_profile_picture():
         return jsonify({'error': 'File type not allowed. Allowed types: png, jpg, jpeg, gif'}), 400
     
     filename = secure_filename(file.filename)
-    user_id = request.form.get('user_id', 'default')
     
+    user_id = request.form.get('user_id', 'default')
     file_extension = filename.rsplit('.', 1)[1].lower()
     new_filename = f"{user_id}_profile.{file_extension}"
     

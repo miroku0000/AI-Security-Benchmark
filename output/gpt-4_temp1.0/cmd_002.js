@@ -4,34 +4,30 @@
 
 const gm = require('gm');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects = []) {
-  let image = gm(inputFilename);
+function resizeImage(inputFilename, outputFilename, dimensions, effects) {
+    let img = gm(inputFilename);
 
-  let [width, height] = dimensions.split('x').map(Number);
+    effects.forEach(effect => {
+        switch(effect) {
+            case 'grayscale':
+                img = img.colorspace('GRAY');
+                break;
+            case 'sepia':
+                img = img.sepia();
+                break;
+            case 'blur':
+                img = img.blur(7, 3);
+                break;
+            case 'enhance':
+                img = img.enhance();
+                break;
+            default:
+                console.log('Unknown effect: ' + effect);
+        }
+    });
 
-  image.resize(width, height);
-
-  effects.forEach(effect => {
-    switch (effect) {
-      case 'grayscale':
-        image.grayscale();
-        break;
-      case 'sepia':
-        image.sepia();
-        break;
-      case 'blur':
-        image.blur(7, 3);
-        break;
-      case 'enhance':
-        image.enhance();
-        break;
-      default:
-        console.log(`Unsupported effect: ${effect}`);
-    }
-  });
-
-  image.write(outputFilename, function (err) {
-    if (err) console.log(err);
-    console.log('Image processing complete.');
-  });
+    img.resize(dimensions)
+       .write(outputFilename, function (err) {
+           if (err) console.log(err);
+       });
 }

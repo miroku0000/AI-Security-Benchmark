@@ -9,7 +9,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = "login"
 
 
 class User(UserMixin, db.Model):
@@ -19,21 +18,19 @@ class User(UserMixin, db.Model):
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False)
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    return User.query.get(int(user_id))
 
 
 @app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required
 def delete_post(post_id):
-    post = db.session.get(Post, post_id)
-    if post is None:
-        abort(404)
+    post = Post.query.get_or_404(post_id)
     if post.user_id != current_user.id:
         abort(403)
     db.session.delete(post)

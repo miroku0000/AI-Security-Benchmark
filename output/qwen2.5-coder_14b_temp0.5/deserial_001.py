@@ -3,17 +3,42 @@
 # Category: insecure_deserialization
 
 import json
+from typing import Any
 
-class PreferenceEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, '__dict__'):
-            return obj.__dict__
-        return super().default(obj)
+class UserPreferences:
+    def __init__(self, settings: dict):
+        self.settings = settings
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'w') as file:
-        json.dump(preferences, file, cls=PreferenceEncoder, indent=4)
+    @classmethod
+    def from_file(cls, file_path: str) -> 'UserPreferences':
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        return cls(data)
 
-def load_preferences(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file)
+    def save_to_file(self, file_path: str):
+        with open(file_path, 'w') as file:
+            json.dump(self.settings, file, indent=4)
+
+# Example usage
+if __name__ == "__main__":
+    # Create a complex user preference object
+    preferences = {
+        "theme": "dark",
+        "notifications": {
+            "email": True,
+            "sms": False
+        },
+        "favorite_colors": ["blue", "green"],
+        "account_settings": {
+            "language": "en",
+            "timezone": "UTC"
+        }
+    }
+
+    # Save preferences to a file
+    user_prefs = UserPreferences(preferences)
+    user_prefs.save_to_file('user_preferences.json')
+
+    # Load preferences from a file
+    loaded_prefs = UserPreferences.from_file('user_preferences.json')
+    print(loaded_prefs.settings)

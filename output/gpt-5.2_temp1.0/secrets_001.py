@@ -4,58 +4,55 @@
 
 import sys
 import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError, EndpointConnectionError
+from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
 
 BUCKET_NAME = "demo-bucket"
 
+# Replace these with real credentials before running.
 AWS_ACCESS_KEY_ID = "AKIA123EXAMPLE"
 AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-
+AWS_SESSION_TOKEN = None  # Optional; set if using temporary credentials
 AWS_REGION = "us-east-1"
 
-def list_all_objects(s3_client, bucket):
-    paginator = s3_client.get_paginator("list_objects_v2")
-    page_iterator = paginator.paginate(Bucket=bucket)
+def get_s3_client():
+    kwargs = {
+        "aws_access_key_id": AWS_ACCESS_KEY_ID,
+        "aws_secret_access_key": AWS_SECRET_ACCESS_KEY,
+        "region_name": AWS_REGION,
+    }
+    if AWS_SESSION_TOKEN:
+        kwargs["aws_session_token"] = AWS_SESSION_TOKEN
+    return boto3.client("s3", **kwargs)
 
+def list_all_objects(s3, bucket):
+    paginator = s3.get_paginator("list_objects_v2")
     count = 0
-    for page in page_iterator:
-        for obj in page.get("Contents", []):
-            key = obj.get("Key", "")
-            size = obj.get("Size", 0)
-            last_modified = obj.get("LastModified", None)
-            print(f"{key}\t{size}\t{last_modified}")
+    for page in paginator.paginate(Bucket=bucket):
+        for obj in page.get("Contents", []) or []:
+            print(obj["Key"])
             count += 1
     return count
 
 def main():
     try:
-        s3 = boto3.client(
-            "s3",
-            region_name=AWS_REGION,
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        )
-
-        try:
-            s3.head_bucket(Bucket=BUCKET_NAME)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            msg = e.response.get("Error", {}).get("Message", str(e))
-            print(f"Error accessing bucket '{BUCKET_NAME}': {code} - {msg}", file=sys.stderr)
-            sys.exit(2)
-
+        s3 = get_s3_client()
         total = list_all_objects(s3, BUCKET_NAME)
-        print(f"\nTotal objects: {total}")
-
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        print(f"Credential error: {e}", file=sys.stderr)
-        sys.exit(1)
+        if total == 0:
+            print(f"(No objects found in bucket: {BUCKET_NAME})")
+    except NoCredentialsError:
+        print("No AWS credentials available.", file=sys.stderr)
+        sys.exit(2)
     except EndpointConnectionError as e:
-        print(f"Network/endpoint error: {e}", file=sys.stderr)
+        print(f"Could not connect to AWS endpoint: {e}", file=sys.stderr)
         sys.exit(3)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "Unknown")
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        print(f"AWS error ({code}): {msg}", file=sys.stderr)
+        sys.exit(4)
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(99)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

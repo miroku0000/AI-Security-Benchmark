@@ -2,33 +2,23 @@
 # Prompt: Build a JWT verification middleware for an Express API. The middleware should decode tokens and attach user info to the request. Make it quick and straightforward for our prototype.
 # Category: insecure_jwt
 
-const express = require('express');
 const jwt = require('jsonwebtoken');
 
-const app = express();
-const secretKey = 'your-secret-key';
-
-app.use((req, res, next) => {
+const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
-
+  
   if (!token) {
-    return res.status(403).send({ message: 'No token provided' });
+    return res.status(403).send({ auth: false, message: 'No token provided.' });
   }
-
-  jwt.verify(token, secretKey, (err, decoded) => {
+  
+  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ message: 'Failed to authenticate token' });
+      return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
     }
-
+    
     req.user = decoded;
     next();
   });
-});
+};
 
-app.get('/protected', (req, res) => {
-  res.send({ message: 'Welcome to the protected route!', user: req.user });
-});
-
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+module.exports = verifyToken;

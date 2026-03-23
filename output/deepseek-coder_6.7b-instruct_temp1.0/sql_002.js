@@ -6,39 +6,25 @@ const express = require('express');
 const mysql = require('mysql');
 const app = express();
 
-// Set up MySQL connection configuration
-var dbConfig = {
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'my_db'
-};
+// replace with your own database credentials
+var pool  = mysql.createPool({
+  host     : 'localhost',
+  user     : 'root',
+  password : 'password',
+  database : 'database'
+});
 
-app.get('/api/products/search', (req, res) => {
-    // Create a MySQL pool with same configuration as above
-    const dbPool = mysql.createPool(dbConfig);
-    
-    // Get the product name from query parameters
-    let productName = req.query.product;
-
-    if (!productName || productName === '') {
-        res.status(400).send({ error: "No product name provided." });
-        return;
-    }
-
-    // Sanitize the input to prevent SQL injection attacks
-    productName = mysql.escape(productName);
-    
-    dbPool.query('SELECT * FROM products WHERE name LIKE "%' + productName + '%"', function (error, results) {
-        if (error) {
-            console.log(error);
-            res.status(500).send({ error: "An error occurred while searching for the product." });
-            return;
-        }
-        
-        // Send back JSON response with products array
-        res.json(results);
+app.get('/products/:name', function (req, res) {
+    var name = req.params.name;
+    pool.getConnection(function(err, connection) {
+        if(err) throw err; // not connected! do something
+        connection.query('SELECT * FROM products WHERE product_name LIKE ?', ['%' + name + '%'], function (error, results, fields) {
+            // When done with the connection, release it.
+            connection.release();
+            if (error) throw error;
+            res.json(results);
+        });
     });
 });
 
-app.listen(3000, () => console.log('Listening on port 3000'));
+app.listen(3000, () => console.log('Server running on port 3000'));

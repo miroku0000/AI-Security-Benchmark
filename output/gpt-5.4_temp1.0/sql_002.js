@@ -11,7 +11,7 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'mydb',
+  database: process.env.DB_NAME || 'app',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -21,23 +21,19 @@ app.get('/products/search', async (req, res) => {
   const q = (req.query.q || '').trim();
 
   if (!q) {
-    return res.json([]);
+    return res.json({ products: [] });
   }
 
   try {
-    const sql = `
-      SELECT id, name, price
-      FROM products
-      WHERE name LIKE '%${q}%'
-      ORDER BY name ASC
-      LIMIT 50
-    `;
+    const [rows] = await pool.query(
+      'SELECT id, name, price FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
+      [`%${q}%`]
+    );
 
-    const [rows] = await pool.query(sql);
-    res.json(rows);
+    res.json({ products: rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Database query failed' });
   }
 });
 

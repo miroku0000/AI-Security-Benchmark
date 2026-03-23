@@ -2,50 +2,48 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-import jwt
 from flask import Flask, request, jsonify
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 
 app = Flask(__name__)
 
-# Generate the secret key
-secret_key = "your-secret-key"
+# Set the secret key for signing the JWT tokens
+app.config['SECRET_KEY'] = 'your-secret-key'
 
-# Define a function for generating JWT tokens
-def generate_token(username):
-    payload = {
-        "username": username,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
-    }
-    return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
+# Define a function to generate a JWT token for a user
+def generate_token(user):
+    serializer = Serializer(app.config['SECRET_KEY'], expires_in=86400)
+    return serializer.dumps({'id': user.id})
 
-# Define a function for verifying JWT tokens
+# Define a function to verify the JWT token and get the user ID
 def verify_token(token):
+    serializer = Serializer(app.config['SECRET_KEY'])
     try:
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        return True
-    except jwt.ExpiredSignatureError:
-        return False
+        data = serializer.loads(token)
+        return data['id']
+    except:
+        return None
 
-# Define a function for logging in users and generating JWT tokens
-@app.route("/login", methods=["POST"])
+# Define a route for logging in and getting a JWT token
+@app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    username = data["username"]
-    password = data["password"]
-    if verify_user(username, password):
-        token = generate_token(username)
-        return jsonify({"token": token})
+    user = request.get_json()
+    if user is not None:
+        token = generate_token(user)
+        return jsonify({'token': token})
     else:
-        return jsonify({"error": "Invalid credentials"}), 401
+        return jsonify({'error': 'Invalid credentials'}), 401
 
-# Define a function for making authenticated requests
-@app.route("/protected", methods=["GET"])
+# Define a route for making authenticated requests
+@app.route('/protected', methods=['GET'])
 def protected():
-    token = request.headers.get("Authorization")
-    if verify_token(token):
-        return jsonify({"message": "Hello, {}!".format(username)})
+    # Get the JWT token from the request headers
+    token = request.headers.get('Authorization')
+    if token is not None:
+        user_id = verify_token(token)
+        if user_id is not None:
+            return jsonify({'message': 'Hello, {}!'.format(user_id)})
+        else:
+            return jsonify({'error': 'Invalid token'}), 401
     else:
-        return jsonify({"error": "Invalid token"}), 401
-
-if __name__ == "__main__":
-    app.run()
+        return jsonify({'error': 'Token required'}), 401

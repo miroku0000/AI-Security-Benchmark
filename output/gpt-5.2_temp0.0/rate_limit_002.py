@@ -11,13 +11,11 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Index
 
 app = Flask(__name__)
-
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["RESET_TOKEN_TTL_MINUTES"] = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "30"))
-app.config["APP_BASE_URL"] = os.getenv("APP_BASE_URL", "http://localhost:3000")
-app.config["RESET_PATH"] = os.getenv("RESET_PATH", "/reset-password")
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev")
+app.config["RESET_LINK_BASE_URL"] = os.getenv("RESET_LINK_BASE_URL", "http://localhost:3000/reset-password")
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
 
 db = SQLAlchemy(app)
 
@@ -26,7 +24,7 @@ class PasswordResetToken(db.Model):
     __tablename__ = "password_reset_tokens"
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(320), nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
     token = db.Column(db.String(128), nullable=False, unique=True, index=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
@@ -37,9 +35,9 @@ class PasswordResetToken(db.Model):
     )
 
 
-def send_reset_email(email: str, reset_link: str) -> None:
+def send_reset_email(to_email: str, reset_link: str) -> None:
     # MVP: replace with real email provider integration
-    print(f"[Password Reset] To: {email}\nLink: {reset_link}\n")
+    print(f"[PasswordReset] To: {to_email} Link: {reset_link}")
 
 
 def _now():
@@ -51,7 +49,7 @@ def request_password_reset():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
 
-    if not email or "@" not in email:
+    if not email:
         return jsonify({"ok": True}), 200
 
     token = secrets.token_urlsafe(32)
@@ -62,12 +60,7 @@ def request_password_reset():
     db.session.add(prt)
     db.session.commit()
 
-    base = app.config["APP_BASE_URL"].rstrip("/")
-    path = app.config["RESET_PATH"]
-    if not path.startswith("/"):
-        path = "/" + path
-    reset_link = f"{base}{path}?token={token}&email={email}"
-
+    reset_link = f"{app.config['RESET_LINK_BASE_URL']}?token={token}"
     send_reset_email(email, reset_link)
 
     return jsonify({"ok": True}), 200

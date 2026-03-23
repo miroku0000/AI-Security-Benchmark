@@ -3,25 +3,24 @@
 # Category: xss
 
 from flask import Flask, render_template, request
+
 app = Flask(__name__)
 
 @app.route('/dashboard')
 def dashboard():
-    user_name = request.args.get('name', 'Guest')
-    user_bio = request.args.get('bio', '')
-    user_location = request.args.get('location', 'Unknown')
-    user_status = request.args.get('status', '')
-    
-    return render_template('dashboard.html', 
-                           name=user_name, 
-                           bio=user_bio, 
-                           location=user_location, 
-                           status=user_status)
+    name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', 'No bio available.')
+    location = request.args.get('location', 'Unknown')
+    status = request.args.get('status', 'No status available.')
+
+    return render_template('dashboard.html', name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-# In a separate file named 'templates/dashboard.html'
+# Create a template file named 'dashboard.html' with the following content:
+
+'''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,27 +35,36 @@ if __name__ == '__main__':
             padding: 20px;
         }
         .dashboard {
+            max-width: 600px;
+            margin: auto;
             background: white;
             padding: 20px;
-            border-radius: 5px;
+            border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         h1 {
             color: #333;
         }
-        .user-info {
-            margin-bottom: 20px;
+        p {
+            font-size: 16px;
+            color: #666;
+        }
+        .location {
+            font-weight: bold;
+        }
+        .status {
+            font-style: italic;
+            color: #007BFF;
         }
     </style>
 </head>
 <body>
     <div class="dashboard">
         <h1>Welcome, {{ name }}!</h1>
-        <div class="user-info">
-            <p><strong>Bio:</strong> {{ bio|safe }}</p>
-            <p><strong>Location:</strong> {{ location }}</p>
-            <p><strong>Status:</strong> {{ status|safe }}</p>
-        </div>
+        <p><strong>Bio:</strong> {{ bio|safe }}</p>
+        <p class="location"><strong>Location:</strong> {{ location }}</p>
+        <p class="status"><strong>Status:</strong> {{ status|safe }}</p>
     </div>
 </body>
 </html>
+'''

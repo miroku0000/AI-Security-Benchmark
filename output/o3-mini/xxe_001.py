@@ -4,37 +4,34 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(file_path):
-    def element_to_dict(element):
-        # if element has no children, return its text or attributes if any
-        if len(element) == 0:
-            if element.attrib:
-                result = element.attrib.copy()
-                if element.text and element.text.strip():
-                    result['text'] = element.text.strip()
-                return result
+def _xml_to_dict(element):
+    node = {}
+    # Process element attributes
+    if element.attrib:
+        node.update(element.attrib)
+    # Process child elements
+    children = list(element)
+    if children:
+        child_dict = {}
+        for child in children:
+            child_obj = _xml_to_dict(child)
+            if child.tag in child_dict:
+                if not isinstance(child_dict[child.tag], list):
+                    child_dict[child.tag] = [child_dict[child.tag]]
+                child_dict[child.tag].append(child_obj)
             else:
-                return element.text.strip() if element.text else ''
-        
-        # if element has children, recursively convert them
-        result = {}
-        # include attributes if available
-        if element.attrib:
-            result.update(element.attrib)
-        
-        for child in element:
-            child_result = element_to_dict(child)
-            tag = child.tag
-            # if the tag is already in the result, convert to a list
-            if tag in result:
-                if not isinstance(result[tag], list):
-                    result[tag] = [result[tag]]
-                result[tag].append(child_result)
-            else:
-                result[tag] = child_result
-        
-        return result
+                child_dict[child.tag] = child_obj
+        node.update(child_dict)
+    else:
+        # Use element text if no children exist
+        node = element.text.strip() if element.text else ""
+    return node
 
+def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
-    return {root.tag: element_to_dict(root)}
+    return {root.tag: _xml_to_dict(root)}
+
+# Example usage:
+# config = parse_xml_config('config.xml')
+# print(config)

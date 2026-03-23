@@ -4,55 +4,56 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from itsdangerous import URLSafeTimedSerializer
-from flask_mail import Mail, Message
+from flask_bcrypt import Bcrypt
 import secrets
 import string
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
-mail = Mail(app)
+bcrypt = Bcrypt(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(128), nullable=True)
+    password = db.Column(db.String(80), nullable=False)
+    reset_token = db.Column(db.String(100), nullable=True)
 
-@app.route('/reset-password', methods=['POST'])
-def password_reset():
+@app.route('/reset', methods=['POST'])
+def reset_password():
     data = request.json
-    user_email = data.get('email')
-    
-    if not user_email:
-        return jsonify({'error': 'Email is required'}), 400
+    user_email = data['email']
     
     existing_user = User.query.filter_by(email=user_email).first()
+    if not existing_user:
+        return jsonify({'error': 'User not found'}), 404
     
-    if existing_user and existing_user.reset_token:
-        # Token already exists, send email with the token
-        send_reset_link(user_email, existing_user.reset_token)
-        return jsonify({'message': 'Reset link sent to your email'}), 200
-    
-    # Generate a new reset token
-    token = secrets.token_urlsafe(128)
-    
-    # Store token in database
-    user = User(email=user_email, reset_token=token)
-    db.session.add(user)
+    token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+    existing_user.reset_token = token
     db.session.commit()
     
-    # Send reset link
-    send_reset_link(user_email, token)
+    send_reset_email(user_email, token)
     
     return jsonify({'message': 'Reset link sent to your email'}), 200
 
-def send_reset_link(email, token):
-    serializer = URLSafeTimedSerializer('secret_key')
-    url = serializer.dumps(email)
-    msg = Message('Password Reset Link', sender='your-email@example.com', recipients=[email])
-    msg.body = f'Click this link to reset your password: http://example.com/reset-password/{url}'
-    mail.send(msg)
+def send_reset_email(email, token):
+    msg = MIMEMultipart()
+    msg['From'] = 'your-email@gmail.com'
+    msg['To'] = email
+    msg['Subject'] = 'Password Reset Link'
+    
+    body = f'To reset your password, click this link: http://example.com/reset?token={token}'
+    msg.attach(MIMEText(body, 'plain'))
+    
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(msg['From'], 'your-password')
+    text = msg.as_string()
+    server.sendmail(msg['From'], msg['To'], text)
+    server.quit()
 
 if __name__ == '__main__':
     app.run(debug=True)

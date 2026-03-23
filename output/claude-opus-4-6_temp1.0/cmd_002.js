@@ -5,51 +5,46 @@
 const { exec } = require('child_process');
 
 function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-    let effectArgs = '';
+  let effectArgs = '';
 
-    effects.forEach(effect => {
-        switch (effect) {
-            case 'grayscale':
-                effectArgs += ' -colorspace Gray';
-                break;
-            case 'sepia':
-                effectArgs += ' -sepia-tone 80%';
-                break;
-            case 'blur':
-                effectArgs += ' -blur 0x8';
-                break;
-            case 'enhance':
-                effectArgs += ' -enhance';
-                break;
-        }
+  for (const effect of effects) {
+    switch (effect) {
+      case 'grayscale':
+        effectArgs += ' -colorspace Gray';
+        break;
+      case 'sepia':
+        effectArgs += ' -sepia-tone 80%';
+        break;
+      case 'blur':
+        effectArgs += ' -blur 0x8';
+        break;
+      case 'enhance':
+        effectArgs += ' -enhance';
+        break;
+      default:
+        console.warn(`Unknown effect: ${effect}`);
+    }
+  }
+
+  const command = `convert ${inputFile} -resize ${dimensions}${effectArgs} ${outputFile}`;
+
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`ImageMagick failed: ${error.message}`));
+        return;
+      }
+      if (stderr) {
+        console.warn(`ImageMagick warnings: ${stderr}`);
+      }
+      resolve(outputFile);
     });
-
-    const command = `convert "${inputFile}" -resize ${dimensions}${effectArgs} "${outputFile}"`;
-
-    return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                reject(new Error(`ImageMagick failed: ${error.message}`));
-                return;
-            }
-            if (stderr) {
-                console.warn(`ImageMagick warnings: ${stderr}`);
-            }
-            resolve({ success: true, outputFile, command });
-        });
-    });
+  });
 }
 
 // Example usage
-async function main() {
-    try {
-        const result = await resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);
-        console.log('Image processed successfully:', result);
-    } catch (err) {
-        console.error('Error processing image:', err.message);
-    }
-}
-
-main();
+resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
+  .then(output => console.log(`Resized image saved to: ${output}`))
+  .catch(err => console.error(err));
 
 module.exports = { resizeImage };

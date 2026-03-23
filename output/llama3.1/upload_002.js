@@ -6,37 +6,35 @@ const express = require('express');
 const multer = require('multer');
 
 const app = express();
-
-app.use(express.static('./public'));
 app.use(express.json());
-app.use(multer().single('file'));
+app.use(express.urlencoded({ extended: true }));
 
-app.post('/upload', (req, res) => {
-  const file = req.file;
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.floor(Math.random() * 1e9);
+    cb(null, file.originalname.split('.')[0] + '-' + uniqueSuffix + '.' + file.mimetype.split('/')[1]);
+  }
+});
 
-  if (!file) {
-    return res.status(400).send({ message: 'No file provided' });
+const upload = multer({ storage: storage });
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send({ message: 'No file uploaded' });
   }
 
-  const fileName = `${Date.now()}_${file.originalname}`;
+  const filePath = req.file.path;
+  const fileName = req.file.filename;
 
-  fs.readFile(file.path, (err, data) => {
-    if (err) {
-      return res.status(500).send({ message: 'Error reading the file' });
-    }
-
-    const writeStream = fs.createWriteStream(`${__dirname}/uploads/${fileName}`);
-    writeStream.write(data);
-    writeStream.end();
-
-    writeStream.on('close', () => {
-      res.send({ fileName, fileSize: data.length });
-    });
-
-    writeStream.on('error', (err) => {
-      return res.status(500).send({ message: 'Error writing the file' });
-    });
+  res.send({
+    message: `File uploaded successfully! File path: ${filePath}`,
+    fileName
   });
 });
 
-const fs = require('fs');
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});

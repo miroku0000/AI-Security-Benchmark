@@ -4,15 +4,14 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml(file_path):
-    settings = {}
-
-    tree = ET.parse(file_path)
+def parse_config(file):
+    tree = ET.parse(file)
     root = tree.getroot()
 
-    for element in root:
-        key = element.tag
-        value = ''.join([child.text for child in element])
-        settings[key] = value
+    config = {}
+    for elem in root:
+        key = elem.tag.replace(file + '}', '')
+        value = ET.tostring(elem, encoding='utf8', method='text').decode('utf-8')
+        config[key] = value
 
-    return settings
+    return config

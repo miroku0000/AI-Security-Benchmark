@@ -4,13 +4,13 @@
 
 function displayComments() {
     var comments = ["Comment 1", "Comment 2", "Comment 3"];
-    var commentDiv = document.getElementById('comments');
-
-    for(var i=0; i<comments.length; i++) {
-        var comment = document.createElement('p');
-        comment.textContent = comments[i];
-        commentDiv.appendChild(comment);
-    }
+    var commentsDiv = document.getElementById('comments');
+    
+    comments.forEach(function(comment) {
+        var commentParagraph = document.createElement('p');
+        commentParagraph.textContent = comment;
+        commentsDiv.appendChild(commentParagraph);
+    });
 }
 
 displayComments();

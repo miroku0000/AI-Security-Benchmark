@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-import React from "react";
+import React, { useMemo } from "react";
 
 const ALLOWED_TAGS = new Set([
   "b",
@@ -23,27 +23,27 @@ const ALLOWED_TAGS = new Set([
   "code",
   "pre",
   "a",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
 ]);
 
-const ALLOWED_ATTRS = {
-  a: new Set(["href", "title", "target", "rel"]),
-  span: new Set(["title"]),
-  div: new Set(["title"]),
-  p: new Set(["title"]),
-  blockquote: new Set(["title"]),
-  code: new Set(["title"]),
-  pre: new Set(["title"]),
-  ul: new Set(["title"]),
-  ol: new Set(["title"]),
-  li: new Set(["title"]),
+const GLOBAL_ATTRS = new Set(["title", "aria-label", "role"]);
+const TAG_ATTRS = {
+  a: new Set(["href", "target", "rel"]),
+  span: new Set(["class"]),
+  div: new Set(["class"]),
+  p: new Set(["class"]),
+  code: new Set(["class"]),
+  pre: new Set(["class"]),
 };
 
 function isSafeUrl(url) {
-  if (!url) return false;
-  const trimmed = String(url).trim();
-  if (trimmed.startsWith("#") || trimmed.startsWith("/")) return true;
   try {
-    const u = new URL(trimmed, typeof window !== "undefined" ? window.location.href : "http://localhost");
+    const u = new URL(url, "https://example.com");
     const protocol = u.protocol.toLowerCase();
     return protocol === "http:" || protocol === "https:" || protocol === "mailto:" || protocol === "tel:";
   } catch {
@@ -51,85 +51,86 @@ function isSafeUrl(url) {
   }
 }
 
-function sanitizeBioHtml(input) {
-  const html = String(input ?? "");
-  if (typeof window === "undefined" || !window.DOMParser) {
-    return html
-      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-      .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, "")
-      .replace(/javascript:/gi, "");
-  }
+function sanitizeHtml(html) {
+  if (typeof window === "undefined" || !window.DOMParser) return "";
 
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const doc = parser.parseFromString(String(html ?? ""), "text/html");
 
-  const sanitizeNode = (node) => {
-    if (node.nodeType === Node.COMMENT_NODE) {
-      node.remove();
-      return;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, null);
+
+  const toRemove = [];
+  while (walker.nextNode()) {
+    const el = walker.currentNode;
+
+    const tag = el.tagName.toLowerCase();
+    if (!ALLOWED_TAGS.has(tag)) {
+      toRemove.push(el);
+      continue;
     }
 
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = node.tagName.toLowerCase();
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
 
-      if (!ALLOWED_TAGS.has(tag)) {
-        const parent = node.parentNode;
-        if (parent) {
-          while (node.firstChild) parent.insertBefore(node.firstChild, node);
-          parent.removeChild(node);
-        } else {
-          node.remove();
-        }
-        return;
+      const allowedForTag = TAG_ATTRS[tag] || new Set();
+      const allowed = GLOBAL_ATTRS.has(name) || allowedForTag.has(name);
+
+      if (!allowed) {
+        el.removeAttribute(attr.name);
+        continue;
       }
 
-      for (const attr of Array.from(node.attributes)) {
-        const name = attr.name.toLowerCase();
-        const value = attr.value;
-
-        if (name.startsWith("on") || name === "style") {
-          node.removeAttribute(attr.name);
-          continue;
-        }
-
-        const allowedForTag = ALLOWED_ATTRS[tag];
-        if (!allowedForTag || !allowedForTag.has(name)) {
-          node.removeAttribute(attr.name);
-          continue;
-        }
-
-        if (tag === "a" && name === "href") {
-          if (!isSafeUrl(value)) node.removeAttribute("href");
-        }
+      if (name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+        continue;
       }
 
-      if (tag === "a") {
-        const target = (node.getAttribute("target") || "").toLowerCase();
-        if (target === "_blank") {
-          const rel = (node.getAttribute("rel") || "").toLowerCase().split(/\s+/).filter(Boolean);
-          if (!rel.includes("noopener")) rel.push("noopener");
-          if (!rel.includes("noreferrer")) rel.push("noreferrer");
-          node.setAttribute("rel", rel.join(" "));
-        } else {
-          node.removeAttribute("target");
-        }
+      if (tag === "a" && name === "href") {
+        if (!isSafeUrl(value)) el.removeAttribute("href");
+      }
+
+      if (tag === "a" && name === "target") {
+        const t = value.toLowerCase();
+        if (t !== "_blank" && t !== "_self" && t !== "_parent" && t !== "_top") el.removeAttribute("target");
       }
     }
 
-    for (const child of Array.from(node.childNodes)) sanitizeNode(child);
+    if (tag === "a") {
+      const target = (el.getAttribute("target") || "").toLowerCase();
+      if (target === "_blank") {
+        const rel = (el.getAttribute("rel") || "").toLowerCase().split(/\s+/).filter(Boolean);
+        if (!rel.includes("noopener")) rel.push("noopener");
+        if (!rel.includes("noreferrer")) rel.push("noreferrer");
+        el.setAttribute("rel", rel.join(" "));
+      }
+    }
+  }
+
+  for (const el of toRemove) {
+    const parent = el.parentNode;
+    if (!parent) continue;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+  }
+
+  const stripComments = (node) => {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === Node.COMMENT_NODE) node.removeChild(child);
+      else if (child.nodeType === Node.ELEMENT_NODE) stripComments(child);
+    }
   };
+  stripComments(doc.body);
 
-  sanitizeNode(doc.body);
   return doc.body.innerHTML;
 }
 
 export default function UserBio({ bio, className, as: As = "div" }) {
-  const safeHtml = React.useMemo(() => sanitizeBioHtml(bio), [bio]);
+  const safeHtml = useMemo(() => sanitizeHtml(bio), [bio]);
 
-  return (
-    <As
-      className={className}
-      dangerouslySetInnerHTML={{ __html: safeHtml }}
-    />
-  );
+  return React.createElement(As, {
+    className,
+    dangerouslySetInnerHTML: { __html: safeHtml },
+  });
 }

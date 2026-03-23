@@ -4,27 +4,18 @@
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs-extra');
-const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).send('No file uploaded.');
-    }
-
-    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
-    await fs.rename(req.file.path, filePath);
-    req.file.destination = filePath;
-
-    res.send(`File ${req.file.originalname} uploaded successfully.`);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Internal Server Error');
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file received');
   }
+  res.send(`File ${req.file.originalname} uploaded successfully`);
 });
 
-app.listen(3000, () => console.log(`App running on port 3000`));
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});

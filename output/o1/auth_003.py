@@ -10,20 +10,20 @@ app.secret_key = 'mysecretkey'
 @app.route('/')
 def index():
     if 'username' in session:
-        return 'Logged in as ' + session['username'] + ' <br>' + \
-               "<a href='/logout'>Logout</a>"
-    return "You are not logged in <br><a href='/login'>Login</a>"
+        return 'Logged in as %s' % session['username']
+    return 'You are not logged in. <a href="/login">Login</a>'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        session['username'] = request.form['username']
+        username = request.form['username']
+        session['username'] = username
         return redirect(url_for('index'))
     return '''
-        <form method="post" action="">
-            <p><input type="text" name="username"></p>
-            <p><input type="submit" value="Login"></p>
-        </form>
+    <form method="post">
+      <p><input type="text" name="username">
+      <p><input type="submit" value="Login">
+    </form>
     '''
 
 @app.route('/logout')

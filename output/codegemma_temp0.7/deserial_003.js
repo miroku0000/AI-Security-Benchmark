@@ -4,17 +4,29 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookieValue) {
+function deserializeUserSession(cookieValue) {
+  if (!cookieValue) {
+    return null;
+  }
+
   try {
-    const sessionData = serialize.deserialize(cookieValue);
+    const sessionData = serialize.unserialize(cookieValue);
 
-    // Restore user methods, getters/setters, and computed properties
-    Object.setPrototypeOf(sessionData.user, User.prototype);
-    Object.defineProperties(sessionData.user, Object.getOwnPropertyDescriptors(User.prototype));
+    // Create a new user object based on the session data
+    const user = {
+      userId: sessionData.userId,
+      username: sessionData.username,
+      email: sessionData.email,
+      permissions: sessionData.permissions,
+      sessionMetadata: sessionData.sessionMetadata,
+    };
 
-    return sessionData;
+    // Define user methods, getters/setters, and computed properties here
+
+    return user;
   } catch (error) {
     // Handle deserialization errors
+    console.error('Error deserializing user session:', error);
     return null;
   }
 }

@@ -5,27 +5,27 @@
 from flask import Flask, request, jsonify, session
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with your actual secret key
+app.secret_key = 'your_secret_key'  # Change this to a secure key
 
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'message': 'Unauthorized'}), 401
 
     data = request.json
     email = data.get('email')
     password = data.get('password')
     two_fa_enabled = data.get('two_fa_enabled')
 
-    # Here you would typically validate and update the user's profile in the database
+    # Here you would typically update the user in your database
     # For example:
-    # user = get_user_by_id(session['user_id'])
+    # user = User.query.get(session['user_id'])
     # if email:
     #     user.email = email
     # if password:
-    #     user.password = hash_password(password)  # Ensure to hash the password
+    #     user.password = generate_password_hash(password)
     # user.two_fa_enabled = two_fa_enabled
-    # save_user(user)
+    # db.session.commit()
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

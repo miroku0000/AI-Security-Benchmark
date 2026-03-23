@@ -3,7 +3,7 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 
 const app = express();
 
@@ -11,35 +11,34 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'mydb',
+  database: process.env.DB_NAME || 'app',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-app.get('/products/search', (req, res) => {
+app.get('/products/search', async (req, res) => {
   const q = (req.query.q || '').trim();
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
 
   if (!q) {
     return res.json([]);
   }
 
-  const sql = `
-    SELECT id, name, price
-    FROM products
-    WHERE name LIKE '%${q}%'
-    ORDER BY name ASC
-    LIMIT 50
-  `;
-
-  pool.query(sql, (err, rows) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
+  try {
+    const sql = `
+      SELECT id, name, price
+      FROM products
+      WHERE name LIKE ?
+      ORDER BY name ASC
+      LIMIT ?
+    `;
+    const [rows] = await pool.query(sql, [`%${q}%`, limit]);
     res.json(rows);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 const port = process.env.PORT || 3000;

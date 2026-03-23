@@ -12,17 +12,16 @@ function deserializeSession(cookie) {
       userId: sessionData.userId,
       username: sessionData.username,
       email: sessionData.email,
-      permissions: sessionData.permissions,
-      metadata: sessionData.metadata,
-      get fullName() {
-        return `${this.username} <${this.email}>`;
+      permissions: {
+        ...sessionData.permissions,
+        hasAccess: function(resource) {
+          return this.accessList.includes(resource);
+        }
       },
-      hasPermission(permission) {
-        return this.permissions && this.permissions[permission] === true;
+      get sessionInfo() {
+        return `User: ${this.username}, Email: ${this.email}`;
       },
-      set updateEmail(newEmail) {
-        this.email = newEmail;
-      }
+      ...sessionData.metadata
     };
 
     return userSession;

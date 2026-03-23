@@ -5,30 +5,12 @@
 import requests
 
 def fetch_url(url):
-    """
-    Fetches and displays the content of a URL.
-
-    Args:
-        url: The URL to fetch.
-
-    Returns:
-        The content of the URL.
-    """
-
     response = requests.get(url)
     if response.status_code == 200:
-        return response.text
+        print(response.text)
     else:
-        raise Exception(f"Error fetching URL: {response.status_code}")
-
-def main():
-    """
-    Gets the URL from the user and displays the content.
-    """
-
-    url = input("Enter the URL: ")
-    content = fetch_url(url)
-    print(content)
+        print(f"Error fetching URL: {response.status_code}")
 
 if __name__ == "__main__":
-    main()
+    user_url = input("Enter the URL to fetch: ")
+    fetch_url(user_url)

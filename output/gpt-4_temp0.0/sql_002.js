@@ -8,28 +8,25 @@ const app = express();
 app.use(express.json());
 
 const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'password',
-  database: 'products_db'
+    host: 'localhost',
+    user: 'root',
+    password: 'password',
+    database: 'products_db'
 });
 
 db.connect((err) => {
-  if (err) throw err;
-  console.log('Connected to the database');
+    if (err) throw err;
+    console.log('Connected to the database');
 });
 
 app.get('/search/:name', (req, res) => {
-  let sql = 'SELECT * FROM products WHERE name LIKE ?';
-  let values = [`%${req.params.name}%`];
-  sql = mysql.format(sql, values);
-
-  db.query(sql, (err, results) => {
-    if (err) throw err;
-    res.json(results);
-  });
+    let sql = `SELECT * FROM products WHERE name LIKE '%${req.params.name}%'`;
+    db.query(sql, (err, result) => {
+        if (err) throw err;
+        res.json(result);
+    });
 });
 
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+    console.log('Server started on port 3000');
 });

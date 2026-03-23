@@ -5,7 +5,6 @@
 const express = require('express');
 const multer = require('multer');
 const libxmljs = require('libxmljs2');
-const xml2js = require('xml2js');
 
 const app = express();
 const upload = multer({
@@ -14,7 +13,7 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/xml' || file.mimetype === 'text/xml' || file.originalname.endsWith('.xml')) {
+    if (file.mimetype === 'text/xml' || file.mimetype === 'application/xml' || file.originalname.endsWith('.xml')) {
       cb(null, true);
     } else {
       cb(new Error('Only XML files are allowed'), false);
@@ -22,385 +21,199 @@ const upload = multer({
   }
 });
 
-// Sanitize XML to prevent XXE attacks
-function sanitizeXml(xmlString) {
-  // Remove DOCTYPE declarations to prevent XXE
-  const sanitized = xmlString.replace(/<!DOCTYPE[^>]*>/gi, '');
-  // Remove ENTITY declarations
-  return sanitized.replace(/<!ENTITY[^>]*>/gi, '');
+/**
+ * Recursively converts an libxmljs element node into a plain JavaScript object.
+ */
+function elementToObject(element) {
+  const obj = {};
+
+  // Extract attributes
+  const attrs = element.attrs();
+  if (attrs.length > 0) {
+    obj['@attributes'] = {};
+    for (const attr of attrs) {
+      obj['@attributes'][attr.name()] = attr.value();
+    }
+  }
+
+  // Extract child elements
+  const childElements = element.childNodes().filter(
+    (node) => node.type() === 'element'
+  );
+
+  if (childElements.length === 0) {
+    // Leaf node - return text content (with attributes if any)
+    const textContent = (element.text() || '').trim();
+    if (attrs.length > 0) {
+      obj['@text'] = textContent;
+      return obj;
+    }
+    return textContent;
+  }
+
+  // Group children by tag name to handle repeated elements as arrays
+  const childMap = {};
+  for (const child of childElements) {
+    const tagName = child.name();
+    const childObj = elementToObject(child);
+
+    if (childMap[tagName] !== undefined) {
+      // Convert to array if not already
+      if (!Array.isArray(childMap[tagName])) {
+        childMap[tagName] = [childMap[tagName]];
+      }
+      childMap[tagName].push(childObj);
+    } else {
+      childMap[tagName] = childObj;
+    }
+  }
+
+  Object.assign(obj, childMap);
+
+  return obj;
 }
 
-// Parse XML using libxmljs2 with secure settings
-function parseWithLibxmljs(xmlContent) {
-  const sanitizedXml = sanitizeXml(xmlContent);
-
-  // Parse with nonet option to prevent network access for external entities
-  const doc = libxmljs.parseXmlString(sanitizedXml, {
-    noent: false,      // Do not substitute entities
-    nonet: true,       // Disable network access
-    noload: true,      // Do not load external documents
+/**
+ * Parses XML string safely, disabling external entity resolution and network access
+ * to prevent XXE attacks.
+ */
+function parseXmlSafely(xmlString) {
+  // Disable external entities and network access to prevent XXE attacks
+  const doc = libxmljs.parseXml(xmlString, {
+    noent: false,       // Do NOT substitute entities
+    nonet: true,        // Disable network access
+    compact: true,
+    dtdload: false,     // Do not load external DTDs
+    dtdvalid: false,    // Do not validate against DTD
     nocdata: false,
     noblanks: true,
-    dtdload: false,    // Do not load external DTD
-    dtdvalid: false,   // Do not validate against DTD
-    errors: true
   });
 
   return doc;
 }
 
-// Extract configuration from parsed libxmljs document
-function extractConfigFromLibxmljs(doc) {
-  const config = {};
-  const root = doc.root();
-
-  if (!root) {
-    throw new Error('XML document has no root element');
-  }
-
-  config.rootElement = root.name();
-  config.namespace = root.namespace() ? root.namespace().href() : null;
-  config.attributes = {};
-  config.settings = {};
-
-  // Extract root attributes
-  root.attrs().forEach(attr => {
-    config.attributes[attr.name()] = attr.value();
-  });
-
-  // Recursively extract child elements into settings
-  function extractChildren(node, target) {
-    const children = node.childNodes();
-    children.forEach(child => {
-      if (child.type() === 'element') {
-        const name = child.name();
-        const childElements = child.childNodes().filter(c => c.type() === 'element');
-
-        if (childElements.length > 0) {
-          // Has child elements - recurse
-          target[name] = target[name] || {};
-          if (Array.isArray(target[name])) {
-            const newObj = {};
-            extractChildren(child, newObj);
-            target[name].push(newObj);
-          } else if (typeof target[name] === 'object' && Object.keys(target[name]).length > 0) {
-            // Convert to array if duplicate key
-            const existing = target[name];
-            target[name] = [existing];
-            const newObj = {};
-            extractChildren(child, newObj);
-            target[name].push(newObj);
-          } else {
-            extractChildren(child, target[name]);
-          }
-        } else {
-          // Leaf node
-          const text = child.text() ? child.text().trim() : '';
-          const attrs = {};
-          child.attrs().forEach(attr => {
-            attrs[attr.name()] = attr.value();
-          });
-
-          if (Object.keys(attrs).length > 0) {
-            const value = { _value: text, _attributes: attrs };
-            if (target[name]) {
-              if (Array.isArray(target[name])) {
-                target[name].push(value);
-              } else {
-                target[name] = [target[name], value];
-              }
-            } else {
-              target[name] = value;
-            }
-          } else {
-            if (target[name]) {
-              if (Array.isArray(target[name])) {
-                target[name].push(text);
-              } else {
-                target[name] = [target[name], text];
-              }
-            } else {
-              target[name] = text;
-            }
-          }
-        }
-      }
-    });
-  }
-
-  extractChildren(root, config.settings);
-  return config;
-}
-
-// Parse XML using xml2js with secure settings
-async function parseWithXml2js(xmlContent) {
-  const sanitizedXml = sanitizeXml(xmlContent);
-
-  const parser = new xml2js.Parser({
-    explicitArray: false,
-    mergeAttrs: false,
-    attrkey: '_attributes',
-    charkey: '_value',
-    trim: true,
-    normalizeTags: false,
-    normalize: true,
-    explicitRoot: true,
-    // Security: reject external entities
-    strict: true
-  });
-
-  const result = await parser.parseStringPromise(sanitizedXml);
-  return result;
-}
-
-// Format xml2js result into a cleaner config object
-function formatXml2jsConfig(parsed) {
-  const config = {};
-  const rootKey = Object.keys(parsed)[0];
-  config.rootElement = rootKey;
-  config.settings = {};
-
-  function cleanObject(obj) {
-    if (typeof obj !== 'object' || obj === null) {
-      return obj;
-    }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => cleanObject(item));
-    }
-
-    const cleaned = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (key === '$') {
-        cleaned._attributes = value;
-      } else if (key === '_') {
-        cleaned._value = value;
-      } else {
-        cleaned[key] = cleanObject(value);
-      }
-    }
-    return cleaned;
-  }
-
-  const rootContent = parsed[rootKey];
-  if (rootContent._attributes || rootContent.$) {
-    config.attributes = rootContent._attributes || rootContent.$ || {};
-  }
-
-  for (const [key, value] of Object.entries(rootContent)) {
-    if (key !== '_attributes' && key !== '$' && key !== '_') {
-      config.settings[key] = cleanObject(value);
-    }
-  }
-
-  return config;
-}
-
-// Validate configuration structure
-function validateConfig(config) {
-  const errors = [];
-
-  if (!config.rootElement) {
-    errors.push('Missing root element');
-  }
-
-  if (!config.settings || Object.keys(config.settings).length === 0) {
-    errors.push('No configuration settings found in the XML document');
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-}
-
-// POST /api/upload-config - Upload and parse XML configuration (using libxmljs2)
-app.post('/api/upload-config', upload.single('xmlFile'), async (req, res) => {
+/**
+ * POST /api/upload-config
+ * Accepts an XML configuration file upload, parses it, and returns
+ * the extracted configuration as a JSON object.
+ */
+app.post('/api/upload-config', upload.single('configFile'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        error: 'No XML file uploaded. Please upload a file with field name "xmlFile".'
+        error: 'No XML file uploaded. Please upload a file with field name "configFile".'
       });
     }
 
-    const xmlContent = req.file.buffer.toString('utf-8');
+    const xmlString = req.file.buffer.toString('utf-8');
 
-    if (!xmlContent.trim()) {
+    // Validate that the content is not empty
+    if (!xmlString.trim()) {
       return res.status(400).json({
         success: false,
-        error: 'Uploaded file is empty.'
+        error: 'Uploaded XML file is empty.'
       });
     }
 
-    // Parse with libxmljs2
-    const doc = parseWithLibxmljs(xmlContent);
-
-    // Check for parse errors
-    const parseErrors = doc.errors;
-    if (parseErrors && parseErrors.length > 0) {
-      const criticalErrors = parseErrors.filter(e => e.level && e.level > 1);
-      if (criticalErrors.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'XML parsing errors detected',
-          details: criticalErrors.map(e => e.message || e.toString())
-        });
-      }
-    }
-
-    // Extract configuration
-    const config = extractConfigFromLibxmljs(doc);
-
-    // Validate
-    const validation = validateConfig(config);
-
-    if (!validation.isValid) {
+    // Parse the XML safely (XXE protection enabled)
+    let doc;
+    try {
+      doc = parseXmlSafely(xmlString);
+    } catch (parseError) {
       return res.status(400).json({
         success: false,
-        error: 'Configuration validation failed',
-        validationErrors: validation.errors
+        error: 'Invalid XML document.',
+        details: parseError.message
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      parser: 'libxmljs2',
+    // Check for parsing errors
+    const errors = doc.errors;
+    if (errors && errors.length > 0) {
+      const errorMessages = errors.map((e) => e.message || String(e));
+      return res.status(400).json({
+        success: false,
+        error: 'XML document contains errors.',
+        details: errorMessages
+      });
+    }
+
+    // Get the root element
+    const root = doc.root();
+    if (!root) {
+      return res.status(400).json({
+        success: false,
+        error: 'XML document has no root element.'
+      });
+    }
+
+    // Convert the XML document to a JavaScript object
+    const rootName = root.name();
+    const configObject = {
+      [rootName]: elementToObject(root)
+    };
+
+    // Extract metadata
+    const metadata = {
+      rootElement: rootName,
       fileName: req.file.originalname,
       fileSize: req.file.size,
-      config
+      uploadedAt: new Date().toISOString(),
+      namespaces: extractNamespaces(root)
+    };
+
+    return res.status(200).json({
+      success: true,
+      metadata,
+      configuration: configObject
     });
 
   } catch (error) {
-    console.error('Error processing XML upload (libxmljs):', error.message);
-    return res.status(400).json({
+    console.error('Error processing XML upload:', error);
+    return res.status(500).json({
       success: false,
-      error: 'Failed to parse XML document',
+      error: 'Internal server error while processing the XML file.',
       details: error.message
     });
   }
 });
 
-// POST /api/upload-config-v2 - Upload and parse XML configuration (using xml2js)
-app.post('/api/upload-config-v2', upload.single('xmlFile'), async (req, res) => {
+/**
+ * Extracts namespace declarations from the root element.
+ */
+function extractNamespaces(element) {
+  const namespaces = {};
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No XML file uploaded. Please upload a file with field name "xmlFile".'
-      });
-    }
-
-    const xmlContent = req.file.buffer.toString('utf-8');
-
-    if (!xmlContent.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Uploaded file is empty.'
-      });
-    }
-
-    // Parse with xml2js
-    const parsed = await parseWithXml2js(xmlContent);
-
-    // Format into config object
-    const config = formatXml2jsConfig(parsed);
-
-    // Validate
-    const validation = validateConfig(config);
-
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Configuration validation failed',
-        validationErrors: validation.errors
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      parser: 'xml2js',
-      fileName: req.file.originalname,
-      fileSize: req.file.size,
-      config
-    });
-
-  } catch (error) {
-    console.error('Error processing XML upload (xml2js):', error.message);
-    return res.status(400).json({
-      success: false,
-      error: 'Failed to parse XML document',
-      details: error.message
-    });
-  }
-});
-
-// POST /api/upload-config-raw - Accept raw XML body
-app.post('/api/upload-config-raw', express.text({ type: ['application/xml', 'text/xml'], limit: '5mb' }), async (req, res) => {
-  try {
-    const xmlContent = req.body;
-
-    if (!xmlContent || !xmlContent.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'No XML content provided in request body.'
-      });
-    }
-
-    // Parse with libxmljs2
-    const doc = parseWithLibxmljs(xmlContent);
-    const config = extractConfigFromLibxmljs(doc);
-
-    // Also parse with xml2js for comparison/alternative format
-    const parsedXml2js = await parseWithXml2js(xmlContent);
-    const configXml2js = formatXml2jsConfig(parsedXml2js);
-
-    const validation = validateConfig(config);
-
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Configuration validation failed',
-        validationErrors: validation.errors
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      parser: 'both',
-      config: {
-        libxmljs: config,
-        xml2js: configXml2js
+    const nsDefs = element.namespaces(true);
+    if (nsDefs && nsDefs.length > 0) {
+      for (const ns of nsDefs) {
+        const prefix = ns.prefix() || 'default';
+        namespaces[prefix] = ns.href();
       }
-    });
-
-  } catch (error) {
-    console.error('Error processing raw XML:', error.message);
-    return res.status(400).json({
-      success: false,
-      error: 'Failed to parse XML document',
-      details: error.message
-    });
+    }
+  } catch (e) {
+    // Namespace extraction is optional; ignore errors
   }
-});
+  return namespaces;
+}
 
-// GET /api/health - Health check
+/**
+ * GET /api/health
+ * Health check endpoint.
+ */
 app.get('/api/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'ok',
     service: 'B2B XML Configuration Processor',
-    endpoints: [
-      'POST /api/upload-config - Upload XML file (libxmljs2 parser)',
-      'POST /api/upload-config-v2 - Upload XML file (xml2js parser)',
-      'POST /api/upload-config-raw - Send raw XML body'
-    ]
+    timestamp: new Date().toISOString()
   });
 });
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
+// Global error handler for multer and other errors
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         success: false,
         error: 'File too large. Maximum size is 5MB.'
@@ -408,28 +221,30 @@ app.use((error, req, res, next) => {
     }
     return res.status(400).json({
       success: false,
-      error: `Upload error: ${error.message}`
+      error: `Upload error: ${err.message}`
     });
   }
 
-  if (error.message === 'Only XML files are allowed') {
+  if (err.message === 'Only XML files are allowed') {
     return res.status(415).json({
       success: false,
-      error: error.message
+      error: err.message
     });
   }
 
-  console.error('Unhandled error:', error);
+  console.error('Unhandled error:', err);
   return res.status(500).json({
     success: false,
-    error: 'Internal server error'
+    error: 'An unexpected error occurred.'
   });
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log(`B2B XML Configuration Processor running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`Upload endpoint: POST http://localhost:${PORT}/api/upload-config`);
+  console.log(`Health check: GET http://localhost:${PORT}/api/health`);
 });
 
 module.exports = app;

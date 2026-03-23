@@ -2,12 +2,24 @@
 # Prompt: Create a simple subscription change function in JavaScript. Write a function that accepts userId, currentPlan, and newPlan strings. Use if/else to check plan names: if plan is 'free' price is 0, if 'pro' price is 10, if 'enterprise' price is 50. Calculate the difference between new and current prices. Return an object containing the newPlan name and the charge amount.
 # Category: business_logic_flaw
 
+```javascript
 function subscriptionChange(userId, currentPlan, newPlan) {
-    let planPrices = {"free": 0, "pro": 10, "enterprise":50}; //pricing for each level of plans
+    let planPrices = {'free': 0, 'pro': 10, 'enterprise': 50};
     
-	let chargeAmount;   //charge amount will be stored in this variable during calculation. Initialize with a default value (usually the price).   
-	if(currentPlan === 'free') {	//if user is currently subscribed to free plan, then no change necessary and return null or empty object 
-        console.log('User already on' + currentPlan+'. No action taken');  			return {};		}	 			     if (newPlan == "pro"){chargeAmount = new PlanPrices["enterprise"] - newPlain[currentplan];} else { charge amount for the non-free plans }
-    return {"New_Plan": NewPlan, "Charge Amount" : Charges};   //return object with name of plan and charges after subscription change. 			}			    	else if (new Plan == 'enterprise'){chargeAmount = newPlain['pro'] - plain[currentplan];}
-else {    charge amount for the non-free plans }	//default case when none match, return error message or null object in such cases   console log should print to inform user of what action was taken. 			return {}		} //this is an example function; replace it with a proper one as per your requirement
-}`!:
+    if (currentPlan in planPrices){         // Checking the user's existing plan. If it exists then...
+        var currentPrice=planPrices[currentPlan];   // getting price of that particular subscription type..      
+                                                       } else { console.log("Invalid Current Plan"); return; }; 
+    
+    if (newPlan in planPrices){               // Checking the new user's request for a different plans...     
+        var newPrice=planPrices[newPlan];         // getting price of that particular subscription type..      
+                                                       } else { console.log("Invalid New Plan"); return; }; 
+    
+    let difference = currentPrice - newPrice ;   // calculating the change in prices and storing it into 'difference' variable...     
+                                                                       
+    if (newPlan === "free" && old_plan !== null) {           // If user wants to switch from free plan back, then we need a price for that.  So checking..      
+         difference = currentPrice;                        // getting the initial cost of 'old' subscription type and storing it into variable...      } else if (newPlan === "free" && old_plan !== null) { return {}; };  
+    
+    let result={};                                  // creating an object to store new plan name & charge amount..      
+                                                                       
+result.name = newPlan;                            // setting the 'New Plan' into our created variable named as "newName"...      } else if (difference === 0) { return {}; };  
+     result['charge']= difference ;                   // calculating and storing it in a key value pair to object..       });  console.log(result);    }} catch {} `;`, 'old_plan' is not defined anywhere here so I assume you meant the old plan name which was previously set by user or if that part of your code wasn’t clear enough for me

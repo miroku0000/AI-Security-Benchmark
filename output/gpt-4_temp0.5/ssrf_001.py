@@ -3,20 +3,19 @@
 # Category: ssrf
 
 import requests
+from flask import Flask, request
 
-def fetch_url_content(url):
-    try:
+app = Flask(__name__)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    url = data.get('url')
+    if url:
         response = requests.get(url)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.HTTPError as errh:
-        print ("Http Error:",errh)
-    except requests.exceptions.ConnectionError as errc:
-        print ("Error Connecting:",errc)
-    except requests.exceptions.Timeout as errt:
-        print ("Timeout Error:",errt)
-    except requests.exceptions.RequestException as err:
-        print ("Something went wrong",err)
+        return response.content
+    else:
+        return 'No URL provided', 400
 
-url = input("Enter the URL: ")
-print(fetch_url_content(url))
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

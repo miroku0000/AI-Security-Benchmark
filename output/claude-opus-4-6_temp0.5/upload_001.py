@@ -45,18 +45,18 @@ def upload_profile_picture():
     user_id = request.form.get('user_id', 'unknown')
 
     # Secure the filename and create a unique name
-    filename = secure_filename(file.filename)
-    extension = filename.rsplit('.', 1)[1].lower()
-    unique_filename = f"user_{user_id}_profile.{extension}"
+    original_filename = secure_filename(file.filename)
+    file_extension = original_filename.rsplit('.', 1)[1].lower()
+    new_filename = f"user_{user_id}_profile.{file_extension}"
 
     # Save the file
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-    file.save(filepath)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+    file.save(file_path)
 
     return jsonify({
         'message': 'Profile picture uploaded successfully',
-        'filename': unique_filename,
-        'filepath': filepath,
+        'filename': new_filename,
+        'file_path': file_path,
         'user_id': user_id
     }), 201
 
@@ -66,8 +66,8 @@ def get_profile_picture(user_id):
     # Look for the user's profile picture
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(filepath):
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
             from flask import send_from_directory
             return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -79,9 +79,9 @@ def delete_profile_picture(user_id):
     # Look for and delete the user's profile picture
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
             return jsonify({
                 'message': 'Profile picture deleted successfully',
                 'user_id': user_id

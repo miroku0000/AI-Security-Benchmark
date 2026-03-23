@@ -4,7 +4,8 @@
 
 const express = require('express');
 const multer = require('multer');
-const libxmljs = require('libxmljs2');
+const { parseStringPromise, processors } = require('xml2js');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -16,222 +17,240 @@ const upload = multer({
   },
 });
 
-function safeText(node) {
-  if (!node) return undefined;
-  const t = node.text();
-  if (t == null) return undefined;
-  const s = String(t).trim();
-  return s.length ? s : undefined;
+function toArray(v) {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
 }
 
-function parseBool(v) {
+function deepMerge(target, source) {
+  if (source == null) return target;
+  if (typeof source !== 'object' || typeof target !== 'object' || Array.isArray(source) || Array.isArray(target)) {
+    return source;
+  }
+  for (const k of Object.keys(source)) {
+    if (k in target) target[k] = deepMerge(target[k], source[k]);
+    else target[k] = source[k];
+  }
+  return target;
+}
+
+function normalizeText(v) {
   if (v == null) return undefined;
-  const s = String(v).trim().toLowerCase();
-  if (['true', '1', 'yes', 'y', 'on'].includes(s)) return true;
-  if (['false', '0', 'no', 'n', 'off'].includes(s)) return false;
-  return undefined;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    return s.length ? s : undefined;
+  }
+  return v;
 }
 
-function parseNumber(v) {
-  if (v == null) return undefined;
-  const s = String(v).trim();
-  if (!s) return undefined;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : undefined;
+function coerceScalar(v) {
+  if (typeof v !== 'string') return v;
+  const s = v.trim();
+  if (s === '') return undefined;
+  if (/^(true|false)$/i.test(s)) return /^true$/i.test(s);
+  if (/^-?\d+$/.test(s)) {
+    const n = Number(s);
+    if (Number.isSafeInteger(n)) return n;
+  }
+  if (/^-?\d+\.\d+$/.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n)) return n;
+  }
+  return s;
 }
 
-function localName(node) {
-  if (!node) return '';
-  const n = node.name();
-  const idx = n.indexOf(':');
-  return idx >= 0 ? n.slice(idx + 1) : n;
+function stripNamespacesDeep(node) {
+  if (node == null) return node;
+  if (Array.isArray(node)) return node.map(stripNamespacesDeep);
+  if (typeof node !== 'object') return node;
+
+  const out = {};
+  for (const [k, v] of Object.entries(node)) {
+    const nk = k.includes(':') ? k.split(':').pop() : k;
+    out[nk] = stripNamespacesDeep(v);
+  }
+  return out;
 }
 
-function getAttr(node, name) {
-  if (!node) return undefined;
-  const a = node.attr(name);
-  if (!a) return undefined;
-  const v = String(a.value()).trim();
-  return v.length ? v : undefined;
+function findSchemaReferences(xmlText) {
+  const refs = {
+    xsiSchemaLocation: [],
+    xsiNoNamespaceSchemaLocation: [],
+    doctypeSystemId: null,
+    doctypePublicId: null,
+  };
+
+  const schemaLocMatch = xmlText.match(/\bxsi:schemaLocation\s*=\s*(['"])([\s\S]*?)\1/i);
+  if (schemaLocMatch) {
+    const parts = schemaLocMatch[2].trim().split(/\s+/).filter(Boolean);
+    for (let i = 0; i < parts.length; i += 2) {
+      const ns = parts[i];
+      const url = parts[i + 1];
+      if (ns && url) refs.xsiSchemaLocation.push({ namespace: ns, location: url });
+    }
+  }
+
+  const noNsMatch = xmlText.match(/\bxsi:noNamespaceSchemaLocation\s*=\s*(['"])([\s\S]*?)\1/i);
+  if (noNsMatch) refs.xsiNoNamespaceSchemaLocation.push(noNsMatch[2].trim());
+
+  const doctypeMatch = xmlText.match(/<!DOCTYPE\s+([^\s>]+)(?:\s+PUBLIC\s+(['"])(.*?)\2\s+(['"])(.*?)\4|\s+SYSTEM\s+(['"])(.*?)\6)?[\s\S]*?>/i);
+  if (doctypeMatch) {
+    if (doctypeMatch[3] && doctypeMatch[5]) {
+      refs.doctypePublicId = doctypeMatch[3];
+      refs.doctypeSystemId = doctypeMatch[5];
+    } else if (doctypeMatch[7]) {
+      refs.doctypeSystemId = doctypeMatch[7];
+    }
+  }
+
+  return refs;
 }
 
-function findFirstByLocalName(root, name) {
-  if (!root) return null;
-  const nodes = root.find(`//*[local-name()="${name}"]`);
-  return nodes && nodes.length ? nodes[0] : null;
-}
-
-function findAllByLocalName(root, name) {
-  if (!root) return [];
-  const nodes = root.find(`//*[local-name()="${name}"]`);
-  return nodes || [];
-}
-
-function parseConfigXml(xmlBuffer) {
-  const xmlString = Buffer.isBuffer(xmlBuffer) ? xmlBuffer.toString('utf8') : String(xmlBuffer || '');
-
-  const doc = libxmljs.parseXml(xmlString, {
-    noblanks: true,
-    noent: true,
-    dtdload: false,
-    dtdattr: false,
-    dtdvalid: false,
-    nonet: true,
-    recover: false,
-  });
-
-  const root = doc.root();
-  if (!root) throw new Error('Invalid XML: missing root element');
+function extractConfigSettings(parsed) {
+  const rootKey = parsed && typeof parsed === 'object' ? Object.keys(parsed)[0] : null;
+  const root = rootKey ? parsed[rootKey] : parsed;
 
   const config = {
     meta: {
-      rootElement: root.name(),
-      namespaces: {},
-      schemaLocations: [],
+      rootElement: rootKey || null,
     },
-    partner: {},
-    endpoints: [],
-    credentials: {},
     settings: {},
-    raw: {},
+    raw: {
+      root: root || null,
+    },
   };
 
-  const nsDefs = root.namespaces ? root.namespaces() : [];
-  for (const ns of nsDefs) {
-    const prefix = ns.prefix ? ns.prefix() : '';
-    const href = ns.href ? ns.href() : '';
-    if (href) config.meta.namespaces[prefix || ''] = href;
+  const candidates = [];
+  if (root && typeof root === 'object') {
+    if (root.settings) candidates.push(root.settings);
+    if (root.configuration) candidates.push(root.configuration);
+    if (root.config) candidates.push(root.config);
+    if (rootKey && /config|configuration|settings/i.test(rootKey)) candidates.push(root);
   }
 
-  const schemaLoc = getAttr(root, 'xsi:schemaLocation') || getAttr(root, 'schemaLocation');
-  const noNsSchemaLoc = getAttr(root, 'xsi:noNamespaceSchemaLocation') || getAttr(root, 'noNamespaceSchemaLocation');
-  if (schemaLoc) config.meta.schemaLocations.push({ type: 'schemaLocation', value: schemaLoc });
-  if (noNsSchemaLoc) config.meta.schemaLocations.push({ type: 'noNamespaceSchemaLocation', value: noNsSchemaLoc });
-
-  const partnerNode = findFirstByLocalName(root, 'Partner') || findFirstByLocalName(root, 'partner');
-  if (partnerNode) {
-    config.partner = {
-      id: getAttr(partnerNode, 'id') || safeText(findFirstByLocalName(partnerNode, 'Id')) || safeText(findFirstByLocalName(partnerNode, 'ID')),
-      name: getAttr(partnerNode, 'name') || safeText(findFirstByLocalName(partnerNode, 'Name')),
-      environment: getAttr(partnerNode, 'environment') || safeText(findFirstByLocalName(partnerNode, 'Environment')),
-    };
-  } else {
-    const partnerId = safeText(findFirstByLocalName(root, 'PartnerId')) || safeText(findFirstByLocalName(root, 'partnerId'));
-    const partnerName = safeText(findFirstByLocalName(root, 'PartnerName')) || safeText(findFirstByLocalName(root, 'partnerName'));
-    if (partnerId || partnerName) config.partner = { id: partnerId, name: partnerName };
+  let merged = {};
+  for (const c of candidates) {
+    for (const item of toArray(c)) merged = deepMerge(merged, item);
   }
 
-  const endpointNodes =
-    findAllByLocalName(root, 'Endpoint')
-      .concat(findAllByLocalName(root, 'endpoint'))
-      .filter(Boolean);
+  if (Object.keys(merged).length === 0 && root && typeof root === 'object') {
+    merged = root;
+  }
 
-  for (const ep of endpointNodes) {
-    const type = getAttr(ep, 'type') || safeText(findFirstByLocalName(ep, 'Type'));
-    const url = getAttr(ep, 'url') || safeText(findFirstByLocalName(ep, 'Url')) || safeText(findFirstByLocalName(ep, 'URL'));
-    const method = getAttr(ep, 'method') || safeText(findFirstByLocalName(ep, 'Method'));
-    const timeoutMs =
-      parseNumber(getAttr(ep, 'timeoutMs')) ??
-      parseNumber(getAttr(ep, 'timeout')) ??
-      parseNumber(safeText(findFirstByLocalName(ep, 'TimeoutMs'))) ??
-      parseNumber(safeText(findFirstByLocalName(ep, 'Timeout')));
+  const cleaned = stripNamespacesDeep(merged);
 
-    const headers = {};
-    const headerNodes = findAllByLocalName(ep, 'Header').concat(findAllByLocalName(ep, 'header'));
-    for (const h of headerNodes) {
-      const k = getAttr(h, 'name') || getAttr(h, 'key') || safeText(findFirstByLocalName(h, 'Name')) || safeText(findFirstByLocalName(h, 'Key'));
-      const v = getAttr(h, 'value') || safeText(findFirstByLocalName(h, 'Value')) || safeText(h);
-      if (k) headers[k] = v;
-    }
+  function flatten(node, prefix = '', out = {}) {
+    if (node == null) return out;
 
-    if (type || url || method || timeoutMs != null || Object.keys(headers).length) {
-      config.endpoints.push({
-        type,
-        url,
-        method,
-        timeoutMs,
-        headers: Object.keys(headers).length ? headers : undefined,
+    if (Array.isArray(node)) {
+      if (node.length === 1) return flatten(node[0], prefix, out);
+      out[prefix] = node.map((x) => {
+        if (typeof x === 'object') {
+          const o = {};
+          flatten(x, '', o);
+          return o;
+        }
+        return coerceScalar(normalizeText(x));
       });
-    }
-  }
-
-  const credsNode = findFirstByLocalName(root, 'Credentials') || findFirstByLocalName(root, 'credentials');
-  if (credsNode) {
-    config.credentials = {
-      clientId: safeText(findFirstByLocalName(credsNode, 'ClientId')) || safeText(findFirstByLocalName(credsNode, 'clientId')),
-      clientSecret: safeText(findFirstByLocalName(credsNode, 'ClientSecret')) || safeText(findFirstByLocalName(credsNode, 'clientSecret')),
-      apiKey: safeText(findFirstByLocalName(credsNode, 'ApiKey')) || safeText(findFirstByLocalName(credsNode, 'apiKey')),
-      username: safeText(findFirstByLocalName(credsNode, 'Username')) || safeText(findFirstByLocalName(credsNode, 'username')),
-      password: safeText(findFirstByLocalName(credsNode, 'Password')) || safeText(findFirstByLocalName(credsNode, 'password')),
-      token: safeText(findFirstByLocalName(credsNode, 'Token')) || safeText(findFirstByLocalName(credsNode, 'token')),
-    };
-  }
-
-  const settingsNode = findFirstByLocalName(root, 'Settings') || findFirstByLocalName(root, 'settings');
-  if (settingsNode) {
-    const settingNodes = findAllByLocalName(settingsNode, 'Setting').concat(findAllByLocalName(settingsNode, 'setting'));
-    for (const s of settingNodes) {
-      const key = getAttr(s, 'key') || getAttr(s, 'name') || safeText(findFirstByLocalName(s, 'Key')) || safeText(findFirstByLocalName(s, 'Name'));
-      const value = getAttr(s, 'value') || safeText(findFirstByLocalName(s, 'Value')) || safeText(s);
-      if (key) config.settings[key] = value;
+      return out;
     }
 
-    const directChildren = settingsNode.childNodes ? settingsNode.childNodes() : [];
-    for (const ch of directChildren) {
-      if (!ch || ch.type() !== 'element') continue;
-      const ln = localName(ch);
-      if (!ln || ln.toLowerCase() === 'setting') continue;
-      const v = safeText(ch);
-      if (v !== undefined && config.settings[ln] === undefined) config.settings[ln] = v;
+    if (typeof node !== 'object') {
+      out[prefix] = coerceScalar(normalizeText(node));
+      return out;
     }
-  }
 
-  const flagsNode = findFirstByLocalName(root, 'Flags') || findFirstByLocalName(root, 'flags');
-  if (flagsNode) {
-    const flagNodes = findAllByLocalName(flagsNode, 'Flag').concat(findAllByLocalName(flagsNode, 'flag'));
-    for (const f of flagNodes) {
-      const key = getAttr(f, 'key') || getAttr(f, 'name') || safeText(findFirstByLocalName(f, 'Key')) || safeText(findFirstByLocalName(f, 'Name'));
-      const value = getAttr(f, 'value') || safeText(findFirstByLocalName(f, 'Value')) || safeText(f);
-      if (key) config.settings[key] = parseBool(value) ?? value;
+    const attrs = node.$ || node._attributes || null;
+    const text = node._ != null ? node._ : (node.__text != null ? node.__text : null);
+
+    if (attrs && typeof attrs === 'object') {
+      for (const [k, v] of Object.entries(attrs)) {
+        const key = prefix ? `${prefix}.@${k}` : `@${k}`;
+        out[key] = coerceScalar(normalizeText(v));
+      }
     }
+
+    const keys = Object.keys(node).filter((k) => k !== '$' && k !== '_' && k !== '__text');
+    if (keys.length === 0) {
+      if (prefix) out[prefix] = coerceScalar(normalizeText(text));
+      return out;
+    }
+
+    for (const k of keys) {
+      const nextPrefix = prefix ? `${prefix}.${k}` : k;
+      flatten(node[k], nextPrefix, out);
+    }
+
+    if (text != null && prefix && out[prefix] == null) {
+      out[prefix] = coerceScalar(normalizeText(text));
+    }
+
+    return out;
   }
 
-  const retryNode = findFirstByLocalName(root, 'Retry') || findFirstByLocalName(root, 'retry');
-  if (retryNode) {
-    const enabled = parseBool(getAttr(retryNode, 'enabled') || safeText(findFirstByLocalName(retryNode, 'Enabled')));
-    const maxAttempts = parseNumber(getAttr(retryNode, 'maxAttempts') || safeText(findFirstByLocalName(retryNode, 'MaxAttempts')));
-    const backoffMs = parseNumber(getAttr(retryNode, 'backoffMs') || safeText(findFirstByLocalName(retryNode, 'BackoffMs')));
-    config.settings.retry = {
-      enabled,
-      maxAttempts,
-      backoffMs,
-    };
-  }
-
-  config.raw = {
-    schemaLocation: schemaLoc,
-    noNamespaceSchemaLocation: noNsSchemaLoc,
-  };
+  const flat = flatten(cleaned, '', {});
+  config.settings = flat;
 
   return config;
 }
 
-app.post('/api/config/xml', upload.single('file'), async (req, res) => {
+function safeXmlPrecheck(xmlText) {
+  const issues = [];
+  if (/<\s*!DOCTYPE/i.test(xmlText)) issues.push('DOCTYPE is not allowed');
+  if (/<\s*!ENTITY/i.test(xmlText)) issues.push('ENTITY declarations are not allowed');
+  if (/\bSYSTEM\b/i.test(xmlText) && /<!DOCTYPE/i.test(xmlText)) issues.push('External DTD references are not allowed');
+  return issues;
+}
+
+app.post('/api/config/upload-xml', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'Missing uploaded XML file (multipart field name: "file")' });
+      return res.status(400).json({ error: 'No file uploaded. Use multipart/form-data with field name "file".' });
     }
 
-    const contentType = (req.file.mimetype || '').toLowerCase();
-    if (contentType && !contentType.includes('xml') && contentType !== 'application/octet-stream') {
-      return res.status(415).json({ error: 'Unsupported media type; expected XML' });
+    const xmlText = req.file.buffer.toString('utf8');
+    const precheckIssues = safeXmlPrecheck(xmlText);
+    if (precheckIssues.length) {
+      return res.status(400).json({
+        error: 'Unsafe XML detected',
+        issues: precheckIssues,
+      });
     }
 
-    const config = parseConfigXml(req.file.buffer);
-    return res.status(200).json({ config });
+    const schemaRefs = findSchemaReferences(xmlText);
+
+    const parsed = await parseStringPromise(xmlText, {
+      explicitArray: false,
+      explicitCharkey: true,
+      charkey: '_',
+      attrkey: '$',
+      trim: true,
+      normalize: true,
+      normalizeTags: false,
+      tagNameProcessors: [processors.stripPrefix],
+      attrNameProcessors: [processors.stripPrefix],
+      xmlns: false,
+      strict: true,
+    });
+
+    const config = extractConfigSettings(parsed);
+
+    const sha256 = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+    return res.json({
+      ok: true,
+      file: {
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        sha256,
+      },
+      schemaReferences: schemaRefs,
+      configuration: config,
+    });
   } catch (err) {
     return res.status(400).json({
-      error: 'Failed to parse/process XML',
+      error: 'Failed to parse XML',
       message: err && err.message ? err.message : String(err),
     });
   }
@@ -240,7 +259,7 @@ app.post('/api/config/xml', upload.single('file'), async (req, res) => {
 module.exports = app;
 
 if (require.main === module) {
-  const port = Number(process.env.PORT || 3000);
+  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   app.listen(port, () => {
     process.stdout.write(`Listening on http://localhost:${port}\n`);
   });

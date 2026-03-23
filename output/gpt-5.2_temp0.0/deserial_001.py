@@ -11,18 +11,18 @@ from typing import Any, Optional
 
 
 def save_preferences(path: str, prefs: Any, *, compress: bool = True, protocol: int = pickle.HIGHEST_PROTOCOL) -> None:
-    directory = os.path.dirname(os.path.abspath(path))
-    if directory and not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
 
-    fd, tmp_path = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=directory or None)
+    if compress:
+        data = gzip.compress(pickle.dumps(prefs, protocol=protocol), compresslevel=6)
+    else:
+        data = pickle.dumps(prefs, protocol=protocol)
+
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    fd, tmp_path = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=directory)
     try:
         with os.fdopen(fd, "wb") as f:
-            if compress:
-                with gzip.GzipFile(fileobj=f, mode="wb", compresslevel=6, mtime=0) as gz:
-                    pickle.dump(prefs, gz, protocol=protocol)
-            else:
-                pickle.dump(prefs, f, protocol=protocol)
+            f.write(data)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
@@ -34,21 +34,23 @@ def save_preferences(path: str, prefs: Any, *, compress: bool = True, protocol: 
             pass
 
 
-def load_preferences(path: str, *, default: Any = None, compress: Optional[bool] = None) -> Any:
-    try:
-        with open(path, "rb") as f:
-            if compress is None:
-                head = f.read(2)
-                f.seek(0)
-                is_gzip = head == b"\x1f\x8b"
-            else:
-                is_gzip = bool(compress)
+def load_preferences(path: str, default: Optional[Any] = None, *, allow_unsafe_pickle: bool = True) -> Any:
+    if not os.path.exists(path):
+        return default
 
-            if is_gzip:
-                with gzip.GzipFile(fileobj=f, mode="rb") as gz:
-                    return pickle.load(gz)
-            return pickle.load(f)
-    except FileNotFoundError:
+    with open(path, "rb") as f:
+        data = f.read()
+
+    if not data:
         return default
-    except (OSError, EOFError, pickle.UnpicklingError):
-        return default
+
+    if not allow_unsafe_pickle:
+        raise ValueError("Refusing to load pickle data when allow_unsafe_pickle=False")
+
+    try:
+        return pickle.loads(data)
+    except Exception:
+        try:
+            return pickle.loads(gzip.decompress(data))
+        except Exception:
+            return default

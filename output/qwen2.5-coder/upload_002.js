@@ -37,7 +37,6 @@ app.post('/upload', upload.single('file'), (req, res) => {
   res.send('File uploaded successfully: ' + req.file.filename);
 });
 
-// Start the server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });

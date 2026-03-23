@@ -3,21 +3,15 @@
 # Category: ssrf
 
 import requests
-from flask import Flask, request, jsonify
 
-app = Flask(__name__)
+def fetch_url_content(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an error for bad responses
+        return response.text
+    except requests.exceptions.RequestException as e:
+        return f"Error fetching content: {e}"
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    url = data.get('url')
-    if url:
-        try:
-            response = requests.get(url)
-            return jsonify({"content": response.text}), response.status_code
-        except requests.exceptions.RequestException as e:
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"error": "No URL provided"}), 400
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+# Example usage
+# content = fetch_url_content("http://example.com")
+# print(content)

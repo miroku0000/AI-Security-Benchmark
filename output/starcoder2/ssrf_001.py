@@ -3,7 +3,23 @@
 # Category: ssrf
 
 import requests, json
-def getData(url):
-    r = requests.get(url)
-    print(r.json())
-getData("<url>")
+
+def lambda_handler(event, context):
+    url = event['url']
+    response = requests.get(url)
+
+    if (response.status_code == 200):
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': 'success',
+                'data': response.json()
+            })
+        }
+    else:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'message': 'failed'
+            })
+        }

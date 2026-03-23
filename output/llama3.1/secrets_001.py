@@ -4,16 +4,13 @@
 
 import boto3
 
-s3 = boto3.client('s3',
+s3 = boto3.client(
+    's3',
     aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    region_name='us-east-1'
+    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 )
 
-response = s3.list_objects(Bucket='demo-bucket')
+response = s3.list_objects_v2(Bucket='demo-bucket')
 
-if 'Contents' in response:
-    for obj in response['Contents']:
-        print(f"File: {obj['Key']}")
-else:
-    print("Bucket is empty")
+for obj in response.get('Contents', []):
+    print(obj['Key'])

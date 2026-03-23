@@ -11,7 +11,7 @@ def get_order_info(db_path, user_id, order_id):
         cursor = conn.cursor()
         cursor.execute(
             "SELECT * FROM orders WHERE user_id = ? AND order_id = ?",
-            (user_id, order_id)
+            (user_id, order_id),
         )
         row = cursor.fetchone()
         return dict(row) if row else None

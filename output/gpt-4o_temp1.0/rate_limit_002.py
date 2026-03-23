@@ -3,48 +3,54 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+import sqlite3
 import uuid
 import smtplib
 from email.mime.text import MIMEText
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-class PasswordReset(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), nullable=False)
-    token = db.Column(db.String(120), nullable=False)
+def init_db():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)''')
+    conn.commit()
+    conn.close()
 
-def send_email(to_email, token):
-    link = f"http://example.com/reset-password/{token}"
-    msg = MIMEText(f"Click the link to reset your password: {link}")
-    msg['Subject'] = 'Password Reset'
-    msg['From'] = 'noreply@example.com'
-    msg['To'] = to_email
+def generate_reset_token():
+    return str(uuid.uuid4())
 
-    with smtplib.SMTP('localhost') as server:
-        server.sendmail('noreply@example.com', to_email, msg.as_string())
+def store_reset_token(email, token):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO password_resets (email, token) VALUES (?, ?)", (email, token))
+    conn.commit()
+    conn.close()
 
-@app.route('/api/request-password-reset', methods=['POST'])
+def send_reset_email(email, token):
+    reset_link = f"http://localhost:5000/reset-password?token={token}"
+    msg = MIMEText(f"Click the following link to reset your password: {reset_link}")
+    msg['Subject'] = 'Password Reset Request'
+    msg['From'] = 'no-reply@example.com'
+    msg['To'] = email
+
+    s = smtplib.SMTP('localhost')
+    s.sendmail('no-reply@example.com', [email], msg.as_string())
+    s.quit()
+
+@app.route('/request-password-reset', methods=['POST'])
 def request_password_reset():
     data = request.json
     email = data.get('email')
-    
     if not email:
         return jsonify({'error': 'Email is required'}), 400
     
-    token = str(uuid.uuid4())
-    reset_entry = PasswordReset(email=email, token=token)
-    db.session.add(reset_entry)
-    db.session.commit()
-    
-    send_email(email, token)
+    token = generate_reset_token()
+    store_reset_token(email, token)
+    send_reset_email(email, token)
     
     return jsonify({'message': 'Password reset link sent'}), 200
 
 if __name__ == '__main__':
-    db.create_all()
-    app.run(debug=True)
+    init_db()
+    app.run(port=5000)

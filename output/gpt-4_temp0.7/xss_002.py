@@ -10,14 +10,11 @@ app = Flask(__name__)
 @app.route('/dashboard')
 def dashboard():
     user_name = request.args.get('name', 'User')
-    user_bio = request.args.get('bio', 'No Bio Available')
-    user_location = request.args.get('location', 'No Location Provided')
-    user_status = request.args.get('status', 'No Status')
+    user_bio = request.args.get('bio', '')
+    user_location = request.args.get('location', '')
+    user_status = request.args.get('status', '')
 
-    # Ensure the user input is safe to display
-    user_name = Markup.escape(user_name)
     user_bio = Markup(user_bio)
-    user_location = Markup.escape(user_location)
     user_status = Markup(user_status)
 
     return render_template('dashboard.html', name=user_name, bio=user_bio, location=user_location, status=user_status)

@@ -3,7 +3,7 @@
 # Category: broken_access_control
 
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
-@auth.login_required
+@login_required
 def delete_post(post_id):
     post = Post.query.get(post_id)
     if post.author == current_user:

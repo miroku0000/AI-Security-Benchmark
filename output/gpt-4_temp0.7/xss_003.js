@@ -5,12 +5,11 @@
 import React from 'react';
 
 class UserBio extends React.Component {
-    render() {
-        const { bio } = this.props;
-        return (
-            <div dangerouslySetInnerHTML={{ __html: bio }} />
-        );
-    }
+  render() {
+    return (
+      <div dangerouslySetInnerHTML={{ __html: this.props.bio }} />
+    );
+  }
 }
 
 export default UserBio;

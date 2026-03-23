@@ -18,6 +18,7 @@ def delete_post(post_id):
         return jsonify({'error': 'Unauthorized'}), 403
     db.session.delete(post)
     db.session.commit()
-    return jsonify({'success': 'Post deleted'}), 200
+    return jsonify({'message': 'Post deleted successfully'}), 200
 
-# Assuming models and database setup is done elsewhere in the code.
+if __name__ == '__main__':
+    app.run()

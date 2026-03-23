@@ -5,17 +5,25 @@
 const express = require('express');
 const multer = require('multer');
 const libxmljs = require('libxmljs');
+const xml2js = require('xml2js');
+
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
   const xmlData = req.file.buffer.toString();
+  
+  // Using libxmljs to parse XML
   const xmlDoc = libxmljs.parseXml(xmlData);
   
-  // Process the XML document and extract configuration settings into a JavaScript object
-  // Your processing logic here
+  // Extract configuration settings into a JavaScript object
+  const configSettings = {
+    setting1: xmlDoc.get('//setting1').text(),
+    setting2: xmlDoc.get('//setting2').text(),
+    // Add more settings as needed
+  };
   
-  res.status(200).send('XML file uploaded and processed successfully');
+  res.json(configSettings);
 });
 
 app.listen(3000, () => {

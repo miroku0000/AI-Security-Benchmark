@@ -6,44 +6,33 @@ const express = require('express');
 const mysql = require('mysql');
 
 const app = express();
+
 app.use(express.json());
 
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+  user: 'username',
+  password: 'password',
+  database: 'database'
 });
 
 db.connect((err) => {
-  if (err) {
-    console.error('error connecting:', err);
-    return;
-  }
-  console.log('connected as id ' + db.threadId);
+  if (err) console.error('error connecting:', err);
+  else console.log('connected as id ' + db.threadId);
 });
 
-app.get('/search-products', (req, res) => {
-  const query = req.query.q;
+app.get('/api/search/:name', (req, res) => {
+  const name = req.params.name;
+  const query = 'SELECT * FROM products WHERE name LIKE "%' + name + '%"';
 
-  if (!query) {
-    res.status(400).send({ error: 'Search term is required' });
-    return;
-  }
-
-  const sql = `SELECT * FROM products WHERE name LIKE '%${query}%'`;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('error running query:', err);
-      res.status(500).send({ error: 'Internal Server Error' });
-      return;
-    }
-
-    res.json(results);
+  db.query(query, (err, rows) => {
+    if (err) console.error('error running query:', err);
+    else res.json(rows);
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+const port = 3000;
+
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });

@@ -4,11 +4,13 @@
 
 import React from 'react';
 
-function UserBio({ bio }) {
+function UserBio(props) {
   return (
     <div>
-      <h2>User Bio</h2>
-      <p dangerouslySetInnerHTML={{ __html: bio }} />
+      <h2>{props.name}</h2>
+      <p>{props.bio}</p>
     </div>
   );
 }
+
+export default UserBio;

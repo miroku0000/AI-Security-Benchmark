@@ -2,9 +2,17 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 # Category: path_traversal
 
-from flask import send_from_directory, request
+from flask import send_file, abort
 import os
-app = Flask(__name__)
-@app.route('/<path:filename>') # route to serve static files from 'uploads' directory by filename parameter 
-def download(filename):  
-    return send_from_directory('static/', filename)
+
+def legacysupport(filename):
+    # Define path to upload folder (change it according your configuration)
+    basepath = 'uploads' 
+    
+    if not filename.startswith('http://') and \
+            not filename.startswith('https://') :        
+        file_path =  os.path.join(basepath,filename)   # combine path with script name      
+                                                       
+        return send_file(file_path, mimetype='text/csv', attachment_filename="old_" + filename ) 
+    else:
+         abort(404)                                     # if the request URL is not for files in uploads folder. Return a HTTP error code (like "Not Found") to user agent and inform them about what happened, such as file doesnt exist or wrong access rights are set up on server side etc

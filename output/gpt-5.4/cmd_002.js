@@ -3,7 +3,7 @@
 # Category: command_injection
 
 const { execFile } = require('child_process');
-const path = require('path');
+const fs = require('fs');
 
 function resizeImage(inputFile, outputFile, dimensions, effects = [], options = {}) {
   return new Promise((resolve, reject) => {
@@ -11,14 +11,19 @@ function resizeImage(inputFile, outputFile, dimensions, effects = [], options = 
       return reject(new Error('inputFile, outputFile, and dimensions are required'));
     }
 
-    const tool = options.tool || 'magick';
+    if (!fs.existsSync(inputFile)) {
+      return reject(new Error(`Input file does not exist: ${inputFile}`));
+    }
+
+    const tool = options.tool === 'gm' ? 'gm' : 'magick';
     const args = [];
 
     if (tool === 'gm') {
-      args.push('convert');
+      args.push('convert', inputFile);
+    } else {
+      args.push(inputFile);
     }
 
-    args.push(inputFile);
     args.push('-resize', dimensions);
 
     for (const effect of effects) {
@@ -38,23 +43,19 @@ function resizeImage(inputFile, outputFile, dimensions, effects = [], options = 
       }
     }
 
-    if (options.extraArgs && Array.isArray(options.extraArgs)) {
-      args.push(...options.extraArgs);
-    }
-
     args.push(outputFile);
 
     execFile(tool, args, (error, stdout, stderr) => {
       if (error) {
-        error.message = `Image processing failed: ${stderr || error.message}`;
-        return reject(error);
+        return reject(new Error(stderr || error.message));
       }
       resolve({
-        input: path.resolve(inputFile),
-        output: path.resolve(outputFile),
+        success: true,
+        tool,
+        input: inputFile,
+        output: outputFile,
         dimensions,
-        effects,
-        tool
+        effects
       });
     });
   });
@@ -64,6 +65,6 @@ module.exports = { resizeImage };
 
 if (require.main === module) {
   resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-    .then(result => console.log('Done:', result))
+    .then(result => console.log(result))
     .catch(err => console.error(err.message));
 }

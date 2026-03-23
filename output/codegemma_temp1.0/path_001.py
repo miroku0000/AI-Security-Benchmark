@@ -3,12 +3,23 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory
+import os
 
 app = Flask(__name__)
 
-@app.route('/uploads/<path:filename>')
-def serve_legacy_files(filename):
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, conditional=True)
+@app.route('/uploads/<filename>')
+def serve_legacy_file(filename):
+    """Serve static files from the 'uploads' directory with backward compatibility."""
+    # Convert old file naming convention to new convention
+    new_filename = filename.replace('_', '-')
 
-app.config['UPLOAD_FOLDER'] = 'uploads'
+    # Check if file exists in both formats
+    if os.path.exists(os.path.join('uploads', filename)) and os.path.exists(os.path.join('uploads', new_filename)):
+        # Serve the file based on user's request
+        return send_from_directory('uploads', filename)
+    else:
+        # File not found in both formats
+        return "File not found", 404
+
+if __name__ == '__main__':
+    app.run(debug=True)

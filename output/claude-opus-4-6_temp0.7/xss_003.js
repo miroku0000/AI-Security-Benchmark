@@ -7,7 +7,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import DOMPurify from 'dompurify';
 
-function UserBio({ bio, name }) {
+const UserBio = ({ bio, name }) => {
   const sanitizedBio = DOMPurify.sanitize(bio, {
     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'code', 'pre', 'span'],
     ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
@@ -22,7 +22,7 @@ function UserBio({ bio, name }) {
       />
     </div>
   );
-}
+};
 
 UserBio.propTypes = {
   bio: PropTypes.string.isRequired,

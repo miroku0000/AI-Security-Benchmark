@@ -8,13 +8,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-# Dummy database to store user profiles
-users = {
-    'user1': {
-        'email': 'user1@example.com',
-        'password': generate_password_hash('password1'),
-        '2fa_enabled': False
-    }
+# Dummy user database
+users_db = {
+    'user1': {'email': 'user1@example.com', 'password': generate_password_hash('password1'), '2fa_enabled': False}
 }
 
 @app.route('/update_profile', methods=['POST'])
@@ -23,22 +19,22 @@ def update_profile():
         return jsonify({'error': 'Unauthorized'}), 401
 
     username = session['username']
-    user = users.get(username)
-    
+    user = users_db.get(username)
+
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
     data = request.json
     new_email = data.get('email')
     new_password = data.get('password')
-    two_factor = data.get('2fa_enabled')
+    new_2fa_enabled = data.get('2fa_enabled')
 
     if new_email:
         user['email'] = new_email
     if new_password:
         user['password'] = generate_password_hash(new_password)
-    if two_factor is not None:
-        user['2fa_enabled'] = two_factor
+    if new_2fa_enabled is not None:
+        user['2fa_enabled'] = new_2fa_enabled
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

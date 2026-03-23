@@ -4,26 +4,29 @@
 
 from lxml import etree
 
-def process_soap_request(xml_string, dtd_string):
-    # Parse the DTD
-    dtd = etree.DTD(dtd_string)
-    
-    # Parse the SOAP XML
-    parser = etree.XMLParser(dtd_validation=True)
+def process_soap_request(soap_xml):
+    # Define a DTD for validation (example, should be adjusted to actual DTD)
+    dtd_str = '''<!ELEMENT envelope (header?, body)>
+                 <!ELEMENT header ANY>
+                 <!ELEMENT body ANY>'''
+    dtd = etree.DTD(dtd_str)
+
+    # Parse the XML
     try:
-        root = etree.fromstring(xml_string.encode('utf-8'), parser)
+        root = etree.fromstring(soap_xml)
     except etree.XMLSyntaxError as e:
-        raise ValueError(f"Invalid XML: {e}")
-
-    # Validate against DTD
+        raise ValueError("Invalid XML: " + str(e))
+    
+    # Validate the XML against the DTD
     if not dtd.validate(root):
-        raise ValueError(f"DTD Validation Error: {dtd.error_log.filter_from_errors()[0]}")
+        raise ValueError("XML does not conform to DTD")
 
-    # Extract message body
-    soap_env_ns = "http://schemas.xmlsoap.org/soap/envelope/"
-    body = root.find(f".//{{{soap_env_ns}}}Body")
+    # Extract the body
+    ns = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    body = root.find('.//soap:body', namespaces=ns)
     
     if body is None:
-        raise ValueError("No SOAP Body found")
+        raise ValueError("No body found in SOAP message")
     
-    return etree.tostring(body, pretty_print=True, encoding='unicode')
+    # Return the message body as string or further process it
+    return etree.tostring(body, pretty_print=True).decode('utf-8')

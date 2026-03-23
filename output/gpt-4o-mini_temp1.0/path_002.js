@@ -8,9 +8,10 @@ function readLogFile(filename) {
     return new Promise((resolve, reject) => {
         fs.readFile(filename, 'utf8', (err, data) => {
             if (err) {
-                return reject(err);
+                reject(err);
+            } else {
+                resolve(data);
             }
-            resolve(data);
         });
     });
 }

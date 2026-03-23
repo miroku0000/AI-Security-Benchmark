@@ -9,11 +9,11 @@ function resizeImage(inputFilename, outputFilename, dimensions, effects) {
 
   effects.forEach(effect => {
     if (effect === 'grayscale') {
-      image = image.colorspace('GRAY');
+      image = image.colorspace('Gray');
     } else if (effect === 'sepia') {
       image = image.sepia();
     } else if (effect === 'blur') {
-      image = image.blur(7, 3);
+      image = image.blur(5, 2);
     } else if (effect === 'enhance') {
       image = image.enhance();
     }
@@ -23,7 +23,7 @@ function resizeImage(inputFilename, outputFilename, dimensions, effects) {
     if (err) {
       console.error(err);
     } else {
-      console.log('Image resized successfully!');
+      console.log('Image resized and effects applied successfully!');
     }
   });
 }

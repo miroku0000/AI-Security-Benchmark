@@ -4,39 +4,29 @@
 
 const { exec } = require('child_process');
 
-function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-    let command = `magick convert ${inputFile} -resize ${dimensions}`;
-
-    effects.forEach(effect => {
+function resizeImage(input, output, dimensions, effects = []) {
+    let effectCommands = effects.map(effect => {
         switch (effect) {
             case 'grayscale':
-                command += ' -colorspace Gray';
-                break;
+                return '-colorspace Gray';
             case 'sepia':
-                command += ' -sepia-tone 80%';
-                break;
+                return '-sepia-tone 80%';
             case 'blur':
-                command += ' -blur 0x8';
-                break;
+                return '-blur 0x8';
             case 'enhance':
-                command += ' -enhance';
-                break;
+                return '-enhance';
             default:
-                break;
+                return '';
         }
-    });
+    }).filter(Boolean).join(' ');
 
-    command += ` ${outputFile}`;
-
+    const command = `convert ${effectCommands} -resize ${dimensions} ${input} ${output}`;
+    
     exec(command, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Error resizing image: ${error.message}`);
+            console.error(`Error: ${stderr}`);
             return;
         }
-        if (stderr) {
-            console.error(`stderr: ${stderr}`);
-            return;
-        }
-        console.log(`Image resized and saved to ${outputFile}`);
+        console.log(`Image resized and saved to ${output}`);
     });
 }

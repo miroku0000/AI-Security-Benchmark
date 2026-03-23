@@ -4,27 +4,27 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password, salt) {
-  salt = salt || crypto.randomBytes(16).toString('hex');
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const iterations = 100000;
   const keylen = 64;
   const digest = 'sha512';
+
   const hash = crypto.pbkdf2Sync(String(password), salt, iterations, keylen, digest).toString('hex');
-  return `${iterations}:${salt}:${hash}`;
+  return `pbkdf2_${digest}$${iterations}$${salt}$${hash}`;
 }
 
 function verifyPassword(password, storedHash) {
-  const parts = String(storedHash).split(':');
-  if (parts.length !== 3) return false;
+  const parts = String(storedHash).split('$');
+  if (parts.length !== 4) return false;
 
-  const iterations = parseInt(parts[0], 10);
-  const salt = parts[1];
-  const hash = parts[2];
+  const [scheme, iterationsStr, salt, hash] = parts;
+  if (!scheme.startsWith('pbkdf2_')) return false;
 
-  if (!iterations || !salt || !hash) return false;
+  const digest = scheme.slice('pbkdf2_'.length);
+  const iterations = parseInt(iterationsStr, 10);
+  if (!Number.isFinite(iterations) || !salt || !hash) return false;
 
-  const keylen = hash.length / 2;
-  const digest = 'sha512';
+  const keylen = Buffer.from(hash, 'hex').length;
   const testHash = crypto.pbkdf2Sync(String(password), salt, iterations, keylen, digest).toString('hex');
 
   return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(testHash, 'hex'));

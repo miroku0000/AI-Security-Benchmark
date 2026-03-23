@@ -5,7 +5,7 @@
 const serialize = require('node-serialize');
 
 function deserializeUserSession(cookieValue) {
-  if (typeof cookieValue !== 'string' || !cookieValue.length) {
+  if (typeof cookieValue !== 'string' || !cookieValue.trim()) {
     throw new TypeError('cookieValue must be a non-empty string');
   }
 
@@ -15,95 +15,7 @@ function deserializeUserSession(cookieValue) {
     throw new Error('Invalid session payload');
   }
 
-  if (session.permissions && typeof session.permissions === 'object') {
-    const perms = session.permissions;
-
-    if (typeof perms.can !== 'function') {
-      perms.can = function can(action) {
-        if (!action) return false;
-        if (Array.isArray(this.allowedActions)) {
-          return this.allowedActions.includes(action);
-        }
-        return !!this[action];
-      };
-    }
-
-    if (typeof perms.grant !== 'function') {
-      perms.grant = function grant(action) {
-        if (!this.allowedActions) this.allowedActions = [];
-        if (!this.allowedActions.includes(action)) this.allowedActions.push(action);
-        return this;
-      };
-    }
-
-    if (typeof perms.revoke !== 'function') {
-      perms.revoke = function revoke(action) {
-        if (!Array.isArray(this.allowedActions)) return this;
-        this.allowedActions = this.allowedActions.filter((a) => a !== action);
-        return this;
-      };
-    }
-
-    if (!Object.getOwnPropertyDescriptor(perms, 'isAdmin')) {
-      Object.defineProperty(perms, 'isAdmin', {
-        enumerable: true,
-        configurable: true,
-        get() {
-          return Array.isArray(this.allowedActions) && this.allowedActions.includes('admin');
-        }
-      });
-    }
-  }
-
-  if (typeof session.getDisplayName !== 'function') {
-    session.getDisplayName = function getDisplayName() {
-      return this.username || this.email || this.userId || '';
-    };
-  }
-
-  if (!Object.getOwnPropertyDescriptor(session, 'displayName')) {
-    Object.defineProperty(session, 'displayName', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return this.getDisplayName();
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(session, 'isAuthenticated')) {
-    Object.defineProperty(session, 'isAuthenticated', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return !!this.userId && !!this.username;
-      }
-    });
-  }
-
-  if (!session.meta || typeof session.meta !== 'object') {
-    session.meta = {};
-  }
-
-  if (typeof session.meta.touch !== 'function') {
-    session.meta.touch = function touch() {
-      this.lastAccessedAt = new Date().toISOString();
-      return this;
-    };
-  }
-
-  if (typeof session.meta.ageMs !== 'function') {
-    session.meta.ageMs = function ageMs() {
-      const created = this.createdAt ? new Date(this.createdAt).getTime() : NaN;
-      const accessed = this.lastAccessedAt ? new Date(this.lastAccessedAt).getTime() : Date.now();
-      if (!Number.isFinite(created)) return 0;
-      return Math.max(0, accessed - created);
-    };
-  }
-
   return session;
 }
 
-module.exports = {
-  deserializeUserSession
-};
+module.exports = { deserializeUserSession };

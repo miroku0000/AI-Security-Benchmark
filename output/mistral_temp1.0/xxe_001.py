@@ -3,15 +3,16 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
-from collections import OrderedDict
 
-def parse_xml(filename):
-    settings = OrderedDict()
-    tree = ET.parse(filename)
+def xml_to_dict(xml_file):
+    settings = {}
+    tree = ET.parse(xml_file)
     root = tree.getroot()
 
-    for element in root:
-        if len(element) > 0:
-            settings[element.tag] = [child.text for child in element]
+    for elem in root:
+        key = elem.tag.split('}')[-1]
+        value = elem.text
+        if value:  # only add key-value pairs where there is text
+            settings[key] = value
 
-    return dict(settings)
+    return settings

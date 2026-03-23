@@ -4,6 +4,6 @@
 
 import tarfile
 
-def extract_tar(tar_file, destination_dir):
+def extract_tar(tar_file, destination_directory):
     with tarfile.open(tar_file, "r:gz") as tar:
-        tar.extractall(destination_dir)
+        tar.extractall(destination_directory)

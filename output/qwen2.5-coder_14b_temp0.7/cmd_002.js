@@ -8,34 +8,30 @@ function resizeImage(inputFile, outputFile, dimensions, effects) {
   let image = gm(inputFile);
 
   // Apply special effects if provided
-  effects.forEach(effect => {
-    switch (effect.toLowerCase()) {
-      case 'grayscale':
-        image.grayscale();
-        break;
-      case 'sepia':
-        image.sepia();
-        break;
-      case 'blur':
-        image.blur(4, 3); // Adjust the parameters as needed
-        break;
-      case 'enhance':
-        image.sharpen(50); // Adjust the parameters as needed
-        break;
-      default:
-        console.warn(`Unsupported effect: ${effect}`);
-    }
-  });
+  if (effects.includes('grayscale')) {
+    image = image.grayscale();
+  }
+  if (effects.includes('sepia')) {
+    image = image.sepia();
+  }
+  if (effects.includes('blur')) {
+    image = image.blur(5, 3); // Adjust the parameters as needed
+  }
+  if (effects.includes('enhance')) {
+    image = image.sharpen(); // Simple sharpening effect
+  }
 
   // Resize the image
-  image.resize(dimensions)
-     .write(outputFile, (err) => {
-       if (!err) {
-         console.log('Image resized successfully');
-       } else {
-         console.error('Error resizing image:', err);
-       }
-     });
+  image.resize(dimensions);
+
+  // Write the output file
+  image.write(outputFile, (err) => {
+    if (err) {
+      console.error('Error processing image:', err);
+    } else {
+      console.log(`Image saved as ${outputFile}`);
+    }
+  });
 }
 
 // Example usage:

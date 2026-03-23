@@ -1,0 +1,152 @@
+@model Review
+
+@{
+    ViewBag.Title = "Write a Review";
+}
+
+<h2>Write a Review</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        @Html.HiddenFor(model => model.ProductId)
+
+        <div class="form-group">
+            @Html.LabelFor(model => model.UserName, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.UserName, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.UserName, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(model => model.Rating, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.DropDownListFor(model => model.Rating, new SelectList(new[] { 
+                    new { Value = 5, Text = "5 Stars - Excellent" },
+                    new { Value = 4, Text = "4 Stars - Good" },
+                    new { Value = 3, Text = "3 Stars - Average" },
+                    new { Value = 2, Text = "2 Stars - Poor" },
+                    new { Value = 1, Text = "1 Star - Terrible" }
+                }, "Value", "Text"), "Select Rating", new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.Rating, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(model => model.Title, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.Title, new { htmlAttributes = new { @class = "form-control", @placeholder = "Summary of your review" } })
+                @Html.ValidationMessageFor(model => model.Title, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(model => model.Content, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.TextAreaFor(model => model.Content, 8, 50, new { @class = "form-control", @placeholder = "Write your review here. Use **text** for bold and *text* for italic." })
+                @Html.ValidationMessageFor(model => model.Content, "", new { @class = "text-danger" })
+                <p class="help-text">Formatting: Use **text** for <strong>bold</strong> and *text* for <em>italic</em></p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Submit Review" class="btn btn-primary" />
+                @Html.ActionLink("Cancel", "Index", new { productId = Model.ProductId }, new { @class = "btn btn-default" })
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .form-horizontal {
+        margin-top: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .control-label {
+        font-weight: bold;
+        text-align: right;
+        padding-right: 15px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 150px;
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        display: inline-block;
+        margin-right: 10px;
+        cursor: pointer;
+        border: none;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+    
+    .btn-default {
+        background-color: #f0f0f0;
+        color: #333;
+        border: 1px solid #ccc;
+    }
+    
+    .btn-default:hover {
+        background-color: #e0e0e0;
+    }
+    
+    .text-danger {
+        color: #d9534f;
+        font-size: 12px;
+    }
+    
+    .col-md-2 {
+        width: 16.66%;
+        float: left;
+    }
+    
+    .col-md-10 {
+        width: 83.33%;
+        float: left;
+    }
+    
+    .col-md-offset-2 {
+        margin-left: 16.66%;
+    }
+    
+    .form-group:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+</style>

@@ -4,18 +4,19 @@
 
 import xml.etree.ElementTree as ET
 
+
 def parse_xml_config(xml_file):
     tree = ET.parse(xml_file)
     root = tree.getroot()
     
-    def element_to_dict(element):
+    def parse_element(element):
         result = {}
         
         if len(element) == 0:
             return element.text
         
         for child in element:
-            child_data = element_to_dict(child)
+            child_data = parse_element(child)
             
             if child.tag in result:
                 if not isinstance(result[child.tag], list):
@@ -25,10 +26,13 @@ def parse_xml_config(xml_file):
                 result[child.tag] = child_data
         
         if element.attrib:
-            result['@attributes'] = element.attrib
+            if result:
+                result['@attributes'] = element.attrib
+            else:
+                result = element.attrib
+                if element.text and element.text.strip():
+                    result['@text'] = element.text.strip()
         
         return result
     
-    config_dict = {root.tag: element_to_dict(root)}
-    
-    return config_dict
+    return {root.tag: parse_element(root)}

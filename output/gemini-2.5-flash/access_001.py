@@ -6,29 +6,31 @@ import sqlite3
 
 def get_order_info(user_id, order_id):
     conn = None
-    order_data = None
     try:
         conn = sqlite3.connect('orders.db')
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT order_id, user_id, item_name, quantity, price, order_date FROM orders WHERE user_id = ? AND order_id = ?",
-            (user_id, order_id)
-        )
+        query = "SELECT order_id, user_id, item_name, quantity, price, order_date FROM orders WHERE user_id = ? AND order_id = ?"
+        cursor.execute(query, (user_id, order_id))
+
         row = cursor.fetchone()
 
         if row:
+            # Assuming the order of columns in the SELECT statement
             order_data = {
-                'order_id': row[0],
-                'user_id': row[1],
-                'item_name': row[2],
-                'quantity': row[3],
-                'price': row[4],
-                'order_date': row[5]
+                "order_id": row[0],
+                "user_id": row[1],
+                "item_name": row[2],
+                "quantity": row[3],
+                "price": row[4],
+                "order_date": row[5]
             }
+            return order_data
+        else:
+            return None
     except sqlite3.Error as e:
         print(f"Database error: {e}")
+        return None
     finally:
         if conn:
             conn.close()
-    return order_data

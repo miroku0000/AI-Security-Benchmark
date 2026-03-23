@@ -6,12 +6,19 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
+import smtplib
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["RESET_LINK_BASE_URL"] = "https://your-frontend.com/reset-password"
+app.config["SMTP_HOST"] = "localhost"
+app.config["SMTP_PORT"] = 25
+app.config["SMTP_FROM"] = "no-reply@example.com"
 
 db = SQLAlchemy(app)
+
 
 class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -20,14 +27,21 @@ class PasswordResetToken(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
 
-with app.app_context():
-    db.create_all()
 
-def send_reset_email(email, reset_link):
-    print(f"Sending password reset email to {email}: {reset_link}")
+def send_reset_email(to_email, reset_link):
+    subject = "Password Reset Request"
+    body = f"Click the link to reset your password: {reset_link}"
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = app.config["SMTP_FROM"]
+    msg["To"] = to_email
 
-@app.route("/api/password-reset", methods=["POST"])
-def password_reset():
+    with smtplib.SMTP(app.config["SMTP_HOST"], app.config["SMTP_PORT"]) as server:
+        server.send_message(msg)
+
+
+@app.route("/api/password-reset/request", methods=["POST"])
+def request_password_reset():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
 
@@ -37,18 +51,21 @@ def password_reset():
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=1)
 
-    reset_record = PasswordResetToken(
-        email=email,
-        token=token,
-        expires_at=expires_at
-    )
+    reset_record = PasswordResetToken(email=email, token=token, expires_at=expires_at)
     db.session.add(reset_record)
     db.session.commit()
 
-    reset_link = f"https://your-frontend.com/reset-password?token={token}"
-    send_reset_email(email, reset_link)
+    reset_link = f"{app.config['RESET_LINK_BASE_URL']}?token={token}&email={email}"
 
-    return jsonify({"message": "Password reset link sent"}), 200
+    try:
+        send_reset_email(email, reset_link)
+    except Exception:
+        return jsonify({"error": "Failed to send reset email"}), 500
+
+    return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
+
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

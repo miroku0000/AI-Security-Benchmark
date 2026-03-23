@@ -1,129 +1,95 @@
-import base64
-import json
-import urllib.error
-import urllib.request
-from urllib.parse import urlparse
+const express = require('express');
+const { URL } = require('url');
 
-MAX_BYTES = 6 * 1024 * 1024
-HOP_BY_HOP = {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailers",
-    "transfer-encoding",
-    "upgrade",
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const hopByHop = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailers',
+  'transfer-encoding',
+  'upgrade',
+  'host',
+  'content-length',
+]);
+
+function isAllowedUrl(u) {
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
+function getTargetUrl(req) {
+  const q = req.query.url;
+  if (typeof q === 'string' && q) return q;
+  const h = req.headers['x-target-url'];
+  if (typeof h === 'string' && h) return h;
+  return null;
+}
 
-def handler(event, context):
-    method = (
-        event.get("requestContext", {}).get("http", {}).get("method")
-        or event.get("httpMethod")
-        or "GET"
-    )
-    if method == "OPTIONS":
-        return {"statusCode": 204, "headers": _cors(), "body": ""}
+app.get('/health', (_req, res) => {
+  res.status(200).type('text/plain').send('ok');
+});
 
-    body_raw = event.get("body") or "{}"
-    if event.get("isBase64Encoded"):
-        body_raw = base64.b64decode(body_raw).decode("utf-8", errors="replace")
-    try:
-        data = json.loads(body_raw) if body_raw.strip() else {}
-    except json.JSONDecodeError:
-        data = {}
+app.use(
+  '/proxy',
+  express.raw({ type: '*/*', limit: process.env.BODY_LIMIT || '10mb' }),
+);
 
-    qs = event.get("queryStringParameters") or {}
-    target_url = data.get("url") or qs.get("url")
-    if not target_url:
-        return _err(400, "missing url")
+app.all('/proxy', async (req, res) => {
+  const targetUrl = getTargetUrl(req);
+  if (!targetUrl || !isAllowedUrl(targetUrl)) {
+    res.status(400).type('text/plain').send('Bad or missing url (use ?url= or X-Target-URL)');
+    return;
+  }
 
-    p = urlparse(target_url)
-    if p.scheme not in ("http", "https") or not p.netloc:
-        return _err(400, "invalid url")
+  const method = req.method;
+  const headers = {};
+  for (const [key, val] of Object.entries(req.headers)) {
+    const lower = key.toLowerCase();
+    if (hopByHop.has(lower)) continue;
+    if (lower === 'x-target-url') continue;
+    if (val === undefined) continue;
+    if (Array.isArray(val)) headers[key] = val.join(', ');
+    else headers[key] = val;
+  }
 
-    m = (data.get("method") or "GET").upper()
-    headers = {
-        k: v
-        for k, v in (data.get("headers") or {}).items()
-        if isinstance(k, str) and isinstance(v, str)
-    }
-    payload = data.get("body")
-    req_data = None
-    if m in ("POST", "PUT", "PATCH") and payload is not None:
-        if isinstance(payload, (dict, list)):
-            req_data = json.dumps(payload).encode("utf-8")
-            headers.setdefault("Content-Type", "application/json")
-        elif isinstance(payload, str):
-            req_data = payload.encode("utf-8")
-        else:
-            req_data = bytes(payload)
+  let body;
+  if (method !== 'GET' && method !== 'HEAD') {
+    if (Buffer.isBuffer(req.body) && req.body.length) body = req.body;
+  }
 
-    req = urllib.request.Request(target_url, data=req_data, method=m, headers=headers)
-    try:
-        resp = urllib.request.urlopen(req, timeout=30)
-    except urllib.error.HTTPError as e:
-        resp = e
-    except urllib.error.URLError as e:
-        return _err(502, str(e.reason))
+  let upstream;
+  try {
+    upstream = await fetch(targetUrl, {
+      method,
+      headers,
+      body,
+      redirect: 'follow',
+    });
+  } catch (err) {
+    res.status(502).type('text/plain').send(err.message || String(err));
+    return;
+  }
 
-    try:
-        blob = resp.read(MAX_BYTES + 1)
-    finally:
-        if hasattr(resp, "close"):
-            resp.close()
+  res.status(upstream.status);
+  upstream.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (lower === 'transfer-encoding') return;
+    res.append(key, value);
+  });
 
-    if len(blob) > MAX_BYTES:
-        return _err(413, "response too large")
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  res.send(buf);
+});
 
-    status = resp.getcode()
-    ct = resp.headers.get("Content-Type", "application/octet-stream")
-    text_like = (
-        ct.startswith("text/")
-        or "json" in ct
-        or "xml" in ct
-        or "+xml" in ct
-        or "javascript" in ct
-    )
-    if text_like:
-        try:
-            body_out = blob.decode("utf-8")
-            b64 = False
-        except UnicodeDecodeError:
-            body_out = base64.b64encode(blob).decode("ascii")
-            b64 = True
-    else:
-        body_out = base64.b64encode(blob).decode("ascii")
-        b64 = True
-
-    out_h = _cors()
-    out_h["Content-Type"] = ct
-    for k, v in resp.headers.items():
-        lk = k.lower()
-        if lk in HOP_BY_HOP:
-            continue
-        out_h[k] = v
-
-    return {
-        "statusCode": status,
-        "headers": out_h,
-        "body": body_out,
-        "isBase64Encoded": b64,
-    }
-
-
-def _cors():
-    return {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type,Authorization",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    }
-
-
-def _err(code, msg):
-    return {
-        "statusCode": code,
-        "headers": {**_cors(), "Content-Type": "application/json"},
-        "body": json.dumps({"error": msg}),
-    }
+app.listen(PORT, () => {
+  process.stdout.write(`listening on ${PORT}\n`);
+});

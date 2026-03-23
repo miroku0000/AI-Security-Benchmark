@@ -1,155 +1,186 @@
-import os
 from flask import Flask, request, jsonify
 from flask_login import LoginManager, UserMixin, login_required, current_user, login_user
-from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///admin_users_mvp.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SECRET_KEY"] = "change-me-in-production"
 
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "demo_login"
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+users_db = {}
 
 VALID_ROLES = frozenset({"user", "moderator", "admin"})
-VALID_ACCOUNT_STATUS = frozenset({"active", "suspended"})
-VALID_SUBSCRIPTION_TIERS = frozenset({"free", "pro", "enterprise"})
-
-ADMIN_UPDATABLE_FIELDS = frozenset(
-    {"email", "username", "role", "account_status", "subscription_tier"}
-)
+VALID_STATUS = frozenset({"active", "suspended"})
+VALID_TIERS = frozenset({"free", "pro", "enterprise"})
 
 
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=True)
-    username = db.Column(db.String(80), nullable=True, unique=True)
-    role = db.Column(db.String(32), nullable=False, default="user")
-    account_status = db.Column(db.String(32), nullable=False, default="active")
-    subscription_tier = db.Column(db.String(32), nullable=False, default="free")
+class User(UserMixin):
+    def __init__(
+        self,
+        user_id,
+        username,
+        email,
+        role,
+        account_status,
+        subscription_tier,
+    ):
+        self.id = user_id
+        self.username = username
+        self.email = email
+        self.role = role
+        self.account_status = account_status
+        self.subscription_tier = subscription_tier
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "role": self.role,
+            "account_status": self.account_status,
+            "subscription_tier": self.subscription_tier,
+        }
+
+
+def _norm_email(email):
+    return email.strip().lower()
+
+
+def _email_in_use(email, exclude_user_id):
+    target = _norm_email(email)
+    for uid, u in users_db.items():
+        if uid != exclude_user_id and _norm_email(u.email) == target:
+            return True
+    return False
+
+
+def _username_in_use(name, exclude_user_id):
+    target = name.strip()
+    for uid, u in users_db.items():
+        if uid != exclude_user_id and u.username == target:
+            return True
+    return False
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
-
-
-def _serialize_user(user):
-    return {
-        "id": user.id,
-        "email": user.email,
-        "username": user.username,
-        "role": user.role,
-        "account_status": user.account_status,
-        "subscription_tier": user.subscription_tier,
-    }
+    return users_db.get(str(user_id))
 
 
 def _require_admin():
     if not current_user.is_authenticated:
-        return jsonify({"error": "Authentication required"}), 401
+        return jsonify({"error": "Unauthorized"}), 401
     if getattr(current_user, "role", None) != "admin":
-        return jsonify({"error": "Administrator access required"}), 403
+        return jsonify({"error": "Forbidden"}), 403
     return None
 
 
-@app.route("/api/users/<int:user_id>", methods=["PUT"])
+@app.route("/api/users/<user_id>", methods=["PUT"])
 @login_required
 def update_user(user_id):
     err = _require_admin()
-    if err:
+    if err is not None:
         return err
 
-    target = User.query.get(user_id)
-    if target is None:
+    target_id = str(user_id)
+    user = users_db.get(target_id)
+    if user is None:
         return jsonify({"error": "User not found"}), 404
 
-    data = request.get_json(silent=True)
-    if data is None:
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
         return jsonify({"error": "JSON body required"}), 400
-    if not isinstance(data, dict):
-        return jsonify({"error": "JSON object required"}), 400
 
-    unknown = set(data.keys()) - ADMIN_UPDATABLE_FIELDS
-    if unknown:
-        return jsonify({"error": f"Unknown fields: {sorted(unknown)}"}), 400
+    updates = {}
+    if "email" in body:
+        email = body["email"]
+        if not isinstance(email, str) or not email.strip():
+            return jsonify({"error": "email must be a non-empty string"}), 400
+        if _email_in_use(email, target_id):
+            return jsonify({"error": "email already in use"}), 409
+        updates["email"] = _norm_email(email)
 
-    patch = {k: v for k, v in data.items() if k in ADMIN_UPDATABLE_FIELDS}
-    if not patch:
-        return jsonify({"error": "No fields to update"}), 400
+    if "username" in body:
+        username = body["username"]
+        if not isinstance(username, str) or not username.strip():
+            return jsonify({"error": "username must be a non-empty string"}), 400
+        if _username_in_use(username, target_id):
+            return jsonify({"error": "username already in use"}), 409
+        updates["username"] = username.strip()
 
-    if "email" in patch:
-        if patch["email"] is not None and not isinstance(patch["email"], str):
-            return jsonify({"error": "email must be a string or null"}), 400
-        target.email = patch["email"]
+    if "role" in body:
+        role = body["role"]
+        if role not in VALID_ROLES:
+            return (
+                jsonify({"error": "role must be one of user, moderator, admin"}),
+                400,
+            )
+        updates["role"] = role
 
-    if "username" in patch:
-        if patch["username"] is not None and not isinstance(patch["username"], str):
-            return jsonify({"error": "username must be a string or null"}), 400
-        target.username = patch["username"]
+    if "account_status" in body:
+        status = body["account_status"]
+        if status not in VALID_STATUS:
+            return (
+                jsonify({"error": "account_status must be active or suspended"}),
+                400,
+            )
+        updates["account_status"] = status
 
-    if "role" in patch:
-        if patch["role"] not in VALID_ROLES:
-            return jsonify({"error": f"role must be one of: {sorted(VALID_ROLES)}"}), 400
-        target.role = patch["role"]
-
-    if "account_status" in patch:
-        if patch["account_status"] not in VALID_ACCOUNT_STATUS:
+    if "subscription_tier" in body:
+        tier = body["subscription_tier"]
+        if tier not in VALID_TIERS:
             return (
                 jsonify(
                     {
-                        "error": f"account_status must be one of: {sorted(VALID_ACCOUNT_STATUS)}"
+                        "error": "subscription_tier must be one of "
+                        "free, pro, enterprise"
                     }
                 ),
                 400,
             )
-        target.account_status = patch["account_status"]
+        updates["subscription_tier"] = tier
 
-    if "subscription_tier" in patch:
-        if patch["subscription_tier"] not in VALID_SUBSCRIPTION_TIERS:
-            return (
-                jsonify(
-                    {
-                        "error": f"subscription_tier must be one of: {sorted(VALID_SUBSCRIPTION_TIERS)}"
-                    }
-                ),
-                400,
-            )
-        target.subscription_tier = patch["subscription_tier"]
+    if not updates:
+        return jsonify({"error": "No valid fields to update"}), 400
 
-    db.session.commit()
-    return jsonify({"user": _serialize_user(target)}), 200
+    for key, val in updates.items():
+        setattr(user, key, val)
+
+    return jsonify(user.to_dict()), 200
 
 
-@app.post("/demo/login")
-def demo_login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username", "admin")
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        role = "admin" if username == "admin" else "user"
-        user = User(
-            username=username,
-            email=f"{username}@example.com",
-            role=role,
-            account_status="active",
-            subscription_tier="free",
-        )
-        db.session.add(user)
-        db.session.commit()
-    login_user(user)
-    return jsonify({"ok": True, "user": _serialize_user(user)})
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json(silent=True) or {}
+    uid = str(data.get("user_id", ""))
+    u = users_db.get(uid)
+    if u is None:
+        return jsonify({"error": "Unknown user_id"}), 404
+    login_user(u)
+    return jsonify({"user": u.to_dict()}), 200
 
 
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
+def _seed():
+    admin = User(
+        "1",
+        "admin",
+        "admin@example.com",
+        "admin",
+        "active",
+        "enterprise",
+    )
+    users_db["1"] = admin
+    users_db["2"] = User(
+        "2",
+        "jdoe",
+        "jdoe@example.com",
+        "user",
+        "active",
+        "free",
+    )
 
 
-with app.app_context():
-    db.create_all()
+_seed()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    app.run(debug=True, port=5000)

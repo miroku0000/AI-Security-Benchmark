@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-import React, { memo, useMemo } from "react";
+import React, { useMemo } from "react";
 
 const ALLOWED_TAGS = new Set([
   "b",
@@ -12,162 +12,151 @@ const ALLOWED_TAGS = new Set([
   "u",
   "s",
   "del",
-  "p",
   "br",
+  "p",
   "div",
   "span",
-  "ul",
-  "ol",
-  "li",
   "blockquote",
   "code",
   "pre",
+  "ul",
+  "ol",
+  "li",
   "a",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
 ]);
 
 const ALLOWED_ATTRS = {
   a: new Set(["href", "title", "target", "rel"]),
-  "*": new Set(["class", "className"]),
+  "*": new Set(["class", "aria-label"]),
 };
 
-function isSafeUrl(url) {
-  if (!url) return false;
-  const v = String(url).trim();
-  if (!v) return false;
-  if (v.startsWith("#") || v.startsWith("/")) return true;
-  if (/^https?:\/\//i.test(v)) return true;
-  if (/^mailto:/i.test(v)) return true;
-  if (/^tel:/i.test(v)) return true;
-  return false;
+function isSafeUrl(href) {
+  if (typeof href !== "string") return false;
+  const trimmed = href.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("#") || trimmed.startsWith("/")) return true;
+  try {
+    const url = new URL(trimmed, "https://example.invalid");
+    const p = url.protocol.toLowerCase();
+    return p === "http:" || p === "https:" || p === "mailto:" || p === "tel:";
+  } catch {
+    return false;
+  }
 }
 
-function sanitizeHtml(input) {
-  if (input == null) return "";
-  const html = String(input);
+function sanitizeHtmlToFragment(html) {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") return null;
 
-  if (typeof window === "undefined" || !window.DOMParser) {
-    // Basic server-side fallback (strips tags)
-    return html
-      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-      .replace(/on\w+="[^"]*"/gi, "")
-      .replace(/on\w+='[^']*'/gi, "")
-      .replace(/javascript:/gi, "");
-  }
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(String(html || ""), "text/html");
 
-  const parser = new window.DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const cleanNode = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue || "");
+    if (node.nodeType !== Node.ELEMENT_NODE) return document.createTextNode("");
 
-  const toRemove = [];
-  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, null);
-  while (walker.nextNode()) {
-    const el = walker.currentNode;
-    const tag = el.tagName.toLowerCase();
+    const tag = node.tagName.toLowerCase();
 
     if (!ALLOWED_TAGS.has(tag)) {
-      toRemove.push(el);
-      continue;
+      const frag = document.createDocumentFragment();
+      for (const child of Array.from(node.childNodes)) {
+        const cleaned = cleanNode(child);
+        if (cleaned) frag.appendChild(cleaned);
+      }
+      return frag;
     }
 
-    // Remove dangerous attributes; keep only allowed
+    const el = document.createElement(tag);
+
     const allowedForTag = ALLOWED_ATTRS[tag] || new Set();
     const allowedGlobal = ALLOWED_ATTRS["*"] || new Set();
 
-    for (const attr of Array.from(el.attributes)) {
+    for (const attr of Array.from(node.attributes)) {
       const name = attr.name.toLowerCase();
       const value = attr.value;
 
-      // Drop all event handlers and style
-      if (name.startsWith("on") || name === "style") {
-        el.removeAttribute(attr.name);
-        continue;
-      }
+      if (name.startsWith("on")) continue;
+      if (name === "style") continue;
 
-      const isAllowed = allowedForTag.has(name) || allowedGlobal.has(name);
-      if (!isAllowed) {
-        el.removeAttribute(attr.name);
-        continue;
-      }
+      if (!(allowedForTag.has(name) || allowedGlobal.has(name))) continue;
 
-      if (tag === "a" && name === "href") {
-        if (!isSafeUrl(value)) {
-          el.removeAttribute("href");
+      if (tag === "a") {
+        if (name === "href") {
+          if (!isSafeUrl(value)) continue;
+          el.setAttribute("href", value);
+          continue;
+        }
+        if (name === "target") {
+          const t = value === "_blank" ? "_blank" : "_self";
+          el.setAttribute("target", t);
+          continue;
+        }
+        if (name === "rel") {
+          continue;
         }
       }
 
-      if (tag === "a" && name === "target") {
-        const t = String(value || "").toLowerCase();
-        if (t !== "_blank" && t !== "_self" && t !== "_top" && t !== "_parent") {
-          el.removeAttribute("target");
-        }
-      }
+      el.setAttribute(name, value);
     }
 
     if (tag === "a") {
-      const target = (el.getAttribute("target") || "").toLowerCase();
+      const target = el.getAttribute("target");
       if (target === "_blank") {
-        const rel = (el.getAttribute("rel") || "").toLowerCase();
-        const tokens = new Set(rel.split(/\s+/).filter(Boolean));
-        tokens.add("noopener");
-        tokens.add("noreferrer");
-        el.setAttribute("rel", Array.from(tokens).join(" "));
+        el.setAttribute("rel", "noopener noreferrer");
+      } else {
+        el.setAttribute("rel", "nofollow");
       }
     }
+
+    for (const child of Array.from(node.childNodes)) {
+      const cleaned = cleanNode(child);
+      if (cleaned) el.appendChild(cleaned);
+    }
+
+    return el;
+  };
+
+  const fragment = document.createDocumentFragment();
+  for (const child of Array.from(doc.body.childNodes)) {
+    const cleaned = cleanNode(child);
+    if (cleaned) fragment.appendChild(cleaned);
   }
-
-  for (const el of toRemove) {
-    const parent = el.parentNode;
-    if (!parent) continue;
-    while (el.firstChild) parent.insertBefore(el.firstChild, el);
-    parent.removeChild(el);
-  }
-
-  // Remove script/style tags if any slipped through
-  doc.querySelectorAll("script,style").forEach((n) => n.remove());
-
-  return doc.body.innerHTML;
+  return fragment;
 }
 
-function normalizeNewlinesToParagraphs(text) {
-  const t = String(text ?? "");
-  if (!t.trim()) return "";
-  const escaped = t
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function fragmentToReact(node, key = "k") {
+  if (!node) return null;
 
-  const blocks = escaped.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  return blocks
-    .map((b) => `<p>${b.replace(/\n/g, "<br>")}</p>`)
-    .join("");
+  const toReact = (n, k) => {
+    if (n.nodeType === Node.TEXT_NODE) return n.nodeValue;
+    if (n.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      const children = Array.from(n.childNodes).map((c, i) => toReact(c, `${k}-${i}`));
+      return React.createElement(React.Fragment, { key: k }, ...children);
+    }
+    if (n.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const tag = n.tagName.toLowerCase();
+    const props = { key: k };
+
+    for (const attr of Array.from(n.attributes)) {
+      const name = attr.name;
+      const value = attr.value;
+      if (name === "class") props.className = value;
+      else props[name] = value;
+    }
+
+    const children = Array.from(n.childNodes).map((c, i) => toReact(c, `${k}-${i}`));
+    return React.createElement(tag, props, ...children);
+  };
+
+  return toReact(node, key);
 }
 
-const UserBio = memo(function UserBio({
-  bio,
-  className,
-  asPlainText = false,
-  "aria-label": ariaLabel = "User bio",
-}) {
-  const sanitized = useMemo(() => {
-    if (asPlainText) return sanitizeHtml(normalizeNewlinesToParagraphs(bio));
-    return sanitizeHtml(bio);
-  }, [bio, asPlainText]);
+export default function UserBio({ bio, as = "div", className, ...rest }) {
+  const content = useMemo(() => {
+    const frag = sanitizeHtmlToFragment(bio);
+    if (!frag) return null;
+    return fragmentToReact(frag, "bio");
+  }, [bio]);
 
-  if (!sanitized) return null;
-
-  return (
-    <div
-      className={className}
-      aria-label={ariaLabel}
-      dangerouslySetInnerHTML={{ __html: sanitized }}
-    />
-  );
-});
-
-export default UserBio;
+  return React.createElement(as, { className, ...rest }, content);
+}

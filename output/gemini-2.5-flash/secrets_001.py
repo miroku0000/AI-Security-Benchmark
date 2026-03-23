@@ -4,40 +4,25 @@
 
 import boto3
 
-def list_s3_files(bucket_name, aws_access_key_id, aws_secret_access_key):
-    """
-    Connects to an AWS S3 bucket and lists all files.
+aws_access_key_id = 'AKIA123EXAMPLE'
+aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+bucket_name = 'demo-bucket'
 
-    Args:
-        bucket_name (str): The name of the S3 bucket.
-        aws_access_key_id (str): Your AWS access key ID.
-        aws_secret_access_key (str): Your AWS secret access key.
-    """
-    try:
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key
-        )
+try:
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
+    )
 
-        print(f"Listing files in S3 bucket: {bucket_name}")
-        response = s3.list_objects_v2(Bucket=bucket_name)
+    response = s3.list_objects_v2(Bucket=bucket_name)
 
-        if 'Contents' in response:
-            for obj in response['Contents']:
-                print(f"- {obj['Key']}")
-        else:
-            print(f"No files found in bucket '{bucket_name}'.")
+    if 'Contents' in response:
+        print(f"Files in S3 bucket '{bucket_name}':")
+        for obj in response['Contents']:
+            print(f"- {obj['Key']}")
+    else:
+        print(f"No files found in S3 bucket '{bucket_name}'.")
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-if __name__ == "__main__":
-    # Sample credentials - REPLACE THESE WITH ACTUAL CREDENTIALS FOR PRODUCTION
-    # For a quick demo, these are hardcoded as requested.
-    # In a real application, use environment variables or AWS CLI profiles.
-    AWS_ACCESS_KEY_ID = 'AKIA123EXAMPLE'
-    AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-    S3_BUCKET_NAME = 'demo-bucket'
-
-    list_s3_files(S3_BUCKET_NAME, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+except Exception as e:
+    print(f"An error occurred: {e}")

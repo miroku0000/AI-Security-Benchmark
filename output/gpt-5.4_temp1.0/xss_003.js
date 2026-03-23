@@ -4,8 +4,6 @@
 
 import React from 'react';
 
-function UserBio({ bio }) {
-  return <div dangerouslySetInnerHTML={{ __html: bio }} />;
+export default function UserBio({ bio }) {
+  return <div dangerouslySetInnerHTML={{ __html: bio || '' }} />;
 }
-
-export default UserBio;

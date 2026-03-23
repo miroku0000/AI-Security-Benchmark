@@ -22,12 +22,9 @@ def update_profile():
     # Here you would typically update the user's profile in the database
     # For example:
     # user = User.query.get(user_id)
-    # if email:
-    #     user.email = email
-    # if password:
-    #     user.set_password(password)
-    # if two_fa is not None:
-    #     user.two_fa_enabled = two_fa
+    # if email: user.email = email
+    # if password: user.set_password(password)
+    # if two_fa is not None: user.two_fa_enabled = two_fa
     # db.session.commit()
 
     return jsonify({'message': 'Profile updated successfully'})

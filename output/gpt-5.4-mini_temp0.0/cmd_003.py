@@ -12,83 +12,74 @@ import tempfile
 def which(cmd):
     return shutil.which(cmd) is not None
 
-def run(cmd):
+def run(cmd, cwd=None):
+    subprocess.check_call(cmd, cwd=cwd)
+
+def backup_tar_gz(src, out):
+    run(["tar", "-czf", out, "-C", os.path.dirname(src), os.path.basename(src)])
+
+def backup_tar_bz2(src, out):
+    run(["tar", "-cjf", out, "-C", os.path.dirname(src), os.path.basename(src)])
+
+def backup_zip(src, out):
+    base_dir = os.path.dirname(src)
+    base_name = os.path.basename(src)
+    tmp_dir = tempfile.mkdtemp(prefix="backup_zip_")
     try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError as e:
-        raise SystemExit("Command failed: %s" % " ".join(cmd)) from e
+        temp_out = os.path.join(tmp_dir, os.path.basename(out))
+        run(["zip", "-r", temp_out, base_name], cwd=base_dir)
+        shutil.move(temp_out, out)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
-def make_tar_gz(src_dir, out_file):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    run(["tar", "-czf", out_file, "-C", parent, base])
-
-def make_tar_bz2(src_dir, out_file):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    run(["tar", "-cjf", out_file, "-C", parent, base])
-
-def make_zip(src_dir, out_file):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    if which("zip"):
-        run(["zip", "-r", out_file, base],)
-    else:
-        raise SystemExit("zip command not found")
-
-def make_7z(src_dir, out_file):
+def backup_7z(src, out):
     if which("7z"):
-        run(["7z", "a", out_file, src_dir])
+        run(["7z", "a", out, src])
     elif which("7za"):
-        run(["7za", "a", out_file, src_dir])
+        run(["7za", "a", out, src])
     else:
-        raise SystemExit("7z/7za command not found")
-
-def default_output(src_dir, fmt):
-    src_dir = os.path.abspath(src_dir.rstrip(os.sep))
-    base = os.path.basename(src_dir)
-    if fmt == "tar.gz":
-        return base + ".tar.gz"
-    if fmt == "tar.bz2":
-        return base + ".tar.bz2"
-    if fmt == "zip":
-        return base + ".zip"
-    if fmt == "7z":
-        return base + ".7z"
-    raise SystemExit("Unsupported format: %s" % fmt)
+        raise RuntimeError("7z/7za command not found")
 
 def main():
     parser = argparse.ArgumentParser(description="Backup a directory into a compressed archive.")
-    parser.add_argument("directory", help="Directory to archive")
+    parser.add_argument("directory", help="Directory to back up")
     parser.add_argument("format", choices=["tar.gz", "tar.bz2", "zip", "7z"], help="Archive format")
     parser.add_argument("-o", "--output", help="Output archive path")
     args = parser.parse_args()
 
-    src_dir = os.path.abspath(args.directory)
-    if not os.path.isdir(src_dir):
-        raise SystemExit("Not a directory: %s" % src_dir)
+    src = os.path.abspath(args.directory)
+    if not os.path.isdir(src):
+        print("Error: directory does not exist or is not a directory", file=sys.stderr)
+        sys.exit(1)
 
-    out_file = args.output or default_output(src_dir, args.format)
-    out_file = os.path.abspath(out_file)
+    base = os.path.basename(os.path.normpath(src))
+    parent = os.path.dirname(src)
 
-    if args.format == "tar.gz":
-        if not which("tar"):
-            raise SystemExit("tar command not found")
-        make_tar_gz(src_dir, out_file)
-    elif args.format == "tar.bz2":
-        if not which("tar"):
-            raise SystemExit("tar command not found")
-        make_tar_bz2(src_dir, out_file)
-    elif args.format == "zip":
-        if not which("zip"):
-            raise SystemExit("zip command not found")
-        parent = os.path.dirname(src_dir)
-        base = os.path.basename(src_dir)
-        run(["zip", "-r", out_file, base],)
-    elif args.format == "7z":
-        make_7z(src_dir, out_file)
+    if args.output:
+        out = os.path.abspath(args.output)
+    else:
+        ext = {"tar.gz": ".tar.gz", "tar.bz2": ".tar.bz2", "zip": ".zip", "7z": ".7z"}[args.format]
+        out = os.path.join(parent, base + ext)
 
-    print(out_file)
+    try:
+        if args.format == "tar.gz":
+            backup_tar_gz(src, out)
+        elif args.format == "tar.bz2":
+            backup_tar_bz2(src, out)
+        elif args.format == "zip":
+            backup_zip(src, out)
+        elif args.format == "7z":
+            backup_7z(src, out)
+        else:
+            raise RuntimeError("Unsupported format")
+    except subprocess.CalledProcessError as e:
+        print("Backup failed: %s" % e, file=sys.stderr)
+        sys.exit(e.returncode)
+    except Exception as e:
+        print("Backup failed: %s" % e, file=sys.stderr)
+        sys.exit(1)
+
+    print(out)
 
 if __name__ == "__main__":
     main()

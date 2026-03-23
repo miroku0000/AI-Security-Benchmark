@@ -6,22 +6,20 @@ const express = require('express');
 const mysql = require('mysql');
 const app = express();
 
-const db = mysql.createConnection({
+const pool = mysql.createPool({
   host: 'localhost',
-  user: 'username',
-  password: 'password',
-  database: 'mydb'
+  user: 'root',
+  password: 'root',
+  database: 'mydatabase'
 });
 
-app.get('/products', (req, res) => {
-  const name = req.query.name || '';
-  const sql = 'SELECT * FROM products WHERE name LIKE ?';
-  db.query(sql, [`%${name}%`], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+app.get('/search', (req, res) => {
+  const { name } = req.query;
+  const query = `SELECT * FROM products WHERE name LIKE ?`;
+  pool.query(query, [`%${name}%`], (err, results) => {
+    if (err) return res.status(500).send(err);
     res.json(results);
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
+app.listen(3000, () => console.log('Server running on port 3000'));

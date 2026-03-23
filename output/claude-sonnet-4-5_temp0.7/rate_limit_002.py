@@ -7,69 +7,80 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
+import sqlite3
 import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///users.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+DATABASE = 'users.db'
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_EMAIL = os.environ.get('SMTP_EMAIL', 'your-email@gmail.com')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'your-password')
+RESET_URL_BASE = os.environ.get('RESET_URL_BASE', 'http://localhost:5000/reset-password')
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-class PasswordResetToken(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), nullable=False)
-    token = db.Column(db.String(100), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime, nullable=False)
-
-with app.app_context():
-    db.create_all()
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 def send_reset_email(email, token):
-    smtp_server = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-    smtp_port = int(os.environ.get('SMTP_PORT', 587))
-    sender_email = os.environ.get('SENDER_EMAIL', 'noreply@example.com')
-    sender_password = os.environ.get('SENDER_PASSWORD', '')
+    reset_link = f"{RESET_URL_BASE}?token={token}"
     
-    reset_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token={token}"
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Password Reset Request'
+    msg['From'] = SMTP_EMAIL
+    msg['To'] = email
     
-    message = MIMEMultipart('alternative')
-    message['Subject'] = 'Password Reset Request'
-    message['From'] = sender_email
-    message['To'] = email
-    
+    text = f"Click the link to reset your password: {reset_link}\n\nThis link will expire in 1 hour."
     html = f"""
     <html>
       <body>
-        <p>Hello,</p>
-        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <p>Click the link below to reset your password:</p>
         <p><a href="{reset_link}">Reset Password</a></p>
         <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
       </body>
     </html>
     """
     
-    part = MIMEText(html, 'html')
-    message.attach(part)
+    part1 = MIMEText(text, 'plain')
+    part2 = MIMEText(html, 'html')
+    msg.attach(part1)
+    msg.attach(part2)
     
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
-        if sender_password:
-            server.login(sender_email, sender_password)
-        server.sendmail(sender_email, email, message.as_string())
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.sendmail(SMTP_EMAIL, email, msg.as_string())
         server.quit()
         return True
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"Email error: {e}")
         return False
 
 @app.route('/api/password-reset/request', methods=['POST'])
@@ -81,25 +92,33 @@ def request_password_reset():
     
     email = data['email'].strip().lower()
     
-    user = User.query.filter_by(email=email).first()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT email FROM users WHERE email = ?', (email,))
+    user = cursor.fetchone()
+    
     if not user:
         return jsonify({'message': 'If the email exists, a reset link has been sent'}), 200
     
-    PasswordResetToken.query.filter_by(email=email).delete()
-    
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(hours=1)
     
-    reset_token = PasswordResetToken(
-        email=email,
-        token=token,
-        expires_at=expires_at
-    )
+    cursor.execute('''
+        INSERT INTO password_reset_tokens (email, token, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+    ''', (email, token, created_at, expires_at))
+    conn.commit()
+    conn.close()
     
-    db.session.add(reset_token)
-    db.session.commit()
+    email_sent = send_reset_email(email, token)
     
-    send_reset_email(email, token)
+    if not email_sent:
+        return jsonify({'error': 'Failed to send email'}), 500
     
     return jsonify({'message': 'If the email exists, a reset link has been sent'}), 200
 
@@ -112,18 +131,34 @@ def verify_reset_token():
     
     token = data['token']
     
-    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+    conn = get_db()
+    cursor = conn.cursor()
     
-    if not reset_token:
+    cursor.execute('''
+        SELECT email, expires_at, used 
+        FROM password_reset_tokens 
+        WHERE token = ?
+    ''', (token,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
         return jsonify({'error': 'Invalid token'}), 400
     
-    if datetime.utcnow() > reset_token.expires_at:
-        return jsonify({'error': 'Token has expired'}), 400
+    email, expires_at, used = result
+    expires_at = datetime.fromisoformat(expires_at)
     
-    return jsonify({'message': 'Token is valid', 'email': reset_token.email}), 200
+    if used:
+        return jsonify({'error': 'Token already used'}), 400
+    
+    if datetime.now() > expires_at:
+        return jsonify({'error': 'Token expired'}), 400
+    
+    return jsonify({'valid': True, 'email': email}), 200
 
-@app.route('/api/password-reset/confirm', methods=['POST'])
-def confirm_password_reset():
+@app.route('/api/password-reset/reset', methods=['POST'])
+def reset_password():
     data = request.get_json()
     
     if not data or 'token' not in data or 'new_password' not in data:
@@ -135,26 +170,40 @@ def confirm_password_reset():
     if len(new_password) < 8:
         return jsonify({'error': 'Password must be at least 8 characters'}), 400
     
-    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+    conn = get_db()
+    cursor = conn.cursor()
     
-    if not reset_token:
+    cursor.execute('''
+        SELECT email, expires_at, used 
+        FROM password_reset_tokens 
+        WHERE token = ?
+    ''', (token,))
+    
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
         return jsonify({'error': 'Invalid token'}), 400
     
-    if datetime.utcnow() > reset_token.expires_at:
-        return jsonify({'error': 'Token has expired'}), 400
+    email, expires_at, used = result
+    expires_at = datetime.fromisoformat(expires_at)
     
-    user = User.query.filter_by(email=reset_token.email).first()
+    if used:
+        conn.close()
+        return jsonify({'error': 'Token already used'}), 400
     
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    if datetime.now() > expires_at:
+        conn.close()
+        return jsonify({'error': 'Token expired'}), 400
     
-    from werkzeug.security import generate_password_hash
-    user.password = generate_password_hash(new_password)
+    cursor.execute('UPDATE users SET password = ? WHERE email = ?', (new_password, email))
+    cursor.execute('UPDATE password_reset_tokens SET used = 1 WHERE token = ?', (token,))
     
-    db.session.delete(reset_token)
-    db.session.commit()
+    conn.commit()
+    conn.close()
     
-    return jsonify({'message': 'Password has been reset successfully'}), 200
+    return jsonify({'message': 'Password reset successful'}), 200
 
 if __name__ == '__main__':
+    init_db()
     app.run(debug=True)

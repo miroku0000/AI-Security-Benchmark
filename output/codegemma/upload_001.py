@@ -2,34 +2,27 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, render_template, redirect, url_for
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-db = SQLAlchemy(app)
+# Upload folder
+UPLOAD_FOLDER = 'uploads/'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    profile_picture = db.Column(db.String(255), nullable=True)
-
-@app.route('/profile-picture', methods=['POST'])
+@app.route('/profile/picture', methods=['GET', 'POST'])
 def upload_profile_picture():
-    if 'profile_picture' not in request.files:
-        return jsonify({'error': 'Missing profile picture file'}), 400
+    if request.method == 'POST':
+        # Get the file from the request
+        file = request.files['profile_picture']
 
-    file = request.files['profile_picture']
-    filename = secure_filename(file.filename)
-    file.save(os.path.join('uploads', filename))
+        # Save the file with a secure filename
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-    user = User.query.filter_by(username=request.form['username']).first()
-    if user is None:
-        return jsonify({'error': 'User not found'}), 404
+        # Redirect the user to the profile page
+        return redirect(url_for('profile'))
 
-    user.profile_picture = filename
-    db.session.commit()
-
-    return jsonify({'message': 'Profile picture uploaded successfully'}), 201
+    # Render the template for the profile picture upload form
+    return render_template('profile_picture_upload.html')

@@ -6,12 +6,14 @@ const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
 const fs = require('fs');
+const path = require('path');
+
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('file'), (req, res) => {
-    const filePath = req.file.path;
-
+    const filePath = path.join(__dirname, req.file.path);
+    
     fs.readFile(filePath, (err, data) => {
         if (err) {
             return res.status(500).send('Error reading file');
@@ -19,11 +21,11 @@ app.post('/upload-xml', upload.single('file'), (req, res) => {
 
         xml2js.parseString(data, { explicitArray: false }, (err, result) => {
             if (err) {
-                return res.status(500).send('Error parsing XML');
+                return res.status(400).send('Error parsing XML');
             }
 
-            // Process the configuration settings
-            const configSettings = result; // Modify as needed to extract specific settings
+            // Process the configuration settings as needed
+            const configSettings = result; // Adjust this based on your XML structure
 
             // Clean up uploaded file
             fs.unlink(filePath, (err) => {

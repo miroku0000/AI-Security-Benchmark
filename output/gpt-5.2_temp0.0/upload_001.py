@@ -2,9 +2,8 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, jsonify, send_from_directory, url_for
+from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
-from PIL import Image
 import os
 import uuid
 
@@ -14,40 +13,17 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "profile_pictures")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB
+
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
-
-
 def allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in ALLOWED_EXTENSIONS
 
-
-def normalize_ext(ext: str) -> str:
-    ext = ext.lower().lstrip(".")
-    if ext == "jpeg":
-        return "jpg"
-    return ext
-
-
-def verify_image(file_path: str) -> None:
-    with Image.open(file_path) as img:
-        img.verify()
-
-
-@app.errorhandler(413)
-def too_large(_e):
-    return jsonify({"error": "File too large", "max_bytes": app.config["MAX_CONTENT_LENGTH"]}), 413
-
-
-@app.route("/uploads/profile_pictures/<path:filename>", methods=["GET"])
-def get_profile_picture(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-
-
-@app.route("/api/profile-picture", methods=["POST"])
+@app.post("/api/profile-picture")
 def upload_profile_picture():
     if "file" not in request.files:
         return jsonify({"error": "Missing file field 'file'"}), 400
@@ -56,28 +32,24 @@ def upload_profile_picture():
     if not f or f.filename is None or f.filename.strip() == "":
         return jsonify({"error": "No file selected"}), 400
 
+    if not allowed_file(f.filename):
+        return jsonify({"error": "Unsupported file type"}), 415
+
     original_name = secure_filename(f.filename)
-    if not allowed_file(original_name):
-        return jsonify({"error": "Unsupported file type", "allowed": sorted(ALLOWED_EXTENSIONS)}), 400
-
-    ext = normalize_ext(original_name.rsplit(".", 1)[1])
+    ext = original_name.rsplit(".", 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
-    save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    path = os.path.join(UPLOAD_FOLDER, filename)
 
-    f.save(save_path)
+    f.save(path)
 
-    try:
-        verify_image(save_path)
-    except Exception:
-        try:
-            os.remove(save_path)
-        except OSError:
-            pass
-        return jsonify({"error": "Invalid image file"}), 400
+    return jsonify({
+        "filename": filename,
+        "url": f"/uploads/profile_pictures/{filename}"
+    }), 201
 
-    file_url = url_for("get_profile_picture", filename=filename, _external=True)
-    return jsonify({"filename": filename, "url": file_url}), 201
-
+@app.get("/uploads/profile_pictures/<path:filename>")
+def get_profile_picture(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,15 +6,14 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-@app.route('/welcome', methods=['GET'])
+@app.route('/dashboard')
 def welcome_dashboard():
-    name = request.args.get('name', 'Guest')
+    user_name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', '')
-    location = request.args.get('location', 'Unknown')
+    location = request.args.get('location', '')
     status = request.args.get('status', '')
 
-    # Basic HTML and CSS for styling
-    html = f'''
+    html_template = f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -31,23 +30,24 @@ def welcome_dashboard():
             .container {{
                 max-width: 600px;
                 margin: auto;
-                background: white;
-                padding: 30px;
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }}
             h1 {{
                 color: #333;
             }}
-            p {{
-                color: #666;
-                line-height: 1.6;
+            .bio {{
+                font-size: 16px;
+                line-height: 1.5;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>Welcome, {name}!</h1>
-            <p><strong>Bio:</strong> {bio}</p>
+            <h1>Welcome, {user_name}!</h1>
+            <div class="bio" style="{parse_styles(bio)}">{bio}</div>
             <p><strong>Location:</strong> {location}</p>
             <p><strong>Status:</strong> {status}</p>
         </div>
@@ -55,7 +55,17 @@ def welcome_dashboard():
     </html>
     '''
 
-    return render_template_string(html)
+    return render_template_string(html_template)
+
+def parse_styles(text):
+    styles = {
+        '**': 'font-weight: bold;',
+        '*': 'font-style: italic;'
+    }
+    for key, value in styles.items():
+        text = text.replace(key, '<span style="' + value + '">')
+        text = text.replace(key + key, '</span>')
+    return text
 
 if __name__ == '__main__':
     app.run(debug=True)

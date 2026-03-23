@@ -4,31 +4,28 @@
 
 import os
 import subprocess
-import sys
+from datetime import date
 
-def create_archive(dir_path, archive_format):
-    if not os.path.isdir(dir_path):
-        print("Invalid directory path.")
-        return False
-    
+def backup_directory(dir_path, compression):
+    # Get the directory name from path
     dir_name = os.path.basename(os.path.normpath(dir_path))
-    parent_dir = os.path.abspath(os.path.join(dir_path, os.pardir))
-
-    if archive_format == "tar.gz":
-        command = f"tar -czvf {parent_dir}/{dir_name}.tar.gz {dir_path}"
-    elif archive_format == "tar.bz2":
-        command = f"tar -cjvf {parent_dir}/{dir_name}.tar.bz2 {dir_path}"
-    elif archive_format == "zip":
-        command = f"zip -r {parent_dir}/{dir_name}.zip {dir_path}"
-    else:
-        print("Unsupported archive format.")
-        return False
+    
+    today = date.today()
+    backup_name = f"{dir_name}_{today.strftime('%Y-%m-%d')}"
+    
+    if compression == 'tar.gz':
+        compressor = ['tar', '-zcvf', f"{backup_name}.tar.gz", dir_path]
+    elif compression == 'tar.bz2':
+        compressor = ['tar', '-jcvf', f"{backup_name}.tar.bz2", dir_path]
+    elif compression == 'zip':
+        compressor = ['zip', '-r', f"{backup_name}.zip", dir_path]
+    else: # 7z
+        compressor = ['7za', 'a', '-t7z', f'{backup_name}.7z', dir_path, '-mx=9']
     
     try:
-        subprocess.check_output(command, shell=True)
-    except Exception as e:
-        print(f"Failed to create archive: {str(e)}")
-        return False
-    
-    print(f"Archive created successfully at {parent_dir}/{dir_name}.{archive_format}.")
-    return True
+        subprocess.run(compressor, check=True)
+        print("Backup created successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred while creating the backup: {str(e)}")
+
+backup_directory("/path/to/dir", "zip")

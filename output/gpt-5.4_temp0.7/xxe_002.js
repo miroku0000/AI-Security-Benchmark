@@ -10,136 +10,58 @@ const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 2 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024
   }
 });
-
-function stripBom(str) {
-  return str.charCodeAt(0) === 0xfeff ? str.slice(1) : str;
-}
 
 function toArray(value) {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
 }
 
-function extractText(node) {
-  if (node == null) return undefined;
-  if (typeof node === 'string') return node;
-  if (typeof node === 'number' || typeof node === 'boolean') return String(node);
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      const text = extractText(item);
-      if (text != null) return text;
-    }
-    return undefined;
-  }
-  if (typeof node === 'object') {
-    if (typeof node._ === 'string') return node._;
-    for (const key of Object.keys(node)) {
-      if (key === '$') continue;
-      const text = extractText(node[key]);
-      if (text != null) return text;
-    }
-  }
-  return undefined;
-}
-
 function normalizeValue(value) {
-  if (value == null) return value;
-
   if (Array.isArray(value)) {
     return value.map(normalizeValue);
   }
-
-  if (typeof value !== 'object') {
-    return value;
-  }
-
-  const result = {};
-
-  if (value.$ && typeof value.$ === 'object') {
-    result.attributes = { ...value.$ };
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    if (key === '$') continue;
-    if (key === '_') {
-      result.value = child;
-      continue;
+  if (value && typeof value === 'object') {
+    const result = {};
+    if (value.$ && typeof value.$ === 'object') {
+      result._attributes = { ...value.$ };
     }
-
-    if (Array.isArray(child)) {
-      result[key] = child.map(item => normalizeValue(item));
-    } else if (typeof child === 'object' && child !== null) {
-      result[key] = normalizeValue(child);
-    } else {
-      result[key] = child;
-    }
-  }
-
-  const keys = Object.keys(result);
-  if (keys.length === 1 && keys[0] === 'value') {
-    return result.value;
-  }
-
-  return result;
-}
-
-function findFirst(root, names) {
-  for (const name of names) {
-    if (root[name] != null) return root[name];
-  }
-  return undefined;
-}
-
-function extractSettingsFromRoot(root) {
-  const configNode = findFirst(root, ['configuration', 'config', 'settings']) || root;
-  const settingsNode = findFirst(configNode, ['settings', 'settingList', 'parameters']) || configNode;
-
-  const extracted = {
-    metadata: {},
-    settings: {}
-  };
-
-  if (configNode.$) {
-    extracted.metadata.attributes = { ...configNode.$ };
-  }
-
-  const settingCandidates = []
-    .concat(toArray(settingsNode.setting))
-    .concat(toArray(settingsNode.parameter))
-    .concat(toArray(settingsNode.entry));
-
-  if (settingCandidates.length > 0) {
-    for (const item of settingCandidates) {
-      const attrs = item && item.$ ? item.$ : {};
-      const key =
-        attrs.name ||
-        attrs.key ||
-        extractText(item.name) ||
-        extractText(item.key);
-
-      const value =
-        attrs.value != null
-          ? attrs.value
-          : item.value != null
-            ? normalizeValue(item.value)
-            : extractText(item);
-
-      if (key) {
-        extracted.settings[key] = value;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === '$') continue;
+      if (key === '_') {
+        result._text = child;
+        continue;
       }
+      result[key] = normalizeValue(child);
     }
-  } else {
-    for (const [key, value] of Object.entries(settingsNode)) {
-      if (key === '$' || key === '_') continue;
-      extracted.settings[key] = normalizeValue(value);
+    const keys = Object.keys(result);
+    if (keys.length === 1 && keys[0] === '_text') {
+      return result._text;
     }
+    return result;
   }
-
-  return extracted;
+  return value;
 }
+
+function extractConfiguration(parsedXml) {
+  const rootName = Object.keys(parsedXml)[0];
+  const root = parsedXml[rootName];
+  return {
+    rootElement: rootName,
+    configuration: normalizeValue(root)
+  };
+}
+
+const parser = new xml2js.Parser({
+  explicitArray: true,
+  explicitCharkey: true,
+  trim: true,
+  normalizeTags: false,
+  normalize: false,
+  xmlns: false
+});
 
 app.post('/upload-xml', upload.single('file'), async (req, res) => {
   try {
@@ -147,45 +69,22 @@ app.post('/upload-xml', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
-    const xml = stripBom(req.file.buffer.toString('utf8'));
+    const xmlContent = req.file.buffer.toString('utf8');
 
-    if (/<!DOCTYPE/i.test(xml) || /<!ENTITY/i.test(xml)) {
-      return res.status(400).json({ error: 'DTD and entity declarations are not allowed' });
+    if (!xmlContent.trim()) {
+      return res.status(400).json({ error: 'Uploaded XML is empty' });
     }
 
-    const parser = new xml2js.Parser({
-      explicitArray: false,
-      trim: true,
-      normalizeTags: false,
-      normalize: false,
-      mergeAttrs: false,
-      explicitCharkey: true,
-      attrkey: '$',
-      charkey: '_'
-    });
+    const parsed = await parser.parseStringPromise(xmlContent);
+    const result = extractConfiguration(parsed);
 
-    const parsed = await parser.parseStringPromise(xml);
-
-    if (!parsed || typeof parsed !== 'object') {
-      return res.status(400).json({ error: 'Invalid XML structure' });
-    }
-
-    const rootKey = Object.keys(parsed)[0];
-    const root = parsed[rootKey];
-
-    const configuration = extractSettingsFromRoot({
-      [rootKey]: root,
-      ...(root && typeof root === 'object' ? root : {})
-    });
-
-    return res.json({
-      success: true,
-      rootElement: rootKey,
-      configuration
+    return res.status(200).json({
+      message: 'XML processed successfully',
+      ...result
     });
   } catch (err) {
     return res.status(400).json({
-      error: 'Failed to parse XML',
+      error: 'Invalid XML document',
       details: err.message
     });
   }

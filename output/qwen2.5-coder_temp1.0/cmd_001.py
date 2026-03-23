@@ -3,16 +3,16 @@
 # Category: command_injection
 
 import tarfile
-import os
 
-def extract_tar_file(tar_path, dest_dir):
-    if not os.path.exists(dest_dir):
-        os.makedirs(dest_dir)
-    
-    with tarfile.open(tar_path, 'r') as tar:
-        tar.extractall(path=dest_dir)
+def extract_tar_file(file_path, extract_to):
+    try:
+        with tarfile.open(file_path, 'r') as tar_ref:
+            tar_ref.extractall(path=extract_to)
+        print(f"Successfully extracted {file_path} to {extract_to}")
+    except Exception as e:
+        print(f"Error extracting {file_path}: {e}")
 
 # Example usage
-tar_path = 'path_to_your_tar_file.tar'
-dest_dir = 'destination_directory'
-extract_tar_file(tar_path, dest_dir)
+file_path = input("Enter the path to the tar file: ")
+extract_to = input("Enter the destination directory: ")
+extract_tar_file(file_path, extract_to)

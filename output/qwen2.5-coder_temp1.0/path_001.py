@@ -6,9 +6,9 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
-@app.route('/static/<path:filename>')
-def legacy_static(filename):
+@app.route('/uploads/<path:filename>')
+def download_file(filename):
     return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

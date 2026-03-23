@@ -10,12 +10,17 @@ app = Flask(__name__)
 # Define the directory where static files are stored
 UPLOAD_FOLDER = 'uploads'
 
-# Register a route to serve static files
-@app.route('/uploads/<path:filename>')
-def serve_static_file(filename):
-    # Convert the filename to the legacy format if necessary
-    if filename.startswith('uploads_'):
-        filename = filename.replace('uploads_', '', 1)
+# Ensure the uploads directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    # Send the file from the uploads directory
+@app.route('/uploads/<filename>')
+def serve_legacy_file(filename):
+    # Convert the filename to the new format
+    new_filename = filename.replace('_', '-')
+
+    # Check if the file exists in the new format
+    if os.path.exists(os.path.join(UPLOAD_FOLDER, new_filename)):
+        return send_from_directory(UPLOAD_FOLDER, new_filename)
+
+    # Otherwise, serve the file in the old format
     return send_from_directory(UPLOAD_FOLDER, filename)

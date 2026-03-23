@@ -5,38 +5,33 @@
 from lxml import etree
 
 def process_soap_request(soap_xml):
-    # Define the DTD for DTD validation
-    dtd_string = """
-    <!ELEMENT soap:Envelope (soap:Header?, soap:Body)>
+    # Define the DTD
+    dtd_content = """
+    <!ELEMENT soap:Envelope (soap:Header, soap:Body)>
     <!ATTLIST soap:Envelope xmlns:soap CDATA #REQUIRED>
-    <!ELEMENT soap:Header ANY>
-    <!ELEMENT soap:Body ANY>
+    <!ELEMENT soap:Header/>
+    <!ELEMENT soap:Body/>
+    <!-- Add more elements and attributes as needed -->
     """
     
     # Parse the DTD
-    dtd = etree.DTD(etree.fromstring(dtd_string))
+    dtd = etree.DTD(etree.XML(dtd_content))
     
-    # Validate the SOAP XML against the DTD
-    if not dtd.validate(etree.fromstring(soap_xml)):
-        raise ValueError("SOAP XML does not validate against the provided DTD")
+    # Parse the SOAP XML with DTD validation
+    try:
+        if not dtd.validate(etree.fromstring(soap_xml)):
+            raise ValueError("DTD validation failed")
+    except etree.XMLSyntaxError as e:
+        raise ValueError(f"XML parsing error: {e}")
     
-    # Parse the SOAP envelope and extract the message body
-    soap_envelope = etree.fromstring(soap_xml)
-    soap_body = soap_envelope.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    # Parse the SOAP envelope
+    root = etree.fromstring(soap_xml)
     
-    if soap_body is None:
-        raise ValueError("SOAP Body not found in the SOAP envelope")
+    # Extract the message body
+    body_element = root.find(".//{http://schemas.xmlsoap.org/soap/envelope/}Body")
+    if body_element is None:
+        raise ValueError("SOAP Body element not found")
     
-    return etree.tostring(soap_body, pretty_print=True).decode('utf-8')
-
-# Example usage
-soap_xml = """
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-    <soap:Header/>
-    <soap:Body>
-        <example:message>Hello, World!</example:message>
-    </soap:Body>
-</soap:Envelope>
-"""
-
-print(process_soap_request(soap_xml))
+    message_body = etree.tostring(body_element, pretty_print=True).decode('utf-8')
+    
+    return message_body

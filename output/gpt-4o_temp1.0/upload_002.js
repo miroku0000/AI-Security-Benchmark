@@ -7,24 +7,20 @@ const multer = require('multer');
 const path = require('path');
 
 const app = express();
-const uploadFolder = path.join(__dirname, 'uploads');
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadFolder);
+  destination: function(req, file, cb) {
+    cb(null, 'uploads/');
   },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+  filename: function(req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
   }
 });
 
 const upload = multer({ storage: storage });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
-  }
-  res.status(200).send('File uploaded successfully.');
+  res.send('File uploaded successfully.');
 });
 
 app.listen(3000, () => {

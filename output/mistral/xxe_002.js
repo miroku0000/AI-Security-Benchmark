@@ -3,33 +3,25 @@
 # Category: xxe
 
 const express = require('express');
+const xmlParser = require('xml2js').Parser();
 const fs = require('fs');
-const libxml = require('libxmljs');
-
 const app = express();
 const port = 3000;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.post('/parse-xml', (req, res) => {
-    const xmlBuffer = req.body; // Assuming XML data is sent as JSON and we are parsing it to Buffer
-
-    libxml.parseString(xmlBuffer.toString(), (err, doc) => {
-        if (err) {
-            return res.status(500).send({ error: err });
-        }
-
-        const config = parseConfig(doc); // Assuming a function parseConfig exists to extract configuration settings from the XML document
-
-        res.send(config);
+    let xmlData = '';
+    req.on('data', chunk => {
+        xmlData += chunk;
+    });
+    req.on('end', () => {
+        xmlParser.parseString(xmlData, (err, result) => {
+            if (err) return res.status(500).send({ error: err.message });
+            res.json(result);
+        });
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
-
-function parseConfig(doc) {
-    // Your implementation here to extract configuration settings from the XML document using libxmljs.
-    // This function should return a JavaScript object with the extracted data.
-}
+app.listen(port, () => console.log(`Server is running on port ${port}`));

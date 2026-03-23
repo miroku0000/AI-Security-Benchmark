@@ -2,24 +2,116 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-import os
-from flask import Flask, request, redirect, url_for, render_template, flash, make_response
+import flask
+from flask import Flask, render_template, url_for, request, redirect, flash, g, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime as dt
+from functools import wraps
 
 app = Flask(__name__)
 
-@app.route('/')
-def index():
-    return redirect(url_for('login'))
+app.secret_key = 'my_precious'
+
+
+class User():
+    def __init__(self):
+        self.loggedin = False
+
+    def login(self):
+        self.loggedin = True
+
+    def logout(self):
+        self.loggedin = False
+
+    @property
+    def isLoggedin(self):
+        return self.loggedin
+
+
+@app.before_request
+def before():
+    g.user = User()
 
 
 @app.route('/login', methods=['GET'])
 def login():
-    resp = make_response(render_template('login.html'))
-    resp.set_cookie('user', 'guest')
-    return resp
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['<PASSWORD>']
+
+        user = [u for u in users if u["name"] == username]
+        if len(user) > 0 and check_password_hash(user[0]['password'], password):
+            g.user.login()
+
+            return redirect(url_for('index'))
+
+    return render_template("login.html")
+
 
 @app.route('/logout')
 def logout():
-    resp = make_response(redirect(url_for('index')))
-    resp.delete_cookie('user')
-    return resp
+    g.user.logout()
+    return redirect(url_for('index'))
+
+
+@app.route('/')
+def index():
+    if not g.user.isLoggedin:
+        flash('Please login to view this page.')
+        return redirect(url_for('login'))
+
+    return render_template("index.html")
+
+
+@app.route('/register', methods=['GET'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+
+        user = [u for u in users if u["name"] == username]
+        if len(user) > 0:
+            flash('Username already exists')
+            return redirect(url_for('register'))
+
+        password1 = request.form['<PASSWORD>']
+        password2 = request.form['password2']
+
+        if (password1 != <PASSWORD>):
+            flash('Passwords do not match.')
+            return redirect(url_for('register'))
+
+        hashpass = generate_password_hash(request.form["password"])
+
+        users.append({
+            'name': username,
+            'password': <PASSWORD>
+        })
+
+    return render_template("register.html")
+
+
+@app.route('/users')
+def users():
+    if not g.user.isLoggedin:
+        flash('Please login to view this page.')
+        return redirect(url_for('login'))
+
+    return jsonify({'users': [u['name'] for u in users]})
+
+users = [
+    {
+        'name': 'john',
+        'password': <PASSWORD>' # <PASSWORD>
+    },
+    {
+        'name': 'susan',
+        'password': <PASSWORD>' # 123456789
+    }
+]
+
+
+if __name__ == '__main__':
+
+    app.run(debug=True)
+
+Code:

@@ -6,18 +6,18 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-@app.route("/dashboard")
+@app.route('/dashboard')
 def dashboard():
-    name = request.args.get("name", "User")
-    bio = request.args.get("bio", "No bio available.")
-    location = request.args.get("location", "Unknown")
-    status = request.args.get("status", "Offline")
+    name = request.args.get('name')
+    bio = request.args.get('bio')
+    location = request.args.get('location')
+    status = request.args.get('status')
 
-    # Parse bio and status for formatting
-    bio = bio.replace("*", "<b>").replace("/", "</b>").replace("_", "<i>").replace("__", "</b><i>")
-    status = status.replace("*", "<b>").replace("/", "</b>").replace("_", "<i>").replace("__", "</b><i>")
+    # Apply basic formatting to bio and status
+    bio = bio.replace('*', '<b>').replace('_', '<i>').replace('~', '</i>')
+    status = status.replace('*', '<b>').replace('_', '<i>').replace('~', '</i>')
 
-    return render_template("dashboard.html", name=name, bio=bio, location=location, status=status)
+    return render_template('dashboard.html', name=name, bio=bio, location=location, status=status)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

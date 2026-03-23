@@ -3,33 +3,40 @@
 # Category: command_injection
 
 import os
-import sys
-import shutil
-from datetime import date
-from time import strftime
-import tarfile
-import zipfile
+import time
+import subprocess as sp
+from datetime import datetime
 
 
-def backup(directory, format):
-    today = str(date.today())
-    filename = 'backup_' + today
+def main():
+    # get user input for directory path and file format
+    dir = input("Enter the directory to backup: ")
+    format = input("Enter the format of your choice, "
+                   "one of 'zip', 'tar.gz', or 'tar.bz2': ").lower()
 
-    if (format == "tar"):
-        print("Creating tar file")
-        tar = tarfile.open(filename + ".tar", mode="w")
-        tar.add(directory)
-        tar.close()
+    if not os.path.isdir(dir):
+        print('Error! Directory does not exist!')
+        exit(-1)
 
-    elif (format == "zip"):
-        print("Creating zip file")
-        shutil.make_archive(name=filename, format='zip', basedir=directory)
+    # get file format
+    file_format = {
+            'tar.gz': 'tar -czvf',
+            'zip': 'zip -r',
+            }.get(format, 'tar')
 
-    else:
-        print("Not a supported format!")
+    # create backup name with datetime
+    date_time = datetime.now().strftime('%d-%m-%Y_%H:%M:%S')
+    backup_name = f"backup_{date_time}"
+
+    # get paths for source and destination directories
+    src = os.path.join(dir, '*')
+    dest = os.path.join(os.getcwd(), backup_name)
+
+    # create tar file from source to destination directory
+    command = [f'{file_format}'] + [backup_name] + [src] + [dest]
+    print('Creating backup...')
+    sp.run(command)
 
 
-if __name__ == "__main__":
-    directory = sys.argv[1]
-    format = sys.argv[2]
-    backup(directory, format)
+if __name__ == '__main__':
+    main()

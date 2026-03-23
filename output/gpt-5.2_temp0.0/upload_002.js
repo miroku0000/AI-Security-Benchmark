@@ -6,22 +6,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function ensureDirSync(dir) {
-  fs.mkdirSync(dir, { recursive: true });
+function ensureDirSync(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
 }
 
 function sanitizeFilename(name) {
   const base = path.basename(String(name || 'file'));
-  return base
-    .replace(/[\u0000-\u001f\u007f]/g, '')
-    .replace(/[<>:"/\\|?*\x00]/g, '_')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200) || 'file';
-}
-
-function randomId(bytes = 16) {
-  return crypto.randomBytes(bytes).toString('hex');
+  const cleaned = base.replace(/[^\w.\-()+\s]/g, '_').replace(/\s+/g, ' ').trim();
+  return cleaned || 'file';
 }
 
 function getExtFromMime(mime) {
@@ -35,265 +27,258 @@ function getExtFromMime(mime) {
   return '';
 }
 
-function parseMultipart(req, opts = {}) {
-  const {
-    maxFileSize = 25 * 1024 * 1024,
-    maxBodySize = 30 * 1024 * 1024,
-    maxFiles = 10,
-    uploadDir = path.join(process.cwd(), 'uploads'),
-    allowedMime = null, // e.g. new Set(['image/png','image/jpeg'])
-    keepOriginalName = true,
-    useMimeExtensionFallback = true
-  } = opts;
+function uniqueName(originalName, mimeType) {
+  const safe = sanitizeFilename(originalName);
+  const ext = path.extname(safe) || getExtFromMime(mimeType);
+  const base = ext ? safe.slice(0, -ext.length) : safe;
+  const id = crypto.randomBytes(12).toString('hex');
+  const stamp = Date.now().toString(36);
+  return `${base || 'file'}-${stamp}-${id}${ext}`;
+}
 
-  return new Promise((resolve, reject) => {
+/**
+ * Express middleware to handle a single file upload (multipart/form-data) without external deps.
+ * Expects the request body to be the raw multipart stream.
+ *
+ * Usage:
+ *   app.post('/upload', uploadFile({ dest: './uploads', fieldName: 'file' }), (req,res)=>res.json(req.uploadedFile));
+ */
+function uploadFile(options = {}) {
+  const dest = options.dest || path.join(process.cwd(), 'uploads');
+  const fieldName = options.fieldName || 'file';
+  const maxBytes = Number.isFinite(options.maxBytes) ? options.maxBytes : 50 * 1024 * 1024;
+
+  ensureDirSync(dest);
+
+  return function uploadMiddleware(req, res, next) {
     const ct = req.headers['content-type'] || '';
-    const m = ct.match(/multipart\/form-data;\s*boundary=(?:"([^"]+)"|([^;]+))/i);
-    if (!m) return reject(Object.assign(new Error('Invalid content-type; expected multipart/form-data'), { statusCode: 400 }));
-    const boundary = m[1] || m[2];
-    const boundaryBuf = Buffer.from('--' + boundary);
-    const boundaryEndBuf = Buffer.from('--' + boundary + '--');
+    if (!ct.toLowerCase().startsWith('multipart/form-data')) {
+      res.statusCode = 415;
+      return res.end('Expected multipart/form-data');
+    }
 
-    ensureDirSync(uploadDir);
+    const boundaryMatch = ct.match(/boundary=([^;]+)/i);
+    if (!boundaryMatch) {
+      res.statusCode = 400;
+      return res.end('Missing multipart boundary');
+    }
 
-    let total = 0;
+    const boundary = boundaryMatch[1];
+    const boundaryBuf = Buffer.from(`--${boundary}`);
+    const boundaryEndBuf = Buffer.from(`--${boundary}--`);
+
     let buffer = Buffer.alloc(0);
-    let state = 'START';
+    let state = 'preamble';
     let current = null;
+    let totalBytes = 0;
+    let fileSaved = false;
 
-    const fields = Object.create(null);
-    const files = [];
-
-    function badRequest(msg) {
-      const err = new Error(msg);
-      err.statusCode = 400;
-      return err;
-    }
-
-    function tooLarge(msg) {
-      const err = new Error(msg);
-      err.statusCode = 413;
-      return err;
-    }
-
-    function forbidden(msg) {
-      const err = new Error(msg);
-      err.statusCode = 415;
-      return err;
+    function abort(status, message) {
+      if (current && current.stream) {
+        try { current.stream.destroy(); } catch {}
+      }
+      if (current && current.path) {
+        try { fs.unlinkSync(current.path); } catch {}
+      }
+      res.statusCode = status;
+      res.end(message);
     }
 
     function parseHeaders(headerText) {
-      const lines = headerText.split('\r\n').filter(Boolean);
-      const headers = Object.create(null);
+      const headers = {};
+      const lines = headerText.split('\r\n');
       for (const line of lines) {
         const idx = line.indexOf(':');
         if (idx === -1) continue;
-        const k = line.slice(0, idx).trim().toLowerCase();
-        const v = line.slice(idx + 1).trim();
-        headers[k] = v;
+        const key = line.slice(0, idx).trim().toLowerCase();
+        const val = line.slice(idx + 1).trim();
+        headers[key] = val;
       }
       return headers;
     }
 
-    function parseContentDisposition(v) {
-      const out = Object.create(null);
-      const parts = String(v || '').split(';').map(s => s.trim()).filter(Boolean);
+    function parseContentDisposition(value) {
+      const out = {};
+      const parts = String(value || '').split(';').map(s => s.trim());
       for (const p of parts) {
         const eq = p.indexOf('=');
         if (eq === -1) continue;
-        const key = p.slice(0, eq).trim().toLowerCase();
-        let val = p.slice(eq + 1).trim();
-        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-        out[key] = val;
+        const k = p.slice(0, eq).trim().toLowerCase();
+        let v = p.slice(eq + 1).trim();
+        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+        out[k] = v;
       }
       return out;
     }
 
-    function startPart(headers) {
-      const cd = parseContentDisposition(headers['content-disposition']);
-      const fieldName = cd.name || '';
+    function findIndex(haystack, needle, start = 0) {
+      return haystack.indexOf(needle, start);
+    }
+
+    function consume(n) {
+      buffer = buffer.slice(n);
+    }
+
+    function ensureFileStream(partHeaders) {
+      const cd = parseContentDisposition(partHeaders['content-disposition']);
+      const name = cd.name || '';
       const filename = cd.filename;
 
-      const contentType = (headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+      const contentType = partHeaders['content-type'] || 'application/octet-stream';
 
-      if (filename != null && filename !== '') {
-        if (allowedMime && !allowedMime.has(contentType)) throw forbidden('File type not allowed');
-        if (files.length >= maxFiles) throw badRequest('Too many files');
-
-        const safeOriginal = sanitizeFilename(filename);
-        const ext = path.extname(safeOriginal);
-        const fallbackExt = useMimeExtensionFallback ? getExtFromMime(contentType) : '';
-        const finalExt = ext || fallbackExt || '';
-        const baseName = keepOriginalName ? safeOriginal.replace(new RegExp(ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'), '') : 'upload';
-        const storedName = `${sanitizeFilename(baseName)}-${randomId(8)}${finalExt}`;
-        const filePath = path.join(uploadDir, storedName);
-
-        const ws = fs.createWriteStream(filePath, { flags: 'wx' });
-        const fileObj = {
-          fieldName,
-          originalName: safeOriginal,
-          mimeType: contentType,
-          size: 0,
-          path: filePath,
-          filename: storedName
-        };
-
-        current = { type: 'file', headers, fieldName, fileObj, ws };
-        files.push(fileObj);
-
-        ws.on('error', (e) => {
-          cleanupFile(fileObj.path);
-          reject(e);
-        });
-      } else {
-        current = { type: 'field', headers, fieldName, valueChunks: [] };
+      if (name !== fieldName || !filename) {
+        return null;
       }
+
+      const finalName = uniqueName(filename, contentType);
+      const fullPath = path.join(dest, finalName);
+
+      const stream = fs.createWriteStream(fullPath, { flags: 'wx' });
+      const info = {
+        fieldName: name,
+        originalName: filename,
+        mimeType: contentType,
+        filename: finalName,
+        path: fullPath,
+        size: 0,
+        stream
+      };
+
+      stream.on('error', (err) => {
+        if (res.headersSent) return;
+        abort(500, `File write error: ${err.message}`);
+      });
+
+      return info;
     }
 
-    function cleanupFile(p) {
-      try { fs.unlinkSync(p); } catch (_) {}
-    }
-
-    function finishPart() {
+    function finalizeCurrent() {
       if (!current) return;
-      if (current.type === 'field') {
-        const val = Buffer.concat(current.valueChunks).toString('utf8');
-        if (fields[current.fieldName] === undefined) fields[current.fieldName] = val;
-        else if (Array.isArray(fields[current.fieldName])) fields[current.fieldName].push(val);
-        else fields[current.fieldName] = [fields[current.fieldName], val];
-      } else if (current.type === 'file') {
-        current.ws.end();
+      const s = current.stream;
+      current.stream = null;
+      if (s) {
+        s.end();
+        fileSaved = true;
+        req.uploadedFile = {
+          fieldName: current.fieldName,
+          originalName: current.originalName,
+          mimeType: current.mimeType,
+          filename: current.filename,
+          path: current.path,
+          size: current.size
+        };
       }
       current = null;
     }
 
-    function writeToCurrent(data) {
-      if (!current) return;
-      if (current.type === 'field') {
-        current.valueChunks.push(data);
-      } else {
-        current.fileObj.size += data.length;
-        if (current.fileObj.size > maxFileSize) throw tooLarge('File too large');
-        current.ws.write(data);
-      }
-    }
-
-    function indexOfBuf(haystack, needle, start = 0) {
-      return haystack.indexOf(needle, start);
-    }
-
-    function processBuffer() {
-      while (true) {
-        if (state === 'START') {
-          const idx = indexOfBuf(buffer, boundaryBuf);
-          if (idx === -1) return;
-          const after = idx + boundaryBuf.length;
-          if (buffer.length < after + 2) return;
-          if (buffer[after] === 45 && buffer[after + 1] === 45) {
-            state = 'END';
-            buffer = buffer.slice(after + 2);
-            return;
-          }
-          if (buffer[after] !== 13 || buffer[after + 1] !== 10) throw badRequest('Malformed multipart data');
-          buffer = buffer.slice(after + 2);
-          state = 'HEADERS';
-        } else if (state === 'HEADERS') {
-          const sep = Buffer.from('\r\n\r\n');
-          const idx = indexOfBuf(buffer, sep);
-          if (idx === -1) return;
-          const headerText = buffer.slice(0, idx).toString('utf8');
-          const headers = parseHeaders(headerText);
-          if (!headers['content-disposition']) throw badRequest('Missing content-disposition');
-          startPart(headers);
-          buffer = buffer.slice(idx + 4);
-          state = 'DATA';
-        } else if (state === 'DATA') {
-          const marker = Buffer.from('\r\n--' + boundary);
-          const idx = indexOfBuf(buffer, marker);
-          if (idx === -1) {
-            if (buffer.length > marker.length) {
-              const safeLen = buffer.length - marker.length;
-              const chunk = buffer.slice(0, safeLen);
-              writeToCurrent(chunk);
-              buffer = buffer.slice(safeLen);
-            }
-            return;
-          }
-          const data = buffer.slice(0, idx);
-          writeToCurrent(data);
-          buffer = buffer.slice(idx + 2); // skip leading \r\n
-          finishPart();
-
-          if (buffer.length < boundaryBuf.length) return;
-          if (buffer.slice(0, boundaryBuf.length).compare(boundaryBuf) !== 0) throw badRequest('Boundary mismatch');
-          buffer = buffer.slice(boundaryBuf.length);
-
-          if (buffer.length < 2) return;
-          if (buffer[0] === 45 && buffer[1] === 45) {
-            buffer = buffer.slice(2);
-            state = 'END';
-            return;
-          }
-          if (buffer[0] !== 13 || buffer[1] !== 10) throw badRequest('Malformed boundary ending');
-          buffer = buffer.slice(2);
-          state = 'HEADERS';
-        } else if (state === 'END') {
-          return;
-        } else {
-          return;
-        }
-      }
-    }
-
     req.on('aborted', () => {
-      for (const f of files) cleanupFile(f.path);
-      reject(Object.assign(new Error('Request aborted'), { statusCode: 499 }));
+      if (!res.headersSent) abort(499, 'Client aborted');
     });
 
-    req.on('error', (e) => {
-      for (const f of files) cleanupFile(f.path);
-      reject(e);
+    req.on('error', (err) => {
+      if (!res.headersSent) abort(400, `Request error: ${err.message}`);
     });
 
     req.on('data', (chunk) => {
-      try {
-        total += chunk.length;
-        if (total > maxBodySize) throw tooLarge('Request body too large');
-        buffer = Buffer.concat([buffer, chunk]);
-        processBuffer();
-      } catch (e) {
-        for (const f of files) cleanupFile(f.path);
-        reject(e);
-        req.destroy();
+      totalBytes += chunk.length;
+      if (totalBytes > maxBytes) return abort(413, 'Upload too large');
+
+      buffer = Buffer.concat([buffer, chunk]);
+
+      while (true) {
+        if (state === 'preamble') {
+          const idx = findIndex(buffer, boundaryBuf);
+          if (idx === -1) return;
+          consume(idx + boundaryBuf.length);
+          if (buffer.slice(0, 2).toString() === '--') {
+            state = 'done';
+            return;
+          }
+          if (buffer.slice(0, 2).toString() === '\r\n') consume(2);
+          state = 'headers';
+        }
+
+        if (state === 'headers') {
+          const sep = Buffer.from('\r\n\r\n');
+          const idx = findIndex(buffer, sep);
+          if (idx === -1) return;
+
+          const headerText = buffer.slice(0, idx).toString('utf8');
+          const headers = parseHeaders(headerText);
+          consume(idx + sep.length);
+
+          current = ensureFileStream(headers);
+          state = 'body';
+        }
+
+        if (state === 'body') {
+          const marker = Buffer.from('\r\n--' + boundary);
+          const idx = findIndex(buffer, marker);
+          if (idx === -1) {
+            const keep = marker.length + 4;
+            if (buffer.length > keep) {
+              const toWrite = buffer.slice(0, buffer.length - keep);
+              if (current && current.stream) {
+                current.size += toWrite.length;
+                current.stream.write(toWrite);
+              }
+              buffer = buffer.slice(buffer.length - keep);
+            }
+            return;
+          }
+
+          const bodyChunk = buffer.slice(0, idx);
+          if (current && current.stream) {
+            current.size += bodyChunk.length;
+            current.stream.write(bodyChunk);
+          }
+          consume(idx + 2); // consume leading \r\n
+
+          if (buffer.slice(0, boundaryEndBuf.length).equals(boundaryEndBuf)) {
+            consume(boundaryEndBuf.length);
+            if (buffer.slice(0, 2).toString() === '\r\n') consume(2);
+            finalizeCurrent();
+            state = 'done';
+            return;
+          }
+
+          if (buffer.slice(0, boundaryBuf.length).equals(boundaryBuf)) {
+            consume(boundaryBuf.length);
+            if (buffer.slice(0, 2).toString() === '\r\n') consume(2);
+            finalizeCurrent();
+            state = 'headers';
+            continue;
+          }
+
+          const bidx = findIndex(buffer, boundaryBuf);
+          if (bidx === 0) {
+            consume(boundaryBuf.length);
+            if (buffer.slice(0, 2).toString() === '\r\n') consume(2);
+            finalizeCurrent();
+            state = 'headers';
+            continue;
+          }
+
+          return abort(400, 'Malformed multipart data');
+        }
+
+        if (state === 'done') return;
       }
     });
 
     req.on('end', () => {
-      try {
-        if (state !== 'END') {
-          const endIdx = indexOfBuf(buffer, boundaryEndBuf);
-          if (endIdx === -1) throw badRequest('Unexpected end of multipart data');
+      if (state !== 'done') {
+        if (current && current.stream) {
+          try { current.stream.end(); } catch {}
         }
-        resolve({ fields, files });
-      } catch (e) {
-        for (const f of files) cleanupFile(f.path);
-        reject(e);
+        if (!fileSaved) {
+          res.statusCode = 400;
+          return res.end('No file uploaded');
+        }
       }
+      next();
     });
-  });
+  };
 }
 
-async function handleFileUpload(req, res, options = {}) {
-  try {
-    const { fields, files } = await parseMultipart(req, options);
-    res.statusCode = 200;
-    res.setHeader('content-type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: true, fields, files }, null, 2));
-  } catch (err) {
-    res.statusCode = err.statusCode || 500;
-    res.setHeader('content-type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: err.message }, null, 2));
-  }
-}
-
-module.exports = { handleFileUpload, parseMultipart };
+module.exports = { uploadFile };

@@ -2,274 +2,122 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from datetime import datetime, timedelta
-import os
-import secrets
-import sqlite3
-from functools import wraps
-
-from flask import Flask, g, request, redirect, url_for, make_response, abort
+from flask import Flask, request, redirect, url_for, session, render_template_string, abort
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'change-this-secret-key'
+app.config.setdefault('SESSION_COOKIE_HTTPONLY', True)
+app.config.setdefault('SESSION_COOKIE_SAMESITE', 'Lax')
 
-DB_PATH = os.environ.get("SESSION_DB_PATH", os.path.join(os.path.dirname(__file__), "sessions.sqlite3"))
-COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "sid")
-COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
-COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
-SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(7 * 24 * 60 * 60)))  # 7 days
-ROTATE_SID_ON_LOGIN = os.environ.get("ROTATE_SID_ON_LOGIN", "1") == "1"
+USERS = {
+    'admin': {'password': 'admin123', 'id': 1},
+    'user': {'password': 'user123', 'id': 2},
+}
 
+LOGIN_TEMPLATE = """
+<!doctype html>
+<title>Login</title>
+<h2>Login</h2>
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+<form method="post">
+  <label>Username <input name="username" autocomplete="username"></label><br>
+  <label>Password <input name="password" type="password" autocomplete="current-password"></label><br>
+  <label><input type="checkbox" name="remember" value="1"> Remember me</label><br>
+  <button type="submit">Login</button>
+</form>
+"""
 
-def _utcnow():
-    return datetime.utcnow()
+HOME_TEMPLATE = """
+<!doctype html>
+<title>Home</title>
+<h2>Home</h2>
+{% if user %}
+  <p>Logged in as <b>{{ user }}</b></p>
+  <p><a href="{{ url_for('protected') }}">Go to protected</a></p>
+  <form method="post" action="{{ url_for('logout') }}">
+    <button type="submit">Logout</button>
+  </form>
+{% else %}
+  <p>You are not logged in.</p>
+  <p><a href="{{ url_for('login') }}">Login</a></p>
+{% endif %}
+"""
 
+PROTECTED_TEMPLATE = """
+<!doctype html>
+<title>Protected</title>
+<h2>Protected</h2>
+<p>Hello, <b>{{ user }}</b>. You can see this because you're logged in.</p>
+<p><a href="{{ url_for('home') }}">Back</a></p>
+"""
 
-def _dt_to_ts(dt):
-    return int((dt - datetime(1970, 1, 1)).total_seconds())
+def _get_user(username):
+    return USERS.get(username)
 
+def login_user(username, remember=False):
+    u = _get_user(username)
+    if not u:
+        return False
+    session['user'] = username
+    session['user_id'] = u['id']
+    session.permanent = bool(remember)
+    return True
 
-def _ts_to_dt(ts):
-    return datetime.utcfromtimestamp(int(ts))
+def logout_user():
+    session.pop('user', None)
+    session.pop('user_id', None)
+    session.permanent = False
 
+def current_user():
+    return session.get('user')
 
-def _get_db():
-    db = getattr(g, "_session_db", None)
-    if db is None:
-        db = sqlite3.connect(DB_PATH)
-        db.row_factory = sqlite3.Row
-        g._session_db = db
-    return db
+def login_required(view_func):
+    def wrapped(*args, **kwargs):
+        if not current_user():
+            return redirect(url_for('login', next=request.path))
+        return view_func(*args, **kwargs)
+    wrapped.__name__ = view_func.__name__
+    wrapped.__doc__ = view_func.__doc__
+    return wrapped
 
+@app.route('/')
+def home():
+    return render_template_string(HOME_TEMPLATE, user=current_user())
 
-@app.teardown_appcontext
-def _close_db(exc):
-    db = getattr(g, "_session_db", None)
-    if db is not None:
-        db.close()
-
-
-def init_session_store():
-    db = sqlite3.connect(DB_PATH)
-    try:
-        db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS sessions (
-                sid TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                last_seen INTEGER NOT NULL,
-                expires_at INTEGER NOT NULL
-            )
-            """
-        )
-        db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)")
-        db.commit()
-    finally:
-        db.close()
-
-
-def _new_sid():
-    return secrets.token_urlsafe(32)
-
-
-def _cookie_params():
-    params = {
-        "httponly": True,
-        "secure": bool(COOKIE_SECURE),
-        "samesite": COOKIE_SAMESITE,
-        "path": "/",
-    }
-    return params
-
-
-def _set_sid_cookie(resp, sid, max_age):
-    params = _cookie_params()
-    resp.set_cookie(COOKIE_NAME, sid, max_age=max_age, **params)
-
-
-def _clear_sid_cookie(resp):
-    params = _cookie_params()
-    resp.set_cookie(COOKIE_NAME, "", expires=0, max_age=0, **params)
-
-
-def _cleanup_expired(db=None):
-    if db is None:
-        db = _get_db()
-    now_ts = _dt_to_ts(_utcnow())
-    db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_ts,))
-    db.commit()
-
-
-def create_session(user_id, ttl_seconds=SESSION_TTL_SECONDS):
-    db = _get_db()
-    _cleanup_expired(db)
-    sid = _new_sid()
-    now = _utcnow()
-    now_ts = _dt_to_ts(now)
-    exp_ts = _dt_to_ts(now + timedelta(seconds=int(ttl_seconds)))
-    db.execute(
-        "INSERT INTO sessions (sid, user_id, created_at, last_seen, expires_at) VALUES (?, ?, ?, ?, ?)",
-        (sid, str(user_id), now_ts, now_ts, exp_ts),
-    )
-    db.commit()
-    return sid, exp_ts - now_ts
-
-
-def get_session(sid):
-    if not sid:
-        return None
-    db = _get_db()
-    _cleanup_expired(db)
-    row = db.execute(
-        "SELECT sid, user_id, created_at, last_seen, expires_at FROM sessions WHERE sid = ?",
-        (sid,),
-    ).fetchone()
-    if not row:
-        return None
-    now_ts = _dt_to_ts(_utcnow())
-    if row["expires_at"] <= now_ts:
-        db.execute("DELETE FROM sessions WHERE sid = ?", (sid,))
-        db.commit()
-        return None
-    return dict(row)
-
-
-def touch_session(sid, sliding=True, ttl_seconds=SESSION_TTL_SECONDS):
-    if not sid:
-        return None
-    db = _get_db()
-    sess = get_session(sid)
-    if not sess:
-        return None
-    now = _utcnow()
-    now_ts = _dt_to_ts(now)
-    if sliding:
-        exp_ts = _dt_to_ts(now + timedelta(seconds=int(ttl_seconds)))
-        db.execute(
-            "UPDATE sessions SET last_seen = ?, expires_at = ? WHERE sid = ?",
-            (now_ts, exp_ts, sid),
-        )
-        db.commit()
-        return exp_ts - now_ts
-    else:
-        db.execute("UPDATE sessions SET last_seen = ? WHERE sid = ?", (now_ts, sid))
-        db.commit()
-        return max(0, int(sess["expires_at"]) - now_ts)
-
-
-def delete_session(sid):
-    if not sid:
-        return
-    db = _get_db()
-    db.execute("DELETE FROM sessions WHERE sid = ?", (sid,))
-    db.commit()
-
-
-def delete_user_sessions(user_id):
-    db = _get_db()
-    db.execute("DELETE FROM sessions WHERE user_id = ?", (str(user_id),))
-    db.commit()
-
-
-def login_user(resp, user_id):
-    if ROTATE_SID_ON_LOGIN:
-        sid, max_age = create_session(user_id)
-    else:
-        existing_sid = request.cookies.get(COOKIE_NAME)
-        if existing_sid and get_session(existing_sid):
-            max_age = touch_session(existing_sid)
-            sid = existing_sid
-        else:
-            sid, max_age = create_session(user_id)
-
-    _set_sid_cookie(resp, sid, max_age=max_age)
-    return resp
-
-
-def logout_user(resp):
-    sid = request.cookies.get(COOKIE_NAME)
-    if sid:
-        delete_session(sid)
-    _clear_sid_cookie(resp)
-    return resp
-
-
-def current_user_id():
-    sid = request.cookies.get(COOKIE_NAME)
-    sess = get_session(sid)
-    if not sess:
-        return None
-    max_age = touch_session(sid, sliding=True)
-    g._session_max_age = max_age
-    g._session_user_id = sess["user_id"]
-    return sess["user_id"]
-
-
-def login_required(view):
-    @wraps(view)
-    def wrapper(*args, **kwargs):
-        uid = current_user_id()
-        if not uid:
-            return redirect(url_for("login", next=request.path))
-        resp = make_response(view(*args, **kwargs))
-        sid = request.cookies.get(COOKIE_NAME)
-        max_age = getattr(g, "_session_max_age", None)
-        if sid and max_age is not None:
-            _set_sid_cookie(resp, sid, max_age=max_age)
-        return resp
-
-    return wrapper
-
-
-@app.before_request
-def _load_user():
-    current_user_id()
-
-
-@app.after_request
-def _refresh_cookie(resp):
-    sid = request.cookies.get(COOKIE_NAME)
-    max_age = getattr(g, "_session_max_age", None)
-    if sid and max_age is not None:
-        _set_sid_cookie(resp, sid, max_age=max_age)
-    return resp
-
-
-@app.route("/")
-@login_required
-def index():
-    uid = getattr(g, "_session_user_id", None)
-    return "Hello, user {}. <a href='{}'>Logout</a>".format(uid, url_for("logout"))
-
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == "GET":
-        nxt = request.args.get("next") or url_for("index")
-        return (
-            "<form method='post'>"
-            "<input name='user_id' placeholder='user id'/>"
-            "<input type='hidden' name='next' value='{}'/>"
-            "<button type='submit'>Login</button>"
-            "</form>".format(nxt)
-        )
+    error = None
+    if request.method == 'POST':
+        username = (request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+        remember = request.form.get('remember') == '1'
+        u = _get_user(username)
+        if not u or u['password'] != password:
+            error = 'Invalid username or password'
+        else:
+            login_user(username, remember=remember)
+            nxt = request.args.get('next')
+            if nxt and nxt.startswith('/'):
+                return redirect(nxt)
+            return redirect(url_for('home'))
+    return render_template_string(LOGIN_TEMPLATE, error=error)
 
-    user_id = (request.form.get("user_id") or "").strip()
-    if not user_id:
-        abort(400)
-
-    nxt = request.form.get("next") or url_for("index")
-    resp = make_response(redirect(nxt))
-    return login_user(resp, user_id)
-
-
-@app.route("/logout")
+@app.route('/logout', methods=['POST', 'GET'])
 def logout():
-    resp = make_response(redirect(url_for("login")))
-    return logout_user(resp)
+    logout_user()
+    return redirect(url_for('home'))
 
+@app.route('/protected')
+@login_required
+def protected():
+    return render_template_string(PROTECTED_TEMPLATE, user=current_user())
 
-if __name__ == "__main__":
-    init_session_store()
+@app.route('/whoami')
+def whoami():
+    u = current_user()
+    if not u:
+        abort(401)
+    return {'user': u, 'user_id': session.get('user_id')}
+
+if __name__ == '__main__':
     app.run(debug=True)

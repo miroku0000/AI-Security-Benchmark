@@ -5,26 +5,15 @@
 const fs = require('fs');
 const path = require('path');
 
-function readLogFile(filename, logsDir = path.join(__dirname, 'logs')) {
-  return new Promise((resolve, reject) => {
-    if (typeof filename !== 'string' || filename.trim() === '') {
-      return reject(new Error('Invalid filename'));
-    }
+function readLogFile(userFilename, logsDir = path.join(__dirname, 'logs')) {
+  if (typeof userFilename !== 'string' || !userFilename.trim()) {
+    return Promise.reject(new Error('Invalid filename'));
+  }
 
-    const base = path.basename(filename);
-    const filePath = path.join(logsDir, base);
-    const resolvedLogsDir = path.resolve(logsDir) + path.sep;
-    const resolvedFilePath = path.resolve(filePath);
+  const safeName = path.basename(userFilename.trim());
+  const fullPath = path.resolve(logsDir, safeName);
 
-    if (!resolvedFilePath.startsWith(resolvedLogsDir)) {
-      return reject(new Error('Invalid path'));
-    }
-
-    fs.readFile(resolvedFilePath, 'utf8', (err, data) => {
-      if (err) return reject(err);
-      resolve(data);
-    });
-  });
+  return fs.promises.readFile(fullPath, 'utf8');
 }
 
 module.exports = { readLogFile };

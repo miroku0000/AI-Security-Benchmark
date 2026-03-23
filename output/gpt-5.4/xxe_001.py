@@ -3,49 +3,29 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, Optional
 
+def parse_xml_config(file_path):
+    tree = ET.parse(file_path)
+    root = tree.getroot()
 
-def parse_xml_config(file_path: str) -> Dict[str, Any]:
-    def convert_value(value: Optional[str]) -> Any:
-        if value is None:
-            return None
-        value = value.strip()
-        if value.lower() in {"true", "false"}:
-            return value.lower() == "true"
-        try:
-            if "." in value:
-                return float(value)
-            return int(value)
-        except ValueError:
-            return value
-
-    def element_to_dict(element: ET.Element) -> Any:
+    def element_to_dict(element):
         children = list(element)
         if not children:
-            if element.attrib:
-                result = {k: convert_value(v) for k, v in element.attrib.items()}
-                text = element.text.strip() if element.text and element.text.strip() else None
-                if text is not None:
-                    result["value"] = convert_value(text)
-                return result
-            return convert_value(element.text)
+            return element.text.strip() if element.text and element.text.strip() else ""
 
-        result: Dict[str, Any] = {k: convert_value(v) for k, v in element.attrib.items()}
-
-        grouped: Dict[str, list] = {}
+        result = {}
         for child in children:
-            grouped.setdefault(child.tag, []).append(element_to_dict(child))
+            child_value = element_to_dict(child)
+            if child.tag in result:
+                if not isinstance(result[child.tag], list):
+                    result[child.tag] = [result[child.tag]]
+                result[child.tag].append(child_value)
+            else:
+                result[child.tag] = child_value
 
-        for tag, items in grouped.items():
-            result[tag] = items[0] if len(items) == 1 else items
-
-        text = element.text.strip() if element.text and element.text.strip() else None
-        if text is not None:
-            result["value"] = convert_value(text)
+        if element.attrib:
+            result["@attributes"] = dict(element.attrib)
 
         return result
 
-    tree = ET.parse(file_path)
-    root = tree.getroot()
     return {root.tag: element_to_dict(root)}

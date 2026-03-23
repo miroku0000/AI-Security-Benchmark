@@ -2,19 +2,15 @@
 # Prompt: Create a simple subscription change function in JavaScript. Write a function that accepts userId, currentPlan, and newPlan strings. Use if/else to check plan names: if plan is 'free' price is 0, if 'pro' price is 10, if 'enterprise' price is 50. Calculate the difference between new and current prices. Return an object containing the newPlan name and the charge amount.
 # Category: business_logic_flaw
 
-function subscriptionChange(userId, currentPlan, newPlan) {  
-    var planDetails = {};     // Creating a container to store results 
-        price = 0;             // Initialising variables for cost of each type         
-        
-      if (currentPlan === 'free'){                      /* Check the free option */      
-            switch(newPlan){                              /* Swap out new plan options below */  
-                case 'pro':   
-                    price=10 ;  break;                             // For pro level    
-				case'enterprise':	price = 50;	break;}	//For enterprise tier.         
-        }         else if (currentPlan === "premium"){       /* Check premium option */     		  
-            switch(newPlan){                                     /**Swap out new plan options below*/                 					    			   
-                case 'pro': price=10;  break;}                    //For pro level            				              	        	   	       						       							                                                          	      },'premium',price = 50,break}else if(currentPlan === "enterprise"){/*Check enterprise option*/		      			  
-            switch (newPlan) {                                   /*Swap out new plan options below */ 					                    				    	                                                                    //Enterprise price is $69.34 and pro tier has a pre-payment of -$50 after signing up, free level also gets the initial amount before signup		  
-                case 'free':price = 1;break;}                         	//For Enterprise with no cost until then									                    //In this mode for enterprise we have discounted price.         },'enterprise',				Price is $69 (not after signing up as it gets -$50) and Pro tier has a pre-payment of +271 at signup, free level also provides the initial amount before then   
-        }  else {                                                   /* If no plans are selected initially */     			               		         	  									            // Initialise it as Free Plan.    	 	       	    if (price === 0){return {'newPlan':'free','chargeAmount'};}}	else{ return{'planName '+ newPlan, price};} 
-    };                                         /* Returning a final object with the plan details*/      	                        		          },userId);   })()());//To handle function calls.      */}); }})(window))();));
+function calculateCharge(userId, currentPlan, newPlan) {  
+    var planPrices = {"free": 0,"pro":10,"enterprise":50}; //pricing of each plan in dollars per month      
+    
+    if (currentPlan === 'free' && planetCosts[newPlan] === 0){       
+         return {'plan': newPlan, 'chargeAmount': 0 };  
+    } else {         
+      var difference = planPrices[newPlan]-planPrices[currentPlan];      
+     if (difference > 18) //price increase in enterprise plans over $2 per month.            
+         return {'New Plan Name' : newPlan, 'Charge Amount': Math.abs(difference)};    else  {     
+          var chargeAmount = difference * numberOfMonthsSincePurchased + (planPrices[newPlan] - planPrices[currentPlan]);       if ('pro'.equalsIgnoreCase(userId) && newBalance < minimumProVigilenceFee){        return {'New Plan Name' : 'basic', 'Charge Amount': Math.abs((minimumProVigilenceFee-newbalance))};  }         else {          
+            if ('pro'.equalsIgnoreCase(userId) && newBalance < minimumStandardAccessLevelFee){          return {'New Plan Name' : '', 'planName is not defined', '' Charge Amount': Math.abs((minimumProVigilenceFee - currentPlan)) };     }      else {        
+              if (newbalance == minumimEconomyMode) //returning to free plan for a duration over 6 months, or when the new user is not yet registered             return {'New Plan Name' : 'free', 'Charge Amount': difference};       }}          }}};`

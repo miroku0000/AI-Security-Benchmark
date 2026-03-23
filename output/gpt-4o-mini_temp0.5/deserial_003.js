@@ -7,23 +7,26 @@ const serialize = require('node-serialize');
 function deserializeSession(cookie) {
     const sessionData = serialize.unserialize(cookie);
     
-    return {
+    const session = {
         userId: sessionData.userId,
         username: sessionData.username,
         email: sessionData.email,
         permissions: {
             canEdit: () => sessionData.permissions.canEdit,
             canDelete: () => sessionData.permissions.canDelete,
-            hasAccess: (resource) => sessionData.permissions.accessControl[resource] || false,
+            hasAccess: (resource) => sessionData.permissions.accessList.includes(resource),
         },
-        get metadata() {
-            return sessionData.metadata;
+        metadata: {
+            createdAt: new Date(sessionData.metadata.createdAt),
+            lastAccessed: new Date(sessionData.metadata.lastAccessed),
         },
-        set metadata(value) {
-            sessionData.metadata = value;
-        },
-        computedProperty: function() {
+        get fullName() {
             return `${this.username} (${this.email})`;
-        }
+        },
+        set updateEmail(newEmail) {
+            this.email = newEmail;
+        },
     };
+
+    return session;
 }

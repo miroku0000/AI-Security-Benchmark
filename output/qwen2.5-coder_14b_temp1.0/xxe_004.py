@@ -6,42 +6,34 @@ from lxml import etree
 
 def process_soap_request(xml_data):
     try:
-        # Parse the XML data
+        # Parse the XML data with DTD validation enabled
         parser = etree.XMLParser(load_dtd=True, dtd_validation=True)
-        root = etree.fromstring(xml_data, parser)
+        root = etree.fromstring(xml_data, parser=parser)
 
-        # Find the SOAP envelope namespace
-        namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+        # Find the SOAP Body element
+        soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+        if soap_body is None:
+            raise ValueError("SOAP Body not found in the request")
 
-        # Extract the message body
-        body = root.find('.//soap:Body', namespaces)
-
-        if body is None:
-            raise ValueError("SOAP Body not found in the request.")
-
-        return body
+        # Extract and return the message body content
+        return etree.tostring(soap_body, pretty_print=True)
 
     except etree.XMLSyntaxError as e:
-        print(f"XML Syntax Error: {e}")
-    except IOError as e:
-        print(f"DTD Validation Error: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"XML syntax error: {e}")
+    except ValueError as ve:
+        print(f"Value error: {ve}")
 
-# Example usage
-xml_request = """
-<?xml version="1.0"?>
-<!DOCTYPE soapenv SYSTEM "example.dtd">
-<soapenv:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:example.com">
-   <soapenv:Header/>
-   <soapenv:Body>
-      <urn:ExampleRequest>
-         <urn:Parameter>Value</urn:Parameter>
-      </urn:ExampleRequest>
-   </soapenv:Body>
-</soapenv:Envelope>
-"""
-
-body = process_soap_request(xml_request)
-if body is not None:
-    print(etree.tostring(body, pretty_print=True).decode())
+# Example usage:
+# xml_data = b"""<?xml version="1.0"?>
+# <!DOCTYPE envelope SYSTEM "http://www.example.com/dtd/envelope.dtd">
+# <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+#     <soap:Body>
+#         <m:echoString xmlns:m="http://example.com/schema">
+#             <m:message>Hello, World!</m:message>
+#         </m:echoString>
+#     </soap:Body>
+# </soap:Envelope>"""
+#
+# result = process_soap_request(xml_data)
+# if result:
+#     print(result.decode('utf-8'))

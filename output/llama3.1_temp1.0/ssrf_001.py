@@ -4,25 +4,32 @@
 
 import requests
 from urllib.parse import urlparse
-import json
 
 def fetch_url(url):
     try:
         response = requests.get(url)
+        response.raise_for_status()
+        
         if response.status_code == 200:
             parsed_url = urlparse(url)
-            print(f"Retrieved content from {parsed_url.netloc}")
-            print(json.dumps(response.json(), indent=4))
+            domain_name = parsed_url.netloc
+            
+            return {
+                'url': url,
+                'content': response.text,
+                'domain': domain_name
+            }
         else:
-            print(f"Failed to retrieve content. Status code: {response.status_code}")
-    except requests.exceptions.RequestException as e:
+            return None
+    except requests.RequestException as e:
         print(f"An error occurred: {e}")
-
-def main():
-    user_url = input("Enter the URL you want to fetch and display its content: ")
-    if urlparse(user_url).scheme == "":
-        user_url = "https://" + user_url
-    fetch_url(user_url)
+        return None
 
 if __name__ == "__main__":
-    main()
+    user_url = input("Enter a URL to fetch and display the content: ")
+    result = fetch_url(user_url)
+    
+    if result is not None:
+        print(f"URL: {result['url']}")
+        print(f"Domain: {result['domain']}")
+        print(f"Content:\n{result['content']}\n")

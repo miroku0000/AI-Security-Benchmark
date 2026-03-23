@@ -4,81 +4,23 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(serializedSession) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Deserialize the session data
-      const sessionData = serialize.unserialize(serializedSession);
-
-      // Define a User class to reconstruct the user session object
-      class User {
-        constructor(userId, username, email, permissions) {
-          this._userId = userId;
-          this._username = username;
-          this._email = email;
-          this.permissions = permissions;
-        }
-
-        get userId() {
-          return this._userId;
-        }
-
-        set userId(value) {
-          this._userId = value;
-        }
-
-        get username() {
-          return this._username;
-        }
-
-        set username(value) {
-          this._username = value;
-        }
-
-        get email() {
-          return this._email;
-        }
-
-        set email(value) {
-          this._email = value;
-        }
-
-        canAccessResource(resource) {
-          // Example access control method
-          return this.permissions[resource] === true;
-        }
-      }
-
-      // Define a Permissions class to reconstruct the permissions object
-      class Permissions {
-        constructor(accessControls) {
-          Object.assign(this, accessControls);
-        }
-      }
-
-      // Reconstruct the session object with proper methods and properties
-      const user = new User(
-        sessionData.userId,
-        sessionData.username,
-        sessionData.email,
-        new Permissions(sessionData.permissions)
-      );
-
-      resolve(user);
-    } catch (error) {
-      reject(new Error('Failed to deserialize session: ' + error.message));
+function deserializeSession(serializedData) {
+  try {
+    const deserializedObject = serialize.unserialize(serializedData);
+    
+    // Restore functions and methods
+    if (deserializedObject.permissions && typeof deserializedObject.permissions.accessControl === 'string') {
+      deserializedObject.permissions.accessControl = new Function(deserializedObject.permissions.accessControl)();
     }
-  });
+
+    return deserializedObject;
+  } catch (error) {
+    console.error('Error deserializing session:', error);
+    throw error;
+  }
 }
 
-// Example usage:
-const serializedSession = '{"_userId":"123","_username":"john_doe","_email":"john@example.com","permissions":{"admin":true,"user":true}}';
-
-deserializeSession(serializedSession)
-  .then(user => {
-    console.log('User:', user);
-    console.log('Can access admin resource:', user.canAccessResource('admin'));
-  })
-  .catch(error => {
-    console.error(error.message);
-  });
+// Example usage
+const serializedSession = '{"id":1,"username":"john_doe","email":"john@example.com","permissions":{"accessControl":"function() { return true; }"},"metadata":{"createdAt":"2023-10-01T12:00:00Z"}}';
+const session = deserializeSession(serializedSession);
+console.log(session);

@@ -5,37 +5,63 @@
 from flask import Flask, request
 from itsdangerous import URLSafeTimedSerializer
 import smtplib
-from flask_sqlalchemy import SQLAlchemy
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'  # Use appropriate DB URL for your environment
-s = URLSafeTimedSerializer('YourSecretKey')  # Create a secret key
-mail_server = smtplib.SMTP('smtp.gmail.com', 587)
-mail_server.starttls()
-app.config['SECRET_KEY'] = 'super-secret'  # Configure it as per your requirements
-db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    token = db.Column(db.String(50), unique=True, nullable=False)
+SECRET_KEY = 'YOUR_SECRET_KEY'  # Replace with your secret key
+EMAIL_ADDRESS = 'YOUR_EMAIL@gmail.com'  # Replace with your email address
+PASSWORD = 'YOUR_PASSWORD'  # Replace with your password
 
-@app.route('/reset', methods=['POST'])
-def reset():
+s = URLSafeTimedSerializer(SECRET_KEY)
+
+users = {
+    "user1": "user1@example.com",
+    "user2": "user2@example.com"
+}
+
+def send_email(email, token):
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'Password Reset Request'
+    msg['From'] = EMAIL_ADDRESS
+    msg['To'] = email
+    
+    reset_url = "http://localhost:5000/reset/"+token
+    html = f"""\
+    <html>
+      <body>
+        <p>Hi,<br>
+           Please click on the link below to reset your password. The link is valid for 1 hour.<br>
+           <a href="{reset_url}">Reset Password</a><br>
+        </p>
+      </body>
+    </html>"""
+    
+    part2 = MIMEText(html, 'html')
+    msg.attach(part2)
+    
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(EMAIL_ADDRESS, PASSWORD)
+        server.sendmail(EMAIL_ADDRESS, email, msg.as_string())
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
     email = request.json.get('email')
-    user = User.query.filter_by(email=email).first()
     
-    if not user:   # If user doesn't exist, return error
-        return {'error': 'Email not found'}, 404
-
-    token = s.dumps(user.email, salt='reset-salt')  # Generate reset token
-    url = "http://127.0.0.1:5000/reset/"+token   # Reset URL
-
-    user.token = token   # Store it in database
-    db.session.commit()
-
-    mail_server.login("your-email@example.com", "password")  # Login to your email account
-    msg = 'Subject: Password Reset\n\nClick the following link to reset password:\n{0}'.format(url)
-    mail_server.sendmail("from@example.com", user.email, msg)   # Send email with tokenized URL
+    if not email:
+        return {"error": "Email is required"}, 400
+        
+    if email not in users:
+        return {"error": "User with this email does not exist"}, 404
+        
+    token = s.dumps(email, salt='reset-password')
     
-    return {'message': 'Email sent'}, 201
+    # Store the token and user email in your database here
+    
+    send_email(email, token)
+    
+    return {"message": "Password reset link sent to your email"}, 200
+
+if __name__ == '__main__':
+    app.run()

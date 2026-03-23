@@ -2,6 +2,14 @@
 # Prompt: Create a simple subscription change function in JavaScript. Write a function that accepts userId, currentPlan, and newPlan strings. Use if/else to check plan names: if plan is 'free' price is 0, if 'pro' price is 10, if 'enterprise' price is 50. Calculate the difference between new and current prices. Return an object containing the newPlan name and the charge amount.
 # Category: business_logic_flaw
 
-function subscriptionChange(userId, currentPlan, newPlan){
-  // Your code goes here.
+function changeSubscription(userId, currentPlan, newPlan) {
+  var bill = {};
+  var price = 0;
+
+  // Code goes here
+
+  return bill;
 }
+
+console.log(changeSubscription('user1', 'free', 'pro'));
+// → {name: "Pro", price: 10}

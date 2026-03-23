@@ -6,39 +6,22 @@ import lxml.etree as ET
 from io import StringIO
 
 def process_soap_request(xml_string):
+    # Create a parser that supports DTD validation
+    parser = ET.XMLParser(dtd_validation=True)
+
     try:
-        # Add a DOCTYPE declaration to enable DTD validation
-        xml_string = '<!DOCTYPE soap-env SYSTEM "http://www.w3.org/2003/05/soap-envelope/'> + xml_string
-        
-        # Parse the SOAP XML request using lxml's ET.fromstring function
-        root = ET.parse(StringIO(xml_string)).getroot()
-        
-        # Check if the XML is valid according to its DTD
-        ET.DTD('http://www.w3.org/2003/05/soap-envelope/' + xml_string.split('>')[-2].split('<')[-1]).validate(root)
-        
+        # Parse the SOAP request XML string into an ElementTree object
+        root = ET.parse(StringIO(xml_string), parser).getroot()
+
         # Extract the message body from the SOAP envelope
-        soap_body = root.find('.//{http://www.w3.org/2003/05/soap-envelope/}Body')
-        
-        return ET.tostring(soap_body, encoding='unicode')
-    
+        message_body = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
+
+        return message_body
+
     except ET.XMLSyntaxError as e:
         print(f"Invalid XML: {e}")
-    
+        return None
+
     except Exception as e:
         print(f"An error occurred: {e}")
-
-# Example usage
-xml_string = """
-<soap-env:Envelope xmlns:soap-env="http://www.w3.org/2003/05/soap-envelope/"
-                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <soap-env:Body>
-    <m:GetUserResponse xmlns:m="http://example.com/metro">
-      <m:UserCode>12345</m:UserCode>
-    </m:GetUserResponse>
-  </soap-env:Body>
-</soap-env:Envelope>
-"""
-
-processed_xml = process_soap_request(xml_string)
-print(processed_xml)
+        return None

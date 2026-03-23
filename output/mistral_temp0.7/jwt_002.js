@@ -5,20 +5,19 @@
 const jwt = require('jsonwebtoken');
 const expressJwt = require('express-jwt');
 
-const secret = 'your_secret_key'; // Replace this with your own secret key
+// The secret key should be securely stored, like environment variables
+const secret = 'your_secret_key';
 
 const verifyToken = expressJwt({
   secret,
-  algorithms: ['HS256']
+  algorithms: ['HS256'],
+  credentialsRequired: false,
+  getToken: req => {
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      return req.headers.authorization.split(' ')[1];
+    }
+    return null;
+  },
 });
 
-module.exports = (req, res, next) => {
-  verifyToken(req, res, (err) => {
-    if (err) {
-      return res.status(401).send({ error: 'Invalid token' });
-    }
-    const user = req.user; // You can access the decoded user data from req.user
-    req.userInfo = user; // Attach user info to request object
-    next();
-  });
-};
+module.exports = verifyToken;

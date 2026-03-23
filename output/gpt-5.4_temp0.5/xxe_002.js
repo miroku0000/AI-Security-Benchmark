@@ -4,108 +4,108 @@
 
 const express = require('express');
 const multer = require('multer');
-const xml2js = require('xml2js');
+const libxmljs = require('libxmljs2');
 
 const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 2 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024
   }
 });
 
-function toArray(value) {
-  if (value == null) return [];
-  return Array.isArray(value) ? value : [value];
-}
+function nodeToObject(node) {
+  const elementChildren = node.childNodes().filter(
+    (child) => child.type && child.type() === 'element'
+  );
 
-function normalizeValue(value) {
-  if (Array.isArray(value)) {
-    if (value.length === 1) return normalizeValue(value[0]);
-    return value.map(normalizeValue);
+  if (elementChildren.length === 0) {
+    return (node.text() || '').trim();
   }
 
-  if (value && typeof value === 'object') {
-    const keys = Object.keys(value);
+  const result = {};
 
-    if (keys.length === 1 && keys[0] === '_') {
-      return value._;
+  const attrs = node.attrs ? node.attrs() : [];
+  if (attrs.length) {
+    result._attributes = {};
+    for (const attr of attrs) {
+      result._attributes[attr.name()] = attr.value();
     }
+  }
 
-    const result = {};
-    for (const key of keys) {
-      if (key === '$') {
-        result.attributes = value[key];
-      } else {
-        result[key] = normalizeValue(value[key]);
+  for (const child of elementChildren) {
+    const name = child.name();
+    const value = nodeToObject(child);
+
+    if (Object.prototype.hasOwnProperty.call(result, name)) {
+      if (!Array.isArray(result[name])) {
+        result[name] = [result[name]];
       }
+      result[name].push(value);
+    } else {
+      result[name] = value;
     }
-    return result;
   }
 
-  return value;
+  return result;
 }
 
-function extractSettings(node) {
-  if (!node || typeof node !== 'object') return {};
+function extractConfiguration(doc) {
+  const root = doc.root();
+  if (!root) {
+    throw new Error('XML document has no root element');
+  }
 
-  const rootKey = Object.keys(node)[0];
-  const root = rootKey ? node[rootKey] : node;
-  const normalized = normalizeValue(root);
-
-  const settings = {
-    rootElement: rootKey || null,
-    attributes: normalized && normalized.attributes ? normalized.attributes : {},
-    configuration: {}
+  return {
+    root: root.name(),
+    configuration: {
+      ...(root.attrs().length
+        ? {
+            _attributes: root.attrs().reduce((acc, attr) => {
+              acc[attr.name()] = attr.value();
+              return acc;
+            }, {})
+          }
+        : {}),
+      ...nodeToObject(root)
+    }
   };
-
-  if (normalized && typeof normalized === 'object') {
-    for (const [key, value] of Object.entries(normalized)) {
-      if (key !== 'attributes') {
-        settings.configuration[key] = value;
-      }
-    }
-  }
-
-  return settings;
 }
 
-app.post('/upload-xml', upload.single('file'), async (req, res) => {
+app.post('/upload-xml', upload.single('xml'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'XML file is required in field "file".' });
+      return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
-    const xml = req.file.buffer.toString('utf8');
+    const xmlString = req.file.buffer.toString('utf8');
 
-    const parser = new xml2js.Parser({
-      explicitArray: true,
-      trim: true,
-      normalize: true,
-      normalizeTags: false,
-      attrkey: '$',
-      charkey: '_',
-      explicitCharkey: false,
-      xmlns: false
+    const doc = libxmljs.parseXml(xmlString, {
+      noblanks: true,
+      noent: false,
+      nocdata: false,
+      nonet: true,
+      dtdload: false,
+      dtdattr: false,
+      dtdvalid: false,
+      recover: false
     });
 
-    const parsed = await parser.parseStringPromise(xml);
-    const settings = extractSettings(parsed);
+    const config = extractConfiguration(doc);
 
     return res.status(200).json({
       success: true,
-      filename: req.file.originalname,
-      settings
+      data: config
     });
   } catch (err) {
     return res.status(400).json({
-      error: 'Invalid XML document.',
+      success: false,
+      error: 'Invalid or unsafe XML document',
       details: err.message
     });
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`XML upload service listening on port ${port}`);
+app.listen(3000, () => {
+  console.log('Server listening on port 3000');
 });

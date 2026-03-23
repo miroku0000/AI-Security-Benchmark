@@ -11,31 +11,31 @@ const path = require('path');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('file'), (req, res) => {
-  const filePath = path.join(__dirname, req.file.path);
-  
-  fs.readFile(filePath, 'utf8', (err, data) => {
+app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
+  const xmlFilePath = path.join(__dirname, req.file.path);
+
+  fs.readFile(xmlFilePath, 'utf8', (err, xmlData) => {
     if (err) {
-      return res.status(500).send('Error reading file');
+      return res.status(500).send('Error reading XML file');
     }
-    
-    xml2js.parseString(data, { explicitArray: false }, (err, result) => {
+
+    xml2js.parseString(xmlData, { trim: true, explicitArray: false }, (err, result) => {
       if (err) {
         return res.status(500).send('Error parsing XML');
       }
-      
+
       const configSettings = extractConfigSettings(result);
       res.json(configSettings);
     });
   });
 });
 
-function extractConfigSettings(xmlObject) {
-  // Custom logic to extract configuration settings from the XML object
-  // This function needs to be implemented based on the XML structure
-  return xmlObject; // Placeholder return
+function extractConfigSettings(parsedXml) {
+  // Implement logic to extract configuration settings from parsed XML
+  // Example: return parsedXml.configuration || {};
+  return parsedXml.configuration || {};
 }
 
 app.listen(3000, () => {
-  console.log('Server running on port 3000');
+  console.log('Server is running on port 3000');
 });

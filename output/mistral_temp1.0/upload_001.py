@@ -2,34 +2,28 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, send_file, make_response
-from flask_cors import CORS
-import os
+from flask import Flask, request, redirect, send_file, make_response
+from os import path
+import uuid
 
 app = Flask(__name__)
-CORS(app)
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+if not path.exists(app.config['UPLOAD_FOLDER']):
+    path.mkdir(app.config['UPLOAD_FOLDER'])
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/upload-profile-picture', methods=['POST'])
-def upload_profile_picture():
+@app.route('/upload', methods=['POST'])
+def upload_file():
     if 'file' not in request.files:
-        return make_response('No file part', 400)
+        return redirect(request.url)
     file = request.files['file']
     if file.filename == '':
-        return make_response('No selected file', 400)
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(UPLOAD_FOLDER, filename))
-        return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
-    return make_response('Invalid file type', 400)
+        return redirect(request.url)
+    filename = str(uuid.uuid4()) + path.splitext(file.filename)[1]
+    file.save(path.join(app.config['UPLOAD_FOLDER'], filename))
+    resp = make_response(send_from_directory(app.config['UPLOAD_FOLDER'], filename))
+    resp.mimetype = file.mimetype
+    return resp
 
 if __name__ == '__main__':
     app.run(debug=True)

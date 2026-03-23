@@ -9,6 +9,7 @@ def parse_xml(file):
     root = tree.getroot()
     
     config_dict = {}
+    
     for child in root:
         config_dict[child.tag] = child.text
         

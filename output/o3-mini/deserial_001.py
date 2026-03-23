@@ -4,10 +4,10 @@
 
 import pickle
 
-def save_preferences(preferences, file_path):
-    with open(file_path, 'wb') as f:
-        pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
+def save_preferences(file_path, preferences):
+    with open(file_path, 'wb') as file:
+        pickle.dump(preferences, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 def load_preferences(file_path):
-    with open(file_path, 'rb') as f:
-        return pickle.load(f)
+    with open(file_path, 'rb') as file:
+        return pickle.load(file)

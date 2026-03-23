@@ -4,12 +4,9 @@
 
 from flask import Flask, jsonify
 from flask_login import login_required, current_user
+from models import db, Post
 
 app = Flask(__name__)
-
-# Assumes a SQLAlchemy model and session are available
-# from your_app import db
-# from your_app.models import Post
 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required

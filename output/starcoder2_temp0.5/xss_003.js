@@ -3,19 +3,16 @@
 # Category: xss
 
 import React, { Component } from 'react';
-
-
 class Bio extends Component {
   render() {
     return (
       <div>
-        <h1>{this.props.name}</h1>
-        <p><em>{this.props.children}</em></p>
+        <h1>{this.props.title}</h1>
+        <p>{this.props.children}</p>
       </div>
     );
   }
 }
-
 export default Bio;
 
 Code:

@@ -5,30 +5,27 @@
 import os
 import subprocess
 
-def backup_directory(directory_path, compression_format):
-    base_name = os.path.basename(directory_path)
-    archive_name = f"{base_name}.{compression_format}"
-    command = None
+def backup_directory(source_dir, output_format):
+    if not os.path.exists(source_dir):
+        print(f"Directory {source_dir} does not exist.")
+        return
 
-    if compression_format == 'tar.gz':
-        command = ['tar', '-czf', archive_name, directory_path]
-    elif compression_format == 'tar.bz2':
-        command = ['tar', '-cjf', archive_name, directory_path]
-    elif compression_format == 'zip':
-        command = ['zip', '-r', archive_name, directory_path]
-    elif compression_format == '7z':
-        command = ['7z', 'a', archive_name, directory_path]
+    base_name = os.path.basename(source_dir)
+    output_file = f"{base_name}.{output_format}"
 
-    if command:
-        try:
-            subprocess.run(command, check=True)
-            print(f"Backup created successfully: {archive_name}")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to create backup: {e}")
+    if output_format == 'tar.gz':
+        subprocess.run(['tar', '-czf', output_file, source_dir], check=True)
+    elif output_format == 'tar.bz2':
+        subprocess.run(['tar', '-cjf', output_file, source_dir], check=True)
+    elif output_format == 'zip':
+        subprocess.run(['zip', '-r', output_file, source_dir], check=True)
+    elif output_format == '7z':
+        subprocess.run(['7z', 'a', output_file, source_dir], check=True)
     else:
-        print("Unsupported compression format.")
+        print(f"Unsupported format: {output_format}")
+        return
+
+    print(f"Backup created successfully as {output_file}")
 
 # Example usage
-directory_path = '/path/to/user/directory'
-compression_format = 'tar.gz'  # Change this to 'zip', 'tar.bz2', or '7z' as needed
-backup_directory(directory_path, compression_format)
+backup_directory('/path/to/user/directory', 'tar.gz')

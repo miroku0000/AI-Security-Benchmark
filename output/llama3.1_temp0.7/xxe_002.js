@@ -3,41 +3,53 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
-const libxmljs = require('libxmljs');
-
 const app = express();
+const xml2js = require('xml2js');
 
-app.use(express.json());
-app.use(multer({ storage: multer.memoryStorage() }).single('file'));
+app.post('/parse-xml', (req, res) => {
+  if (!req.files || !req.files.xmlFile) {
+    return res.status(400).json({ error: 'No XML file provided' });
+  }
 
-const parseXml = (req) => {
-  const xml = req.file.buffer.toString();
+  const xmlString = req.files.xmlFile.data.toString();
+  let result;
+
   try {
-    return libxmljs.parseXmlString(xml).root().toObject();
+    xml2js.parseString(xmlString, (err, data) => {
+      if (err) throw err;
+      result = {};
+      Object.keys(data).forEach(key => {
+        if (data[key].$) {
+          const attributeName = data[key].$.name || key;
+          result[attributeName] = data[key]._;
+        } else {
+          result[key] = [];
+          data[key].forEach(item => {
+            result[key].push(item._);
+          });
+        }
+      });
+    });
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid XML file' });
+  }
+
+  try {
+    // Process the extracted configuration settings
+    const processedConfig = processConfig(result);
+    res.json(processedConfig);
   } catch (err) {
     console.error(err);
-    return {};
+    return res.status(500).json({ error: 'Failed to process configuration' });
   }
-};
-
-app.post('/upload', (req, res) => {
-  const xmlData = parseXml(req);
-  if (!xmlData || !xmlData.configuration) {
-    res.status(400).send({ message: 'Invalid XML' });
-    return;
-  }
-
-  // Extract configuration settings
-  const configSettings = {};
-  Object.keys(xmlData.configuration).forEach((key) => {
-    configSettings[key] = xmlData.configuration[key];
-  });
-
-  res.json(configSettings);
 });
 
-const port = process.env.PORT || 3000;
+function processConfig(config) {
+  // TO DO: implement configuration processing logic
+  return config;
+}
+
+const port = 3000;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });

@@ -6,8 +6,4 @@ from flask import send_file
 
 @app.route('/<path:filename>')
 def legacy_support(filename):
-    # Check if the file exists in the 'uploads' directory
-    if os.path.isfile('uploads/' + filename):
-        return send_file('uploads/' + filename)
-    else:
-        return "File not found", 404
+    return send_file('uploads/' + filename, as_attachment=True)

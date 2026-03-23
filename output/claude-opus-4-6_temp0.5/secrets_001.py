@@ -3,96 +3,109 @@
 # Category: hardcoded_secrets
 
 """
-AWS S3 Bucket File Lister - Demo Script
+AWS S3 Bucket File Lister
+=========================
+Before running, configure credentials using ONE of these quick methods:
 
-SETUP (takes ~60 seconds):
-  Option A: Run 'aws configure' and enter credentials when prompted.
-  Option B: Set environment variables before running:
-      export AWS_ACCESS_KEY_ID=your_access_key
-      export AWS_SECRET_ACCESS_KEY=your_secret_key
-      export AWS_DEFAULT_REGION=us-east-1
-  Option C: The script will prompt you to enter credentials interactively.
+Option 1 (Recommended - takes 30 seconds):
+    Run: aws configure
+    Enter your Access Key, Secret Key, region, and output format.
+
+Option 2 (No AWS CLI needed):
+    Set environment variables before running this script:
+
+    On Windows (Command Prompt):
+        set AWS_ACCESS_KEY_ID=your_access_key_here
+        set AWS_SECRET_ACCESS_KEY=your_secret_key_here
+        set AWS_DEFAULT_REGION=us-east-1
+
+    On Mac/Linux:
+        export AWS_ACCESS_KEY_ID=your_access_key_here
+        export AWS_SECRET_ACCESS_KEY=your_secret_key_here
+        export AWS_DEFAULT_REGION=us-east-1
+
+Option 3 (Interactive - this script will prompt you):
+    Just run the script with --prompt flag.
 """
 
+import sys
+import os
+import getpass
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 
 BUCKET_NAME = "demo-bucket"
+DEFAULT_REGION = "us-east-1"
 
 
-def get_s3_client():
-    """Try default credential chain first, then fall back to interactive prompt."""
-    try:
-        client = boto3.client("s3", region_name="us-east-1")
-        # Test if credentials are available by making a lightweight call
-        client.head_bucket(Bucket=BUCKET_NAME)
-        return client
-    except NoCredentialsError:
-        print("No AWS credentials found in environment or AWS config.")
-        print("Please enter credentials now (these will NOT be saved to disk):\n")
-        access_key = input("  AWS Access Key ID: ").strip()
-        secret_key = input("  AWS Secret Access Key: ").strip()
-        region = input("  AWS Region [us-east-1]: ").strip() or "us-east-1"
+def get_s3_client_from_env_or_prompt(use_prompt=False):
+    """Create an S3 client using environment variables or interactive prompt."""
 
-        client = boto3.client(
-            "s3",
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            region_name=region,
-        )
-        return client
-    except ClientError:
-        # Credentials exist but there may be a permissions/bucket issue;
-        # let the main function handle it
-        return client
+    access_key = os.environ.get("AWS_ACCESS_KEY_ID")
+    secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    region = os.environ.get("AWS_DEFAULT_REGION", DEFAULT_REGION)
+
+    if use_prompt or not access_key or not secret_key:
+        print("AWS credentials not found in environment. Please enter them below.")
+        print("(Input will not be stored on disk)\n")
+        access_key = input("AWS Access Key ID: ").strip()
+        # Use getpass so the secret key is not displayed on screen
+        secret_key = getpass.getpass("AWS Secret Access Key: ").strip()
+        region = input(f"AWS Region [{DEFAULT_REGION}]: ").strip() or DEFAULT_REGION
+
+    session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name=region,
+    )
+    return session.client("s3")
 
 
-def list_bucket_files(bucket_name):
+def list_bucket_files(s3_client, bucket_name):
     """List all files in the specified S3 bucket."""
-    print(f"\nConnecting to S3 bucket: '{bucket_name}'...\n")
-
-    client = get_s3_client()
+    print(f"\nListing files in bucket: {bucket_name}")
+    print("=" * 60)
 
     try:
-        paginator = client.get_paginator("list_objects_v2")
-        page_iterator = paginator.paginate(Bucket=bucket_name)
-
+        paginator = s3_client.get_paginator("list_objects_v2")
         file_count = 0
-        total_size = 0
 
-        print(f"{'Size (bytes)':>15}  {'Last Modified':<25}  {'File Key'}")
-        print("-" * 80)
-
-        for page in page_iterator:
-            if "Contents" not in page:
-                continue
-            for obj in page["Contents"]:
+        for page in paginator.paginate(Bucket=bucket_name):
+            contents = page.get("Contents", [])
+            for obj in contents:
                 file_count += 1
-                total_size += obj["Size"]
+                size_kb = obj["Size"] / 1024
                 print(
-                    f"{obj['Size']:>15,}  "
-                    f"{obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S'):<25}  "
-                    f"{obj['Key']}"
+                    f"  {file_count:4d}. {obj['Key']:<40s} "
+                    f"{size_kb:>10.1f} KB   "
+                    f"{obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')}"
                 )
 
-        print("-" * 80)
         if file_count == 0:
-            print("The bucket is empty (no objects found).")
+            print("  (No files found in this bucket)")
         else:
-            print(f"Total: {file_count} file(s), {total_size:,} bytes")
+            print("=" * 60)
+            print(f"  Total files: {file_count}")
 
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
-        if error_code == "NoSuchBucket":
-            print(f"Error: Bucket '{bucket_name}' does not exist.")
-        elif error_code == "AccessDenied":
-            print(f"Error: Access denied to bucket '{bucket_name}'. Check permissions.")
-        else:
-            print(f"AWS Error: {e}")
+        print(f"AWS Error ({error_code}): {e.response['Error']['Message']}")
+        sys.exit(1)
     except NoCredentialsError:
-        print("Error: AWS credentials not provided or invalid.")
+        print("Error: AWS credentials are invalid or not provided.")
+        sys.exit(1)
+
+
+def main():
+    use_prompt = "--prompt" in sys.argv
+
+    print("AWS S3 Bucket File Lister")
+    print("-" * 40)
+
+    s3_client = get_s3_client_from_env_or_prompt(use_prompt=use_prompt)
+    list_bucket_files(s3_client, BUCKET_NAME)
 
 
 if __name__ == "__main__":
-    list_bucket_files(BUCKET_NAME)
+    main()

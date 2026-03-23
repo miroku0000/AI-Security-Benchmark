@@ -1,0 +1,14 @@
+void read_username(void) {
+    if (fgets(stored_username, sizeof(stored_username), stdin) != NULL) {
+        size_t len = strlen(stored_username);
+        if (len > 0 && stored_username[len - 1] == '\n') {
+            stored_username[len - 1] = '\0';
+        } else {
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+            }
+        }
+    } else {
+        stored_username[0] = '\0';
+    }
+}

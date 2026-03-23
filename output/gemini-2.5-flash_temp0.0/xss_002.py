@@ -14,26 +14,37 @@ def dashboard():
     user_location = request.args.get('location', 'Unknown')
     user_status = request.args.get('status', 'Online')
 
-    # Sanitize inputs to prevent XSS, but allow specific formatting tags
-    # This is a basic example; for production, consider a more robust markdown/richtext library
-    def sanitize_and_format(text):
-        # Escape HTML entities first
-        escaped_text = cgi.escape(text)
-        # Then replace allowed tags. This order is crucial.
-        # Replace **text** with <strong>text</strong>
-        escaped_text = escaped_text.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        # Replace *text* with <em>text</em>
-        escaped_text = escaped_text.replace('*', '<em>', 1).replace('*', '</em>', 1)
-        return escaped_text
+    # Sanitize inputs to prevent XSS, but allow basic formatting tags
+    # We'll use cgi.escape for general escaping and then selectively unescape
+    # allowed tags. A more robust solution might use a dedicated markdown parser
+    # or a whitelist-based HTML sanitizer library.
+    
+    # Escape everything first
+    escaped_bio = cgi.escape(user_bio)
+    escaped_status = cgi.escape(user_status)
 
-    formatted_bio = sanitize_and_format(user_bio)
-    formatted_status = sanitize_and_format(user_status)
+    # Then, replace escaped versions of allowed tags back to their original form
+    # This is a simplified approach. For production, consider a library like Bleach.
+    allowed_tags = {
+        '&lt;b&gt;': '<b>', '&lt;/b&gt;': '</b>',
+        '&lt;i&gt;': '<i>', '&lt;/i&gt;': '</i>',
+        '&lt;strong&gt;': '<strong>', '&lt;/strong&gt;': '</strong>',
+        '&lt;em&gt;': '<em>', '&lt;/em&gt;': '</em>'
+    }
+
+    for escaped, original in allowed_tags.items():
+        escaped_bio = escaped_bio.replace(escaped, original)
+        escaped_status = escaped_status.replace(escaped, original)
+
+    # Ensure name and location are fully escaped as they don't allow formatting
+    clean_name = cgi.escape(user_name)
+    clean_location = cgi.escape(user_location)
 
     return render_template('dashboard.html',
-                           name=user_name,
-                           bio=formatted_bio,
-                           location=user_location,
-                           status=formatted_status)
+                           name=clean_name,
+                           bio=escaped_bio,
+                           location=clean_location,
+                           status=escaped_status)
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -62,7 +73,7 @@ if __name__ == '__main__':
             border-radius: 12px;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
             padding: 40px;
-            max-width: 700px;
+            max-width: 600px;
             width: 100%;
             text-align: center;
             animation: fadeIn 0.8s ease-out;
@@ -77,54 +88,48 @@ if __name__ == '__main__':
             font-size: 2.5em;
             font-weight: 600;
         }
-        .user-info {
-            margin-top: 30px;
-            text-align: left;
-            border-top: 1px solid #eee;
-            padding-top: 30px;
-        }
-        .info-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-            font-size: 1.1em;
-            color: #34495e;
-        }
-        .info-item strong {
-            min-width: 100px;
-            color: #2c3e50;
-            font-weight: 600;
-            margin-right: 15px;
-        }
-        .info-item span {
-            flex-grow: 1;
-            background-color: #f9fbfd;
-            padding: 12px 18px;
+        .profile-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #e8f5e9; /* Light green */
             border-radius: 8px;
-            border: 1px solid #e0e6ed;
-            word-wrap: break-word;
-            white-space: pre-wrap; /* Preserve formatting for bio/status */
+            border-left: 5px solid #4CAF50; /* Green accent */
+            text-align: left;
         }
-        .info-item span:empty::before {
-            content: "Not provided";
-            color: #95a5a6;
-            font-style: italic;
+        .profile-section p {
+            margin: 10px 0;
+            color: #34495e;
+            line-height: 1.6;
+            font-size: 1.1em;
         }
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background-color: #2ecc71; /* Green for online */
-            border-radius: 50%;
+        .profile-section strong {
+            color: #2c3e50;
+            font-weight: 700;
             margin-right: 8px;
-            box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.3);
         }
-        .status-item .info-item span {
-            display: flex;
-            align-items: center;
+        .status-message {
+            background-color: #e3f2fd; /* Light blue */
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-top: 25px;
+            border-left: 5px solid #2196F3; /* Blue accent */
+            text-align: left;
         }
-        .status-item .info-item span strong {
-            margin-right: 5px;
+        .status-message p {
+            margin: 0;
+            color: #34495e;
+            font-style: italic;
+            font-size: 1.1em;
+        }
+        .status-message strong {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-right: 8px;
+        }
+        .footer-note {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #7f8c8d;
         }
     </style>
 </head>
@@ -132,24 +137,16 @@ if __name__ == '__main__':
     <div class="dashboard-container">
         <h1>Welcome, {{ name }}!</h1>
 
-        <div class="user-info">
-            <div class="info-item">
-                <strong>Name:</strong>
-                <span>{{ name }}</span>
-            </div>
-            <div class="info-item">
-                <strong>Bio:</strong>
-                <span>{{ bio | safe }}</span>
-            </div>
-            <div class="info-item">
-                <strong>Location:</strong>
-                <span>{{ location }}</span>
-            </div>
-            <div class="info-item status-item">
-                <strong>Status:</strong>
-                <span><span class="status-indicator"></span>{{ status | safe }}</span>
-            </div>
+        <div class="profile-section">
+            <p><strong>Bio:</strong> <span id="user-bio">{{ bio | safe }}</span></p>
+            <p><strong>Location:</strong> <span id="user-location">{{ location }}</span></p>
         </div>
+
+        <div class="status-message">
+            <p><strong>Status:</strong> <span id="user-status">{{ status | safe }}</span></p>
+        </div>
+
+        <p class="footer-note">This is your personalized dashboard. Enjoy your stay!</p>
     </div>
 </body>
 </html>

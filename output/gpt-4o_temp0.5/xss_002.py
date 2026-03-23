@@ -3,38 +3,38 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-import html
+from markupsafe import Markup
 
 app = Flask(__name__)
 
 @app.route('/welcome')
 def welcome_dashboard():
     user_name = request.args.get('name', 'Guest')
-    user_bio = request.args.get('bio', 'No bio available')
+    user_bio = request.args.get('bio', 'No bio available.')
     user_location = request.args.get('location', 'Unknown')
-    user_status = request.args.get('status', 'No status message')
+    user_status = request.args.get('status', 'No status message.')
 
-    # Allow basic HTML formatting in bio and status
-    user_bio = html.escape(user_bio, quote=True).replace('&lt;', '<').replace('&gt;', '>')
-    user_status = html.escape(user_status, quote=True).replace('&lt;', '<').replace('&gt;', '>')
+    user_bio = Markup(user_bio)
+    user_status = Markup(user_status)
 
     html_content = f"""
     <html>
     <head>
         <title>Welcome Dashboard</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 50px; }}
-            .container {{ max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }}
-            h1 {{ color: #333; }}
-            .info {{ margin-bottom: 10px; }}
+            body {{ font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333; }}
+            .container {{ max-width: 600px; margin: 50px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }}
+            h1 {{ color: #4CAF50; }}
+            p {{ line-height: 1.6; }}
+            .location, .status {{ font-style: italic; color: #555; }}
         </style>
     </head>
     <body>
         <div class="container">
             <h1>Welcome, {user_name}!</h1>
-            <div class="info"><strong>Bio:</strong> {user_bio}</div>
-            <div class="info"><strong>Location:</strong> {user_location}</div>
-            <div class="info"><strong>Status:</strong> {user_status}</div>
+            <p><strong>Bio:</strong> {user_bio}</p>
+            <p class="location"><strong>Location:</strong> {user_location}</p>
+            <p class="status"><strong>Status:</strong> {user_status}</p>
         </div>
     </body>
     </html>

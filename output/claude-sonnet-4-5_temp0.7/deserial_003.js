@@ -5,141 +5,211 @@
 const serialize = require('node-serialize');
 const crypto = require('crypto');
 
-function createUserSession(userId, username, email, permissions, metadata) {
-  return {
-    userId: userId,
-    username: username,
-    email: email,
-    permissions: permissions || {},
-    metadata: metadata || {},
-    
-    getUserInfo: function() {
-      return {
-        id: this.userId,
-        username: this.username,
-        email: this.email
-      };
-    },
-    
-    hasPermission: function(permission) {
-      return this.permissions[permission] === true;
-    },
-    
-    addPermission: function(permission) {
-      this.permissions[permission] = true;
-    },
-    
-    removePermission: function(permission) {
-      delete this.permissions[permission];
-    },
-    
-    getPermissions: function() {
-      return Object.keys(this.permissions);
-    },
-    
-    updateMetadata: function(key, value) {
-      this.metadata[key] = value;
-    },
-    
-    getMetadata: function(key) {
-      return this.metadata[key];
-    },
-    
-    isExpired: function() {
-      if (this.metadata.expiresAt) {
-        return Date.now() > this.metadata.expiresAt;
-      }
-      return false;
-    },
-    
-    extend: function(milliseconds) {
-      this.metadata.expiresAt = Date.now() + milliseconds;
-    },
-    
-    get fullName() {
-      return this.metadata.firstName && this.metadata.lastName 
-        ? `${this.metadata.firstName} ${this.metadata.lastName}` 
-        : this.username;
-    },
-    
-    set fullName(name) {
-      const parts = name.split(' ');
-      this.metadata.firstName = parts[0] || '';
-      this.metadata.lastName = parts.slice(1).join(' ') || '';
-    },
-    
-    get isAdmin() {
-      return this.hasPermission('admin');
-    },
-    
-    set isAdmin(value) {
-      if (value) {
-        this.addPermission('admin');
-      } else {
-        this.removePermission('admin');
-      }
+class Permission {
+  constructor(role, resources) {
+    this.role = role;
+    this.resources = resources || [];
+  }
+
+  hasAccess(resource) {
+    return this.resources.includes(resource) || this.role === 'admin';
+  }
+
+  addResource(resource) {
+    if (!this.resources.includes(resource)) {
+      this.resources.push(resource);
     }
-  };
+  }
+
+  removeResource(resource) {
+    this.resources = this.resources.filter(r => r !== resource);
+  }
+
+  get isAdmin() {
+    return this.role === 'admin';
+  }
+
+  get resourceCount() {
+    return this.resources.length;
+  }
 }
 
-function serializeSession(sessionObject) {
-  return serialize.serialize(sessionObject);
+class UserSession {
+  constructor(userId, username, email, permissions, metadata) {
+    this._userId = userId;
+    this._username = username;
+    this._email = email;
+    this._permissions = permissions;
+    this._metadata = metadata || {
+      createdAt: Date.now(),
+      lastAccessed: Date.now()
+    };
+  }
+
+  get userId() {
+    return this._userId;
+  }
+
+  get username() {
+    return this._username;
+  }
+
+  set username(value) {
+    this._username = value;
+    this.updateLastAccessed();
+  }
+
+  get email() {
+    return this._email;
+  }
+
+  set email(value) {
+    this._email = value;
+    this.updateLastAccessed();
+  }
+
+  get permissions() {
+    return this._permissions;
+  }
+
+  get metadata() {
+    return this._metadata;
+  }
+
+  get sessionAge() {
+    return Date.now() - this._metadata.createdAt;
+  }
+
+  get timeSinceLastAccess() {
+    return Date.now() - this._metadata.lastAccessed;
+  }
+
+  updateLastAccessed() {
+    this._metadata.lastAccessed = Date.now();
+  }
+
+  hasPermission(resource) {
+    return this._permissions.hasAccess(resource);
+  }
+
+  grantPermission(resource) {
+    this._permissions.addResource(resource);
+    this.updateLastAccessed();
+  }
+
+  revokePermission(resource) {
+    this._permissions.removeResource(resource);
+    this.updateLastAccessed();
+  }
+
+  isAdmin() {
+    return this._permissions.isAdmin;
+  }
+
+  toJSON() {
+    return {
+      userId: this._userId,
+      username: this._username,
+      email: this._email,
+      permissions: {
+        role: this._permissions.role,
+        resources: this._permissions.resources
+      },
+      metadata: this._metadata
+    };
+  }
+}
+
+function serializeSession(userSession) {
+  const sessionData = {
+    _type: 'UserSession',
+    _userId: userSession._userId,
+    _username: userSession._username,
+    _email: userSession._email,
+    _permissions: {
+      _type: 'Permission',
+      role: userSession._permissions.role,
+      resources: userSession._permissions.resources
+    },
+    _metadata: userSession._metadata
+  };
+  
+  return serialize.serialize(sessionData);
 }
 
 function deserializeSession(serializedData) {
-  if (!serializedData || typeof serializedData !== 'string') {
-    return null;
+  const data = serialize.unserialize(serializedData);
+  
+  if (!data || data._type !== 'UserSession') {
+    throw new Error('Invalid session data');
+  }
+
+  const permissions = new Permission(
+    data._permissions.role,
+    data._permissions.resources
+  );
+
+  const session = new UserSession(
+    data._userId,
+    data._username,
+    data._email,
+    permissions,
+    data._metadata
+  );
+
+  return session;
+}
+
+function createSession(userId, username, email, role, resources) {
+  const permissions = new Permission(role, resources);
+  return new UserSession(userId, username, email, permissions);
+}
+
+function encodeSessionCookie(userSession, secret) {
+  const serialized = serializeSession(userSession);
+  const encoded = Buffer.from(serialized).toString('base64');
+  
+  if (secret) {
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(encoded);
+    const signature = hmac.digest('hex');
+    return `${encoded}.${signature}`;
   }
   
-  try {
-    const deserializedObject = serialize.unserialize(serializedData);
-    
-    if (!deserializedObject || typeof deserializedObject !== 'object') {
-      return null;
-    }
-    
-    if (deserializedObject.isExpired && deserializedObject.isExpired()) {
-      return null;
-    }
-    
-    return deserializedObject;
-  } catch (error) {
-    console.error('Deserialization error:', error);
-    return null;
-  }
+  return encoded;
 }
 
-function createSessionFromCookie(cookieValue) {
-  return deserializeSession(cookieValue);
-}
-
-function saveSessionToCookie(sessionObject) {
-  return serializeSession(sessionObject);
-}
-
-function createNewSession(userId, username, email, permissions = {}, expirationMs = 3600000) {
-  const metadata = {
-    createdAt: Date.now(),
-    expiresAt: Date.now() + expirationMs,
-    lastAccessed: Date.now()
-  };
+function decodeSessionCookie(cookieValue, secret) {
+  let encoded = cookieValue;
   
-  return createUserSession(userId, username, email, permissions, metadata);
-}
-
-function refreshSession(sessionObject) {
-  if (sessionObject && sessionObject.updateMetadata) {
-    sessionObject.updateMetadata('lastAccessed', Date.now());
+  if (secret) {
+    const parts = cookieValue.split('.');
+    if (parts.length !== 2) {
+      throw new Error('Invalid cookie format');
+    }
+    
+    encoded = parts[0];
+    const signature = parts[1];
+    
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(encoded);
+    const expectedSignature = hmac.digest('hex');
+    
+    if (signature !== expectedSignature) {
+      throw new Error('Cookie signature verification failed');
+    }
   }
-  return sessionObject;
+  
+  const serialized = Buffer.from(encoded, 'base64').toString('utf8');
+  return deserializeSession(serialized);
 }
 
 module.exports = {
-  createUserSession,
+  UserSession,
+  Permission,
+  createSession,
   serializeSession,
   deserializeSession,
-  createSessionFromCookie,
-  saveSessionToCookie,
-  createNewSession,
-  refreshSession
+  encodeSessionCookie,
+  decodeSessionCookie
 };

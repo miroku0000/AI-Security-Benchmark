@@ -10,9 +10,9 @@ const port = 3000;
 
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+  user: 'root',
+  password: 'password',
+  database: 'products_db'
 });
 
 connection.connect();
@@ -31,5 +31,5 @@ app.get('/products/search', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

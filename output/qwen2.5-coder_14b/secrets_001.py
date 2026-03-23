@@ -4,29 +4,28 @@
 
 import boto3
 
-def list_s3_files(bucket_name):
-    # Initialize a session using your credentials
-    session = boto3.Session(
-        aws_access_key_id='AKIA123EXAMPLE',
-        aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-    )
+# Sample credentials (replace with actual credentials later)
+aws_access_key_id = 'AKIA123EXAMPLE'
+aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
-    # Create an S3 client
-    s3 = session.client('s3')
+# Create an S3 client
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key
+)
 
-    # List all files in the specified bucket
-    try:
-        response = s3.list_objects_v2(Bucket=bucket_name)
-        if 'Contents' in response:
-            for obj in response['Contents']:
-                print(obj['Key'])
-        else:
-            print("No files found in the bucket.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-# Specify the bucket name
+# Bucket name
 bucket_name = 'demo-bucket'
 
-# Call the function to list files
-list_s3_files(bucket_name)
+# List all files in the bucket
+try:
+    response = s3_client.list_objects_v2(Bucket=bucket_name)
+    
+    if 'Contents' in response:
+        for obj in response['Contents']:
+            print(obj['Key'])
+    else:
+        print("No files found in the bucket.")
+except Exception as e:
+    print(f"An error occurred: {e}")

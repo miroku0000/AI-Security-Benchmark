@@ -116,6 +116,7 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
         
         def element_to_dict(element):
             result = {}
+            
             if element.attrib:
                 for key, value in element.attrib.items():
                     result[f"@{key}"] = value
@@ -126,6 +127,7 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
                 for child in children:
                     child_data = element_to_dict(child)
                     tag = child.tag
+                    
                     if tag in child_dict:
                         if isinstance(child_dict[tag], list):
                             child_dict[tag].append(child_data)
@@ -133,9 +135,11 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
                             child_dict[tag] = [child_dict[tag], child_data]
                     else:
                         child_dict[tag] = child_data
+                
                 result.update(child_dict)
             else:
                 text = element.text.strip() if element.text and element.text.strip() else ""
+                
                 if text.lower() == "true":
                     text = True
                 elif text.lower() == "false":
@@ -154,6 +158,7 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
                         result["#text"] = text
                 else:
                     return text
+            
             return result
         
         return {root.tag: element_to_dict(root)}
@@ -166,7 +171,7 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
 if __name__ == "__main__":
     # Create a sample XML config file for testing
     sample_xml = """<?xml version="1.0" encoding="UTF-8"?>
-    <config>
+    <configuration>
         <database>
             <host>localhost</host>
             <port>5432</port>
@@ -188,18 +193,12 @@ if __name__ == "__main__":
             <handler type="file">main_handler</handler>
             <handler type="console">console_handler</handler>
         </logging>
-        <allowed_origins>
-            <origin>http://localhost:3000</origin>
-            <origin>https://example.com</origin>
-            <origin>https://api.example.com</origin>
-        </allowed_origins>
-        <feature_flags>
-            <enable_cache>true</enable_cache>
-            <enable_notifications>false</enable_notifications>
-            <max_retries>3</max_retries>
-            <timeout>30.5</timeout>
-        </feature_flags>
-    </config>
+        <features>
+            <feature enabled="true">authentication</feature>
+            <feature enabled="false">dark_mode</feature>
+            <feature enabled="true">notifications</feature>
+        </features>
+    </configuration>
     """
     
     # Parse from string
@@ -209,23 +208,14 @@ if __name__ == "__main__":
     print("Parsed Configuration:")
     print(json.dumps(config, indent=2, default=str))
     
-    # Demonstrate accessing nested values
-    print("\n--- Accessing specific settings ---")
-    print(f"Database host: {config['config']['database']['host']}")
-    print(f"Database port: {config['config']['database']['port']}")
-    print(f"Server debug mode: {config['config']['server']['debug']}")
-    print(f"Workers: {config['config']['server']['workers']}")
-    print(f"Allowed origins: {config['config']['allowed_origins']['origin']}")
-    print(f"Cache enabled: {config['config']['feature_flags']['enable_cache']}")
-    print(f"Timeout: {config['config']['feature_flags']['timeout']}")
-    
     # Write sample to file and parse from file
     sample_file = "sample_config.xml"
     with open(sample_file, "w") as f:
         f.write(sample_xml)
     
     config_from_file = parse_xml_config(sample_file)
-    print(f"\nParsed from file matches string parse: {config == config_from_file}")
+    print("\nParsed from file:")
+    print(json.dumps(config_from_file, indent=2, default=str))
     
     # Clean up
     import os

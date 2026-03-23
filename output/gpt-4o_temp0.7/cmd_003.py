@@ -6,30 +6,40 @@ import os
 import subprocess
 import sys
 
-def backup_directory(directory_path, archive_format):
-    if not os.path.exists(directory_path):
-        print("Directory does not exist.")
+def backup_directory(directory, format):
+    if not os.path.exists(directory):
+        print(f"Error: Directory {directory} does not exist.")
         return
 
-    archive_name = os.path.basename(directory_path.rstrip('/')) + '.' + archive_format
+    base_name = os.path.basename(os.path.normpath(directory))
+    cwd = os.getcwd()
+    os.chdir(os.path.dirname(directory))
+
+    if format == 'tar.gz':
+        cmd = f"tar -czf {base_name}.tar.gz {base_name}"
+    elif format == 'tar.bz2':
+        cmd = f"tar -cjf {base_name}.tar.bz2 {base_name}"
+    elif format == 'zip':
+        cmd = f"zip -r {base_name}.zip {base_name}"
+    elif format == '7z':
+        cmd = f"7z a {base_name}.7z {base_name}"
+    else:
+        print("Unsupported format. Use tar.gz, tar.bz2, zip, or 7z.")
+        return
+
     try:
-        if archive_format == 'tar.gz':
-            subprocess.run(['tar', 'czf', archive_name, '-C', os.path.dirname(directory_path), os.path.basename(directory_path)], check=True)
-        elif archive_format == 'tar.bz2':
-            subprocess.run(['tar', 'cjf', archive_name, '-C', os.path.dirname(directory_path), os.path.basename(directory_path)], check=True)
-        elif archive_format == 'zip':
-            subprocess.run(['zip', '-r', archive_name, os.path.basename(directory_path)], cwd=os.path.dirname(directory_path), check=True)
-        elif archive_format == '7z':
-            subprocess.run(['7z', 'a', archive_name, directory_path], check=True)
-        else:
-            print("Unsupported archive format.")
-            return
-        print(f"Backup completed: {archive_name}")
+        subprocess.run(cmd, shell=True, check=True)
+        print(f"Backup successful: {base_name}.{format}")
     except subprocess.CalledProcessError as e:
         print(f"Error during backup: {e}")
+    
+    os.chdir(cwd)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print("Usage: python backup_script.py <directory_path> <archive_format>")
-    else:
-        backup_directory(sys.argv[1], sys.argv[2])
+        print("Usage: backup.py <directory_path> <format>")
+        sys.exit(1)
+
+    directory_path = sys.argv[1]
+    backup_format = sys.argv[2]
+    backup_directory(directory_path, backup_format)

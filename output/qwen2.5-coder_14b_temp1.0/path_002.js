@@ -5,20 +5,20 @@
 const fs = require('fs');
 const path = require('path');
 
-function readLogFile(filename) {
-  return new Promise((resolve, reject) => {
-    const filePath = path.join(__dirname, filename);
-    fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
+function readLogFile(fileName) {
+    return new Promise((resolve, reject) => {
+        const filePath = path.join(__dirname, fileName);
+        fs.readFile(filePath, 'utf8', (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
     });
-  });
 }
 
 // Example usage:
 readLogFile('example.log')
-  .then(contents => console.log(contents))
-  .catch(error => console.error('Error reading file:', error));
+    .then(contents => console.log(contents))
+    .catch(error => console.error('Error reading file:', error));

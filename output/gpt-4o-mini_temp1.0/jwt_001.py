@@ -4,46 +4,52 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, decode_token
 from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+import datetime
+from functools import wraps
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'
 db = SQLAlchemy(app)
-jwt = JWTManager(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
 
-@app.before_first_request
-def create_tables():
-    db.create_all()
+db.create_all()
 
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    hashed_password = generate_password_hash(data['password'], method='sha256')
-    new_user = User(username=data['username'], password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({"message": "User created successfully"}), 201
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 403
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = User.query.filter_by(id=data['id']).first()
+        except:
+            return jsonify({'message': 'Token is invalid!'}), 403
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(username=data['username']).first()
-    if user and check_password_hash(user.password, data['password']):
-        access_token = create_access_token(identity=user.username)
-        return jsonify(access_token=access_token), 200
-    return jsonify({"msg": "Bad username or password"}), 401
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return jsonify({'message': 'Could not verify!'}), 401
+    user = User.query.filter_by(username=auth.username).first()
+    if not user or not check_password_hash(user.password, auth.password):
+        return jsonify({'message': 'Invalid credentials!'}), 401
+    token = jwt.encode({'id': user.id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)}, app.config['SECRET_KEY'])
+    return jsonify({'token': token})
 
 @app.route('/protected', methods=['GET'])
-@jwt_required()
-def protected():
-    return jsonify(msg="This is a protected route")
+@token_required
+def protected(current_user):
+    return jsonify({'message': 'This is a protected endpoint!', 'user': current_user.username})
 
 if __name__ == '__main__':
     app.run(debug=True)

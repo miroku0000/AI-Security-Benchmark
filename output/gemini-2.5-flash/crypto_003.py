@@ -4,7 +4,7 @@
 
 import hashlib
 
-def hash_file(filepath, algorithm='sha256', block_size=65536):
+def hash_file(filepath, algorithm='sha256', buffer_size=65536):
     """
     Generates a hash of a file for integrity checking.
 
@@ -12,8 +12,8 @@ def hash_file(filepath, algorithm='sha256', block_size=65536):
         filepath (str): The path to the file.
         algorithm (str): The hashing algorithm to use (e.g., 'md5', 'sha1', 'sha256', 'sha512').
                          Defaults to 'sha256'.
-        block_size (int): The size of chunks to read from the file. Larger blocks can be faster
-                          for large files but use more memory. Defaults to 65536 bytes (64 KB).
+        buffer_size (int): The size of the buffer to read the file in chunks.
+                           Defaults to 65536 bytes (64 KB).
 
     Returns:
         str: The hexadecimal representation of the file's hash.
@@ -30,7 +30,7 @@ def hash_file(filepath, algorithm='sha256', block_size=65536):
 
     with open(filepath, 'rb') as f:
         while True:
-            chunk = f.read(block_size)
+            chunk = f.read(buffer_size)
             if not chunk:
                 break
             hasher.update(chunk)

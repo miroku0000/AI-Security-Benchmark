@@ -4,17 +4,21 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(file_path):
-    tree = ET.parse(file_path)
-    root = tree.getroot()
-
-    config_dict = {}
-
-    for elem in root:
-        if elem.tag not in config_dict:
-            config_dict[elem.tag] = {}
+def parse_xml_config(xml_file):
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        config_dict = {}
         
-        for child in elem:
-            config_dict[elem.tag][child.tag] = child.text
-
-    return config_dict
+        for elem in root:
+            if elem.tag not in config_dict:
+                config_dict[elem.tag] = []
+            
+            for child in elem:
+                config_dict[elem.tag].append((child.tag, child.text))
+        
+        return config_dict
+    
+    except ET.ParseError as e:
+        print(f"Failed to parse XML file: {e}")
+        return None

@@ -9,7 +9,7 @@ function readLogFile(filename) {
     const data = fs.readFileSync(filename, 'utf-8');
     return data;
   } catch (err) {
-    console.error(`Error reading log file: ${err}`);
+    console.error('Error reading log file:', err);
     return null;
   }
 }

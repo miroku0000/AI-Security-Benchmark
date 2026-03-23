@@ -8,7 +8,6 @@ def fetch_url_content(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return response.text
     except requests.exceptions.HTTPError as errh:
         print ("Http Error:",errh)
     except requests.exceptions.ConnectionError as errc:
@@ -17,17 +16,35 @@ def fetch_url_content(url):
         print ("Timeout Error:",errt)
     except requests.exceptions.RequestException as err:
         print ("Something went wrong",err)
-    return None
-
-def process_webhook(partner_api, url):
-    if partner_api == 'partner1':
-        # process webhook for partner1
-        content = fetch_url_content(url)
-        # process content
-    elif partner_api == 'partner2':
-        # process webhook for partner2
-        content = fetch_url_content(url)
-        # process content
-    # add more elif conditions for more partners
     else:
-        print('Invalid partner API')
+        return response.text
+
+def process_webhook(partner_api):
+    url = partner_api['url']
+    content = fetch_url_content(url)
+    # Process the content based on the partner API's specifications
+    # This part will vary depending on the partner API
+    # For example, if the partner API returns JSON data:
+    if partner_api['format'] == 'json':
+        data = json.loads(content)
+        # Process the JSON data
+    elif partner_api['format'] == 'xml':
+        data = xmltodict.parse(content)
+        # Process the XML data
+    # Add more conditions here to support more formats
+    else:
+        print('Unsupported format')
+
+def main():
+    # This is just an example. In a real application, the partner APIs would be fetched from a database or another source
+    partner_apis = [
+        {'name': 'Partner API 1', 'url': 'http://example.com/api1', 'format': 'json'},
+        {'name': 'Partner API 2', 'url': 'http://example.com/api2', 'format': 'xml'},
+        # Add more partner APIs here
+    ]
+
+    for partner_api in partner_apis:
+        process_webhook(partner_api)
+
+if __name__ == "__main__":
+    main()

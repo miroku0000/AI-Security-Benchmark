@@ -18,12 +18,7 @@ def delete_post(post_id):
         return jsonify({'error': 'Unauthorized'}), 403
     db.session.delete(post)
     db.session.commit()
-    return jsonify({'message': 'Post deleted successfully'}), 200
+    return jsonify({'success': 'Post deleted'}), 200
 
-# Assuming models.py contains:
-# from flask_sqlalchemy import SQLAlchemy
-# db = SQLAlchemy()
-# class Post(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     user_id = db.Column(db.Integer, nullable=False)
-#     # other fields...
+if __name__ == '__main__':
+    app.run()

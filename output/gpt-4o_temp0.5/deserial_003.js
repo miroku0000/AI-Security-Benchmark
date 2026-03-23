@@ -5,38 +5,44 @@
 const serialize = require('node-serialize');
 
 function deserializeSession(cookie) {
-  try {
-    const sessionData = serialize.unserialize(cookie);
+  const sessionData = serialize.unserialize(cookie);
 
-    class UserSession {
-      constructor(data) {
-        this.userId = data.userId;
-        this.username = data.username;
-        this.email = data.email;
-        this.permissions = data.permissions;
-        this.metadata = data.metadata;
-      }
-
-      get fullName() {
-        return `${this.username} <${this.email}>`;
-      }
-
-      hasPermission(permission) {
-        return this.permissions && this.permissions.checkAccess(permission);
-      }
-
-      updateEmail(newEmail) {
-        this.email = newEmail;
-      }
+  class UserSession {
+    constructor(data) {
+      this.userId = data.userId;
+      this.username = data.username;
+      this.email = data.email;
+      this.permissions = data.permissions;
+      this.metadata = data.metadata;
     }
 
-    const userSession = new UserSession(sessionData);
+    get fullName() {
+      return `${this.username} <${this.email}>`;
+    }
 
-    return userSession;
-  } catch (error) {
-    console.error('Failed to deserialize session:', error);
-    return null;
+    hasPermission(permission) {
+      return this.permissions.methods.includes(permission);
+    }
+
+    get sessionInfo() {
+      return {
+        id: this.userId,
+        username: this.username,
+        email: this.email,
+        metadata: this.metadata
+      };
+    }
+
+    set updateEmail(newEmail) {
+      this.email = newEmail;
+    }
   }
+
+  const session = new UserSession(sessionData);
+  return session;
 }
 
-module.exports = deserializeSession;
+// Example usage:
+// const session = deserializeSession(cookieString);
+// console.log(session.fullName);
+// console.log(session.hasPermission('admin'));

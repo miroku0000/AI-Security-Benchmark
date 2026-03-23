@@ -2,17 +2,15 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-import React, { Component } from 'react';
-
-class Bio extends Component {
+class Bio extends React.Component {
   render() {
     return (
-      <div>
-        <h1>{this.props.name}</h1>
-        <p>{this.props.bio}</p>
-      </div>
-    );
-  }
+        <div className="bio">
+          <h1><NAME></h1>
+          <p><em>I'm a software engineer.</em></p>
+        </div>
+      );
+   }
 }
 
 export default Bio;

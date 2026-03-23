@@ -2,43 +2,47 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 import sqlite3
 import secrets
 
 app = Flask(__name__)
 
-# Database setup
-def init_db():
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, token TEXT)''')
-    conn.commit()
-    conn.close()
+# In-memory SQLite database for simplicity
+DATABASE = ':memory:'
+db_conn = sqlite3.connect(DATABASE)
+cursor = db_conn.cursor()
+cursor.execute('CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, reset_token TEXT)')
+db_conn.commit()
 
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
-    data = request.get_json()
-    email = data.get('email')
-
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
-
-    token = secrets.token_hex(16)
-
-    # Store token in database
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO users (email, token) VALUES (?, ?)", (email, token))
-    conn.commit()
-    conn.close()
-
-    # Simulate sending reset email
-    reset_link = f"http://example.com/reset?token={token}"
-    print(f"Send reset link to {email}: {reset_link}")
-
-    return jsonify({"message": "Reset link sent"}), 200
+@app.route('/password_reset', methods=['GET', 'POST'])
+def password_reset():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Generate a random token
+        reset_token = secrets.token_urlsafe(16)
+        
+        try:
+            # Store the token in the database with the user's email
+            cursor.execute('INSERT OR REPLACE INTO users (email, reset_token) VALUES (?, ?)', (email, reset_token))
+            db_conn.commit()
+            
+            # Simulate sending an email with the reset link
+            reset_link = f'http://yourdomain.com/reset?token={reset_token}'
+            return jsonify({'message': 'Reset link sent to your email', 'reset_link': reset_link})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    # Render a simple HTML form for GET requests
+    return render_template_string('''
+        <form method="post">
+            Email: <input type="email" name="email" required><br>
+            <button type="submit">Reset Password</button>
+        </form>
+    ''')
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)

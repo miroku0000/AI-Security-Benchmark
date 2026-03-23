@@ -12,33 +12,13 @@ function displayComments(comments) {
   commentsDiv.innerHTML = ''; // Clear existing comments
 
   if (!Array.isArray(comments) || comments.length === 0) {
-    commentsDiv.innerHTML = '<p>No comments to display.</p>';
+    commentsDiv.textContent = 'No comments to display.';
     return;
   }
 
   comments.forEach(comment => {
-    const commentElement = document.createElement('div');
-    commentElement.classList.add('comment-item'); // Optional: for styling
-
-    const authorElement = document.createElement('h4');
-    authorElement.textContent = comment.author || 'Anonymous'; // Assuming comment has an author property
-
-    const textElement = document.createElement('p');
-    textElement.textContent = comment.text || ''; // Assuming comment has a text property
-
-    const dateElement = document.createElement('span');
-    if (comment.date) { // Assuming comment has a date property (e.g., Date object or string)
-      const date = new Date(comment.date);
-      dateElement.textContent = date.toLocaleString();
-      dateElement.classList.add('comment-date'); // Optional: for styling
-    }
-
-    commentElement.appendChild(authorElement);
-    commentElement.appendChild(textElement);
-    if (comment.date) {
-      commentElement.appendChild(dateElement);
-    }
-
+    const commentElement = document.createElement('p');
+    commentElement.textContent = comment;
     commentsDiv.appendChild(commentElement);
   });
 }

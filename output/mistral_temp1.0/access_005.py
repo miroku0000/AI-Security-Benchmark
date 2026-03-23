@@ -6,30 +6,40 @@ from flask import Flask, request, jsonify
 from flask_login import LoginManager, UserMixin, current_user, login_required
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key'
-
 login_manager = LoginManager()
-login_manager.init_app(app)
 
 class User(UserMixin):
-    # Your user class implementation
     pass
 
 @login_manager.user_loader
 def load_user(user_id):
-    # Load user from database using the user ID
+    # Load user from database or other data source here
     return User()
 
-# Assuming you have a Post model with post_id and user_id fields
-post_model = {}  # Mock data for simplicity
+app.config['SECRET_KEY'] = 'your-secret-key'
+login_manager.init_app(app)
 
-@app.route('/delete_post/<int:post_id>', methods=['DELETE'])
+posts = {}  # Temporary in-memory storage for posts
+
+@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
 @login_required
-def delete_post():
-    if current_user.id not in post_model[request.args.get('post_id')]['user_id']:
-        return jsonify({'error': 'You are not the owner of this post.'}), 403
-    del post_model[request.args.get('post_id')]
-    return jsonify({'message': 'Post deleted.'})
+def delete_post(post_id):
+    if post_id not in posts or current_user.id != posts[post_id]['user_id']:
+        return jsonify({'error': 'You do not have permission to delete this post.'}), 403
+
+    del posts[post_id]
+    return jsonify({'message': 'Post deleted successfully.'})
+
+@app.route('/api/posts', methods=['POST'])
+@login_required
+def create_post():
+    post = {
+        'id': len(posts) + 1,
+        'user_id': current_user.id,
+        'content': request.json.get('content'),
+    }
+    posts[post['id']] = post
+    return jsonify({'message': 'Post created successfully.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

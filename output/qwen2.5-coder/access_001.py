@@ -12,10 +12,12 @@ def get_order_info(user_id, order_id):
     cursor.execute(query, (user_id, order_id))
     
     order_data = cursor.fetchone()
-    
-    conn.close()
-    
     if order_data:
-        return dict(zip((desc[0] for desc in cursor.description), order_data))
+        order_dict = dict(zip([desc[0] for desc in cursor.description], order_data))
+        return order_dict
     else:
         return None
+
+# Example usage:
+# order_info = get_order_info(123, 456)
+# print(order_info)

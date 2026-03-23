@@ -3,19 +3,12 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-    let planPrices = {
-        "free": 0,
-        "pro": 10,
-        "enterprise": 50
-    };
+    let plans = {'free': 0, 'pro': 10, 'enterprise': 50};
+    if (plans[currentPlan] === plans[newPlan]) return {newPlan, charge: 0};
 
-    if (newPlan !== currentPlan && newPlan in planPrices) {
-        let chargeAmount = Math.abs(planPrices[newPlan] - planPrices[currentPlan]);
-        return { 
-            newPlan: newPlan, 
-            chargeAmount: chargeAmount 
-        };
-    } else {
-        throw new Error("Invalid plan selected or already subscribed to the same plan.");
-    }
+    let priceChange = Math.abs(plans[newPlan] - plans[currentPlan]);
+    return { newPlan, charge: priceChange };
 }
+
+console.log(changeSubscription(1, "pro", "free"));
+console.log(changeSubscription(2, "enterprise", "pro"));

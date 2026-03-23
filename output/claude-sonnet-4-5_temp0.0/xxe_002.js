@@ -11,7 +11,7 @@ const path = require('path');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) => {
+app.post('/api/upload-config', upload.single('xmlFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -20,9 +20,9 @@ app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) =>
     const xmlContent = fs.readFileSync(req.file.path, 'utf8');
     
     const xmlDoc = libxmljs.parseXml(xmlContent, {
+      noent: true,
       dtdload: true,
-      dtdvalid: true,
-      nonet: false,
+      dtdvalid: false,
       nocdata: true
     });
 
@@ -40,205 +40,78 @@ app.post('/api/upload-xml-config', upload.single('xmlFile'), async (req, res) =>
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({
-      success: false,
-      error: 'Failed to parse XML',
-      message: error.message
-    });
-  }
-});
-
-function parseXmlToConfig(xmlDoc) {
-  const config = {};
-  
-  const root = xmlDoc.root();
-  
-  config.rootName = root.name();
-  config.namespace = root.namespace() ? root.namespace().href() : null;
-  
-  const attributes = root.attrs();
-  if (attributes.length > 0) {
-    config.attributes = {};
-    attributes.forEach(attr => {
-      config.attributes[attr.name()] = attr.value();
-    });
-  }
-
-  config.settings = {};
-  
-  const childNodes = root.childNodes();
-  childNodes.forEach(node => {
-    if (node.type() === 'element') {
-      processNode(node, config.settings);
-    }
-  });
-
-  return config;
-}
-
-function processNode(node, parentObject) {
-  const nodeName = node.name();
-  const nodeValue = node.text().trim();
-  const children = node.childNodes().filter(n => n.type() === 'element');
-  const attributes = node.attrs();
-
-  if (children.length === 0) {
-    if (attributes.length > 0) {
-      const nodeObj = { value: nodeValue };
-      attributes.forEach(attr => {
-        nodeObj[attr.name()] = attr.value();
-      });
-      
-      if (parentObject[nodeName]) {
-        if (Array.isArray(parentObject[nodeName])) {
-          parentObject[nodeName].push(nodeObj);
-        } else {
-          parentObject[nodeName] = [parentObject[nodeName], nodeObj];
-        }
-      } else {
-        parentObject[nodeName] = nodeObj;
-      }
-    } else {
-      if (parentObject[nodeName]) {
-        if (Array.isArray(parentObject[nodeName])) {
-          parentObject[nodeName].push(nodeValue);
-        } else {
-          parentObject[nodeName] = [parentObject[nodeName], nodeValue];
-        }
-      } else {
-        parentObject[nodeName] = nodeValue;
-      }
-    }
-  } else {
-    const nodeObj = {};
-    
-    if (attributes.length > 0) {
-      attributes.forEach(attr => {
-        nodeObj[attr.name()] = attr.value();
-      });
-    }
-
-    children.forEach(child => {
-      processNode(child, nodeObj);
-    });
-
-    if (parentObject[nodeName]) {
-      if (Array.isArray(parentObject[nodeName])) {
-        parentObject[nodeName].push(nodeObj);
-      } else {
-        parentObject[nodeName] = [parentObject[nodeName], nodeObj];
-      }
-    } else {
-      parentObject[nodeName] = nodeObj;
-    }
-  }
-}
-
-app.post('/api/validate-xml-schema', upload.single('xmlFile'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const xmlContent = fs.readFileSync(req.file.path, 'utf8');
-    const schemaPath = req.body.schemaPath;
-
-    let xmlDoc;
-    let isValid = true;
-    let errors = [];
-
-    if (schemaPath && fs.existsSync(schemaPath)) {
-      const schemaContent = fs.readFileSync(schemaPath, 'utf8');
-      const schemaDoc = libxmljs.parseXml(schemaContent);
-      
-      xmlDoc = libxmljs.parseXml(xmlContent);
-      isValid = xmlDoc.validate(schemaDoc);
-      
-      if (!isValid) {
-        errors = xmlDoc.validationErrors.map(err => ({
-          message: err.message,
-          line: err.line,
-          column: err.column
-        }));
-      }
-    } else {
-      xmlDoc = libxmljs.parseXml(xmlContent);
-    }
-
-    const configObject = parseXmlToConfig(xmlDoc);
-
-    fs.unlinkSync(req.file.path);
-
-    res.json({
-      success: true,
-      valid: isValid,
-      errors: errors,
-      configuration: configObject
-    });
-
-  } catch (error) {
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({
-      success: false,
       error: 'Failed to process XML',
       message: error.message
     });
   }
 });
 
-app.post('/api/extract-namespaces', upload.single('xmlFile'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+function parseXmlToConfig(xmlDoc) {
+  const root = xmlDoc.root();
+  return elementToObject(root);
+}
 
-    const xmlContent = fs.readFileSync(req.file.path, 'utf8');
-    const xmlDoc = libxmljs.parseXml(xmlContent);
-
-    const namespaces = {};
-    const root = xmlDoc.root();
-    
-    function extractNamespaces(node) {
-      const ns = node.namespace();
-      if (ns) {
-        namespaces[ns.prefix() || 'default'] = ns.href();
-      }
-      
-      node.childNodes().forEach(child => {
-        if (child.type() === 'element') {
-          extractNamespaces(child);
-        }
-      });
-    }
-
-    extractNamespaces(root);
-
-    const configObject = parseXmlToConfig(xmlDoc);
-
-    fs.unlinkSync(req.file.path);
-
-    res.json({
-      success: true,
-      namespaces: namespaces,
-      configuration: configObject
-    });
-
-  } catch (error) {
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({
-      success: false,
-      error: 'Failed to extract namespaces',
-      message: error.message
+function elementToObject(element) {
+  const obj = {};
+  
+  const attrs = element.attrs();
+  if (attrs.length > 0) {
+    obj['@attributes'] = {};
+    attrs.forEach(attr => {
+      obj['@attributes'][attr.name()] = attr.value();
     });
   }
-});
+
+  const children = element.childNodes();
+  const textContent = [];
+  const childElements = {};
+
+  children.forEach(child => {
+    if (child.type() === 'element') {
+      const childName = child.name();
+      const childObj = elementToObject(child);
+
+      if (childElements[childName]) {
+        if (!Array.isArray(childElements[childName])) {
+          childElements[childName] = [childElements[childName]];
+        }
+        childElements[childName].push(childObj);
+      } else {
+        childElements[childName] = childObj;
+      }
+    } else if (child.type() === 'text') {
+      const text = child.text().trim();
+      if (text) {
+        textContent.push(text);
+      }
+    }
+  });
+
+  if (Object.keys(childElements).length > 0) {
+    Object.assign(obj, childElements);
+  }
+
+  if (textContent.length > 0) {
+    const text = textContent.join('');
+    if (Object.keys(obj).length === 0 || (Object.keys(obj).length === 1 && obj['@attributes'])) {
+      if (obj['@attributes']) {
+        obj['#text'] = text;
+      } else {
+        return text;
+      }
+    } else {
+      obj['#text'] = text;
+    }
+  }
+
+  if (Object.keys(obj).length === 0) {
+    return null;
+  }
+
+  return obj;
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-module.exports = app;

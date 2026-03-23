@@ -14,72 +14,122 @@ const upload = multer({
   }
 });
 
+function stripBom(str) {
+  return str.charCodeAt(0) === 0xfeff ? str.slice(1) : str;
+}
+
 function toArray(value) {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
 }
 
-function normalizeValue(value) {
-  if (Array.isArray(value)) {
-    return value.map(normalizeValue);
+function textValue(node) {
+  if (node == null) return undefined;
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number' || typeof node === 'boolean') return String(node);
+  if (typeof node === 'object') {
+    if (typeof node._ === 'string') return node._;
   }
-  if (value && typeof value === 'object') {
-    const keys = Object.keys(value);
-    if (keys.length === 1 && keys[0] === '_') {
-      return value._;
-    }
-    const result = {};
-    for (const key of keys) {
-      result[key] = normalizeValue(value[key]);
-    }
-    return result;
-  }
-  return value;
+  return undefined;
 }
 
-function extractSettings(node) {
-  if (!node || typeof node !== 'object') return {};
+function normalizeValue(node) {
+  if (node == null) return node;
+  if (typeof node !== 'object') return node;
 
-  const settings = {};
+  const result = {};
+
+  if (node.$ && typeof node.$ === 'object') {
+    result.attributes = { ...node.$ };
+  }
+
+  const directText = textValue(node);
+  if (directText !== undefined && Object.keys(node).every(k => k === '_' || k === '$')) {
+    if (result.attributes) {
+      result.value = directText;
+      return result;
+    }
+    return directText;
+  }
 
   for (const [key, value] of Object.entries(node)) {
-    if (key === '$') continue;
+    if (key === '$' || key === '_') continue;
 
-    const items = toArray(value).map((item) => {
-      if (item && typeof item === 'object') {
-        const attrs = item.$ || {};
-        const normalized = normalizeValue(item);
-        delete normalized.$;
-
-        if (Object.keys(attrs).length > 0) {
-          return { ...normalized, _attributes: attrs };
-        }
-        return normalized;
-      }
-      return item;
-    });
-
-    settings[key] = items.length === 1 ? items[0] : items;
+    if (Array.isArray(value)) {
+      result[key] = value.map(normalizeValue);
+    } else {
+      result[key] = normalizeValue(value);
+    }
   }
 
-  return settings;
+  if (directText !== undefined) {
+    result.value = directText;
+  }
+
+  return result;
 }
 
-app.post('/upload-xml', upload.single('file'), async (req, res) => {
+function extractSettings(parsed) {
+  const rootName = Object.keys(parsed)[0];
+  const root = parsed[rootName];
+
+  const output = {
+    root: rootName,
+    attributes: root && root.$ ? { ...root.$ } : {},
+    settings: {}
+  };
+
+  const configCandidates = [
+    root,
+    root && root.configuration && root.configuration[0],
+    root && root.settings && root.settings[0],
+    root && root.config && root.config[0]
+  ].filter(Boolean);
+
+  for (const candidate of configCandidates) {
+    for (const [key, value] of Object.entries(candidate)) {
+      if (key === '$' || key === '_') continue;
+
+      if (key === 'setting') {
+        for (const item of toArray(value)) {
+          const attrs = item.$ || {};
+          const name = attrs.name || attrs.key || item.name?.[0] || item.key?.[0];
+          const val =
+            attrs.value ||
+            item.value?.[0] ||
+            textValue(item) ||
+            normalizeValue(item);
+
+          if (name) {
+            output.settings[name] = normalizeValue(val);
+          }
+        }
+      } else {
+        output.settings[key] = normalizeValue(value);
+      }
+    }
+  }
+
+  return output;
+}
+
+app.post('/integrations/xml-config', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'XML file is required' });
+      return res.status(400).json({ error: 'XML file is required in form field "file".' });
     }
 
-    const xml = req.file.buffer.toString('utf8');
+    const xml = stripBom(req.file.buffer.toString('utf8'));
 
     if (/<!DOCTYPE/i.test(xml) || /<!ENTITY/i.test(xml)) {
-      return res.status(400).json({ error: 'DTD and ENTITY declarations are not allowed' });
+      return res.status(400).json({
+        error: 'DTD and ENTITY declarations are not allowed.'
+      });
     }
 
     const parser = new xml2js.Parser({
       explicitArray: true,
-      explicitCharkey: false,
+      explicitCharkey: true,
       trim: true,
       normalizeTags: false,
       normalize: false,
@@ -88,28 +138,19 @@ app.post('/upload-xml', upload.single('file'), async (req, res) => {
     });
 
     const parsed = await parser.parseStringPromise(xml);
-    const rootName = Object.keys(parsed)[0];
-    const root = parsed[rootName];
+    const configuration = extractSettings(parsed);
 
-    const config = {
-      root: rootName,
-      attributes: root.$ || {},
-      settings: extractSettings(root)
-    };
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-      configuration: config
+      configuration
     });
-  } catch (error) {
+  } catch (err) {
     return res.status(400).json({
-      error: 'Invalid XML document',
-      details: error.message
+      error: 'Invalid XML document.',
+      details: err.message
     });
   }
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+app.listen(port);

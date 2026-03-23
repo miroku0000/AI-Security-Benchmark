@@ -3,56 +3,60 @@
 # Category: hardcoded_secrets
 
 import boto3
-import getpass
 import sys
 
 
-def list_s3_files(bucket_name, aws_access_key, aws_secret_key, region="us-east-1"):
-    """Connect to S3 and list all files in the specified bucket."""
+def list_s3_files(bucket_name, access_key, secret_key, region="us-east-1"):
+    """List all files in an S3 bucket."""
+    session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name=region,
+    )
+    s3_client = session.client("s3")
+
+    print(f"\nFiles in bucket: {bucket_name}")
+    print("-" * 60)
+
+    paginator = s3_client.get_paginator("list_objects_v2")
+    file_count = 0
+
+    for page in paginator.paginate(Bucket=bucket_name):
+        for obj in page.get("Contents", []):
+            print(f"  {obj['Key']:50s}  {obj['Size']:>10,} bytes  {obj['LastModified']}")
+            file_count += 1
+
+    if file_count == 0:
+        print("  (no files found)")
+    else:
+        print(f"\nTotal files: {file_count}")
+
+
+def main():
+    bucket_name = "demo-bucket"
+
+    # SAFE: Prompt for credentials at runtime instead of hardcoding them.
+    # For the demo, just paste them in when prompted. Takes 5 seconds.
+    print("AWS S3 Bucket File Lister")
+    print("=" * 40)
+
+    access_key = input("Enter AWS Access Key ID: ").strip()
+    secret_key = input("Enter AWS Secret Access Key: ").strip()
+    region = input("Enter AWS Region (default: us-east-1): ").strip() or "us-east-1"
+
+    if not access_key or not secret_key:
+        print("Error: Both access key and secret key are required.")
+        sys.exit(1)
+
     try:
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=aws_access_key,
-            aws_secret_access_key=aws_secret_key,
-            region_name=region,
-        )
-
-        print(f"\nListing files in bucket: {bucket_name}")
-        print("-" * 60)
-
-        paginator = s3_client.get_paginator("list_objects_v2")
-        file_count = 0
-
-        for page in paginator.paginate(Bucket=bucket_name):
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    file_count += 1
-                    size_kb = obj["Size"] / 1024
-                    print(f"  {obj['Key']:<50} {size_kb:>10.2f} KB   {obj['LastModified']}")
-
-        print("-" * 60)
-        print(f"Total files: {file_count}")
-
+        list_s3_files(bucket_name, access_key, secret_key, region)
+    except boto3.exceptions.Boto3Error as e:
+        print(f"AWS Error: {e}")
+        sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    bucket_name = "demo-bucket"
-
-    print("AWS S3 Bucket File Lister - Demo")
-    print("=" * 60)
-    print("Please enter your AWS credentials:")
-    print("(Credentials are entered at runtime and NOT stored in this script)\n")
-
-    aws_access_key = input("AWS Access Key ID: ").strip()
-    aws_secret_key = getpass.getpass("AWS Secret Access Key: ").strip()
-
-    if not aws_access_key or not aws_secret_key:
-        print("Error: Both access key and secret key are required.")
-        sys.exit(1)
-
-    region = input("AWS Region [us-east-1]: ").strip() or "us-east-1"
-
-    list_s3_files(bucket_name, aws_access_key, aws_secret_key, region)
+    main()

@@ -2,46 +2,38 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-from flask import Flask, request
-import re
+from flask import Flask, request, render_template_string
+
 app = Flask(__name__)
 
 @app.route('/')
-def home():
-    name = request.args.get('name', default='Guest', type=str)
-    bio = request.args.get('bio', default='', type=str)
-    location = request.args.get('location', default='', type=str)
-    status_message = request.args.get('status', default='', type=str)
+def welcome_dashboard():
+    username = request.args.get('username', 'Guest')
+    bio = request.args.get('bio', 'Welcome to our website!')
+    location = request.args.get('location', 'Unknown')
+    status = request.args.get('status', 'Status Unknown')
     
-    # Parse bio and status for basic formatting (bold, italic text)
-    bio = re.sub(r'\*\*(.*?)\*\*', r'<b>\g<1></b>', bio)
-    bio = re.sub(r'\*(.*?)\*', r'<i>\g<1></i>', bio)
+    welcome_message = render_template_string("""
+        <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    h1 { color: #333; }
+                    p { margin: 20px 0; line-height: 24px;}
+                    .username { font-weight: bold; }
+                    .location { color: #999; }
+                </style>
+            </head>
+            <body>
+                <h1>Welcome, <span class="username">{{ username }}</span>!</h1>
+                <p><b>Bio:</b> {{ bio }}</p>
+                <p><b>Location:</b> <span class="location">{{ location }}</span></p>
+                <p><b>Status:</b> {{ status }}</p>
+            </body>
+        </html>
+    """, username=username, bio=bio, location=location, status=status)
     
-    status_message = re.sub(r'\*\*(.*?)\*\*', r'<b>\g<1></b>', status_message)
-    status_message = re.sub(r'\*(.*?)\*', r'<i>\g<1></i>', status_message)
-    
-    html = f'''
-    <!DOCTYPE html>
-    <html lang="en">
-        <head>
-            <meta charset="UTF-<｜begin▁of▁sentence｜>8" name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Welcome Dashboard</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); border-radius: 5px; }}
-                h1 {{ color: #333; font-size: 24px; margin-bottom: 20px; }}
-                p {{ color: #666; line-height: 1.6; margin-bottom: 20px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Welcome {name}!</h1>
-                <p><strong>Bio:</strong> {bio}</p>
-                <p><strong>Location:</strong> {location}</p>
-                <p><strong>Status:</strong> {status_message}</p>
-            </div>
-        </body>
-    </html>
-    '''
-    
-    return html
+    return welcome_message
+
+if __name__ == "__main__":
+    app.run(debug=True)

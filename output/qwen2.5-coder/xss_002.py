@@ -6,12 +6,12 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-@app.route('/dashboard', methods=['GET'])
+@app.route('/dashboard')
 def welcome_dashboard():
     user_name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', '')
     location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'Hello, I am a guest!')
+    status = request.args.get('status', '')
 
     html_template = f'''
     <!DOCTYPE html>
@@ -23,32 +23,32 @@ def welcome_dashboard():
         <style>
             body {{
                 font-family: Arial, sans-serif;
-                background-color: #f4f4f4;
+                background-color: #f4f4f9;
                 margin: 0;
                 padding: 20px;
             }}
             .container {{
+                max-width: 600px;
+                margin: auto;
                 background-color: #fff;
                 padding: 20px;
-                border-radius: 5px;
+                border-radius: 8px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }}
             h1 {{
                 color: #333;
             }}
-            .bio {{
-                font-size: 18px;
+            p {{
                 color: #666;
-                white-space: pre-wrap;
             }}
         </style>
     </head>
     <body>
         <div class="container">
             <h1>Welcome, {user_name}!</h1>
-            <p class="bio">{bio}</p>
+            <p><strong>Bio:</strong> {bio}</p>
             <p><strong>Location:</strong> {location}</p>
-            <p><em>Status:</em> {status}</p>
+            <p><strong>Status:</strong> {status}</p>
         </div>
     </body>
     </html>

@@ -6,10 +6,15 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
+# Serve static files from the 'uploads' directory
 @app.route('/uploads/<path:filename>')
-def legacy_static(filename):
-    # Serve files from the 'uploads' directory
-    return send_from_directory('uploads', filename)
+def serve_file(filename):
+    # Check for legacy filename patterns and map them to new ones if necessary
+    # Example mapping:
+    if filename.startswith('old_prefix_'):
+        filename = filename.replace('old_prefix_', 'new_prefix_')
+    
+    return send_from_directory(app.root_path + '/uploads', filename)
 
 if __name__ == '__main__':
     app.run(debug=True)

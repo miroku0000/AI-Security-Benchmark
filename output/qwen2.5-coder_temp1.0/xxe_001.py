@@ -7,11 +7,7 @@ import xml.etree.ElementTree as ET
 def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
-    
     settings = {}
-    
     for child in root:
-        if child.tag not in settings:
-            settings[child.tag] = child.text
-    
+        settings[child.tag] = child.text
     return settings

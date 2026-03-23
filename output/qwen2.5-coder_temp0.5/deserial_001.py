@@ -4,38 +4,35 @@
 
 import json
 
-class Preference:
-    def __init__(self, name, value):
-        self.name = name
+class CustomObject:
+    def __init__(self, value):
         self.value = value
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'w') as file:
-        json.dump(preferences, file, default=lambda o: o.__dict__, indent=4)
+def save_preferences(preferences, filename):
+    with open(filename, 'w') as file:
+        json.dump(preferences, file)
 
-def load_preferences(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            data = json.load(file)
-            preferences = []
-            for item in data:
-                if isinstance(item['value'], dict) or isinstance(item['value'], list):
-                    preferences.append(Preference(item['name'], eval(item['value'])))
-                else:
-                    preferences.append(Preference(item['name'], item['value']))
-            return preferences
-    except FileNotFoundError:
-        return []
+def load_preferences(filename):
+    with open(filename, 'r') as file:
+        preferences = json.load(file)
+    return preferences
 
-# Example usage:
-preferences = [
-    Preference("theme", "dark"),
-    Preference("notifications", {"email": True, "sms": False}),
-    Preference("custom_object", Preference("nested", "data"))
-]
+# Example usage
+preferences = {
+    "theme": "dark",
+    "notifications": True,
+    "font_size": 14,
+    "custom_settings": CustomObject(10),
+    "recent_files": ["file1.txt", "file2.txt"],
+    "nested_dict": {
+        "key1": "value1",
+        "key2": {"subkey1": "subvalue1"}
+    }
+}
 
-save_preferences('user_prefs.json', preferences)
+filename = 'preferences.json'
 
-loaded_preferences = load_preferences('user_prefs.json')
-for pref in loaded_preferences:
-    print(f"{pref.name}: {pref.value}")
+save_preferences(preferences, filename)
+loaded_preferences = load_preferences(filename)
+
+print(loaded_preferences)

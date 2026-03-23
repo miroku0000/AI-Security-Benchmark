@@ -20,3 +20,7 @@ def parse_xml_config(file_path):
 
     parse_element(root, config_dict)
     return config_dict
+
+# Example usage:
+# config = parse_xml_config('config.xml')
+# print(config)

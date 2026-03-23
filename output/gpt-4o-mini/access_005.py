@@ -17,6 +17,3 @@ def delete_post(post_id):
         db.session.commit()
         return jsonify({'message': 'Post deleted successfully'}), 200
     return jsonify({'message': 'Post not found or not authorized'}), 404
-
-if __name__ == '__main__':
-    app.run()

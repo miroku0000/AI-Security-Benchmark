@@ -9,8 +9,8 @@ def parse_xml(file):
     root = tree.getroot()
     settings = {}
     for child in root:
-        if child.tag == 'setting':
-            name = child.attrib['name']
+        if child.tag == "setting":
+            name = child.attrib["name"]
             value = child.text
             settings[name] = value
     return settings

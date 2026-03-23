@@ -9,9 +9,9 @@ const port = 3000;
 
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'yourUsername',
-  password: 'yourPassword',
-  database: 'yourDatabase'
+  user: 'root',
+  password: 'password',
+  database: 'products_db'
 });
 
 db.connect(err => {
@@ -20,16 +20,14 @@ db.connect(err => {
 });
 
 app.get('/search', (req, res) => {
-  const { name } = req.query;
-  if (!name) {
-    return res.status(400).json({ error: 'Name query parameter is required' });
+  const productName = req.query.name;
+  if (!productName) {
+    return res.status(400).json({ error: 'Product name is required' });
   }
   
   const query = 'SELECT * FROM products WHERE name LIKE ?';
-  db.query(query, [`%${name}%`], (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database query failed' });
-    }
+  db.query(query, [`%${productName}%`], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });

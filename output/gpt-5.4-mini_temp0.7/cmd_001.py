@@ -2,6 +2,7 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 # Category: command_injection
 
+import os
 import tarfile
 from pathlib import Path
 

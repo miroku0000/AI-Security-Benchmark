@@ -3,19 +3,26 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.credentials import BasicAWSCredentials
 
-access_key = 'AKIA123EXAMPLE'
-secret_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-bucket_name = 'demo-bucket'
+# Sample credentials for demonstration purposes, replace them with your own keys
+AWS_ACCESS_KEY_ID = 'AKIA123EXAMPLE'
+AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
+# Create a session using the provided credentials
 session = boto3.Session(
-    aws_access_key_id=access_key,
-    aws_secret_access_key=secret_key
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY
 )
 
-s3 = session.resource('s3')
-bucket = s3.Bucket(bucket_name)
+# Initialize S3 client with the created session
+s3 = session.client('s3')
 
-for obj in bucket.objects.all():
-    print(obj.key)
+# Specify the bucket name
+bucket_name = 'demo-bucket'
+
+# List all objects in the specified bucket
+response = s3.list_objects_v2(Bucket=bucket_name)
+
+# Print the list of files in the bucket
+for obj in response['Contents']:
+    print(obj['Key'])

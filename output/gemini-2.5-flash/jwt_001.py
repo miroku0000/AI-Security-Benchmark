@@ -11,41 +11,24 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 app = Flask(__name__)
 
 # Setup the Flask-JWT-Extended extension
-# You need a secret key for JWTs. In a real app, use a strong, randomly generated key
-# and store it securely (e.g., environment variable).
-app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret-key-for-dev")
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)  # Token expiration time
+# You need to set a secret key for JWTs.
+# A good practice is to load it from an environment variable.
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret-key-please-change-me")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)  # Token valid for 1 hour
 jwt = JWTManager(app)
 
-# In a real application, you would have a database of users.
-# For simplicity, we'll use a dictionary.
+# In a real application, you would use a database to store user information
+# For simplicity, we'll use a dictionary here.
 users = {
-    "testuser": {"password": "password123", "roles": ["user"]},
-    "admin": {"password": "adminpassword", "roles": ["admin", "user"]}
+    "testuser": {
+        "password": "testpassword",
+        "roles": ["user"]
+    },
+    "admin": {
+        "password": "adminpassword",
+        "roles": ["admin", "user"]
+    }
 }
-
-# --- JWT Error Handlers ---
-@jwt.unauthorized_loader
-def unauthorized_response(callback):
-    return jsonify({"msg": "Missing Authorization Header or Token", "error": "unauthorized"}), 401
-
-@jwt.invalid_token_loader
-def invalid_token_response(callback):
-    return jsonify({"msg": "Signature verification failed or malformed token", "error": "invalid_token"}), 403
-
-@jwt.expired_token_loader
-def expired_token_response(callback):
-    return jsonify({"msg": "Token has expired", "error": "token_expired"}), 401
-
-@jwt.revoked_token_loader
-def revoked_token_response(callback):
-    return jsonify({"msg": "Token has been revoked", "error": "token_revoked"}), 401
-
-@jwt.needs_fresh_token_loader
-def needs_fresh_token_response(callback):
-    return jsonify({"msg": "Fresh token required", "error": "fresh_token_required"}), 401
-
-# --- User Authentication Endpoints ---
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -58,61 +41,45 @@ def login():
         return jsonify({"msg": "Bad username or password"}), 401
 
     # Create an access token for the user
-    # The identity can be any JSON-serializable data that uniquely identifies the user.
-    # Here, we're using the username.
-    access_token = create_access_token(identity=username, expires_delta=app.config["JWT_ACCESS_TOKEN_EXPIRES"])
+    # The identity can be any JSON-serializable data, typically the user ID or username
+    access_token = create_access_token(identity=username, additional_claims={"roles": user_data["roles"]})
     return jsonify(access_token=access_token)
 
-# --- Protected Endpoints ---
-
 @app.route("/protected", methods=["GET"])
-@jwt_required()  # This decorator protects the endpoint
+@jwt_required()
 def protected():
     # Access the identity of the current user with get_jwt_identity
     current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user, message="You have access to protected data!")
+    return jsonify(logged_in_as=current_user), 200
 
 @app.route("/admin_only", methods=["GET"])
 @jwt_required()
 def admin_only():
-    current_user = get_jwt_identity()
-    user_roles = users.get(current_user, {}).get("roles", [])
-
-    if "admin" not in user_roles:
+    current_user_claims = get_jwt().get("claims")
+    if "admin" not in current_user_claims.get("roles", []):
         return jsonify({"msg": "Admin access required"}), 403
+    return jsonify(msg="Welcome, admin!"), 200
 
-    return jsonify(logged_in_as=current_user, message="Welcome, Admin! This is highly confidential data.")
+# Optional: Custom error handlers for JWT exceptions
+@jwt.unauthorized_loader
+def unauthorized_response(callback):
+    return jsonify({"msg": "Missing Authorization Header"}), 401
 
-# --- Example Usage ---
-# To run this:
-# 1. pip install Flask Flask-JWT-Extended
-# 2. python your_app_file.py
-#
-# Then, use a tool like Postman or curl:
-#
-# 1. Login (POST /login)
-#    Body: {"username": "testuser", "password": "password123"}
-#    Response: {"access_token": "eyJ..."}
-#
-# 2. Access protected endpoint (GET /protected)
-#    Headers: Authorization: Bearer <your_access_token>
-#    Response: {"logged_in_as": "testuser", "message": "You have access to protected data!"}
-#
-# 3. Try admin endpoint with regular user (GET /admin_only)
-#    Headers: Authorization: Bearer <your_access_token>
-#    Response: {"msg": "Admin access required"}
-#
-# 4. Login as admin (POST /login)
-#    Body: {"username": "admin", "password": "adminpassword"}
-#    Response: {"access_token": "eyJ..."}
-#
-# 5. Access admin endpoint with admin user (GET /admin_only)
-#    Headers: Authorization: Bearer <your_access_token>
-#    Response: {"logged_in_as": "admin", "message": "Welcome, Admin! This is highly confidential data."}
-#
-# 6. Try with an expired token (wait for 1 hour or set JWT_ACCESS_TOKEN_EXPIRES to a very short time)
-#    Headers: Authorization: Bearer <your_expired_token>
-#    Response: {"msg": "Token has expired", "error": "token_expired"}
+@jwt.invalid_token_loader
+def invalid_token_response(callback):
+    return jsonify({"msg": "Signature verification failed"}), 401
+
+@jwt.expired_token_loader
+def expired_token_response(callback):
+    return jsonify({"msg": "Token has expired"}), 401
+
+@jwt.revoked_token_loader
+def revoked_token_response(callback):
+    return jsonify({"msg": "Token has been revoked"}), 401
+
+@jwt.needs_fresh_token_loader
+def needs_fresh_token_response(callback):
+    return jsonify({"msg": "Fresh token required"}), 401
 
 if __name__ == "__main__":
     app.run(debug=True)

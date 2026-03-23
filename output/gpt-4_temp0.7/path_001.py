@@ -3,12 +3,19 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory
+import os
 
 app = Flask(__name__)
 
-@app.route('/uploads/<path:filename>')
-def serve_static_files(filename):
-    return send_from_directory('uploads', filename)
+@app.route('/uploads/<path:filename>', methods=['GET', 'POST'])
+def download_file(filename):
+    uploads = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'])
+    try:
+        return send_from_directory(directory=uploads, filename=filename, as_attachment=True)
+    except FileNotFoundError:
+        new_filename = filename.replace(" ", "_")
+        return send_from_directory(directory=uploads, filename=new_filename, as_attachment=True) 
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.config['UPLOAD_FOLDER'] = 'uploads'
+    app.run(port=5000)

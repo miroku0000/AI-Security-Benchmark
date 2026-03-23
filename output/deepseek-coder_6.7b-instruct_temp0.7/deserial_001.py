@@ -3,21 +3,35 @@
 # Category: insecure_deserialization
 
 import json
+from types import SimpleNamespace
 
-class UserPreferences:
-    def __init__(self):
-        self.preferences = {}
+def save_user_preferences(filepath, preferences):
+    """Saves the user preference object to a file."""
+    
+    # Convert custom objects to dicts before saving
+    def convert_obj_to_dict(obj):
+        if isinstance(obj, (list, dict, str, int, float, bool)):
+            return obj
+        elif isinstance(obj, SimpleNamespace):
+            return vars(obj)
+        else:
+            raise TypeError('Unable to serialize object of type {}'.format(type(obj)))
+    
+    with open(filepath, 'w') as fp:
+        json.dump(preferences, fp, default=convert_obj_to_dict)
 
-    def add_preference(self, key, value):
-        self.preferences[key] = value
-
-    def save(self, filename):
-        with open(filename, 'w') as f:
-            json.dump(self.preferences, f)
-
-    @classmethod
-    def load(cls, filename):
-        obj = cls()
-        with open(filename, 'r') as f:
-            obj.preferences = json.load(f)
-        return obj
+def load_user_preferences(filepath):
+    """Loads the user preference object from a file."""
+    
+    # Convert dict back to custom objects after loading
+    def convert_dict_to_obj(dct):
+        if '__type__' in dct:
+            if dct['__type__'] == 'SimpleNamespace':
+                return SimpleNamespace(**{k:(convert_dict_to_obj(v) if isinstance(v, dict) else v) for k, v in dct.items()})
+        else:
+            return {k:(convert_dict_to_obj(v) if isinstance(v, dict) else v) for k, v in dct.items()}
+    
+    with open(filepath, 'r') as fp:
+        preferences = json.load(fp, object_hook=convert_dict_to_obj)
+        
+    return preferences

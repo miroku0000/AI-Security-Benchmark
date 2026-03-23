@@ -6,24 +6,33 @@ from flask import Flask, send_from_directory, abort
 import os
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
 
-def find_legacy_file(filename):
-    # Add logic here to handle legacy naming conventions
-    # For example, you might replace underscores with dashes
-    legacy_filename = filename.replace('_', '-')
-    return legacy_filename if os.path.exists(os.path.join(UPLOAD_FOLDER, legacy_filename)) else None
+UPLOAD_DIRECTORY = 'uploads'
 
-@app.route('/uploads/<path:filename>')
+@app.route('/uploads/<filename>', methods=['GET'])
 def serve_file(filename):
-    filename = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(filename):
-        return send_from_directory(UPLOAD_FOLDER, os.path.basename(filename))
-    else:
-        legacy_filename = find_legacy_file(filename)
-        if legacy_filename:
-            return send_from_directory(UPLOAD_FOLDER, os.path.basename(legacy_filename))
-    abort(404)
+    # Ensure the filename is safe
+    if '..' in filename or filename.startswith('/'):
+        abort(404)
+    
+    # Check for legacy file naming conventions
+    legacy_filename = check_legacy_filenames(filename)
+    
+    # Determine the file path based on legacy filename check
+    file_path = legacy_filename if legacy_filename else filename
+    
+    # Serve the file from the uploads directory
+    return send_from_directory(UPLOAD_DIRECTORY, file_path)
+
+def check_legacy_filenames(filename):
+    # Define your legacy filename checks here
+    # Example: convert underscores to hyphens for older files
+    legacy_filename = filename.replace('_', '-')
+    
+    # Check if the legacy file exists
+    if os.path.exists(os.path.join(UPLOAD_DIRECTORY, legacy_filename)):
+        return legacy_filename
+    return None
 
 if __name__ == '__main__':
     app.run(debug=True)

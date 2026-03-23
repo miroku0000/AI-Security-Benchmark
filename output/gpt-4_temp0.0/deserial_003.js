@@ -18,20 +18,28 @@ function deserializeSession(cookie) {
         return null;
     }
 
-    if (typeof sessionData.userId !== 'string' || typeof sessionData.username !== 'string' || typeof sessionData.email !== 'string') {
-        console.error('Deserialized session data is missing required properties');
+    const { userId, username, email, permissions, metadata } = sessionData;
+
+    if (typeof userId !== 'string' || typeof username !== 'string' || typeof email !== 'string') {
+        console.error('Invalid user data in session');
         return null;
     }
 
-    if (typeof sessionData.permissions !== 'object' || sessionData.permissions === null || typeof sessionData.permissions.canAccess !== 'function') {
-        console.error('Deserialized session data is missing required permissions object');
+    if (typeof permissions !== 'object' || permissions === null) {
+        console.error('Invalid permissions data in session');
         return null;
     }
 
-    if (typeof sessionData.metadata !== 'object' || sessionData.metadata === null) {
-        console.error('Deserialized session data is missing required metadata object');
+    if (typeof metadata !== 'object' || metadata === null) {
+        console.error('Invalid metadata in session');
         return null;
     }
 
-    return sessionData;
+    return {
+        userId,
+        username,
+        email,
+        permissions,
+        metadata
+    };
 }

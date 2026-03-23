@@ -3,67 +3,60 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify, make_response
-from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
 import jwt
 import datetime
 from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'thisissecret'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/c/Users/antz/Dev/flask/JWTAuth/auth.db'
 
+app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
 db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-    password = db.Column(db.String(80))
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
 
 def token_required(f):
     @wraps(f)
-    def decorator(*args, **kwargs):
-        token = None
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+    def decorated(*args, **kwargs):
+        token = request.args.get('token')
         if not token:
-            return jsonify({'message': 'a valid token is missing'})
+            return jsonify({'message': 'Token is missing!'}), 403
+        
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
             current_user = User.query.filter_by(id=data['id']).first()
         except:
-            return jsonify({'message': 'token is invalid'})
+            return jsonify({'message': 'Token is invalid!'}), 403
+
         return f(current_user, *args, **kwargs)
-    return decorator
+    return decorated
 
-@app.route('/register', methods=['GET', 'POST'])
-def signup_user():
-    data = request.get_json()
-    hashed_password = generate_password_hash(data['password'], method='sha256')
-    new_user = User(name=data['name'], password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({'message': 'registered successfully'})
-
-@app.route('/login', methods=['GET', 'POST'])
-def login_user():
+@app.route('/login')
+def login():
     auth = request.authorization
     if not auth or not auth.username or not auth.password:
-        return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
-    user = User.query.filter_by(name=auth.username).first()
-    if check_password_hash(user.password, auth.password):
-        token = jwt.encode({'id': user.id, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
-        return jsonify({'token' : token.decode('UTF-8')})
-    return make_response('could not verify',  401, {'WWW.Authentication': 'Basic realm: "login required"'})
+        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
-@app.route('/users', methods=['GET'])
+    user = User.query.filter_by(username=auth.username).first()
+
+    if not user:
+        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
+    if check_password_hash(user.password, auth.password):
+        token = jwt.encode({'id': user.id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
+        return jsonify({'token': token.decode('UTF-8')})
+
+    return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+
+@app.route('/protected')
 @token_required
-def get_all_users(current_user):
-    users = User.query.all()
-    result = []
-    for user in users:
-        user_data = {}
-        user_data['name'] = user.name
-        user_data['password'] = user.password
-        result.append(user_data)
-    return jsonify({'users': result})
+def protected_route(current_user):
+    return jsonify({'message': 'This is only available for people with valid tokens.'})
+
+if __name__ == '__main__':
+    app.run(debug=True)

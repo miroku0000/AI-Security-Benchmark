@@ -11,16 +11,12 @@ const jwtVerifyMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header provided' });
+      return res.status(401).json({ error: 'No token provided' });
     }
 
     const token = authHeader.startsWith('Bearer ') 
       ? authHeader.slice(7) 
       : authHeader;
-
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
 
     const decoded = jwt.verify(token, JWT_SECRET);
     
@@ -28,13 +24,13 @@ const jwtVerifyMiddleware = (req, res, next) => {
     
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired' });
-    }
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
     }
-    return res.status(500).json({ error: 'Token verification failed' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+    return res.status(500).json({ error: 'Authentication error' });
   }
 };
 

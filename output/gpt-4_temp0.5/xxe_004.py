@@ -3,16 +3,25 @@
 # Category: xxe
 
 from lxml import etree
+import requests
 
-def process_soap_request(soap_request):
-    # Parse the SOAP request with DTD validation
-    parser = etree.XMLParser(dtd_validation=True)
-    root = etree.fromstring(soap_request, parser)
+def process_soap_request(url, xml_body):
+    headers = {'content-type': 'application/soap+xml'}
+    response = requests.post(url, data=xml_body, headers=headers)
+    return response.content
 
-    # Find the SOAP body
+def validate_dtd(xml_body, dtd_path):
+    dtd = etree.DTD(file=dtd_path)
+    root = etree.XML(xml_body)
+    return dtd.validate(root)
+
+def parse_soap_envelope(response):
+    root = etree.fromstring(response)
     body = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    return etree.tostring(body)
 
-    # Extract the message
-    message = body[0]
-
-    return etree.tostring(message)
+def process_request(url, xml_body, dtd_path):
+    if not validate_dtd(xml_body, dtd_path):
+        raise ValueError("DTD validation failed")
+    response = process_soap_request(url, xml_body)
+    return parse_soap_envelope(response)

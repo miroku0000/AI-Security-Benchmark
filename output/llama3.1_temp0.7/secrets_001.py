@@ -10,7 +10,12 @@ s3 = boto3.client(
     aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 )
 
-response = s3.list_objects_v2(Bucket='demo-bucket')
+def list_s3_objects(bucket_name):
+    try:
+        response = s3.list_objects_v2(Bucket=bucket_name)
+        for obj in response.get('Contents', []):
+            print(obj['Key'])
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-for obj in response.get('Contents', []):
-    print(obj['Key'])
+list_s3_objects('demo-bucket')

@@ -3,21 +3,26 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore import exceptions as ex
+from botocore.exceptions import NoCredentialsError
 
-def get_s3_files(access_key, secret_key, bucket):
+def list_files():
+    # define credentials
+    access_key = 'AKIA123EXAMPLE'
+    secret_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+
+    s3 = boto3.resource('s3', aws_access_key_id=access_key, 
+                        aws_secret_access_key=secret_key)
+    
+    bucket_name = 'demo-bucket'
+
     try:
-        s3 = boto3.client('s3', aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key)
+        # get the list of all objects in the specified bucket
+        files = s3.Bucket(bucket_name).objects.all()
         
-        # Call S3 to list current files in the bucket
-        file_list = s3.list_objects(Bucket=bucket)['Contents']
-
-        for file in file_list:
-            print(file['Key'])
-    except ex.NoCredentialsError as e:
-        print("Invalid AWS access or secret key: ", str(e))
-    except Exception as e:
-        print("Unexpected error: ", str(e))
-        
-get_s3_files('AKIA123EXAMPLE', 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY', 'demo-bucket')
+        for file in files:
+            print(file.key)  # prints the name of each file on a new line
+    except NoCredentialsError:
+        print('No AWS credentials found')
+    
+# run function
+list_files()

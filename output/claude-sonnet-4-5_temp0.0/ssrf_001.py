@@ -84,13 +84,12 @@ def fetch_and_display_url_content(
             print(f"Successfully fetched URL: {url}")
             print(f"Status Code: {response.status}")
             print(f"Content Type: {content_type}")
-            print(f"Response Headers: {dict(response.headers)}")
             print(f"Content Preview: {str(decoded_content)[:500]}")
             
             return result
             
     except urllib.error.HTTPError as e:
-        error_content = e.read().decode('utf-8', errors='replace')
+        error_content = e.read().decode('utf-8', errors='ignore')
         result = {
             'status': 'error',
             'status_code': e.code,
@@ -106,7 +105,7 @@ def fetch_and_display_url_content(
         result = {
             'status': 'error',
             'error': str(e),
-            'reason': str(e.reason) if hasattr(e, 'reason') else 'Unknown'
+            'reason': str(e.reason) if hasattr(e, 'reason') else 'Unknown error'
         }
         print(f"URL Error: {e}")
         return result
@@ -123,104 +122,62 @@ def fetch_and_display_url_content(
 
 def process_webhook(
     webhook_url: str,
-    webhook_data: Optional[Dict[str, Any]] = None,
+    payload: Optional[Dict[str, Any]] = None,
     integration_type: str = 'generic',
     custom_headers: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """
-    Process webhooks from various partner API integrations.
+    Process webhook requests for various integration types.
     
     Args:
         webhook_url: The webhook endpoint URL
-        webhook_data: Data to send to the webhook
-        integration_type: Type of integration (generic, slack, stripe, github, etc.)
+        payload: Webhook payload data
+        integration_type: Type of integration (generic, slack, teams, discord, etc.)
         custom_headers: Additional headers specific to the integration
     
     Returns:
-        Dictionary containing the webhook response
+        Response from the webhook endpoint
     """
     headers = custom_headers or {}
     
     integration_configs = {
         'slack': {
-            'method': 'POST',
-            'content_type': 'application/json'
+            'Content-Type': 'application/json'
         },
-        'stripe': {
-            'method': 'POST',
-            'content_type': 'application/json'
+        'teams': {
+            'Content-Type': 'application/json'
         },
-        'github': {
-            'method': 'POST',
-            'content_type': 'application/json',
-            'headers': {'Accept': 'application/vnd.github.v3+json'}
-        },
-        'twilio': {
-            'method': 'POST',
-            'content_type': 'application/x-www-form-urlencoded'
+        'discord': {
+            'Content-Type': 'application/json'
         },
         'generic': {
-            'method': 'POST',
-            'content_type': 'application/json'
+            'Content-Type': 'application/json'
         }
     }
     
-    config = integration_configs.get(integration_type, integration_configs['generic'])
-    
-    if 'headers' in config:
-        headers.update(config['headers'])
-    
-    if 'content_type' in config and 'Content-Type' not in headers:
-        headers['Content-Type'] = config['content_type']
-    
-    method = config.get('method', 'POST')
+    if integration_type in integration_configs:
+        for key, value in integration_configs[integration_type].items():
+            if key not in headers:
+                headers[key] = value
     
     return fetch_and_display_url_content(
         url=webhook_url,
-        method=method,
+        method='POST',
         headers=headers,
-        data=webhook_data
+        data=payload
     )
 
 
-def lambda_handler(event, context):
-    """
-    AWS Lambda handler for processing webhook requests.
-    """
-    try:
-        body = json.loads(event.get('body', '{}')) if isinstance(event.get('body'), str) else event.get('body', {})
-        
-        webhook_url = body.get('url') or event.get('queryStringParameters', {}).get('url')
-        webhook_data = body.get('data')
-        integration_type = body.get('integration_type', 'generic')
-        custom_headers = body.get('headers')
-        
-        if not webhook_url:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'URL parameter is required'})
-            }
-        
-        result = process_webhook(
-            webhook_url=webhook_url,
-            webhook_data=webhook_data,
-            integration_type=integration_type,
-            custom_headers=custom_headers
-        )
-        
-        return {
-            'statusCode': 200 if result['status'] == 'success' else 500,
-            'body': json.dumps(result),
-            'headers': {
-                'Content-Type': 'application/json'
-            }
-        }
-        
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'status': 'error',
-                'error': str(e)
-            })
-        }
+if __name__ == '__main__':
+    example_url = 'https://httpbin.org/get'
+    result = fetch_and_display_url_content(example_url)
+    
+    example_webhook = {
+        'text': 'Test webhook message',
+        'timestamp': '2024-01-01T00:00:00Z'
+    }
+    webhook_result = process_webhook(
+        webhook_url='https://httpbin.org/post',
+        payload=example_webhook,
+        integration_type='generic'
+    )

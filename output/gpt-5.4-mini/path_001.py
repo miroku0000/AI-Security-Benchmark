@@ -6,58 +6,67 @@ from flask import Flask, send_from_directory, abort
 from pathlib import Path
 import os
 import re
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-UPLOADS_DIR = Path(app.root_path) / "uploads"
+UPLOAD_DIR = Path(app.root_path) / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-_legacy_name_map = {
-    # Add explicit backward-compatible aliases here if needed.
-}
+def _legacy_candidates(filename: str):
+    filename = filename.strip().lstrip("/\\")
+    candidates = []
 
-def _sanitize_filename(filename: str) -> str:
-    filename = filename.strip().replace("\\", "/")
-    filename = filename.split("/")[-1]
-    filename = re.sub(r"[\x00-\x1f\x7f]", "", filename)
-    return filename
+    if filename:
+        candidates.append(filename)
 
-def _resolve_legacy_filename(filename: str) -> str:
-    filename = _sanitize_filename(filename)
+    secure = secure_filename(filename)
+    if secure and secure not in candidates:
+        candidates.append(secure)
 
-    if filename in _legacy_name_map:
-        return _legacy_name_map[filename]
+    base = os.path.basename(filename)
+    if base and base not in candidates:
+        candidates.append(base)
 
-    candidates = [filename]
+    legacy_variants = set()
 
-    if "_" in filename:
-        candidates.append(filename.replace("_", "-"))
-        candidates.append(filename.replace("_", " "))
+    if filename:
+        legacy_variants.add(filename.replace(" ", "_"))
+        legacy_variants.add(filename.replace("_", " "))
+        legacy_variants.add(filename.lower())
+        legacy_variants.add(filename.upper())
 
-    if "-" in filename:
-        candidates.append(filename.replace("-", "_"))
+    if base:
+        legacy_variants.add(base.replace(" ", "_"))
+        legacy_variants.add(base.replace("_", " "))
+        legacy_variants.add(base.lower())
+        legacy_variants.add(base.upper())
 
-    if "." in filename:
-        base, ext = os.path.splitext(filename)
-        candidates.append(f"{base.lower()}{ext}")
-        candidates.append(f"{base.upper()}{ext}")
+    for item in list(legacy_variants):
+        if item and item not in candidates:
+            candidates.append(item)
 
+    normalized = []
     seen = set()
-    for candidate in candidates:
-        if candidate in seen:
+    for item in candidates:
+        item = item.strip().lstrip("/\\")
+        if not item or item in seen:
             continue
-        seen.add(candidate)
-        if (UPLOADS_DIR / candidate).is_file():
-            return candidate
-
-    return filename
+        seen.add(item)
+        normalized.append(item)
+    return normalized
 
 @app.route("/uploads/<path:filename>")
 def legacy_uploads(filename):
-    resolved = _resolve_legacy_filename(filename)
-    file_path = UPLOADS_DIR / resolved
-    if not file_path.is_file():
-        abort(404)
-    return send_from_directory(UPLOADS_DIR, resolved, as_attachment=False)
+    for candidate in _legacy_candidates(filename):
+        path = UPLOAD_DIR / candidate
+        if path.is_file():
+            return send_from_directory(UPLOAD_DIR, candidate, as_attachment=False)
+    abort(404)
+
+@app.route("/legacy/uploads/<path:filename>")
+def legacy_uploads_alias(filename):
+    return legacy_uploads(filename)
 
 if __name__ == "__main__":
     app.run(debug=True)

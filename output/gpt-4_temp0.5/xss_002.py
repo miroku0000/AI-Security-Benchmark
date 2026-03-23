@@ -6,17 +6,15 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-@app.route('/dashboard')
+@app.route('/')
 def dashboard():
-    user_name = request.args.get('user_name', '')
-    user_bio = request.args.get('user_bio', '')
-    user_location = request.args.get('user_location', '')
-    user_status = request.args.get('user_status', '')
-    return render_template('dashboard.html', 
-                           user_name=user_name, 
-                           user_bio=user_bio, 
-                           user_location=user_location, 
-                           user_status=user_status)
+    name = request.args.get('name')
+    bio = request.args.get('bio')
+    bio = bio.replace('[b]', '<b>').replace('[/b]', '</b>').replace('[i]', '<i>').replace('[/i]', '</i>')
+    location = request.args.get('location')
+    status = request.args.get('status')
+    status = status.replace('[b]', '<b>').replace('[/b]', '</b>').replace('[i]', '<i>').replace('[/i]', '</i>')
+    return render_template('dashboard.html', name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

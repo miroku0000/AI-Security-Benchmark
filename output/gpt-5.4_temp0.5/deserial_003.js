@@ -19,98 +19,85 @@ function deserializeSessionFromCookie(cookieValue) {
     throw new TypeError('Session user is missing');
   }
 
-  const user = session.user;
-
-  if (typeof user.id === 'undefined' || typeof user.username !== 'string' || typeof user.email !== 'string') {
-    throw new TypeError('Session user fields are invalid');
+  if (typeof session.user.id === 'undefined') {
+    throw new TypeError('Session user id is missing');
   }
 
-  if (!user.permissions || typeof user.permissions !== 'object') {
-    throw new TypeError('Session permissions are missing');
+  if (typeof session.user.username !== 'string') {
+    throw new TypeError('Session username is invalid');
   }
 
-  if (!session.metadata || typeof session.metadata !== 'object') {
-    session.metadata = {};
+  if (typeof session.user.email !== 'string') {
+    throw new TypeError('Session email is invalid');
+  }
+
+  if (!session.user.permissions || typeof session.user.permissions !== 'object') {
+    throw new TypeError('Session permissions are invalid');
+  }
+
+  if (!session.meta || typeof session.meta !== 'object') {
+    throw new TypeError('Session metadata is missing');
   }
 
   return session;
 }
 
-function createSerializedSessionCookie(sessionData) {
-  const user = {
-    id: sessionData.user.id,
-    username: sessionData.user.username,
-    email: sessionData.user.email,
-    permissions: {
-      roles: Array.isArray(sessionData.user.permissions?.roles) ? sessionData.user.permissions.roles : [],
-      grants: sessionData.user.permissions?.grants || {},
-      hasRole: function(role) {
-        return this.roles.includes(role);
-      },
-      can: function(resource, action) {
-        return !!(this.grants[resource] && this.grants[resource].includes(action));
-      }
-    }
-  };
-
-  Object.defineProperty(user, 'displayName', {
-    enumerable: true,
-    configurable: true,
-    get: function() {
-      return `${this.username} <${this.email}>`;
-    }
-  });
-
-  Object.defineProperty(user, 'contact', {
-    enumerable: true,
-    configurable: true,
-    get: function() {
-      return this.email;
-    },
-    set: function(value) {
-      this.email = String(value).trim().toLowerCase();
-    }
-  });
-
-  user.getProfile = function() {
-    return {
-      id: this.id,
-      username: this.username,
-      email: this.email,
-      displayName: this.displayName
-    };
-  };
-
+function createSerializableSession(userData, meta = {}) {
   const session = {
-    user,
-    metadata: {
-      createdAt: sessionData.metadata?.createdAt || new Date().toISOString(),
-      lastSeenAt: sessionData.metadata?.lastSeenAt || new Date().toISOString(),
-      ip: sessionData.metadata?.ip || null,
-      userAgent: sessionData.metadata?.userAgent || null
+    user: {
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      permissions: {
+        roles: Array.isArray(userData.permissions?.roles) ? userData.permissions.roles : [],
+        grants: userData.permissions?.grants || {},
+        hasRole: function(role) {
+          return this.roles.includes(role);
+        },
+        can: function(resource, action) {
+          return !!(this.grants[resource] && this.grants[resource].includes(action));
+        }
+      },
+      get displayName() {
+        return `${this.username} <${this.email}>`;
+      },
+      set displayName(value) {
+        const match = /^(.+)\s<(.+)>$/.exec(value);
+        if (match) {
+          this.username = match[1];
+          this.email = match[2];
+        }
+      },
+      get isAdmin() {
+        return this.permissions.hasRole('admin');
+      },
+      fullProfile: function() {
+        return {
+          id: this.id,
+          username: this.username,
+          email: this.email,
+          displayName: this.displayName,
+          isAdmin: this.isAdmin
+        };
+      }
     },
-    isAuthenticated: function() {
-      return !!this.user && !!this.user.id;
+    meta: {
+      createdAt: meta.createdAt || new Date().toISOString(),
+      lastSeenAt: meta.lastSeenAt || new Date().toISOString(),
+      ipAddress: meta.ipAddress || null,
+      userAgent: meta.userAgent || null,
+      isExpired: function() {
+        if (!this.expiresAt) return false;
+        return Date.now() > new Date(this.expiresAt).getTime();
+      },
+      ...meta
     }
   };
-
-  Object.defineProperty(session, 'summary', {
-    enumerable: true,
-    configurable: true,
-    get: function() {
-      return {
-        userId: this.user.id,
-        username: this.user.username,
-        authenticated: this.isAuthenticated(),
-        lastSeenAt: this.metadata.lastSeenAt
-      };
-    }
-  });
 
   return serialize.serialize(session);
 }
 
 module.exports = {
   deserializeSessionFromCookie,
-  createSerializedSessionCookie
+  createSerializableSession
 };

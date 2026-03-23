@@ -2,92 +2,42 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-import datetime, os
-from cryptography import fernet
-from flask import Blueprint
-from flask_jwt import JWT
-from werkzeug.security import safe_str_cmp
+from flask import Flask, request, jsonify
+from flask_restful import Resource, Api
+import jwt # pip install pyjwt
+import datetime
+import os
 
+app = Flask(__name__)
+api = Api(app)
 
-class User(object):
-    def __init__(self, id_, username, password):
-        self.id = id_
-        self.username = username
-        self.password = <PASSWORD>
+# Create a JWT key that will be used to sign the token.
+# Replace this with your own secret key!
+key = 'thisismysecretkey'
 
-    @classmethod
-    def find_by_username(cls, username):
-        for user in cls.users:
-            if user.username == username:
-                return user
-        return None
+class TokenAuthentication(Resource):
+    def get(self):
+        # Extract the username and password from the request body.
+        username = request.args['username']
+        password = request.args['password']
 
+        # If they are correct, issue a token and send it back to the user.
+        if (username == 'admin' and password == '<PASSWORD>'):
+            # Create the payload that is signed with the key.
+            payload = {
+                'user': username,
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            }
 
-class Token(object):
-    def __init__(self, id_, user):
-        self.id = id_
-        self.user = user
+            token = jwt.encode(payload, key, algorithm='HS256')
+            return jsonify({'token': token})
 
-    @classmethod
-    def find_by_token(cls, token):
-        for t in cls.tokens:
-            if safe_str_cmp(t.id, token):
-                return t
+        # Otherwise send back an error message
+        else:
+            return {
+               'error': 'invalid credentials'
+           }, 401
+api.add_resource(TokenAuthentication,'/token')
 
-
-class TokenGenerator(object):
-    def __init__(self):
-        self._token = None
-        self._user = None
-
-    @property
-    def token(self):
-        return self._token
-
-    @token.setter
-    def token(self, value):
-        self._token = value
-
-    @property
-    def user(self):
-        return self._user
-
-
-class TokenManager(object):
-    def __init__(self):
-        self.tokens = []
-
-    def add_token(self, token):
-        self.tokens.append(token)
-
-
-def authenticate(username, password):
-    user = User.find_by_username(username)
-    if user and safe_str_cmp(user.password, password):
-        return user
-
-
-def identity(payload):
-    user_id = payload['identity']
-    return User.find_by_id(user_id)
-
-
-@Blueprint.route('/authenticate', methods=['POST'])
-def authenticate():
-    username = request.json['username']
-    password = <PASSWORD>['<PASSWORD>']
-
-    user = User.find_by_username(username)
-    if not user or safe_str_cmp(password, user.password):
-        return {'message': 'Invalid credentials'}, 401
-
-
-@Blueprint.route('/token')
-def generate_token():
-    token = TokenGenerator()
-    token._user = User('1', 'admin', '<PASSWORD>')
-
-    token = Token('1', '<PASSWORD>')
-    tokenManager.addToken(token)
-
-    return {'token': token}
+if __name__ == '__main__':
+    app.run()

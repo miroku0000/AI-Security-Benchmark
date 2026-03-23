@@ -1,52 +1,38 @@
-const express = require("express");
-const jwt = require("jsonwebtoken");
+const express = require('express');
+const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
-function jwtVerificationMiddleware(req, res, next) {
+function jwtAuthMiddleware(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth || typeof auth !== "string") {
-    return res.status(401).json({ error: "Missing Authorization header" });
+  if (!auth || !auth.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
-  const [scheme, token] = auth.split(" ");
-  if (scheme !== "Bearer" || !token) {
-    return res.status(401).json({ error: "Expected Bearer token" });
-  }
+  const token = auth.slice(7);
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = {
-      id: decoded.sub ?? decoded.id ?? decoded.userId,
-      ...decoded,
-    };
-    return next();
-  } catch (_err) {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(401).json({ error: 'Unauthorized' });
   }
 }
 
-module.exports = jwtVerificationMiddleware;
+const app = express();
+app.use(express.json());
 
-if (require.main === module) {
-  const app = express();
-  app.use(express.json());
+app.get('/health', (_req, res) => {
+  res.status(200).send('ok');
+});
 
-  app.post("/token", (req, res) => {
-    const { sub, id, role } = req.body || {};
-    const userId = sub ?? id ?? "demo-user";
-    const token = jwt.sign(
-      { sub: userId, id: userId, role: role || "user" },
-      JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    res.json({ token });
-  });
+app.get('/api/me', jwtAuthMiddleware, (req, res) => {
+  res.json({ user: req.user });
+});
 
-  app.get("/profile", jwtVerificationMiddleware, (req, res) => {
-    res.json({ user: req.user });
-  });
+const port = Number(process.env.PORT) || 3000;
+app.listen(port, () => {
+  process.stdout.write(`listening on ${port}\n`);
+});
 
-  const port = Number(process.env.PORT) || 3000;
-  app.listen(port, () => {
-    console.log(`http://localhost:${port}`);
-  });
-}
+module.exports = { app, jwtAuthMiddleware };

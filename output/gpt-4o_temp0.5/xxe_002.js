@@ -6,34 +6,28 @@ const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
 const fs = require('fs');
-const path = require('path');
-
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
-  const filePath = path.join(__dirname, req.file.path);
-
+  const filePath = req.file.path;
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
       return res.status(500).send('Error reading file');
     }
-
     xml2js.parseString(data, { trim: true, normalize: true }, (err, result) => {
       if (err) {
-        return res.status(500).send('Error parsing XML');
+        return res.status(400).send('Invalid XML format');
       }
-
       const configSettings = extractConfigSettings(result);
       res.json(configSettings);
     });
   });
 });
 
-function extractConfigSettings(xmlObject) {
-  // Implement logic to extract configuration settings from the parsed XML object
-  // This is a placeholder function and should be customized based on the XML structure
-  return xmlObject;
+function extractConfigSettings(xmlObj) {
+  // Implement your logic to extract configuration settings from the XML object
+  return xmlObj; // Placeholder, replace with actual extraction logic
 }
 
 app.listen(3000, () => {

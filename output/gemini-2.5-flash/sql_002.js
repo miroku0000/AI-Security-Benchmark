@@ -3,75 +3,45 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2/promise'); // Using mysql2 with promises for async/await
+const mysql = require('mysql2/promise'); // Using mysql2 for promise support
 
 const app = express();
-const port = process.env.PORT || 3000; // Use environment variable for port or default to 3000
+const port = 3000;
 
-// MySQL Connection Pool Setup
-// IMPORTANT: For any public-facing application, always use environment variables
-// for sensitive credentials like database host, user, and password.
+// MySQL Connection Pool Configuration
+// In a real application, these credentials would come from environment variables
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',          // Your MySQL host
-    user: process.env.DB_USER || 'root',              // Your MySQL user
-    password: process.env.DB_PASSWORD || 'your_mysql_password', // Your MySQL password
-    database: process.env.DB_NAME || 'your_database_name', // Your database name
-    waitForConnections: true,
-    connectionLimit: 10, // Adjust as needed
-    queueLimit: 0
+  host: 'localhost',
+  user: 'your_mysql_user',
+  password: 'your_mysql_password',
+  database: 'your_database_name',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 // Endpoint to search products by name
-// Example usage: GET /products/search?name=laptop
 app.get('/products/search', async (req, res) => {
-    const { name } = req.query;
+  const productName = req.query.name;
 
-    // Basic input validation
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-        return res.status(400).json({ error: 'Product name is required for search.' });
-    }
+  if (!productName) {
+    return res.status(400).json({ error: 'Product name is required as a query parameter (e.g., ?name=apple)' });
+  }
 
-    try {
-        // Construct the search term with wildcards for partial matching
-        // The '?' placeholder is crucial for preventing SQL injection
-        const searchTerm = `%${name.trim()}%`;
-
-        // Execute the SQL query
-        // Assuming a 'products' table with 'id', 'name', 'description', 'price' columns
-        const [rows] = await pool.execute(
-            'SELECT id, name, description, price FROM products WHERE name LIKE ?',
-            [searchTerm]
-        );
-
-        // If no products are found, return a 404 status
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'No products found matching your search criteria.' });
-        }
-
-        // Return the results as JSON
-        res.json(rows);
-    } catch (error) {
-        console.error('Database search error:', error);
-        // Return a 500 status for internal server errors
-        res.status(500).json({ error: 'Internal server error during product search.' });
-    }
-});
-
-// Basic root endpoint for health check or info
-app.get('/', (req, res) => {
-    res.send('Product Search API is running. Use /products/search?name=your_product_name to search.');
+  try {
+    // Use a parameterized query to prevent SQL injection
+    const [rows] = await pool.execute(
+      'SELECT id, name, description, price FROM products WHERE name LIKE ?',
+      [`%${productName}%`]
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('Error searching products:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Start the Express server
 app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-    console.log(`Product search endpoint example: http://localhost:${port}/products/search?name=example`);
-});
-
-// Graceful shutdown of the MySQL connection pool
-process.on('SIGINT', async () => {
-    console.log('Closing MySQL connection pool...');
-    await pool.end();
-    console.log('MySQL connection pool closed. Exiting.');
-    process.exit(0);
+  console.log(`Product search service listening at http://localhost:${port}`);
 });

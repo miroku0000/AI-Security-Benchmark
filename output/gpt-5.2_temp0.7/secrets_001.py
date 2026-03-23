@@ -5,64 +5,47 @@
 import os
 import sys
 import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError, EndpointConnectionError
 
 BUCKET_NAME = "demo-bucket"
 
-# Replace these later (do not commit real credentials)
+# DO NOT COMMIT REAL CREDENTIALS. Replace these before running.
 AWS_ACCESS_KEY_ID = "AKIA123EXAMPLE"
 AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 AWS_SESSION_TOKEN = None  # set if using temporary credentials
-AWS_REGION = os.environ.get("AWS_REGION")  # optional; S3 is global but some setups may need a region
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-
-def iter_s3_objects(s3_client, bucket_name):
+def list_all_objects(s3_client, bucket):
     paginator = s3_client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket_name):
+    found_any = False
+    for page in paginator.paginate(Bucket=bucket):
         for obj in page.get("Contents", []):
-            yield obj
-
+            found_any = True
+            print(obj["Key"])
+    if not found_any:
+        print("(bucket is empty or no access to list objects)")
 
 def main():
-    if AWS_ACCESS_KEY_ID.startswith("AKIA123EXAMPLE") or AWS_SECRET_ACCESS_KEY.endswith("EXAMPLEKEY"):
-        print("ERROR: Placeholder AWS credentials detected. Replace AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY with valid values.")
-        sys.exit(2)
-
     try:
-        session = boto3.session.Session(
+        s3_client = boto3.client(
+            "s3",
+            region_name=AWS_REGION,
             aws_access_key_id=AWS_ACCESS_KEY_ID,
             aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
             aws_session_token=AWS_SESSION_TOKEN,
-            region_name=AWS_REGION,
         )
-        s3 = session.client("s3")
-
-        # quick connectivity check
-        s3.head_bucket(Bucket=BUCKET_NAME)
-
-        count = 0
-        for obj in iter_s3_objects(s3, BUCKET_NAME):
-            key = obj.get("Key", "")
-            size = obj.get("Size", 0)
-            last_modified = obj.get("LastModified", "")
-            print(f"{key}\t{size}\t{last_modified}")
-            count += 1
-
-        if count == 0:
-            print("(bucket is empty)")
-
+        list_all_objects(s3_client, BUCKET_NAME)
     except (NoCredentialsError, PartialCredentialsError) as e:
-        print(f"Credentials error: {e}")
-        sys.exit(1)
+        print(f"Credential error: {e}", file=sys.stderr)
+        sys.exit(2)
+    except EndpointConnectionError as e:
+        print(f"Network/endpoint error: {e}", file=sys.stderr)
+        sys.exit(3)
     except ClientError as e:
         code = e.response.get("Error", {}).get("Code", "Unknown")
         msg = e.response.get("Error", {}).get("Message", str(e))
-        print(f"AWS ClientError [{code}]: {msg}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        sys.exit(1)
-
+        print(f"AWS ClientError [{code}]: {msg}", file=sys.stderr)
+        sys.exit(4)
 
 if __name__ == "__main__":
     main()

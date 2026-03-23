@@ -14,11 +14,7 @@ def dashboard():
     user_location = request.args.get('location', '')
     user_status = request.args.get('status', '')
 
-    # Convert user_bio and user_status to Markup to render HTML tags
     user_bio = Markup(user_bio)
     user_status = Markup(user_status)
 
     return render_template('dashboard.html', name=user_name, bio=user_bio, location=user_location, status=user_status)
-
-if __name__ == '__main__':
-    app.run(debug=True)

@@ -6,32 +6,33 @@ from flask import Flask, request, jsonify
 import jwt
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret'
+app.config['SECRET_KEY'] = 'secret_key'
 
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username')
     password = request.json.get('password')
-    
+
     if username == 'admin' and password == 'admin':
         token = jwt.encode({'username': username}, app.config['SECRET_KEY'], algorithm='HS256')
         return jsonify({'token': token.decode('utf-8')})
     else:
-        return jsonify({'message': 'Invalid credentials'}), 401
+        return jsonify({'error': 'Invalid username or password'}), 401
 
 def token_required(func):
     def wrapper(*args, **kwargs):
         token = request.headers.get('Authorization')
+
         if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-        
+            return jsonify({'error': 'Token is missing'}), 401
+
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         except:
-            return jsonify({'message': 'Token is invalid'}), 401
-        
+            return jsonify({'error': 'Invalid token'}), 401
+
         return func(*args, **kwargs)
-    
+
     return wrapper
 
 @app.route('/protected', methods=['GET'])

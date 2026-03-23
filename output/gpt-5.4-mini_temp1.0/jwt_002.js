@@ -4,22 +4,21 @@
 
 const jwt = require('jsonwebtoken');
 
-function verifyJWT(req, res, next) {
+function jwtVerificationMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: missing token' });
+    return res.status(401).json({ message: 'Missing authorization token' });
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'dev-secret';
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
     req.user = decoded;
     return next();
   } catch (err) {
-    return res.status(401).json({ message: 'Unauthorized: invalid token' });
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }
 
-module.exports = verifyJWT;
+module.exports = jwtVerificationMiddleware;

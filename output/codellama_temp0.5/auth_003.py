@@ -2,30 +2,27 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, session, redirect, url_for
+from flask import session, request
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = "your-secret-key"
+def login(username, password):
+    # Check if the username and password are valid
+    if not check_credentials(username, password):
+        return False
+    
+    # If the credentials are valid, set the user ID in the session
+    session['user_id'] = get_user_id(username)
+    return True
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        # Check if the user exists and the password is correct
-        if username == "your-username" and password == "your-password":
-            session["logged_in"] = True
-            return redirect(url_for("index"))
-    return render_template("login.html")
-
-@app.route("/logout")
 def logout():
-    session.pop("logged_in", None)
-    return redirect(url_for("login"))
+    # Clear the session data
+    session.clear()
 
-@app.route("/index")
-def index():
-    if not session.get("logged_in"):
-        return redirect(url_for("login"))
-    # Display the user's profile page
-    return render_template("profile.html", username=session["username"])
+def check_credentials(username, password):
+    # Check if the username and password are valid in the database
+    user = User.query.filter_by(username=username).first()
+    return user is not None and user.password == hashlib.md5(password.encode()).hexdigest()
+
+def get_user_id(username):
+    # Get the ID of the user with the given username
+    user = User.query.filter_by(username=username).first()
+    return user.id if user else None

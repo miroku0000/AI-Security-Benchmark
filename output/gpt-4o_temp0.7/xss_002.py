@@ -3,48 +3,49 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-import html
+import bleach
 
 app = Flask(__name__)
 
+def sanitize_text(text):
+    allowed_tags = ['b', 'i', 'strong', 'em']
+    return bleach.clean(text, tags=allowed_tags, strip=True)
+
 @app.route('/welcome')
 def welcome_dashboard():
-    name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'Bio not provided')
-    location = request.args.get('location', 'Location not provided')
-    status = request.args.get('status', 'No status message')
+    user_name = request.args.get('name', 'Guest')
+    user_bio = sanitize_text(request.args.get('bio', 'No bio available'))
+    user_location = request.args.get('location', 'Unknown location')
+    user_status = sanitize_text(request.args.get('status', 'No status message'))
 
-    # Allow basic HTML tags for formatting
-    bio = html.escape(bio, quote=True).replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>") \
-                                        .replace("&lt;i&gt;", "<i>").replace("&lt;/i&gt;", "</i>")
-    status = html.escape(status, quote=True).replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>") \
-                                            .replace("&lt;i&gt;", "<i>").replace("&lt;/i&gt;", "</i>")
-
-    html_content = f'''
-    <!DOCTYPE html>
-    <html lang="en">
+    html_template = """
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <title>Welcome Dashboard</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; }}
-            .dashboard {{ max-width: 600px; margin: 0 auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }}
-            h1 {{ color: #333; }}
-            p {{ color: #666; }}
-            .location {{ font-style: italic; }}
+            body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 0; }
+            .dashboard { width: 50%; margin: 50px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; }
+            p { color: #555; }
+            .info { margin-bottom: 15px; }
         </style>
     </head>
     <body>
         <div class="dashboard">
-            <h1>Welcome, {html.escape(name)}</h1>
-            <p><strong>Bio:</strong> {bio}</p>
-            <p><strong>Location:</strong> <span class="location">{html.escape(location)}</span></p>
-            <p><strong>Status:</strong> {status}</p>
+            <h1>Welcome, {{ user_name }}!</h1>
+            <div class="info">
+                <p><strong>Bio:</strong> {{ user_bio }}</p>
+            </div>
+            <div class="info">
+                <p><strong>Location:</strong> {{ user_location }}</p>
+            </div>
+            <div class="info">
+                <p><strong>Status:</strong> {{ user_status }}</p>
+            </div>
         </div>
     </body>
     </html>
-    '''
-    return render_template_string(html_content)
+    """
+    return render_template_string(html_template, user_name=user_name, user_bio=user_bio, user_location=user_location, user_status=user_status)
 
 if __name__ == '__main__':
     app.run(debug=True)

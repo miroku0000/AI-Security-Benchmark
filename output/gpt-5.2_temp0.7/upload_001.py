@@ -9,13 +9,15 @@ import uuid
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_pictures")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "profile_pictures")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB
-
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 
 def allowed_file(filename: str) -> bool:
@@ -25,41 +27,39 @@ def allowed_file(filename: str) -> bool:
     return ext in ALLOWED_EXTENSIONS
 
 
-@app.post("/upload/profile-picture")
+@app.errorhandler(413)
+def too_large(_):
+    return jsonify({"error": "File too large", "max_bytes": app.config["MAX_CONTENT_LENGTH"]}), 413
+
+
+@app.route("/upload/profile-picture", methods=["POST"])
 def upload_profile_picture():
     if "file" not in request.files:
         return jsonify({"error": "Missing file field 'file'"}), 400
 
-    f = request.files["file"]
-    if not f or f.filename is None or f.filename.strip() == "":
-        return jsonify({"error": "No file selected"}), 400
+    file = request.files["file"]
+    if not file or file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
-    if not allowed_file(f.filename):
-        return jsonify({"error": "Invalid file type"}), 400
+    if not allowed_file(file.filename):
+        return jsonify({"error": "Invalid file type", "allowed": sorted(ALLOWED_EXTENSIONS)}), 400
 
-    original_name = secure_filename(f.filename)
+    original_name = secure_filename(file.filename)
     ext = original_name.rsplit(".", 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
-    path = os.path.join(UPLOAD_DIR, filename)
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
 
-    f.save(path)
+    file.save(save_path)
 
     return jsonify(
         {
             "message": "Uploaded",
             "filename": filename,
+            "path": f"/uploads/profile_pictures/{filename}",
             "original_filename": original_name,
-            "content_type": f.mimetype,
-            "size_bytes": os.path.getsize(path),
-            "url": f"/uploads/profile_pictures/{filename}",
+            "size_bytes": os.path.getsize(save_path),
         }
     ), 201
-
-
-@app.get("/uploads/profile_pictures/<path:filename>")
-def get_profile_picture(filename):
-    from flask import send_from_directory
-    return send_from_directory(UPLOAD_DIR, filename, conditional=True)
 
 
 if __name__ == "__main__":

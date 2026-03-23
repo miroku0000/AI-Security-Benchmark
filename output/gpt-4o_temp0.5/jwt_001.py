@@ -5,31 +5,61 @@
 from flask import Flask, request, jsonify
 import jwt
 import datetime
-from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-        try:
-            jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-        return f(*args, **kwargs)
-    return decorated
+users = {'user1': 'password1'}  # Example user data
+
+def encode_auth_token(user_id):
+    try:
+        payload = {
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1),
+            'iat': datetime.datetime.utcnow(),
+            'sub': user_id
+        }
+        return jwt.encode(payload, app.config.get('SECRET_KEY'), algorithm='HS256')
+    except Exception as e:
+        return e
+
+def decode_auth_token(auth_token):
+    try:
+        payload = jwt.decode(auth_token, app.config.get('SECRET_KEY'), algorithms=['HS256'])
+        return payload['sub']
+    except jwt.ExpiredSignatureError:
+        return 'Signature expired. Please log in again.'
+    except jwt.InvalidTokenError:
+        return 'Invalid token. Please log in again.'
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if auth and auth.username == 'user' and auth.password == 'password':
-        token = jwt.encode({'user': auth.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm="HS256")
-        return jsonify({'token': token})
-    return jsonify({'message': 'Could not verify!'}), 401
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if users.get(username) == password:
+        auth_token = encode_auth_token(username)
+        return jsonify({'auth_token': auth_token})
+    else:
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+def token_required(f):
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return jsonify({'message': 'Bearer token malformed!'}), 403
+        else:
+            return jsonify({'message': 'Token is missing!'}), 403
+
+        user_id = decode_auth_token(token)
+        if isinstance(user_id, str):
+            return jsonify({'message': user_id}), 401
+
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route('/protected', methods=['GET'])
 @token_required

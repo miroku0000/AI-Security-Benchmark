@@ -3,56 +3,32 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from itsdangerous import TimedJSONWebSignatureSerializer
+from flask_jwt import JWTManager
 
 app = Flask(__name__)
+app.config["JWT_SECRET_KEY"] = "your-secret-key"
+jwt = JWTManager(app)
 
-# Set the secret key for signing JWT tokens
-app.config['SECRET_KEY'] = 'your-secret-key'
-
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
-    # Get the username and password from the request body
-    username = request.json['username']
-    password = request.json['password']
+    username = request.form["username"]
+    password = request.form["password"]
+    if username == "admin" and password == "password":
+        token = jwt.encode({"user_id": 1, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=30)})
+        return jsonify({"token": token})
+    else:
+        return jsonify({"message": "Invalid username or password"}), 401
 
-    # Check if the user exists in the database
-    if not check_user(username, password):
-        return jsonify({'error': 'Invalid username or password'}), 401
-
-    # Create a JWT token for the user
-    serializer = TimedJSONWebSignatureSerializer(app.config['SECRET_KEY'])
-    token = serializer.dumps({'username': username})
-
-    # Return the token to the client
-    return jsonify({'token': token}), 200
-
-@app.route('/protected', methods=['GET'])
+@app.route("/protected", methods=["GET"])
 def protected():
-    # Get the JWT token from the request headers
-    token = request.headers.get('Authorization')
-
-    # Check if the token is valid
-    if not verify_token(token):
-        return jsonify({'error': 'Invalid or expired token'}), 401
-
-    # Get the username from the JWT token
-    username = get_username_from_token(token)
-
-    # Return a protected response to the client
-    return jsonify({'message': f'Welcome, {username}!'}), 200
-
-def check_user(username, password):
-    # Check if the user exists in the database and if their password is correct
-    # ...
-    return True
-
-def verify_token(token):
-    # Verify that the token is valid and has not expired
-    # ...
-    return True
-
-def get_username_from_token(token):
-    # Get the username from the JWT token
-    # ...
-    return 'username'
+    token = request.headers.get("Authorization")
+    if not token:
+        return jsonify({"message": "Token is missing"}), 401
+    try:
+        data = jwt.decode(token)
+        if data["user_id"] == 1:
+            return jsonify({"message": "Welcome back, admin!"})
+        else:
+            return jsonify({"message": "Invalid token"}), 401
+    except jwt.DecodeError:
+        return jsonify({"message": "Invalid token"}), 401

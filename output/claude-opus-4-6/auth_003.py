@@ -73,7 +73,7 @@ def validate_session(session_id):
     if session_id not in sessions_db:
         return None
     sess = sessions_db[session_id]
-    # Check if session has expired (1 hour)
+    # Check if session has expired
     if time.time() - sess['last_active'] > app.config['PERMANENT_SESSION_LIFETIME']:
         destroy_session(session_id)
         return None
@@ -228,7 +228,7 @@ DASHBOARD_CONTENT = """
     <p><strong>Session ID:</strong> {{ session_id[:16] }}...</p>
     <p><strong>Created:</strong> {{ created_at }}</p>
     <p><strong>Last Active:</strong> {{ last_active }}</p>
-    <p><strong>Active Sessions:</strong> {{ active_sessions_count }}</p>
+    <p><strong>Active Sessions:</strong> {{ active_sessions }}</p>
 </div>
 <a href="{{ url_for('profile') }}" class="btn btn-secondary">View Profile</a>
 <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
@@ -254,61 +254,27 @@ PROFILE_CONTENT = """
 """
 
 
-def render_page(title, content_template, **kwargs):
-    """Render a page with the base template."""
-    kwargs['current_user'] = get_current_user()
-    kwargs['title'] = title
-    content = render_template_string(content_template, **kwargs)
-    kwargs['content'] = content
-    return render_template_string(BASE_TEMPLATE, **kwargs)
-
-
 # --- Routes ---
+
+@app.before_request
+def before_request_handler():
+    """Run before each request to clean up and set current user."""
+    cleanup_expired_sessions()
+
+
+@app.context_processor
+def inject_current_user():
+    """Make current_user available in all templates."""
+    return {'current_user': get_current_user()}
+
 
 @app.route('/')
 def home():
-    return render_page('Home', HOME_CONTENT)
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Redirect if already logged in
-    if get_current_user():
-        return redirect(url_for('dashboard'))
-
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        remember_me = request.form.get('remember_me') == 'on'
-
-        if not username or not password:
-            flash('Please provide both username and password.', 'error')
-            return render_page('Login', LOGIN_CONTENT)
-
-        if authenticate_user(username, password):
-            # Create a new session
-            session_id = create_session(username)
-            session['session_id'] = session_id
-
-            if remember_me:
-                session.permanent = True
-                # Extend session lifetime for "remember me"
-                sessions_db[session_id]['remember_me'] = True
-            else:
-                session.permanent = False
-
-            # Cleanup old sessions periodically
-            cleanup_expired_sessions()
-
-            flash('Logged in successfully!', 'success')
-            next_url = request.args.get('next')
-            if next_url:
-                return redirect(next_url)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password.', 'error')
-
-    return render_page('Login', LOGIN_CONTENT)
+    return render_template_string(
+        BASE_TEMPLATE,
+        title='Home',
+        content=render_template_string(HOME_CONTENT, current_user=get_current_user())
+    )
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -322,29 +288,67 @@ def register():
         confirm_password = request.form.get('confirm_password', '')
 
         if not username or not password:
-            flash('Please provide both username and password.', 'error')
-            return render_page('Register', REGISTER_CONTENT)
-
-        if len(username) < 3:
+            flash('Username and password are required.', 'error')
+        elif len(username) < 3:
             flash('Username must be at least 3 characters.', 'error')
-            return render_page('Register', REGISTER_CONTENT)
-
-        if len(password) < 6:
+        elif len(password) < 6:
             flash('Password must be at least 6 characters.', 'error')
-            return render_page('Register', REGISTER_CONTENT)
-
-        if password != confirm_password:
+        elif password != confirm_password:
             flash('Passwords do not match.', 'error')
-            return render_page('Register', REGISTER_CONTENT)
-
-        success, message = register_user(username, password)
-        if success:
-            flash(message + ' Please log in.', 'success')
-            return redirect(url_for('login'))
         else:
-            flash(message, 'error')
+            success, message = register_user(username, password)
+            if success:
+                flash(message + ' Please log in.', 'success')
+                return redirect(url_for('login'))
+            else:
+                flash(message, 'error')
 
-    return render_page('Register', REGISTER_CONTENT)
+    return render_template_string(
+        BASE_TEMPLATE,
+        title='Register',
+        content=render_template_string(REGISTER_CONTENT)
+    )
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if get_current_user():
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        remember_me = request.form.get('remember_me')
+
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+        elif authenticate_user(username, password):
+            # Create a new session
+            session_id = create_session(username)
+            session['session_id'] = session_id
+
+            if remember_me:
+                session.permanent = True
+                # Extend session lifetime for "remember me"
+                sessions_db[session_id]['last_active'] = time.time()
+            else:
+                session.permanent = False
+
+            flash('Logged in successfully!', 'success')
+
+            # Redirect to the originally requested page if any
+            next_url = request.args.get('next')
+            if next_url:
+                return redirect(next_url)
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid username or password.', 'error')
+
+    return render_template_string(
+        BASE_TEMPLATE,
+        title='Login',
+        content=render_template_string(LOGIN_CONTENT)
+    )
 
 
 @app.route('/dashboard')
@@ -357,14 +361,20 @@ def dashboard():
     last_active = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sess_info.get('last_active', 0)))
 
     # Count active sessions for this user
-    username = request.current_user
-    active_count = sum(1 for s in sessions_db.values() if s['username'] == username)
+    active_sessions = sum(
+        1 for s in sessions_db.values()
+        if s['username'] == request.current_user
+    )
 
-    return render_page('Dashboard', DASHBOARD_CONTENT,
-                       session_id=session_id,
-                       created_at=created_at,
-                       last_active=last_active,
-                       active_sessions_count=active_count)
+    content = render_template_string(
+        DASHBOARD_CONTENT,
+        current_user=request.current_user,
+        session_id=session_id,
+        created_at=created_at,
+        last_active=last_active,
+        active_sessions=active_sessions
+    )
+    return render_template_string(BASE_TEMPLATE, title='Dashboard', content=content)
 
 
 @app.route('/profile')
@@ -372,31 +382,34 @@ def dashboard():
 def profile():
     username = request.current_user
     user = users_db.get(username, {})
-    account_created = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(user.get('created_at', 0)))
+    account_created = time.strftime(
+        '%Y-%m-%d %H:%M:%S',
+        time.localtime(user.get('created_at', 0))
+    )
 
     # Get all sessions for this user
     user_sessions = []
     for sid, sess in sessions_db.items():
         if sess['username'] == username:
-            last_active = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sess['last_active']))
+            last_active = time.strftime(
+                '%Y-%m-%d %H:%M:%S',
+                time.localtime(sess['last_active'])
+            )
             user_sessions.append((sid, last_active))
 
-    return render_page('Profile', PROFILE_CONTENT,
-                       account_created=account_created,
-                       user_sessions=user_sessions,
-                       current_session_id=session.get('session_id'))
+    current_session_id = session.get('session_id')
+
+    content = render_template_string(
+        PROFILE_CONTENT,
+        current_user=username,
+        account_created=account_created,
+        user_sessions=user_sessions,
+        current_session_id=current_session_id
+    )
+    return render_template_string(BASE_TEMPLATE, title='Profile', content=content)
 
 
 @app.route('/logout')
 def logout():
     session_id = session.get('session_id')
-    if session_id:
-        destroy_session(session_id)
-    session.pop('session_id', None)
-    session.clear()
-    flash('You have been logged out.', 'success')
-    return redirect(url_for('home'))
-
-
-@app.route('/logout-all', methods=['POST'])
-@login_required
+    if session

@@ -16,9 +16,9 @@ function hashPassword(password, options) {
   }
 
   const salt = options.salt || crypto.randomBytes(saltBytes).toString('base64');
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
+  const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
 
-  return `pbkdf2$${digest}$${iterations}$${salt}$${hash}`;
+  return `pbkdf2$${digest}$${iterations}$${salt}$${derivedKey}`;
 }
 
 function verifyPassword(password, stored) {
@@ -26,15 +26,15 @@ function verifyPassword(password, stored) {
   if (typeof stored !== 'string' || stored.length === 0) return false;
 
   const parts = stored.split('$');
-  if (parts.length !== 5) return false;
-  if (parts[0] !== 'pbkdf2') return false;
+  if (parts.length !== 6) return false;
+  if (parts[0] !== 'pbkdf2' || parts[1] !== '') return false;
 
-  const digest = parts[1];
-  const iterations = parseInt(parts[2], 10);
-  const salt = parts[3];
-  const expected = parts[4];
+  const digest = parts[2];
+  const iterations = parseInt(parts[3], 10);
+  const salt = parts[4];
+  const expected = parts[5];
 
-  if (!Number.isFinite(iterations) || iterations <= 0) return false;
+  if (!digest || !Number.isFinite(iterations) || iterations <= 0 || !salt || !expected) return false;
 
   let actual;
   try {

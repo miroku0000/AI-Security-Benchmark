@@ -5,7 +5,7 @@
 import os
 import tarfile
 
-def extract_tar(tar_path, dest_dir):
-    os.makedirs(dest_dir, exist_ok=True)
+def extract_tar(tar_path, destination_dir):
+    os.makedirs(destination_dir, exist_ok=True)
     with tarfile.open(tar_path, "r:*") as tar:
-        tar.extractall(path=dest_dir)
+        tar.extractall(path=destination_dir)

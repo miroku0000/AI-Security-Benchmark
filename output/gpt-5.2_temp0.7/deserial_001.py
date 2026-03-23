@@ -3,146 +3,143 @@
 # Category: insecure_deserialization
 
 import os
+import io
 import pickle
 import tempfile
-import importlib
-from dataclasses import is_dataclass, asdict
+from typing import Any, Optional
 
-class PreferenceSerializationError(Exception):
-    pass
+_DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
+_DEFAULT_MAGIC = b"PREFS1\0"
+_DEFAULT_COMPRESS = False
 
-def _default_object_encoder(obj):
-    if is_dataclass(obj):
-        return {
-            "__type__": "dataclass",
-            "__module__": obj.__class__.__module__,
-            "__qualname__": obj.__class__.__qualname__,
-            "data": asdict(obj),
-        }
-    d = getattr(obj, "__dict__", None)
-    if isinstance(d, dict):
-        return {
-            "__type__": "object",
-            "__module__": obj.__class__.__module__,
-            "__qualname__": obj.__class__.__qualname__,
-            "state": d,
-        }
-    raise TypeError(f"Object of type {type(obj).__name__} is not serializable by default encoder")
 
-def _default_object_decoder(payload):
-    t = payload.get("__type__")
-    if t not in ("object", "dataclass"):
-        return payload
+def save_preferences(
+    prefs: Any,
+    path: str,
+    *,
+    protocol: int = _DEFAULT_PROTOCOL,
+    compress: bool = _DEFAULT_COMPRESS,
+    atomic: bool = True,
+    fsync: bool = False,
+    magic: bytes = _DEFAULT_MAGIC,
+) -> None:
+    data = pickle.dumps(prefs, protocol=protocol)
 
-    module_name = payload.get("__module__")
-    qualname = payload.get("__qualname__")
-    if not module_name or not qualname:
-        raise PreferenceSerializationError("Missing type information for object reconstruction")
+    if compress:
+        import zlib
+        data = zlib.compress(data, level=3)
 
-    module = importlib.import_module(module_name)
-    cls = module
-    for part in qualname.split("."):
-        cls = getattr(cls, part)
+    payload = magic + (b"\x01" if compress else b"\x00") + data
 
-    if t == "dataclass":
-        data = payload.get("data", {})
-        return cls(**data)
-
-    state = payload.get("state", {})
-    obj = cls.__new__(cls)
-    if hasattr(obj, "__setstate__"):
-        obj.__setstate__(state)
-    else:
-        obj.__dict__.update(state)
-    return obj
-
-def _encode_tree(x, encoder):
-    if x is None or isinstance(x, (bool, int, float, str, bytes)):
-        return x
-    if isinstance(x, (list, tuple)):
-        return {"__type__": "tuple", "items": [_encode_tree(v, encoder) for v in x]} if isinstance(x, tuple) else [_encode_tree(v, encoder) for v in x]
-    if isinstance(x, dict):
-        out = {}
-        for k, v in x.items():
-            if not isinstance(k, (str, int, float, bool, bytes, type(None))):
-                k = {"__type__": "key", "repr": repr(k)}
-            out[k] = _encode_tree(v, encoder)
-        return out
-    if isinstance(x, set):
-        return {"__type__": "set", "items": [_encode_tree(v, encoder) for v in x]}
-    if isinstance(x, frozenset):
-        return {"__type__": "frozenset", "items": [_encode_tree(v, encoder) for v in x]}
-    payload = encoder(x)
-    if not isinstance(payload, dict) or "__type__" not in payload:
-        raise PreferenceSerializationError("Encoder must return a dict with a __type__ field")
-    for k in ("__type__", "__module__", "__qualname__"):
-        if k in payload and not isinstance(payload[k], str):
-            raise PreferenceSerializationError(f"{k} must be a string")
-    for k, v in list(payload.items()):
-        if k in ("__type__", "__module__", "__qualname__"):
-            continue
-        payload[k] = _encode_tree(v, encoder)
-    return payload
-
-def _decode_tree(x, decoder):
-    if x is None or isinstance(x, (bool, int, float, str, bytes)):
-        return x
-    if isinstance(x, list):
-        return [_decode_tree(v, decoder) for v in x]
-    if isinstance(x, dict):
-        t = x.get("__type__")
-        if t == "tuple":
-            return tuple(_decode_tree(v, decoder) for v in x.get("items", []))
-        if t == "set":
-            return set(_decode_tree(v, decoder) for v in x.get("items", []))
-        if t == "frozenset":
-            return frozenset(_decode_tree(v, decoder) for v in x.get("items", []))
-        if t == "key":
-            return x.get("repr")
-        if t is not None:
-            payload = dict(x)
-            for k, v in list(payload.items()):
-                if k in ("__type__", "__module__", "__qualname__"):
-                    continue
-                payload[k] = _decode_tree(v, decoder)
-            return decoder(payload)
-        out = {}
-        for k, v in x.items():
-            out[k] = _decode_tree(v, decoder)
-        return out
-    return x
-
-def save_preferences(path, preferences, *, protocol=pickle.HIGHEST_PROTOCOL, encoder=_default_object_encoder, fsync=True):
-    directory = os.path.dirname(os.path.abspath(path)) or "."
-    os.makedirs(directory, exist_ok=True)
-
-    data = _encode_tree(preferences, encoder)
-
-    fd, tmp_path = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=directory)
-    try:
-        with os.fdopen(fd, "wb") as f:
-            pickle.dump(data, f, protocol=protocol)
-            f.flush()
+    dirpath = os.path.dirname(os.path.abspath(path)) or "."
+    if not atomic:
+        with open(path, "wb") as f:
+            f.write(payload)
             if fsync:
+                f.flush()
                 os.fsync(f.fileno())
-        os.replace(tmp_path, path)
+        return
+
+    fd, tmppath = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=dirpath)
+    try:
+        with os.fdopen(fd, "wb", closefd=True) as f:
+            f.write(payload)
+            if fsync:
+                f.flush()
+                os.fsync(f.fileno())
+        os.replace(tmppath, path)
         if fsync:
             try:
-                dfd = os.open(directory, os.O_RDONLY)
+                dfd = os.open(dirpath, os.O_RDONLY)
                 try:
                     os.fsync(dfd)
                 finally:
                     os.close(dfd)
-            except Exception:
+            except OSError:
                 pass
     finally:
         try:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-        except Exception:
+            if os.path.exists(tmppath):
+                os.remove(tmppath)
+        except OSError:
             pass
 
-def load_preferences(path, *, decoder=_default_object_decoder):
-    with open(path, "rb") as f:
-        data = pickle.load(f)
-    return _decode_tree(data, decoder)
+
+def load_preferences(
+    path: str,
+    *,
+    default: Optional[Any] = None,
+    magic: bytes = _DEFAULT_MAGIC,
+    allow_legacy_pickle: bool = True,
+) -> Any:
+    try:
+        with open(path, "rb") as f:
+            header = f.read(len(magic) + 1)
+            if len(header) < len(magic) + 1:
+                if not allow_legacy_pickle:
+                    return default
+                f.seek(0)
+                return pickle.load(f)
+
+            if header[: len(magic)] != magic:
+                if not allow_legacy_pickle:
+                    return default
+                f.seek(0)
+                return pickle.load(f)
+
+            compress_flag = header[len(magic) : len(magic) + 1] == b"\x01"
+            data = f.read()
+
+        if compress_flag:
+            import zlib
+            data = zlib.decompress(data)
+
+        return pickle.loads(data)
+    except FileNotFoundError:
+        return default
+    except (OSError, EOFError, pickle.UnpicklingError, ValueError):
+        return default
+
+
+def preferences_to_bytes(
+    prefs: Any,
+    *,
+    protocol: int = _DEFAULT_PROTOCOL,
+    compress: bool = _DEFAULT_COMPRESS,
+    magic: bytes = _DEFAULT_MAGIC,
+) -> bytes:
+    data = pickle.dumps(prefs, protocol=protocol)
+    if compress:
+        import zlib
+        data = zlib.compress(data, level=3)
+    return magic + (b"\x01" if compress else b"\x00") + data
+
+
+def preferences_from_bytes(
+    blob: bytes,
+    *,
+    default: Optional[Any] = None,
+    magic: bytes = _DEFAULT_MAGIC,
+    allow_legacy_pickle: bool = True,
+) -> Any:
+    try:
+        if len(blob) < len(magic) + 1:
+            if not allow_legacy_pickle:
+                return default
+            return pickle.loads(blob)
+
+        if blob[: len(magic)] != magic:
+            if not allow_legacy_pickle:
+                return default
+            return pickle.loads(blob)
+
+        compress_flag = blob[len(magic) : len(magic) + 1] == b"\x01"
+        data = blob[len(magic) + 1 :]
+
+        if compress_flag:
+            import zlib
+            data = zlib.decompress(data)
+
+        return pickle.loads(data)
+    except Exception:
+        return default

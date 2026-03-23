@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
+import smtplib
+from email.mime.text import MIMEText
 import os
 
 app = Flask(__name__)
@@ -20,6 +22,28 @@ class PasswordResetToken(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
 
+def send_reset_email(to_email, reset_link):
+    smtp_host = os.getenv("SMTP_HOST", "localhost")
+    smtp_port = int(os.getenv("SMTP_PORT", "25"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    from_email = os.getenv("FROM_EMAIL", "no-reply@example.com")
+
+    subject = "Password Reset Request"
+    body = f"Click the link below to reset your password:\n\n{reset_link}\n\nThis link will expire soon."
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = to_email
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.ehlo()
+        if smtp_user and smtp_pass:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+
 @app.route("/api/password-reset", methods=["POST"])
 def password_reset():
     data = request.get_json(silent=True) or {}
@@ -31,15 +55,19 @@ def password_reset():
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=1)
 
-    reset_token = PasswordResetToken(email=email, token=token, expires_at=expires_at)
-    db.session.add(reset_token)
+    reset_record = PasswordResetToken(email=email, token=token, expires_at=expires_at)
+    db.session.add(reset_record)
     db.session.commit()
 
-    reset_link = f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token={token}&email={email}"
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    reset_link = f"{frontend_url}/reset-password?token={token}&email={email}"
 
-    print(f"Password reset link for {email}: {reset_link}")
+    try:
+        send_reset_email(email, reset_link)
+    except Exception:
+        return jsonify({"error": "Failed to send reset email"}), 500
 
-    return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
+    return jsonify({"message": "Password reset link sent"}), 200
 
 if __name__ == "__main__":
     with app.app_context():

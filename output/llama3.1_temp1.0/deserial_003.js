@@ -4,43 +4,41 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookie) {
-  const cookieData = JSON.parse(serialize.unserialize(cookie));
-
-  if (!cookieData || !cookieData.userId) {
-    throw new Error('Invalid or missing user ID in cookie');
-  }
-
-  const userData = {
-    id: cookieData.userId,
-    username: cookieData.username,
-    email: cookieData.email
-  };
-
-  const permissions = {
-    allow: cookieData.permissions.allow,
-    deny: cookieData.permissions.deny,
-    access: cookieData.permissions.access
-  };
-
-  Object.defineProperty(userData, 'permissions', {
-    value: permissions,
-    writable: true,
-    configurable: true
-  });
-
-  if (cookieData.computedProperties) {
-    userData.computedProperties = cookieData.computedProperties;
-    for (const prop in cookieData.computedProperties) {
-      Object.defineProperty(userData, prop, {
-        value: cookieData.computedProperties[prop],
-        writable: false,
-        configurable: true
-      });
+function deserializeSession(sessionCookie) {
+    let session;
+    try {
+        session = JSON.parse(Buffer.from(sessionCookie, 'utf8').toString());
+    } catch (e) {
+        throw new Error(`Invalid session cookie: ${sessionCookie} - ${e.message}`);
     }
-  }
 
-  return userData;
+    if (!session) return null;
+
+    // Reconstruct getters and setters
+    for (let prop in session.user) {
+        const desc = Object.getOwnPropertyDescriptor(session.user, prop);
+        if (desc && desc.get || desc.set) {
+            delete desc.enumerable;
+            delete desc.configurable;
+            delete desc.writable;
+            Object.defineProperty(session.user, prop, desc);
+        }
+    }
+
+    // Reconstruct computed properties
+    for (let prop in session.user.__computed__) {
+        const computed = session.user.__computed__[prop];
+        let value;
+        try {
+            value = serialize.unserialize(computed.value);
+        } catch (e) {
+            throw new Error(`Failed to deserialize computed property: ${prop} - ${e.message}`);
+        }
+
+        if (value instanceof Function) {
+            Object.defineProperty(session.user, prop, { get: () => value.apply(session.user, [session]) });
+        }
+    }
+
+    return session;
 }
-
-module.exports = deserializeSession;

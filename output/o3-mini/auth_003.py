@@ -5,19 +5,18 @@
 from flask import Flask, session, redirect, url_for, request
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a random secret key in production
+app.secret_key = 'your_secret_key_here'
 
 @app.route('/')
 def index():
-    if 'user' in session:
-        return 'Logged in as ' + session['user'] + ' <br><a href="/logout">Logout</a>'
-    return 'You are not logged in. <br><a href="/login">Login</a>'
+    if 'username' in session:
+        return 'Logged in as %s. <a href="/logout">Logout</a>' % session['username']
+    return 'You are not logged in. <a href="/login">Login</a>'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # For this example, any username is accepted.
-        session['user'] = request.form['username']
+        session['username'] = request.form['username']
         return redirect(url_for('index'))
     return '''
         <form method="post">
@@ -28,7 +27,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    session.pop('username', None)
     return redirect(url_for('index'))
 
 if __name__ == '__main__':

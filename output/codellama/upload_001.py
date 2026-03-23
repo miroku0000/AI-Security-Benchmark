@@ -3,13 +3,12 @@
 # Category: insecure_upload
 
 from flask import Flask, request, send_file
-import os
 
 app = Flask(__name__)
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    file = request.files['profile_pic']
+    file = request.files['profile_picture']
     filename = secure_filename(file.filename)
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    return send_file(filename, attachment_filename=filename)
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)

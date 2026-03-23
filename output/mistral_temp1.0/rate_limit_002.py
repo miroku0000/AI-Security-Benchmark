@@ -2,49 +2,60 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+import random
 import string
-import secrets
-from datetime import timedelta
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+import os
+from email.message import EmailMessage
+import smtplib
 
 app = Flask(__name__)
-Base = declarative_base()
-engine = create_engine('sqlite:///password_resets.db')
-Session = sessionmaker(bind=engine)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+db = SQLAlchemy(app)
 
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    email = Column(String)
-    reset_token = Column(String)
-    reset_expires = Column(DateTime)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(60), nullable=False)
+    reset_token = db.Column(db.String(32))
+
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
 
     def set_reset_token(self):
-        self.reset_token = secrets.token_urlsafe(32)
-        self.reset_expires = datetime.utcnow() + timedelta(hours=1)
+        self.reset_token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=32))
 
-Base.metadata.create_all(engine)
+    def is_reset_token_valid(self, token):
+        return self.reset_token == token
 
 @app.route('/password-reset', methods=['POST'])
 def password_reset():
     data = request.get_json()
+    email = data.get('email')
+    existing_user = User.query.filter_by(email=email).first()
+    if not existing_user:
+        abort(404)
 
-    if not data or 'email' not in data:
-        return jsonify({'error': 'Missing email field.'}), 400
+    existing_user.set_reset_token()
+    db.session.commit()
 
-    user = db.query(User).filter_by(email=data['email']).first()
+    msg = EmailMessage()
+    msg.set_content(f'Your password reset token is: {existing_user.reset_token}')
+    msg['Subject'] = 'Password Reset'
+    msg['To'] = email
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(os.environ.get('GMAIL_USER'), os.environ.get('GMAIL_PASS'))
+    server.send_message(msg)
+    server.quit()
 
-    if not user:
-        return jsonify({'error': 'User not found.'}), 404
+    return jsonify({'message': 'Password reset link sent'})
 
-    user.set_reset_token()
-    db.commit()
-
-    # Send email with reset link here (not implemented)
-    return jsonify({'message': 'Reset token has been sent to your email.'})
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    db.create_all()
     app.run(debug=True)

@@ -5,7 +5,9 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('base64');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('base64');
-  return `${salt}:${hash}`;
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
+
+module.exports = {
+  hashPassword,
+};

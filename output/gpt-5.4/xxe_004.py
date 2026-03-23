@@ -5,10 +5,6 @@
 from typing import Optional
 from lxml import etree
 
-SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/"
-SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope"
-SOAP_NAMESPACES = {SOAP11_NS, SOAP12_NS}
-
 
 class SOAPProcessingError(Exception):
     pass
@@ -22,7 +18,11 @@ class SOAPParseError(SOAPProcessingError):
     pass
 
 
-def process_soap_xml_request(xml_data: bytes | str, dtd: Optional[bytes | str] = None):
+SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/"
+SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope"
+
+
+def process_soap_request(xml_data: str | bytes) -> etree._Element:
     if isinstance(xml_data, str):
         xml_data = xml_data.encode("utf-8")
 
@@ -40,34 +40,28 @@ def process_soap_xml_request(xml_data: bytes | str, dtd: Optional[bytes | str] =
 
     try:
         root = etree.fromstring(xml_data, parser=parser)
-    except (etree.XMLSyntaxError, ValueError) as e:
+    except etree.XMLSyntaxError as e:
         raise SOAPParseError(f"Invalid XML: {e}") from e
 
-    docinfo = root.getroottree().docinfo
-    if docinfo.internalDTD is not None or docinfo.doctype:
-        raise SOAPValidationError("DTD declarations are not allowed in SOAP XML requests")
+    qname = etree.QName(root.tag)
+    if qname.namespace not in (SOAP11_NS, SOAP12_NS) or qname.localname != "Envelope":
+        raise SOAPValidationError("Root element is not a valid SOAP Envelope")
 
-    if dtd is not None:
-        try:
-            if isinstance(dtd, str):
-                dtd_obj = etree.DTD(dtd)
-            else:
-                from io import BytesIO
-                dtd_obj = etree.DTD(BytesIO(dtd))
-        except (etree.DTDParseError, etree.XMLSyntaxError, OSError, ValueError) as e:
-            raise SOAPValidationError(f"Invalid DTD: {e}") from e
-
-        if not dtd_obj.validate(root):
-            raise SOAPValidationError(
-                f"DTD validation failed: {dtd_obj.error_log.filter_from_errors()}"
-            )
-
-    qname = etree.QName(root)
-    if qname.localname != "Envelope" or qname.namespace not in SOAP_NAMESPACES:
-        raise SOAPParseError("Root element is not a valid SOAP Envelope")
-
-    body = root.find(f"{{{qname.namespace}}}Body")
+    body = _find_soap_body(root, qname.namespace)
     if body is None:
-        raise SOAPParseError("SOAP Body element not found")
+        raise SOAPValidationError("SOAP Body element not found")
 
     return body
+
+
+def _find_soap_body(envelope: etree._Element, soap_ns: str) -> Optional[etree._Element]:
+    body = envelope.find(f"{{{soap_ns}}}Body")
+    if body is not None:
+        return body
+
+    for child in envelope:
+        if isinstance(child.tag, str):
+            qname = etree.QName(child.tag)
+            if qname.namespace == soap_ns and qname.localname == "Body":
+                return child
+    return None

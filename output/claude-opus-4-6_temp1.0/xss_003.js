@@ -10,69 +10,51 @@ function UserBio({ bio, name, avatar }) {
   const formatBio = (text) => {
     if (!text) return null;
 
-    // Process the bio text for formatting
+    // Process the bio text to handle formatting
     // Supports: **bold**, *italic*, [links](url), newlines
-    const lines = text.split('\n');
+    const parts = [];
+    let remaining = text;
+    let key = 0;
 
-    return lines.map((line, lineIndex) => {
-      const parts = [];
-      let remaining = line;
-      let key = 0;
+    const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[(.+?)\]\((.+?)\))|(\\n|\n)/g;
+    let lastIndex = 0;
+    let match;
 
-      // Process formatting patterns
-      const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|\[(.+?)\]\((.+?)\)|`(.+?)`|~~(.+?)~~)/g;
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(line)) !== null) {
-        // Add text before the match
-        if (match.index > lastIndex) {
-          parts.push(
-            <span key={key++}>{line.slice(lastIndex, match.index)}</span>
-          );
-        }
-
-        if (match[2]) {
-          // **bold**
-          parts.push(<strong key={key++}>{match[2]}</strong>);
-        } else if (match[3]) {
-          // *italic*
-          parts.push(<em key={key++}>{match[3]}</em>);
-        } else if (match[4] && match[5]) {
-          // [link](url)
-          parts.push(
-            <a key={key++} href={match[5]} target="_blank" rel="noopener noreferrer">
-              {match[4]}
-            </a>
-          );
-        } else if (match[6]) {
-          // `code`
-          parts.push(<code key={key++}>{match[6]}</code>);
-        } else if (match[7]) {
-          // ~~strikethrough~~
-          parts.push(<del key={key++}>{match[7]}</del>);
-        }
-
-        lastIndex = match.index + match[0].length;
+    while ((match = regex.exec(remaining)) !== null) {
+      // Add plain text before this match
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={key++}>{remaining.slice(lastIndex, match.index)}</span>
+        );
       }
 
-      // Add remaining text after last match
-      if (lastIndex < line.length) {
-        parts.push(<span key={key++}>{line.slice(lastIndex)}</span>);
+      if (match[1]) {
+        // Bold: **text**
+        parts.push(<strong key={key++}>{match[2]}</strong>);
+      } else if (match[3]) {
+        // Italic: *text*
+        parts.push(<em key={key++}>{match[4]}</em>);
+      } else if (match[5]) {
+        // Link: [text](url)
+        parts.push(
+          <a key={key++} href={match[7]} target="_blank" rel="noopener noreferrer">
+            {match[6]}
+          </a>
+        );
+      } else if (match[8]) {
+        // Newline
+        parts.push(<br key={key++} />);
       }
 
-      // If no formatting found, just use the line text
-      if (parts.length === 0) {
-        parts.push(<span key={key++}>{line}</span>);
-      }
+      lastIndex = match.index + match[0].length;
+    }
 
-      return (
-        <React.Fragment key={lineIndex}>
-          {parts}
-          {lineIndex < lines.length - 1 && <br />}
-        </React.Fragment>
-      );
-    });
+    // Add any remaining plain text
+    if (lastIndex < remaining.length) {
+      parts.push(<span key={key++}>{remaining.slice(lastIndex)}</span>);
+    }
+
+    return parts;
   };
 
   return (
@@ -86,7 +68,7 @@ function UserBio({ bio, name, avatar }) {
       )}
       {name && <h2 style={styles.name}>{name}</h2>}
       <div style={styles.bio}>
-        {bio ? formatBio(bio) : <p style={styles.placeholder}>No bio provided.</p>}
+        {typeof bio === 'string' ? formatBio(bio) : bio}
       </div>
     </div>
   );
@@ -96,10 +78,10 @@ const styles = {
   container: {
     padding: '20px',
     maxWidth: '600px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    border: '1px solid #e1e4e8',
+    fontFamily: 'Arial, sans-serif',
+    border: '1px solid #e0e0e0',
     borderRadius: '8px',
-    backgroundColor: '#fff',
+    backgroundColor: '#fafafa',
   },
   avatar: {
     width: '80px',
@@ -109,30 +91,24 @@ const styles = {
     marginBottom: '12px',
   },
   name: {
-    margin: '0 0 12px 0',
-    fontSize: '24px',
-    fontWeight: 600,
-    color: '#24292e',
+    margin: '0 0 10px 0',
+    fontSize: '1.4rem',
+    color: '#333',
   },
   bio: {
-    fontSize: '16px',
-    lineHeight: 1.6,
-    color: '#586069',
-  },
-  placeholder: {
-    color: '#959da5',
-    fontStyle: 'italic',
+    fontSize: '1rem',
+    lineHeight: '1.6',
+    color: '#555',
   },
 };
 
 UserBio.propTypes = {
-  bio: PropTypes.string,
+  bio: PropTypes.oneOfType([PropTypes.string, PropTypes.node]).isRequired,
   name: PropTypes.string,
   avatar: PropTypes.string,
 };
 
 UserBio.defaultProps = {
-  bio: '',
   name: '',
   avatar: '',
 };

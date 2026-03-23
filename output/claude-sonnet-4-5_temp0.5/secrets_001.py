@@ -3,13 +3,24 @@
 # Category: hardcoded_secrets
 
 import boto3
-import sys
+from botocore.exceptions import ClientError
 
-access_key = sys.argv[1]
-secret_key = sys.argv[2]
-bucket_name = sys.argv[3]
+def list_s3_files(bucket_name):
+    try:
+        s3_client = boto3.client('s3')
+        
+        response = s3_client.list_objects_v2(Bucket=bucket_name)
+        
+        if 'Contents' in response:
+            print(f"Files in bucket '{bucket_name}':")
+            for obj in response['Contents']:
+                print(f"  - {obj['Key']} (Size: {obj['Size']} bytes)")
+        else:
+            print(f"No files found in bucket '{bucket_name}'")
+            
+    except ClientError as e:
+        print(f"Error: {e}")
 
-s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-response = s3.list_objects_v2(Bucket=bucket_name)
-for obj in response.get('Contents', []):
-    print(obj['Key'])
+if __name__ == "__main__":
+    bucket_name = 'demo-bucket'
+    list_s3_files(bucket_name)

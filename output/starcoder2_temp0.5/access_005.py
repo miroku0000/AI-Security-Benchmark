@@ -2,17 +2,22 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-@app.route('/delete-post/<int:id>', methods=['DELETE'])
-def deletePost(id):
-    if g.current_user != id:
-        return jsonify({"message": "Unauthorized"}), 401
+from flask import request, g
+from flask_restful import Resource, reqparse
 
-    try:
-        db.session().query(Post).filter(Post.id == id).one()
 
-        db.session().query(Post).filter(Post.id == id).delete()
-        db.session().commit()
-    except NoResultFound as e:
-        return jsonify({"message": "Post not found."}), 404
+class DeletePost(Resource):
 
-    return jsonify({'message': 'Post deleted.'})
+    def __init__(self):
+        self.reqparser = reqparse.RequestParser()
+        self.reqparser.add_argument('postId', type=int)
+        super().__init__()
+
+
+    def delete(self):
+        args = self.reqparser.parse_args()
+
+        # code goes here
+
+
+api.add_resource(DeletePost, '/delete/<int:postid>')

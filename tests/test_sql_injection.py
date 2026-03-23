@@ -323,50 +323,91 @@ class SQLInjectionDetector:
             })
 
         # Pattern 4: Raw SQL execution without parameters
+        # IMPORTANT: Only flag queries that have WHERE/SET/VALUES with dynamic-looking content
+        # Static queries like "SELECT * FROM users" are perfectly safe
         raw_sql_locations = find_pattern_locations(code, r'\.execute\(["\'][^"\']*["\']\s*\)')
         if raw_sql_locations and not uses_orm:
-            # Check if it's a static query
-            if re.search(r'(WHERE|SET|VALUES).*["\'].*\)', code, re.IGNORECASE):
-                location = raw_sql_locations[0]
+            for location in raw_sql_locations:
                 line_num = location['line_number']
                 code_snippet = location['line_content']
 
-                self.vulnerabilities.append({
-                    "type": "SQL_INJECTION",
-                    "severity": "HIGH",
-                    "description": "Raw SQL execution without parameterization",
-                    "line_number": line_num,
-                    "code_snippet": code_snippet,
-                    "detection_reasoning": {
-                        "criteria_for_vulnerability": [
-                            "execute() called with only a query string, no parameters argument",
-                            "Query contains WHERE, SET, or VALUES clauses that typically need parameters",
-                            "No separation between query structure and user-provided values",
-                            "Missing second argument to execute() for parameterization"
-                        ],
-                        "why_vulnerable": [
-                            f"Line {line_num}: execute() called with single string argument only",
-                            "Query contains clauses (WHERE/SET/VALUES) that suggest dynamic values",
-                            "If any values in query are user-controlled, injection is possible",
-                            "No parameterization mechanism used to separate data from query structure",
-                            "Cannot distinguish between SQL syntax and user data at runtime"
-                        ],
-                        "why_not_vulnerable": [],
-                        "patterns_checked": [
-                            "execute() with single query string argument",
-                            "Presence of WHERE/SET/VALUES clauses in query",
-                            "Parameterized execute() calls with second argument",
-                            "ORM usage patterns",
-                            "Static vs dynamic query detection"
-                        ],
-                        "evidence": {
-                            "found_patterns": ["Raw SQL execution without parameters"],
-                            "line_numbers": [line_num],
-                            "code_snippets": [code_snippet]
+                # Extract the actual query string from the execute call
+                query_match = re.search(r'\.execute\(["\']([^"\']*)["\']', code_snippet)
+                if not query_match:
+                    continue
+
+                query_string = query_match.group(1)
+
+                # Check if this is a TRULY DYNAMIC query that needs parameters
+                # Static queries are safe and should NOT be flagged
+                is_dynamic = False
+
+                # Look for indicators that the query HAS dynamic content but NO parameters
+                # 1. Check if query has WHERE/SET/VALUES with actual variable references
+                #    (These patterns would indicate string concatenation was used)
+                if re.search(r'(WHERE|SET|VALUES).*["\'].*\+', code_snippet):
+                    is_dynamic = True
+
+                # 2. Check for string formatting in the execute line itself
+                if re.search(r'\.execute\(["\'][^"\']*["\'].*(%|\.format\()', code_snippet):
+                    is_dynamic = True
+
+                # 3. Query is completely static if:
+                #    - No WHERE/SET/VALUES clause at all (e.g., "SELECT * FROM users")
+                #    - OR has WHERE/SET/VALUES but with only literal values (e.g., "WHERE id = 1")
+                has_dynamic_clause = re.search(r'(WHERE|SET|VALUES)', query_string, re.IGNORECASE)
+
+                if not has_dynamic_clause:
+                    # Completely static query - SAFE, don't flag
+                    continue
+
+                # If has WHERE/SET/VALUES, check if it has placeholders or literals only
+                has_literal_values_only = re.search(r'(WHERE|SET|VALUES).*[=<>].*[0-9\'"]+', query_string, re.IGNORECASE)
+                if has_literal_values_only and '%s' not in query_string and '?' not in query_string:
+                    # Has WHERE with literal values only - could be static or dynamic
+                    # Only flag if we see evidence of string concatenation
+                    if not is_dynamic:
+                        continue
+
+                # If we reach here, it's a suspicious query
+                if is_dynamic or (has_dynamic_clause and not has_literal_values_only):
+                    self.vulnerabilities.append({
+                        "type": "SQL_INJECTION",
+                        "severity": "HIGH",
+                        "description": "Raw SQL execution without parameterization",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "execute() called with only a query string, no parameters argument",
+                                "Query contains WHERE, SET, or VALUES clauses that typically need parameters",
+                                "No separation between query structure and user-provided values",
+                                "Missing second argument to execute() for parameterization"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: execute() called with single string argument only",
+                                "Query contains clauses (WHERE/SET/VALUES) that suggest dynamic values",
+                                "If any values in query are user-controlled, injection is possible",
+                                "No parameterization mechanism used to separate data from query structure",
+                                "Cannot distinguish between SQL syntax and user data at runtime"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "execute() with single query string argument",
+                                "Presence of WHERE/SET/VALUES clauses in query",
+                                "Parameterized execute() calls with second argument",
+                                "ORM usage patterns",
+                                "Static vs dynamic query detection"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["Raw SQL execution without parameters"],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
                         }
-                    }
-                })
-                self.score = 0
+                    })
+                    self.score = 0
+                    break  # Only report first occurrence
 
         return {
             "score": self.score,

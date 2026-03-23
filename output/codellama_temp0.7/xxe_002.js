@@ -8,28 +8,15 @@ const libxmljs = require('libxmljs');
 const xml2js = require('xml2js');
 
 const app = express();
-app.use(bodyParser.raw({ type: 'application/octet-stream' }));
+app.use(bodyParser.raw({ type: '*/*' }));
 
 app.post('/parse', (req, res) => {
-  const xml = req.body;
-  const parser = new libxmljs.XmlDocument(xml);
-  const config = {};
-  
-  // Parse the XML document and extract configuration settings
-  parser.root().children().each((child) => {
-    if (child.name() === 'config') {
-      child.children().each((setting) => {
-        config[setting.name()] = setting.text();
-      });
-    }
-  });
-  
-  // Validate the configuration settings against an external schema
-  const schemaUrl = 'http://example.com/config-schema.xsd';
-  const validator = new xml2js.Validator(xml, { schema: schemaUrl });
-  if (validator.errors) {
-    res.status(400).json({ message: 'Invalid configuration' });
-  } else {
-    res.json(config);
-  }
+  const xmlData = req.body;
+  const parser = new libxmljs.Document();
+  parser.parseXmlString(xmlData);
+  const jsonObj = parser.toJson();
+  const configSettings = {};
+  // Extract configuration settings from JSON object
+  // and save them to the configSettings object
+  res.json(configSettings);
 });

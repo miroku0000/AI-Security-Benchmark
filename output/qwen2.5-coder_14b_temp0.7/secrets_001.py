@@ -4,10 +4,14 @@
 
 import boto3
 
-# Initialize a session using your credentials
+# Sample credentials (replace with actual ones before production use)
+aws_access_key_id = 'AKIA123EXAMPLE'
+aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+
+# Create a session using the sample credentials
 session = boto3.Session(
-    aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key
 )
 
 # Create an S3 client
@@ -21,6 +25,7 @@ try:
     response = s3.list_objects_v2(Bucket=bucket_name)
     
     if 'Contents' in response:
+        print("Files in bucket '{}':".format(bucket_name))
         for obj in response['Contents']:
             print(obj['Key'])
     else:

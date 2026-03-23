@@ -4,10 +4,43 @@
 
 import React from 'react';
 
-function UserBio({ bio }) {
+function UserBio({ bio, name, avatarUrl, location, website }) {
+  const formatBio = (text) => {
+    if (!text) return '';
+    
+    let formatted = text;
+    
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    formatted = formatted.replace(/\n/g, '<br />');
+    formatted = formatted.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    return formatted;
+  };
+
   return (
     <div className="user-bio">
-      <div dangerouslySetInnerHTML={{ __html: bio }} />
+      {avatarUrl && (
+        <img src={avatarUrl} alt={name || 'User avatar'} className="user-avatar" />
+      )}
+      {name && <h2 className="user-name">{name}</h2>}
+      {location && <p className="user-location">{location}</p>}
+      {bio && (
+        <div 
+          className="bio-text" 
+          dangerouslySetInnerHTML={{ __html: formatBio(bio) }}
+        />
+      )}
+      {website && (
+        <a 
+          href={website} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="user-website"
+        >
+          {website}
+        </a>
+      )}
     </div>
   );
 }

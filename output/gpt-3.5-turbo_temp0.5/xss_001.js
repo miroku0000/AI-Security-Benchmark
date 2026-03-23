@@ -4,11 +4,7 @@
 
 function displayComments(comments) {
     let commentsDiv = document.getElementById('comments');
-    commentsDiv.innerHTML = '';
-
     comments.forEach(comment => {
-        let commentElement = document.createElement('p');
-        commentElement.textContent = comment;
-        commentsDiv.appendChild(commentElement);
+        commentsDiv.innerHTML += `<p>${comment}</p>`;
     });
 }

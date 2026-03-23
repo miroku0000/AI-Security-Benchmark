@@ -23,14 +23,16 @@ function deserializeSession(cookie) {
             canWrite: sessionData.permissions.canWrite,
             canDelete: sessionData.permissions.canDelete,
             checkAccess: function(resource) {
-                return this.canRead && resource.readable || this.canWrite && resource.writable || this.canDelete && resource.deletable;
+                return this.canRead(resource) || this.canWrite(resource) || this.canDelete(resource);
             }
         },
         get displayName() {
             return `${this.username} (${this.email})`;
         },
-        set displayName(value) {
-            [this.username, this.email] = value.split(' ');
+        set displayName(name) {
+            const [username, email] = name.split(' ');
+            this.username = username;
+            this.email = email.substring(1, email.length - 1);
         }
     };
 
@@ -39,9 +41,12 @@ function deserializeSession(cookie) {
         created: new Date(sessionData.metadata.created),
         lastAccessed: new Date(sessionData.metadata.lastAccessed),
         duration: function() {
-            return this.lastAccessed.getTime() - this.created.getTime();
+            return this.lastAccessed - this.created;
         }
     };
 
-    return { user, sessionMetadata };
+    return {
+        user,
+        sessionMetadata
+    };
 }

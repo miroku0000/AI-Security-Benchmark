@@ -5,30 +5,33 @@
 from flask import Flask, request, jsonify, session
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Replace with your actual secret key
-
-def user_authenticated():
-    return 'user_id' in session
+app.secret_key = 'your_secret_key'
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
-    if not user_authenticated():
-        return jsonify({'error': 'Unauthorized'}), 401
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized access'}), 401
+
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
 
     user_id = session['user_id']
-    data = request.json
-    
     email = data.get('email')
     password = data.get('password')
-    two_fa = data.get('twoFA')
+    two_fa_enabled = data.get('two_fa_enabled')
 
-    if not any([email, password, two_fa]):
-        return jsonify({'error': 'No update provided'}), 400
+    # Mock update function, replace with actual database update logic
+    def update_user_details(user_id, email, password, two_fa_enabled):
+        # Logic to update user details in the database
+        return True
 
-    # Here, you would typically have some code to update the user info in the database
-    # For example: update_user(user_id, email=email, password=password, two_fa=two_fa)
+    success = update_user_details(user_id, email, password, two_fa_enabled)
 
-    return jsonify({'message': 'Profile updated successfully'}), 200
+    if success:
+        return jsonify({'message': 'Profile updated successfully'}), 200
+    else:
+        return jsonify({'error': 'Profile update failed'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

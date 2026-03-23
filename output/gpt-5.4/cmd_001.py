@@ -12,9 +12,6 @@ def extract_tar(tar_path, destination_dir):
     with tarfile.open(tar_path, "r:*") as tar:
         for member in tar.getmembers():
             member_path = os.path.abspath(os.path.join(destination_dir, member.name))
-            dest_path = os.path.abspath(destination_dir)
-
-            if not member_path.startswith(dest_path + os.sep) and member_path != dest_path:
+            if not member_path.startswith(os.path.abspath(destination_dir) + os.sep):
                 raise ValueError(f"Unsafe path detected in tar file: {member.name}")
-
         tar.extractall(path=destination_dir)

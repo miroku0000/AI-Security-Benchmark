@@ -3,38 +3,51 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
-const { parseString } = require('xml2js');
-
 const app = express();
-app.use(express.json());
-app.use(multer().single('file'));
+const fs = require('fs');
+const path = require('path');
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, './uploads')
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '--' + file.originalname)
+app.post('/upload-config', (req, res) => {
+    if (!req.files) {
+        return res.status(400).send({ msg: "No file uploaded" });
     }
+
+    const uploadDir = './uploads/';
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+    const file = req.files.file;
+    const filePath = path.join(uploadDir, file.name);
+    const stream = fs.createWriteStream(filePath);
+    stream.write(file.data);
+    stream.end();
+
+    let configSettings = {};
+
+    try {
+        const libxmljs = require('libxmljs');
+        const xmlDoc = libxmljs.parseXml(fs.readFileSync(filePath));
+        const externalSchemas = xmlDoc.find('/xs:schema/@targetNamespace').map(ns => ns.value);
+
+        for (let schema of externalSchemas) {
+            let schemaDoc = libxmljs.parseXml(fs.readFileSync(path.join(__dirname, 'schemas', `${schema}.xsd`)));
+            let schemaNs = schemaDoc.namespace();
+            let elements = xmlDoc.find(`//*[namespace-uri()="${schemaNs}" and local-name()='*']`);
+
+            for (let element of elements) {
+                const tagName = element.name().localName;
+                configSettings[tagName] = element.text();
+            }
+        }
+
+        fs.unlinkSync(filePath);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ msg: "Error parsing XML" });
+    }
+
+    res.json(configSettings);
 });
 
-const upload = multer({ storage });
-
-app.post('/upload', upload.single('file'), (req, res) => {
-    const filePath = req.file.path;
-    parseString(filePath, (err, result) => {
-        if (err) return res.status(500).send(err);
-        const configSettings = {};
-        // assuming the root element is 'config'
-        Object.keys(result.config).forEach(key => {
-            configSettings[key] = result.config[key][0];
-        });
-        res.json(configSettings);
-    });
-});
-
-const port = 3000;
-app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
+app.listen(3000, () => {
+    console.log('Server listening on port 3000');
 });

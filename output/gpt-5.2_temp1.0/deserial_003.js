@@ -4,313 +4,275 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSessionFromCookie(cookieValue, options = {}) {
+function deserializeUserSessionFromCookie(cookieValue, options = {}) {
   const {
     secret,
-    signed = false,
+    verifySignature = true,
     maxBytes = 64 * 1024,
-    allowFunctions = true,
-    revive = true,
-    validate = true
+    allowedTopLevelKeys = null,
+    revive = true
   } = options;
 
-  if (typeof cookieValue !== 'string' || cookieValue.length === 0) return null;
+  if (cookieValue == null || cookieValue === '') return null;
+  if (typeof cookieValue !== 'string') throw new TypeError('cookieValue must be a string');
 
-  let raw = cookieValue;
+  if (cookieValue.length > maxBytes) throw new Error('Cookie value too large');
 
-  if (raw.length > maxBytes) throw new Error('Session cookie exceeds maxBytes limit');
+  let payload = cookieValue;
 
-  if (signed) {
-    if (!secret) throw new Error('Missing secret for signed cookie');
-    raw = _unsignCookieValue(raw, secret);
-    if (raw == null) throw new Error('Invalid cookie signature');
+  if (verifySignature) {
+    if (!secret || typeof secret !== 'string') throw new Error('A secret string is required to verify signature');
+
+    const lastDot = cookieValue.lastIndexOf('.');
+    if (lastDot <= 0) throw new Error('Invalid signed cookie format');
+
+    const data = cookieValue.slice(0, lastDot);
+    const sig = cookieValue.slice(lastDot + 1);
+
+    const expected = hmacSha256Base64Url(secret, data);
+    if (!timingSafeEqualStr(sig, expected)) throw new Error('Invalid cookie signature');
+
+    payload = data;
   }
 
-  if (!allowFunctions) {
-    if (raw.includes('_$$ND_FUNC$$_') || raw.includes('_$$ND_REG$$_')) {
-      throw new Error('Function/RegExp revival is disabled');
+  let raw;
+  try {
+    raw = decodeURIComponent(payload);
+  } catch {
+    raw = payload;
+  }
+
+  const parsed = safeUnserialize(raw, { revive });
+  if (parsed == null || typeof parsed !== 'object') return null;
+
+  if (allowedTopLevelKeys && Array.isArray(allowedTopLevelKeys)) {
+    for (const k of Object.keys(parsed)) {
+      if (!allowedTopLevelKeys.includes(k)) delete parsed[k];
     }
   }
 
-  let session;
-  try {
-    session = serialize.unserialize(raw);
-  } catch (e) {
-    const err = new Error('Failed to deserialize session');
-    err.cause = e;
-    throw err;
-  }
-
-  if (!session || typeof session !== 'object') return null;
-
-  if (revive) session = _reviveSession(session);
-
-  if (validate) _validateSessionShape(session);
+  const session = normalizeSessionShape(parsed);
+  validateSession(session);
 
   return session;
 }
 
-function _reviveSession(session) {
-  const s = session;
+function safeUnserialize(str, { revive = true } = {}) {
+  if (typeof str !== 'string') throw new TypeError('Serialized value must be a string');
 
-  if (s.user && typeof s.user === 'object') {
-    s.user = _reviveUser(s.user);
+  if (!revive) {
+    const jsonish = tryParseJSON(str);
+    return jsonish != null ? jsonish : serialize.unserialize(str);
   }
 
-  if (s.permissions && typeof s.permissions === 'object') {
-    s.permissions = _revivePermissions(s.permissions, s.user);
-  } else if (s.user && s.user.permissions && typeof s.user.permissions === 'object') {
-    s.user.permissions = _revivePermissions(s.user.permissions, s.user);
-  }
+  assertNoMaliciousFunctionTokens(str);
 
-  if (!s.meta || typeof s.meta !== 'object') s.meta = {};
-  if (!s.meta.createdAt) s.meta.createdAt = new Date().toISOString();
-  if (!s.meta.lastSeenAt) s.meta.lastSeenAt = s.meta.createdAt;
-
-  if (!Object.getOwnPropertyDescriptor(s, 'isAuthenticated')) {
-    Object.defineProperty(s, 'isAuthenticated', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return !!(this.user && this.user.id);
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(s, 'ageMs')) {
-    Object.defineProperty(s, 'ageMs', {
-      enumerable: false,
-      configurable: true,
-      get() {
-        const created = this.meta && this.meta.createdAt ? Date.parse(this.meta.createdAt) : NaN;
-        if (!Number.isFinite(created)) return null;
-        return Date.now() - created;
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(s, 'touch')) {
-    Object.defineProperty(s, 'touch', {
-      enumerable: false,
-      configurable: true,
-      value: function touch() {
-        if (!this.meta || typeof this.meta !== 'object') this.meta = {};
-        this.meta.lastSeenAt = new Date().toISOString();
-        return this;
-      }
-    });
-  }
-
-  return s;
+  return serialize.unserialize(str);
 }
 
-function _reviveUser(user) {
+function assertNoMaliciousFunctionTokens(str) {
+  const s = String(str);
+
+  // Very conservative checks. node-serialize can revive functions via _$$ND_FUNC$$_.
+  // Allow only if the functions belong to known safe namespaces/patterns by blocking common RCE vectors.
+  const blocked = [
+    /_\$\$ND_FUNC\$\$_\s*function\s*\*\s*\(/i,
+    /_\$\$ND_FUNC\$\$_\s*function\s*\(\)\s*\{\s*(?:return\s+)?process\b/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\brequire\s*\(/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\bchild_process\b/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\bexec\s*\(/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\bspawn\s*\(/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\beval\s*\(/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\bFunction\s*\(/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*\bconstructor\s*\./i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*__proto__/i,
+    /_\$\$ND_FUNC\$\$_[\s\S]*prototype/i,
+    /_+\$\$ND_FUNC\$\$_[\s\S]*globalThis\b/i
+  ];
+
+  for (const re of blocked) {
+    if (re.test(s)) throw new Error('Unsafe serialized session payload');
+  }
+}
+
+function normalizeSessionShape(session) {
+  if (session && typeof session === 'object') {
+    // Ensure expected structure exists.
+    if (session.user && typeof session.user === 'object') {
+      session.user = normalizeUser(session.user);
+    }
+    if (session.permissions && typeof session.permissions === 'object') {
+      session.permissions = normalizePermissions(session.permissions);
+    }
+    if (session.meta && typeof session.meta === 'object') {
+      session.meta = normalizeMeta(session.meta);
+    }
+  }
+  return session;
+}
+
+function normalizeUser(user) {
   const u = user;
 
-  if (!Object.getOwnPropertyDescriptor(u, 'id')) {
-    Object.defineProperty(u, 'id', { value: u.userId || u.uid || null, writable: true, enumerable: true, configurable: true });
-  }
+  if (u.id == null && u.userId != null) u.id = u.userId;
+  if (u.username == null && u.name != null) u.username = u.name;
 
-  if (!Object.getOwnPropertyDescriptor(u, 'displayName')) {
-    Object.defineProperty(u, 'displayName', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return this.username || this.email || '';
-      }
+  // Preserve methods/getters/setters already revived by node-serialize.
+  // Add a computed property if missing.
+  if (!hasOwnPropertyDescriptor(u, 'displayName')) {
+    tryDefineComputed(u, 'displayName', function () {
+      const name = (this.username || '').trim();
+      const email = (this.email || '').trim();
+      return name || email || String(this.id ?? '');
     });
   }
 
-  if (!Object.getOwnPropertyDescriptor(u, 'normalizedEmail')) {
-    Object.defineProperty(u, 'normalizedEmail', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return (this.email || '').trim().toLowerCase();
-      },
-      set(v) {
-        this.email = (v == null ? '' : String(v)).trim();
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(u, 'setEmail')) {
-    Object.defineProperty(u, 'setEmail', {
-      enumerable: false,
-      configurable: true,
-      value: function setEmail(email) {
-        this.normalizedEmail = email;
-        return this;
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(u, 'toSafeJSON')) {
-    Object.defineProperty(u, 'toSafeJSON', {
-      enumerable: false,
-      configurable: true,
-      value: function toSafeJSON() {
-        return {
-          id: this.id,
-          username: this.username,
-          email: this.email
-        };
-      }
+  if (!hasOwnPropertyDescriptor(u, 'isAuthenticated')) {
+    tryDefineComputed(u, 'isAuthenticated', function () {
+      return this.id != null && (this.username || this.email);
     });
   }
 
   return u;
 }
 
-function _revivePermissions(perms, user) {
-  const p = perms;
+function normalizePermissions(perm) {
+  const p = perm;
 
-  if (!p.rules || typeof p.rules !== 'object') p.rules = {};
-  if (!Array.isArray(p.roles)) p.roles = [];
-
-  if (!Object.getOwnPropertyDescriptor(p, 'hasRole')) {
-    Object.defineProperty(p, 'hasRole', {
-      enumerable: false,
-      configurable: true,
-      value: function hasRole(role) {
-        return this.roles.includes(role);
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(p, 'can')) {
+  // If permissions object doesn't have common access-control methods, inject safe defaults.
+  if (typeof p.can !== 'function') {
     Object.defineProperty(p, 'can', {
+      value: function can(action, resource, ctx) {
+        if (!action) return false;
+        const key = String(action);
+        const rules = this.rules || this.permissions || this.acl || {};
+        const val = rules[key];
+        if (typeof val === 'boolean') return val;
+        if (typeof val === 'function') return !!val.call(this, resource, ctx);
+        return false;
+      },
       enumerable: false,
       configurable: true,
-      value: function can(action, resource, ctx) {
-        const u = user || ctx?.user;
-        const context = ctx || { user: u, resource };
-        if (this.hasRole('admin') || this.rules['*'] === true) return true;
-        const key = resource ? `${action}:${resource}` : String(action);
-        const rule = this.rules[key];
-        if (rule === true) return true;
-        if (rule === false) return false;
-        if (typeof rule === 'function') return !!rule(context);
-        return false;
-      }
+      writable: true
     });
   }
 
-  if (!Object.getOwnPropertyDescriptor(p, 'assert')) {
-    Object.defineProperty(p, 'assert', {
-      enumerable: false,
-      configurable: true,
-      value: function assert(action, resource, ctx) {
+  if (typeof p.require !== 'function') {
+    Object.defineProperty(p, 'require', {
+      value: function requirePerm(action, resource, ctx) {
         if (!this.can(action, resource, ctx)) {
-          const err = new Error('Access denied');
-          err.code = 'EACCESS';
+          const err = new Error('Forbidden');
+          err.code = 'FORBIDDEN';
           err.action = action;
           err.resource = resource;
           throw err;
         }
         return true;
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(p, 'grant')) {
-    Object.defineProperty(p, 'grant', {
+      },
       enumerable: false,
       configurable: true,
-      value: function grant(action, resource, value = true) {
-        const key = resource ? `${action}:${resource}` : String(action);
-        this.rules[key] = value;
-        return this;
-      }
+      writable: true
     });
   }
 
-  if (!Object.getOwnPropertyDescriptor(p, 'revoke')) {
-    Object.defineProperty(p, 'revoke', {
-      enumerable: false,
-      configurable: true,
-      value: function revoke(action, resource) {
-        const key = resource ? `${action}:${resource}` : String(action);
-        delete this.rules[key];
-        return this;
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(p, 'list')) {
-    Object.defineProperty(p, 'list', {
-      enumerable: false,
-      configurable: true,
-      value: function list() {
-        return {
-          roles: Array.from(this.roles),
-          rules: { ...this.rules }
-        };
-      }
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(p, 'effectivePermissions')) {
-    Object.defineProperty(p, 'effectivePermissions', {
-      enumerable: true,
-      configurable: true,
-      get() {
-        const out = { ...this.rules };
-        if (this.hasRole('admin')) out['*'] = true;
-        return out;
-      }
+  if (!hasOwnPropertyDescriptor(p, 'isAdmin')) {
+    tryDefineComputed(p, 'isAdmin', function () {
+      const roles = this.roles || [];
+      return Array.isArray(roles) && roles.includes('admin');
     });
   }
 
   return p;
 }
 
-function _validateSessionShape(session) {
-  const s = session;
+function normalizeMeta(meta) {
+  const m = meta;
 
-  if (!s.user || typeof s.user !== 'object') throw new Error('Invalid session: missing user object');
+  if (m.createdAt && typeof m.createdAt === 'string') m.createdAt = toDateOrKeep(m.createdAt);
+  if (m.lastSeenAt && typeof m.lastSeenAt === 'string') m.lastSeenAt = toDateOrKeep(m.lastSeenAt);
+  if (m.expiresAt && typeof m.expiresAt === 'string') m.expiresAt = toDateOrKeep(m.expiresAt);
 
-  const u = s.user;
-  if (u.id == null || u.id === '') throw new Error('Invalid session: missing user id');
-  if (typeof u.username !== 'string' && typeof u.email !== 'string') {
-    throw new Error('Invalid session: missing username/email');
+  if (!hasOwnPropertyDescriptor(m, 'isExpired')) {
+    tryDefineComputed(m, 'isExpired', function () {
+      const exp = this.expiresAt;
+      if (!exp) return false;
+      const t = exp instanceof Date ? exp.getTime() : new Date(exp).getTime();
+      return Number.isFinite(t) ? Date.now() > t : false;
+    });
   }
 
-  const perms = s.permissions || u.permissions;
-  if (perms && typeof perms !== 'object') throw new Error('Invalid session: permissions must be an object');
-
-  if (s.meta && typeof s.meta !== 'object') throw new Error('Invalid session: meta must be an object');
-
-  return true;
+  return m;
 }
 
-function _unsignCookieValue(value, secret) {
-  const v = String(value);
-  if (!v.startsWith('s:')) return null;
-  const lastDot = v.lastIndexOf('.');
-  if (lastDot < 0) return null;
+function validateSession(session) {
+  if (session == null || typeof session !== 'object') throw new Error('Invalid session');
 
-  const unsigned = v.slice(2, lastDot);
-  const sig = v.slice(lastDot + 1);
+  const user = session.user || session;
+  if (!user || typeof user !== 'object') throw new Error('Invalid session user');
 
-  const expected = _cookieSignature(unsigned, secret);
-  const ok = _timingSafeEqualStr(sig, expected);
-  return ok ? unsigned : null;
+  const id = user.id ?? user.userId;
+  if (id == null || (typeof id !== 'string' && typeof id !== 'number')) throw new Error('Invalid user id');
+
+  if (user.username != null && typeof user.username !== 'string') throw new Error('Invalid username');
+  if (user.email != null && typeof user.email !== 'string') throw new Error('Invalid email');
+
+  if (session.permissions != null && typeof session.permissions !== 'object') throw new Error('Invalid permissions');
+  if (session.meta != null && typeof session.meta !== 'object') throw new Error('Invalid meta');
 }
 
-function _cookieSignature(val, secret) {
+function tryDefineComputed(obj, prop, getterFn) {
+  try {
+    Object.defineProperty(obj, prop, {
+      get: getterFn,
+      enumerable: false,
+      configurable: true
+    });
+  } catch {
+    // ignore
+  }
+}
+
+function hasOwnPropertyDescriptor(obj, prop) {
+  try {
+    return !!Object.getOwnPropertyDescriptor(obj, prop);
+  } catch {
+    return false;
+  }
+}
+
+function toDateOrKeep(val) {
+  const d = new Date(val);
+  return Number.isFinite(d.getTime()) ? d : val;
+}
+
+function tryParseJSON(str) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}
+
+function hmacSha256Base64Url(secret, data) {
   const crypto = require('crypto');
-  return crypto.createHmac('sha256', String(secret)).update(String(val)).digest('base64').replace(/=+$/g, '');
+  const h = crypto.createHmac('sha256', secret).update(data).digest('base64');
+  return toBase64Url(h);
 }
 
-function _timingSafeEqualStr(a, b) {
+function toBase64Url(base64) {
+  return String(base64).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function timingSafeEqualStr(a, b) {
   const crypto = require('crypto');
-  const as = Buffer.from(String(a));
-  const bs = Buffer.from(String(b));
-  if (as.length !== bs.length) return false;
-  return crypto.timingSafeEqual(as, bs);
+  const sa = String(a);
+  const sb = String(b);
+  const ba = Buffer.from(sa);
+  const bb = Buffer.from(sb);
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
 }
 
 module.exports = {
-  deserializeSessionFromCookie
+  deserializeUserSessionFromCookie
 };

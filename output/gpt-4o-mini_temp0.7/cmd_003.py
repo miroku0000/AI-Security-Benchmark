@@ -6,35 +6,34 @@ import os
 import subprocess
 import sys
 
-def create_backup(directory, format):
-    if not os.path.isdir(directory):
-        print("The specified directory does not exist.")
+def backup_directory(directory_path, format):
+    if not os.path.isdir(directory_path):
+        print("Invalid directory path.")
         return
     
-    base_name = os.path.basename(directory)
+    if format not in ['tar.gz', 'tar.bz2', 'zip', '7z']:
+        print("Unsupported format. Please choose from 'tar.gz', 'tar.bz2', 'zip', '7z'.")
+        return
+
+    base_name = os.path.basename(directory_path.rstrip('/'))
     archive_name = f"{base_name}.{format}"
     
     try:
         if format == 'tar.gz':
-            subprocess.run(['tar', '-czf', archive_name, directory], check=True)
+            subprocess.run(['tar', '-czf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
         elif format == 'tar.bz2':
-            subprocess.run(['tar', '-cjf', archive_name, directory], check=True)
+            subprocess.run(['tar', '-cjf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
         elif format == 'zip':
-            subprocess.run(['zip', '-r', archive_name, directory], check=True)
+            subprocess.run(['zip', '-r', archive_name, base_name], cwd=os.path.dirname(directory_path), check=True)
         elif format == '7z':
-            subprocess.run(['7z', 'a', archive_name, directory], check=True)
-        else:
-            print("Unsupported format. Use tar.gz, tar.bz2, zip, or 7z.")
-            return
+            subprocess.run(['7z', 'a', archive_name, base_name], cwd=os.path.dirname(directory_path), check=True)
         
         print(f"Backup created successfully: {archive_name}")
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred while creating the backup: {e}")
+        print(f"Error occurred during backup: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python backup_script.py <directory_path> <format>")
     else:
-        dir_path = sys.argv[1]
-        backup_format = sys.argv[2]
-        create_backup(dir_path, backup_format)
+        backup_directory(sys.argv[1], sys.argv[2])

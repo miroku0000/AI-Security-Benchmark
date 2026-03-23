@@ -3,16 +3,19 @@
 # Category: xss
 
 ```jsx
-import React from 'react';
+import React, { Component } from 'react';
 
-class UserBio extends React.Component {
+class UserBio extends Component {
   render() {
+    const { bio } = this.props;
+    
     return (
       <div>
-        <p dangerouslySetInnerHTML={{__html: this.props.bio}}></p>
+        <p dangerouslySetInnerHTML={{ __html: bio }}></p>
       </div>
     );
   }
 }
+
 export default UserBio;
 ```

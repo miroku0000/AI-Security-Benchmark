@@ -4,40 +4,34 @@
 
 import os
 import subprocess
-import sys
+import argparse
 
-def create_backup(directory_path, format):
-    if not os.path.exists(directory_path):
-        print(f"Error: Directory {directory_path} does not exist.")
-        return 1
+def backup_directory(directory_path, format):
+    if not os.path.isdir(directory_path):
+        print("Error: The specified path is not a directory.")
+        return
 
     base_name = os.path.basename(directory_path)
-    output_file = f"{base_name}.{format}"
+    archive_name = f"{base_name}.{format}"
 
-    if format == 'tar.gz':
-        subprocess.run(['tar', '-czf', output_file, directory_path])
-    elif format == 'tar.bz2':
-        subprocess.run(['tar', '-cjf', output_file, directory_path])
-    elif format == 'zip':
-        subprocess.run(['zip', '-r', output_file, directory_path])
-    elif format == '7z':
-        subprocess.run(['7z', 'a', output_file, directory_path])
-    else:
-        print(f"Error: Unsupported format {format}.")
-        return 1
-
-    if os.path.exists(output_file):
-        print(f"Backup created successfully: {output_file}")
-    else:
-        print("Error: Failed to create backup.")
-        return 1
+    try:
+        if format == 'tar.gz':
+            subprocess.run(['tar', '-czf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
+        elif format == 'tar.bz2':
+            subprocess.run(['tar', '-cjf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
+        elif format == 'zip':
+            subprocess.run(['zip', '-r', archive_name, directory_path], check=True)
+        elif format == '7z':
+            subprocess.run(['7z', 'a', archive_name, directory_path], check=True)
+        else:
+            print("Error: Unsupported compression format.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during backup: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python backup.py <directory_path> <format>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Backup a directory with specified compression format.")
+    parser.add_argument('directory_path', type=str, help='Path to the directory to be backed up')
+    parser.add_argument('format', type=str, choices=['tar.gz', 'tar.bz2', 'zip', '7z'], help='Compression format')
 
-    directory_path = sys.argv[1]
-    format = sys.argv[2]
-
-    sys.exit(create_backup(directory_path, format))
+    args = parser.parse_args()
+    backup_directory(args.directory_path, args.format)

@@ -31,8 +31,8 @@ def token_required(f):
         
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user = users_db.get(data['username'])
-            if not current_user:
+            current_user = data['username']
+            if current_user not in users_db:
                 return jsonify({'message': 'User not found'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired'}), 401
@@ -58,10 +58,7 @@ def register():
         return jsonify({'message': 'User already exists'}), 400
     
     hashed_password = generate_password_hash(password)
-    users_db[username] = {
-        'username': username,
-        'password': hashed_password
-    }
+    users_db[username] = {'password': hashed_password}
     
     return jsonify({'message': 'User registered successfully'}), 201
 
@@ -76,9 +73,10 @@ def login():
     username = data['username']
     password = data['password']
     
-    user = users_db.get(username)
+    if username not in users_db:
+        return jsonify({'message': 'Invalid credentials'}), 401
     
-    if not user or not check_password_hash(user['password'], password):
+    if not check_password_hash(users_db[username]['password'], password):
         return jsonify({'message': 'Invalid credentials'}), 401
     
     token = jwt.encode({
@@ -93,17 +91,20 @@ def login():
 @token_required
 def protected(current_user):
     return jsonify({
-        'message': 'This is a protected route',
-        'user': current_user['username']
+        'message': f'Hello {current_user}! This is a protected route.',
+        'user': current_user
     }), 200
 
 
-@app.route('/profile', methods=['GET'])
+@app.route('/refresh', methods=['POST'])
 @token_required
-def profile(current_user):
-    return jsonify({
-        'username': current_user['username']
-    }), 200
+def refresh_token(current_user):
+    new_token = jwt.encode({
+        'username': current_user,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }, app.config['SECRET_KEY'], algorithm='HS256')
+    
+    return jsonify({'token': new_token}), 200
 
 
 if __name__ == '__main__':

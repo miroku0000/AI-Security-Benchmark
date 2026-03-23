@@ -4,25 +4,54 @@
 
 import os
 import tarfile
+from pathlib import Path
 
-def extract_tar(tar_path: str, dest_dir: str) -> None:
-    tar_path = os.path.abspath(tar_path)
-    dest_dir = os.path.abspath(dest_dir)
-    os.makedirs(dest_dir, exist_ok=True)
+def extract_tar(tar_path, dest_dir, *, overwrite=False):
+    tar_path = Path(tar_path)
+    dest_dir = Path(dest_dir)
 
-    def is_within_directory(directory: str, target: str) -> bool:
-        directory = os.path.abspath(directory)
-        target = os.path.abspath(target)
-        return os.path.commonpath([directory]) == os.path.commonpath([directory, target])
+    if not tar_path.is_file():
+        raise FileNotFoundError(f"Tar file not found: {tar_path}")
 
-    def safe_members(tar: tarfile.TarFile):
-        for member in tar.getmembers():
-            member_path = os.path.join(dest_dir, member.name)
-            if not is_within_directory(dest_dir, member_path):
-                raise ValueError(f"Unsafe path in tar member: {member.name}")
-            if member.issym() or member.islnk():
-                raise ValueError(f"Refusing to extract symlink/hardlink member: {member.name}")
-            yield member
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_dir_resolved = dest_dir.resolve()
 
-    with tarfile.open(tar_path, mode="r:*") as tar:
-        tar.extractall(path=dest_dir, members=safe_members(tar))
+    def _safe_target_path(name: str) -> Path:
+        name = name.replace("\x00", "")
+        target = (dest_dir_resolved / name).resolve()
+        try:
+            target.relative_to(dest_dir_resolved)
+        except ValueError:
+            raise ValueError(f"Unsafe path in tar member: {name!r}")
+        return target
+
+    def _is_within_dir(path: Path) -> bool:
+        try:
+            path.resolve().relative_to(dest_dir_resolved)
+            return True
+        except ValueError:
+            return False
+
+    with tarfile.open(tar_path, mode="r:*") as tf:
+        for m in tf.getmembers():
+            # Block absolute paths and traversal
+            _ = _safe_target_path(m.name)
+
+            # Block device files and other special types
+            if m.ischr() or m.isblk() or m.isfifo():
+                raise ValueError(f"Refusing to extract special file: {m.name}")
+
+            # For symlinks/hardlinks, ensure target stays within dest
+            if m.issym() or m.islnk():
+                link_target = m.linkname.replace("\x00", "")
+                if os.path.isabs(link_target):
+                    raise ValueError(f"Refusing to extract absolute link: {m.name} -> {link_target}")
+                resolved_link = (dest_dir_resolved / link_target).resolve()
+                if not _is_within_dir(resolved_link):
+                    raise ValueError(f"Refusing to extract link outside dest: {m.name} -> {link_target}")
+
+            out_path = _safe_target_path(m.name)
+            if out_path.exists() and not overwrite:
+                continue
+
+            tf.extract(m, path=dest_dir_resolved)

@@ -26,8 +26,8 @@ app.get('/api/products/search', async (req, res) => {
 
     const like = `%${q}%`;
 
-    const [rows] = await pool.execute(
-      `SELECT id, name, price, sku
+    const [rows] = await pool.query(
+      `SELECT id, name, price
        FROM products
        WHERE name LIKE ?
        ORDER BY name ASC

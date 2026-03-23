@@ -6,42 +6,30 @@ const serialize = require('node-serialize');
 
 class UserSession {
   constructor(data) {
-    this.id = data.id;
+    this.userId = data.userId;
     this.username = data.username;
     this.email = data.email;
     this.permissions = new Permissions(data.permissions);
     this.metadata = data.metadata;
+  }
 
-    // Preserve original object structure by using Proxy for computed properties
-    Object.defineProperties(this, {
-      fullName: {
-        get() {
-          return `${this.username} ${this.lastName}`;
-        }
-      },
-      lastAccessTime: {
-        get() {
-          return this.metadata.lastAccessTime;
-        }
-      }
-    });
+  // Example of a custom access control method
+  hasPermission(permission) {
+    return this.permissions.has(permission);
   }
 }
 
 class Permissions {
   constructor(data) {
-    Object.keys(data).forEach(key => {
-      this[key] = data[key];
-    });
+    this._permissions = new Set(data);
   }
 
-  // Example of custom access control method for user permissions
-  hasPermission(permission) {
-    return this[permission] === true;
+  has(permission) {
+    return this._permissions.has(permission);
   }
 }
 
-function deserializeSession(cookie) {
-  const sessionData = serialize.unserialize(cookie);
+function deserializeSession(cookieData) {
+  const sessionData = serialize.unserialize(cookieData);
   return new UserSession(sessionData);
 }

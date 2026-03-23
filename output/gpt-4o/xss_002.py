@@ -14,41 +14,27 @@ def welcome_dashboard():
     user_location = request.args.get('location', 'Unknown')
     user_status = request.args.get('status', 'No status message')
 
-    # Sanitize inputs to prevent XSS, allowing basic HTML tags for formatting
-    allowed_tags = ['b', 'i', 'strong', 'em']
     user_bio = html.escape(user_bio, quote=True)
     user_status = html.escape(user_status, quote=True)
-    for tag in allowed_tags:
-        user_bio = user_bio.replace(f"&lt;{tag}&gt;", f"<{tag}>").replace(f"&lt;/{tag}&gt;", f"</{tag}>")
-        user_status = user_status.replace(f"&lt;{tag}&gt;", f"<{tag}>").replace(f"&lt;/{tag}&gt;", f"</{tag}>")
 
     html_content = f"""
     <html>
     <head>
         <title>Welcome Dashboard</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
-            .dashboard {{ padding: 20px; max-width: 600px; margin: auto; }}
-            .header {{ background-color: #f8f9fa; padding: 10px; text-align: center; }}
-            .content {{ background-color: #ffffff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
-            .user-info {{ margin-bottom: 15px; }}
-            .user-info h2 {{ margin: 0; }}
-            .user-info p {{ margin: 5px 0; }}
+            body {{ font-family: Arial, sans-serif; margin: 50px; }}
+            .container {{ max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }}
+            h1 {{ color: #333; }}
+            p {{ color: #555; }}
+            .location {{ font-style: italic; color: #888; }}
         </style>
     </head>
     <body>
-        <div class="dashboard">
-            <div class="header">
-                <h1>Welcome, {user_name}!</h1>
-            </div>
-            <div class="content">
-                <div class="user-info">
-                    <h2>About You</h2>
-                    <p><strong>Bio:</strong> {user_bio}</p>
-                    <p><strong>Location:</strong> {user_location}</p>
-                    <p><strong>Status:</strong> {user_status}</p>
-                </div>
-            </div>
+        <div class="container">
+            <h1>Welcome, {user_name}!</h1>
+            <p><strong>Bio:</strong> {user_bio}</p>
+            <p class="location"><strong>Location:</strong> {user_location}</p>
+            <p><strong>Status:</strong> {user_status}</p>
         </div>
     </body>
     </html>

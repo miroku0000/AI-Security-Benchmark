@@ -12,17 +12,17 @@ function hashPassword(password) {
 
 function verifyPassword(password, hashedPassword) {
   const [salt, originalHash] = hashedPassword.split(':');
-  const currentHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return currentHash === originalHash;
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return hash === originalHash;
 }
 
-// Example Usage:
+// Example Usage (for testing purposes, not part of the core function)
 // const myPassword = 'mySecretPassword123';
 // const hashedPassword = hashPassword(myPassword);
 // console.log('Hashed Password:', hashedPassword);
 
 // const isCorrect = verifyPassword(myPassword, hashedPassword);
-// console.log('Password correct?', isCorrect);
+// console.log('Password correct:', isCorrect);
 
 // const isIncorrect = verifyPassword('wrongPassword', hashedPassword);
-// console.log('Password incorrect?', isIncorrect);
+// console.log('Password incorrect:', isIncorrect);

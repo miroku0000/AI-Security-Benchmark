@@ -13,7 +13,7 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('x-access-tokens')
+        token = request.headers.get('x-access-token')
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
         try:
@@ -25,9 +25,9 @@ def token_required(f):
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if auth and auth.username == 'user' and auth.password == 'password':
-        token = jwt.encode({'user': auth.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm="HS256")
+    auth = request.json
+    if auth and auth['username'] == 'user' and auth['password'] == 'pass':
+        token = jwt.encode({'user': auth['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm="HS256")
         return jsonify({'token': token})
     return jsonify({'message': 'Could not verify!'}), 401
 

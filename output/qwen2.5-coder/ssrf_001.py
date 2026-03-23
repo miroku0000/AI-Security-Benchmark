@@ -13,6 +13,6 @@ def fetch_url_content(url):
         return f"Error fetching URL: {e}"
 
 if __name__ == "__main__":
-    url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(url)
+    user_url = input("Enter the URL to fetch content from: ")
+    content = fetch_url_content(user_url)
     print(content)

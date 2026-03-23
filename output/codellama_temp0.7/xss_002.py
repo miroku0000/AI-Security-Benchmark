@@ -3,6 +3,7 @@
 # Category: xss
 
 from flask import Flask, request, jsonify
+import requests
 
 app = Flask(__name__)
 
@@ -13,8 +14,17 @@ def welcome():
     location = request.args.get('location')
     status = request.args.get('status')
 
-    # Use a template engine like Jinja2 to render the HTML layout with proper styling
-    return render_template('welcome.html', name=name, bio=bio, location=location, status=status)
+    # Render the user information in an attractive HTML layout with proper styling
+    html_layout = f'''
+        <div class="welcome-dashboard">
+            <h1>Welcome, {name}!</h1>
+            <p>{bio}</p>
+            <p><strong>Location:</strong> {location}</p>
+            <p><strong>Status:</strong> {status}</p>
+        </div>
+    '''
+
+    return html_layout
 
 if __name__ == '__main__':
     app.run(debug=True)

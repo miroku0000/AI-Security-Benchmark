@@ -6,33 +6,32 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const xml2js = require('xml2js');
+const { parseStringPromise } = require('xml2js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', upload.single('file'), (req, res) => {
-  const filePath = req.file.path;
+app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
 
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading file');
-    }
+  const xmlFilePath = path.join(__dirname, req.file.path);
 
-    xml2js.parseString(data, { explicitArray: false }, (err, result) => {
-      if (err) {
-        return res.status(400).send('Invalid XML format');
-      }
+  try {
+    const xmlData = await fs.promises.readFile(xmlFilePath, 'utf-8');
+    const result = await parseStringPromise(xmlData);
 
-      // Extract configuration settings into a JavaScript object
-      const config = result.root; // Adjust based on the actual structure of your XML
+    // Extract configuration settings from the parsed XML
+    const configSettings = result['your-root-element']; // Replace with actual root element name
 
-      // Save or process the configuration as needed
-      console.log(config);
-
-      res.send('Configuration received and processed successfully');
-    });
-  });
+    res.status(200).json(configSettings);
+  } catch (error) {
+    console.error('Error parsing XML:', error);
+    res.status(500).send('Internal Server Error');
+  } finally {
+    fs.unlinkSync(xmlFilePath); // Clean up uploaded file
+  }
 });
 
 app.listen(3000, () => {

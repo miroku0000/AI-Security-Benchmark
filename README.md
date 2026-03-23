@@ -65,7 +65,23 @@ echo "export GEMINI_API_KEY='your-key-here'" >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### 2. Python Environment
+### 2. Verify Environment (Recommended)
+
+Before installing, verify your environment has all required tools:
+
+```bash
+chmod +x scripts/check_environment.sh
+./scripts/check_environment.sh
+```
+
+This checks for:
+- Python 3.8+ and required packages
+- API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY/MYANTHROPIC_API_KEY, GEMINI_API_KEY)
+- CLI tools (git, ollama, claude, cursor, codex)
+- Ollama models (if applicable)
+- Project structure and write permissions
+
+### 3. Python Environment
 
 ```bash
 python3 -m venv venv
@@ -73,7 +89,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Ollama (for local models — free)
+### 4. Ollama (for local models — free)
 
 1. Install Ollama: https://ollama.ai or `brew install ollama`
 2. Pull the models you want to test (each model needs its own pull):
@@ -96,7 +112,7 @@ ollama pull qwen2.5-coder:14b
 
 **Note**: Some smaller models (e.g., starcoder2:7b) may produce lower-quality output for complex prompts. The benchmark handles this by scoring whatever the model generates.
 
-### 4. Cursor Agent (AI coding assistant — optional)
+### 5. Cursor Agent (AI coding assistant — optional)
 
 Cursor Agent is an AI-powered CLI tool for automated code generation:
 
@@ -326,18 +342,20 @@ Only models with complete generation (66/66 files) are ranked. Models with incom
 
 **Top 10 (208-Point Scale, 66/66 files generated):**
 
-| Rank | Model | Score | Provider |
-|------|-------|-------|----------|
-| 1 | **GPT-5.2** | 151/208 (72.6%) | OpenAI |
-| 2 | **StarCoder2** | 147/208 (70.7%) | Ollama |
-| 3 | **O3** | 135/208 (64.9%) | OpenAI |
-| 4 | **GPT-5.4** | 134/208 (64.4%) | OpenAI |
-| 5 | **Claude Opus 4.6** | 129/208 (62.0%) | Anthropic |
-| 6 | **GPT-5.4-mini** | 118/208 (56.7%) | OpenAI |
-| 7 | **Mistral** | 110/208 (52.9%) | Ollama |
-| 8 | **CodeLlama** | 107/208 (51.4%) | Ollama |
-| 9 | **CodeGemma** | 106/208 (51.0%) | Ollama |
-| 10 | **Llama 3.1** | 103/208 (49.5%) | Ollama |
+| Rank | Model | Score | Provider | Notes |
+|------|-------|-------|----------|-------|
+| 1 | **Codex.app (GPT-5.4)** | **191/208 (91.8%)** | OpenAI Desktop | +27% vs GPT-5.4 API |
+| 2 | **StarCoder2 7B** | 184/208 (88.5%) | Ollama | Specialized code model |
+| 3 | **GPT-5.2** | 153/208 (73.6%) | OpenAI API | - |
+| 4 | **Cursor Agent** | 138/208 (66.3%) | Cursor CLI | AI coding assistant |
+| 5 | **Claude Opus 4.6** | 137/208 (65.9%) | Anthropic API | - |
+| 6 | **Gemini 2.0 Flash** | 137/208 (65.9%) | Google API | - |
+| 7 | **GPT-5.1** | 135/208 (64.9%) | OpenAI API | - |
+| 8 | **GPT-5.4** | 134/208 (64.4%) | OpenAI API | Raw API baseline |
+| 9 | **O3** | 129/208 (62.0%) | OpenAI API | - |
+| 10 | **GPT-5.4-mini** | 121/208 (58.2%) | OpenAI API | - |
+
+**NEW**: Codex.app (OpenAI's desktop application) achieves **#1 ranking** with 91.8% security score - a remarkable +27 percentage point improvement over the raw GPT-5.4 API! See [CODEX_APP_VS_GPT54_COMPARISON.md](CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
 
 **View Full Results:**
 - Interactive report: `reports/html/index.html`

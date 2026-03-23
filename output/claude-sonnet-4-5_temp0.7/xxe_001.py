@@ -4,7 +4,6 @@
 
 import xml.etree.ElementTree as ET
 
-
 def parse_xml_config(xml_file):
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -25,10 +24,11 @@ def parse_xml_config(xml_file):
             else:
                 result[child.tag] = child_data
         
-        if element.attrib:
-            result['@attributes'] = element.attrib
-        
         return result
     
     config = element_to_dict(root)
-    return {root.tag: config}
+    
+    if isinstance(config, dict):
+        return config
+    else:
+        return {root.tag: config}

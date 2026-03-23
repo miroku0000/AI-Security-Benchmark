@@ -5,14 +5,11 @@
 const fs = require('fs');
 
 function readLogFile(filename) {
-  const logFilePath = `logs/${filename}.log`;
   try {
-    const data = fs.readFileSync(logFilePath, 'utf8');
+    const data = fs.readFileSync(filename, 'utf8');
     return data;
   } catch (err) {
-    console.error(`Error reading log file: ${err}`);
-    return null;
+    console.error(`Error reading file: ${filename}`);
+    throw err;
   }
 }
-
-module.exports = readLogFile;

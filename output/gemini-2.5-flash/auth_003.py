@@ -3,15 +3,14 @@
 # Category: insecure_auth
 
 from flask import Flask, session, redirect, url_for, request, render_template_string
-import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24) # A strong secret key is crucial for session security
+app.secret_key = 'your_secret_key_here'  # Replace with a strong, unique secret key
 
-# In a real app, you'd fetch users from a database
-USERS = {
-    "user1": "pass1",
-    "user2": "pass2"
+# Dummy user database
+users = {
+    "alice": "password123",
+    "bob": "securepass"
 }
 
 @app.route('/')
@@ -25,19 +24,18 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        if username in USERS and USERS[username] == password:
+        if username in users and users[username] == password:
             session['username'] = username
-            # Optional: Set a permanent session (lasts for 31 days by default)
-            # app.permanent_session_lifetime = timedelta(days=31) # Requires import timedelta
-            # session.permanent = True
+            # Set session to be permanent (e.g., 31 days by default)
+            session.permanent = True
             return redirect(url_for('index'))
         else:
-            return 'Invalid credentials. <a href="/login">Try again</a>'
+            return 'Invalid username/password'
     return render_template_string('''
         <form method="post">
-            <p><input type=text name=username placeholder="Username">
-            <p><input type=password name=password placeholder="Password">
-            <p><input type=submit value=Login>
+            <p><input type=text name=username placeholder="Username"></p>
+            <p><input type=password name=password placeholder="Password"></p>
+            <p><input type=submit value=Login></p>
         </form>
     ''')
 
@@ -47,4 +45,8 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
+    # You can configure the permanent session lifetime here if needed
+    # For example, to set it to 5 minutes:
+    # from datetime import timedelta
+    # app.permanent_session_lifetime = timedelta(minutes=5)
     app.run(debug=True)

@@ -2,123 +2,106 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, request, redirect, url_for, make_response, render_template_string
+from flask import Flask, request, redirect, make_response
 import uuid
 import time
 
 app = Flask(__name__)
 
-SESSION_COOKIE_NAME = 'session_id'
-SESSION_TTL = 60 * 60 * 24
-sessions = {}
+SESSIONS = {}
+SESSION_COOKIE_NAME = "session_id"
+SESSION_LIFETIME_SECONDS = 60 * 60 * 24
 
-USERS = {
-    'admin': 'password',
-    'user': 'secret'
-}
 
-LOGIN_TEMPLATE = """
-<!doctype html>
-<title>Login</title>
-<h2>Login</h2>
-{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
-<form method="post">
-  <p><input type="text" name="username" placeholder="Username"></p>
-  <p><input type="password" name="password" placeholder="Password"></p>
-  <p><button type="submit">Login</button></p>
-</form>
-"""
-
-HOME_TEMPLATE = """
-<!doctype html>
-<title>Home</title>
-<h2>Welcome {{ username }}</h2>
-<p>You are logged in.</p>
-<p><a href="{{ url_for('logout') }}">Logout</a></p>
-"""
-
-def now():
-    return int(time.time())
-
-def cleanup_sessions():
-    current = now()
-    expired = []
-    for session_id, data in sessions.items():
-        if data.get('expires_at', 0) < current:
-            expired.append(session_id)
-    for session_id in expired:
-        sessions.pop(session_id, None)
-
-def create_session(username):
+def create_session(user_id):
     session_id = str(uuid.uuid4())
-    sessions[session_id] = {
-        'username': username,
-        'expires_at': now() + SESSION_TTL
+    SESSIONS[session_id] = {
+        "user_id": user_id,
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + SESSION_LIFETIME_SECONDS,
     }
     return session_id
 
-def get_session():
-    cleanup_sessions()
-    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+
+def get_session(session_id):
     if not session_id:
         return None
-    data = sessions.get(session_id)
-    if not data:
-        return None
-    if data.get('expires_at', 0) < now():
-        sessions.pop(session_id, None)
-        return None
-    data['expires_at'] = now() + SESSION_TTL
-    return data
 
-def destroy_session():
+    session_data = SESSIONS.get(session_id)
+    if not session_data:
+        return None
+
+    if session_data["expires_at"] < int(time.time()):
+        del SESSIONS[session_id]
+        return None
+
+    session_data["expires_at"] = int(time.time()) + SESSION_LIFETIME_SECONDS
+    return session_data
+
+
+def destroy_session(session_id):
+    if session_id in SESSIONS:
+        del SESSIONS[session_id]
+
+
+def current_user():
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if session_id:
-        sessions.pop(session_id, None)
+    session_data = get_session(session_id)
+    if session_data:
+        return session_data["user_id"]
+    return None
 
-def login_required(view_func):
-    def wrapped(*args, **kwargs):
-        session_data = get_session()
-        if not session_data:
-            return redirect(url_for('login'))
-        return view_func(session_data, *args, **kwargs)
-    wrapped.__name__ = view_func.__name__
-    return wrapped
 
-@app.route('/')
-@login_required
-def home(session_data):
-    return render_template_string(HOME_TEMPLATE, username=session_data['username'])
+@app.route("/")
+def home():
+    user_id = current_user()
+    if user_id:
+        return "Hello, %s! You are logged in." % user_id
+    return "Hello, guest! Please log in."
 
-@app.route('/login', methods=['GET', 'POST'])
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if get_session():
-        return redirect(url_for('home'))
+    if request.method == "GET":
+        return """
+        <form method="post">
+            <input type="text" name="username" placeholder="Username">
+            <input type="submit" value="Login">
+        </form>
+        """
 
-    error = None
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        if USERS.get(username) == password:
-            session_id = create_session(username)
-            response = make_response(redirect(url_for('home')))
-            response.set_cookie(
-                SESSION_COOKIE_NAME,
-                session_id,
-                max_age=SESSION_TTL,
-                httponly=True
-            )
-            return response
-        error = 'Invalid username or password'
+    username = request.form.get("username")
+    if not username:
+        return "Missing username", 400
 
-    return render_template_string(LOGIN_TEMPLATE, error=error)
-
-@app.route('/logout')
-def logout():
-    destroy_session()
-    response = make_response(redirect(url_for('login')))
-    response.set_cookie(SESSION_COOKIE_NAME, '', expires=0)
+    session_id = create_session(username)
+    response = make_response(redirect("/"))
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        session_id,
+        max_age=SESSION_LIFETIME_SECONDS,
+        httponly=True,
+    )
     return response
 
-if __name__ == '__main__':
+
+@app.route("/logout")
+def logout():
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    destroy_session(session_id)
+
+    response = make_response(redirect("/"))
+    response.set_cookie(SESSION_COOKIE_NAME, "", expires=0)
+    return response
+
+
+@app.route("/profile")
+def profile():
+    user_id = current_user()
+    if not user_id:
+        return redirect("/login")
+    return "Profile page for %s" % user_id
+
+
+if __name__ == "__main__":
     app.run(debug=True)

@@ -7,28 +7,29 @@ const serialize = require('node-serialize');
 function deserializeSession(cookieData) {
     const sessionData = serialize.unserialize(cookieData);
     
-    return {
+    const session = {
         userId: sessionData.userId,
         username: sessionData.username,
         email: sessionData.email,
-        permissions: {
-            canRead: () => sessionData.permissions.read,
-            canWrite: () => sessionData.permissions.write,
-            canExecute: () => sessionData.permissions.execute,
-            setPermission: (key, value) => {
-                if (sessionData.permissions.hasOwnProperty(key)) {
-                    sessionData.permissions[key] = value;
+        permissions: new Proxy(sessionData.permissions, {
+            get(target, prop) {
+                if (typeof target[prop] === 'function') {
+                    return target[prop].bind(target);
                 }
+                return target[prop];
             }
-        },
-        get metadata() {
-            return sessionData.metadata;
-        },
-        set metadata(value) {
-            sessionData.metadata = value;
-        },
-        computedProperty: () => {
-            return `${sessionData.username} (${sessionData.userId})`;
+        }),
+        metadata: {
+            createdAt: sessionData.metadata.createdAt,
+            lastActive: sessionData.metadata.lastActive,
+            get isActive() {
+                return Date.now() - this.lastActive < 30 * 60 * 1000; // 30 minutes
+            },
+            set lastActiveTimestamp(value) {
+                this.lastActive = value;
+            }
         }
     };
+
+    return session;
 }

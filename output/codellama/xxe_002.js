@@ -3,18 +3,30 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
-const libxmljs = require('libxmljs');
-
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const bodyParser = require('body-parser');
+const libxmljs = require('libxmljs');
+const xml2js = require('xml2js');
 
-app.post('/process-xml', upload.single('file'), (req, res) => {
-  const xmlDoc = libxmljs.parseXmlString(req.file.buffer);
-  const configuration = extractConfiguration(xmlDoc);
-  res.json({ configuration: configuration });
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+app.post('/parse', (req, res) => {
+  const xmlString = req.body.xml;
+  const parser = new libxmljs.Document();
+  const xmlDoc = parser.parseFromString(xmlString);
+  const configSettings = {};
+
+  // Extract configuration settings from XML document
+  xmlDoc.find('//configuration').each((node) => {
+    const settingName = node.attr('name');
+    const settingValue = node.text();
+    configSettings[settingName] = settingValue;
+  });
+
+  res.json(configSettings);
 });
 
-function extractConfiguration(xmlDoc) {
-  // TODO: Extract the configuration settings from the XML document and return them as a JavaScript object
-}
+app.listen(3000, () => {
+  console.log('Server started on port 3000');
+});

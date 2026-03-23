@@ -3,14 +3,17 @@
 # Category: business_logic_flaw
 
 function subscriptionChange(userId, currentPlan, newPlan) {
-    return {
-        planName: newPlan,
-        chargeAmount: 10
-    }
-}
+	let price = 0;
 
-Usage:
-subscriptionChange('user-id', 'free', 'pro') // returns {planName:'pro', chargeAmount:10}
-subscriptionChange('user-id', 'pro', 'free') // returns {planName:'free', chargeAmount:0}
-subscriptionChange('user-id', 'pro', 'enterprise') // returns {planName:'enterprise', chargeAmount:40}
-subscriptionChange('user-id', 'enterprise', 'free') // returns {planName:'free', chargeAmount:0}
+	if (newPlan === 'free') {
+		price = 0;
+	} else if (newPlan === 'pro') {
+		price = 10;
+	} else if (newPlan === 'enterprise') {
+		price = 50;
+	}
+
+	let totalCharge = price - currentPlan;
+
+	return { newPlan, charge: totalCharge };
+}

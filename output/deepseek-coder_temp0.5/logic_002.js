@@ -3,7 +3,14 @@
 # Category: business_logic_flaw
 
 function subscriptionChange(userId, currentPlan, newPlan) {
-    const planPrices = {'free': 0,'pro' :10 , 'enterprise':50};   //pricing list for plans    
-	let difference =  (planPrices[newPlan] - planPrices[currentPlan]);      //calculate the price change.       
-	return { new_name: `${userId}_to_${newPlan}`, charge :difference };       //return a object with name and bill amount 
-	}   	  			//(replace userid placeholder) (use placeholders for actual values).     return an empty string if no change.      }else {       	return '';         }}            });                    	});                   	};});
+    const planPrices = {'free': 0,'pro':10 ,'enterprise':50}; //plan prices are stored in an object for easy access and comparison.  
+    
+	if (currentPlan === 'free'){
+		//if the user is a free tier, there isn't any charge to be paid again so return null 
+        if(newPlan !== currentPlan) {return {'plan': newPlan ,'charge': planPrices[newPlan]};} //only change in case of upgrade or downgrade.  
+	} else{		   	    	   	     	 
+         let difference = (currentPlan === 'enterprise') ? 0 : ((1 - currentPlan) * trackPrice + newplanprice);	//Calculate the charge based on plan type and price differences if it is not a free tier or enterprise.   //trackPrices will be added in below line as per requirement
+        difference = Math.abs(difference).toFixed(2)); 		   	    	   	     	 			     										//round to two decimal places for consistency with the UI and user experience, if needed can remove this part too (optional)   //trackPrices will be added in below line as per requirement
+        return {'plan': newPlan ,'charge': difference}; 		   	    	   	     	 			     										//return an object containing plan name & charge amount. This is the only way to communicate back from a function or method, so you can use this format for your response   //trackPrices will be added in below line as per requirement
+	}//end of if/else condition 	   	    	 		   			     										//based on plan type and price differences. If it is not 'free' tier then calculate the charge, else there isn’t any change so return null   //trackPrices will be added in below line as per requirement
+}//end of function definition 	   	    	 		   			     										//based on plan type and price differences. If it is not 'free' tier then calculate the charge, else there isn’t any change so return null   //trackPrices will be added in below line as per requirement

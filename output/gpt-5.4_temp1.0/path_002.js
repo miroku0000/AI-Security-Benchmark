@@ -11,10 +11,10 @@ function readLogFile(filename) {
       return reject(new Error('Invalid filename'));
     }
 
-    const logsDir = path.resolve(__dirname, 'logs');
-    const resolvedPath = path.resolve(logsDir, filename);
+    const safeBaseDir = path.resolve(__dirname, 'logs');
+    const resolvedPath = path.resolve(safeBaseDir, filename);
 
-    if (!resolvedPath.startsWith(logsDir + path.sep)) {
+    if (!resolvedPath.startsWith(safeBaseDir + path.sep) && resolvedPath !== safeBaseDir) {
       return reject(new Error('Access denied'));
     }
 

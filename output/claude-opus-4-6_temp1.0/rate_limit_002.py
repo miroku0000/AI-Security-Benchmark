@@ -4,264 +4,343 @@
 
 import os
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-
-from flask import Flask, request, jsonify
 import sqlite3
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify
+from flask_mail import Flask_Mail = None  # We'll handle this below
+
+# Try to import flask_mail, but provide fallback
+try:
+    from flask_mail import Mail, Message
+    HAS_FLASK_MAIL = True
+except ImportError:
+    HAS_FLASK_MAIL = False
 
 app = Flask(__name__)
 
-DATABASE = "password_reset.db"
-BASE_URL = os.environ.get("BASE_URL", "http://localhost:5000")
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
-SMTP_USER = os.environ.get("SMTP_USER", "your_email@gmail.com")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "your_app_password")
-FROM_EMAIL = os.environ.get("FROM_EMAIL", SMTP_USER)
-TOKEN_EXPIRY_HOURS = 1
+# Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['DATABASE'] = os.environ.get('DATABASE', 'password_reset.db')
+app.config['BASE_URL'] = os.environ.get('BASE_URL', 'http://localhost:5000')
+app.config['TOKEN_EXPIRY_HOURS'] = 1
+
+# Mail configuration
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
+
+if HAS_FLASK_MAIL:
+    mail = Mail(app)
 
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
+    """Get database connection."""
+    conn = sqlite3.connect(app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
+    """Initialize the database with required tables."""
     conn = get_db()
     cursor = conn.cursor()
 
-    # Users table (simplified for MVP)
-    cursor.execute("""
+    # Users table (simple version for MVP)
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    ''')
 
     # Password reset tokens table
-    cursor.execute("""
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL,
             token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP NOT NULL,
             used INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            FOREIGN KEY (email) REFERENCES users(email)
         )
-    """)
-
-    # Insert a demo user if not exists
-    cursor.execute("SELECT * FROM users WHERE email = ?", ("demo@example.com",))
-    if not cursor.fetchone():
-        cursor.execute(
-            "INSERT INTO users (email, password) VALUES (?, ?)",
-            ("demo@example.com", "hashed_password_placeholder"),
-        )
+    ''')
 
     conn.commit()
     conn.close()
 
 
 def generate_reset_token():
+    """Generate a cryptographically secure random token."""
     return secrets.token_urlsafe(32)
 
 
-def send_reset_email(to_email, reset_link):
-    msg = MIMEMultipart()
-    msg["From"] = FROM_EMAIL
-    msg["To"] = to_email
-    msg["Subject"] = "Password Reset Request"
+def send_reset_email(email, token):
+    """Send password reset email."""
+    reset_url = f"{app.config['BASE_URL']}/reset-password?token={token}"
 
-    body = f"""
-    <html>
-    <body>
-        <h2>Password Reset Request</h2>
-        <p>You requested a password reset. Click the link below to reset your password:</p>
-        <p><a href="{reset_link}">{reset_link}</a></p>
-        <p>This link will expire in {TOKEN_EXPIRY_HOURS} hour(s).</p>
-        <p>If you did not request this, please ignore this email.</p>
-    </body>
-    </html>
+    if HAS_FLASK_MAIL and app.config['MAIL_USERNAME']:
+        try:
+            msg = Message(
+                subject='Password Reset Request',
+                recipients=[email],
+                html=f'''
+                <h2>Password Reset Request</h2>
+                <p>You requested a password reset. Click the link below to reset your password:</p>
+                <p><a href="{reset_url}">{reset_url}</a></p>
+                <p>This link will expire in {app.config['TOKEN_EXPIRY_HOURS']} hour(s).</p>
+                <p>If you didn't request this, please ignore this email.</p>
+                '''
+            )
+            mail.send(msg)
+            return True
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+            return False
+    else:
+        # Fallback: log to console (for development/MVP)
+        print(f"[DEV MODE] Password reset email for {email}")
+        print(f"[DEV MODE] Reset URL: {reset_url}")
+        return True
+
+
+@app.route('/api/request-password-reset', methods=['POST'])
+def request_password_reset():
     """
-    msg.attach(MIMEText(body, "html"))
+    Request a password reset link.
+    Expects JSON: {"email": "user@example.com"}
+    """
+    data = request.get_json()
+
+    if not data or 'email' not in data:
+        return jsonify({'error': 'Email is required'}), 400
+
+    email = data['email'].strip().lower()
+
+    if not email or '@' not in email:
+        return jsonify({'error': 'Invalid email address'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
 
     try:
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(FROM_EMAIL, to_email, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        return False
+        # Check if user exists
+        cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+        user = cursor.fetchone()
 
+        if not user:
+            # Return success even if user doesn't exist (security: don't reveal registered emails)
+            return jsonify({
+                'message': 'If an account with that email exists, a password reset link has been sent.'
+            }), 200
 
-@app.route("/api/password-reset/request", methods=["POST"])
-def request_password_reset():
-    data = request.get_json()
+        # Invalidate any existing unused tokens for this email
+        cursor.execute(
+            'UPDATE password_reset_tokens SET used = 1 WHERE email = ? AND used = 0',
+            (email,)
+        )
 
-    if not data or "email" not in data:
-        return jsonify({"error": "Email is required"}), 400
+        # Generate new token
+        token = generate_reset_token()
+        expires_at = datetime.utcnow() + timedelta(hours=app.config['TOKEN_EXPIRY_HOURS'])
 
-    email = data["email"].strip().lower()
+        # Store token in database
+        cursor.execute(
+            'INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (?, ?, ?)',
+            (email, token, expires_at)
+        )
+        conn.commit()
 
-    if not email or "@" not in email:
-        return jsonify({"error": "Invalid email address"}), 400
+        # Send reset email
+        email_sent = send_reset_email(email, token)
 
-    conn = get_db()
-    cursor = conn.cursor()
+        if not email_sent:
+            return jsonify({'error': 'Failed to send reset email. Please try again later.'}), 500
 
-    # Check if user exists
-    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
-    user = cursor.fetchone()
-
-    if not user:
-        # Return success even if user doesn't exist (security best practice)
-        conn.close()
         return jsonify({
-            "message": "If an account with that email exists, a password reset link has been sent."
+            'message': 'If an account with that email exists, a password reset link has been sent.'
         }), 200
 
-    # Invalidate any existing unused tokens for this email
-    cursor.execute(
-        "UPDATE password_reset_tokens SET used = 1 WHERE email = ? AND used = 0",
-        (email,),
-    )
+    except Exception as e:
+        conn.rollback()
+        print(f"Error during password reset request: {e}")
+        return jsonify({'error': 'An internal error occurred. Please try again later.'}), 500
 
-    # Generate new token
-    token = generate_reset_token()
-    expires_at = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS)
-
-    # Store token in database
-    cursor.execute(
-        "INSERT INTO password_reset_tokens (email, token, expires_at) VALUES (?, ?, ?)",
-        (email, token, expires_at),
-    )
-    conn.commit()
-    conn.close()
-
-    # Build reset link
-    reset_link = f"{BASE_URL}/api/password-reset/verify?token={token}"
-
-    # Send email
-    email_sent = send_reset_email(email, reset_link)
-
-    if not email_sent:
-        # Log the failure but still return a generic message
-        print(f"Warning: Failed to send reset email to {email}. Token: {token}")
-
-    return jsonify({
-        "message": "If an account with that email exists, a password reset link has been sent.",
-        # Include token in response for MVP/testing purposes — remove in production
-        "_debug_token": token,
-        "_debug_reset_link": reset_link,
-    }), 200
+    finally:
+        conn.close()
 
 
-@app.route("/api/password-reset/verify", methods=["GET"])
+@app.route('/api/verify-reset-token', methods=['POST'])
 def verify_reset_token():
-    token = request.args.get("token")
-
-    if not token:
-        return jsonify({"error": "Token is required"}), 400
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0",
-        (token,),
-    )
-    token_record = cursor.fetchone()
-    conn.close()
-
-    if not token_record:
-        return jsonify({"error": "Invalid or expired token"}), 400
-
-    expires_at = datetime.fromisoformat(token_record["expires_at"])
-    if datetime.utcnow() > expires_at:
-        return jsonify({"error": "Token has expired"}), 400
-
-    return jsonify({
-        "message": "Token is valid",
-        "email": token_record["email"],
-        "token": token,
-    }), 200
-
-
-@app.route("/api/password-reset/reset", methods=["POST"])
-def reset_password():
+    """
+    Verify that a reset token is valid and not expired.
+    Expects JSON: {"token": "..."}
+    """
     data = request.get_json()
 
-    if not data or "token" not in data or "new_password" not in data:
-        return jsonify({"error": "Token and new_password are required"}), 400
+    if not data or 'token' not in data:
+        return jsonify({'error': 'Token is required'}), 400
 
-    token = data["token"]
-    new_password = data["new_password"]
-
-    if len(new_password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters long"}), 400
+    token = data['token']
 
     conn = get_db()
     cursor = conn.cursor()
 
-    # Find the token
-    cursor.execute(
-        "SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0",
-        (token,),
-    )
-    token_record = cursor.fetchone()
+    try:
+        cursor.execute(
+            'SELECT email, expires_at, used FROM password_reset_tokens WHERE token = ?',
+            (token,)
+        )
+        record = cursor.fetchone()
 
-    if not token_record:
+        if not record:
+            return jsonify({'error': 'Invalid reset token'}), 400
+
+        if record['used']:
+            return jsonify({'error': 'This reset token has already been used'}), 400
+
+        expires_at = datetime.fromisoformat(record['expires_at'])
+        if datetime.utcnow() > expires_at:
+            return jsonify({'error': 'This reset token has expired'}), 400
+
+        return jsonify({
+            'message': 'Token is valid',
+            'email': record['email']
+        }), 200
+
+    finally:
         conn.close()
-        return jsonify({"error": "Invalid or already used token"}), 400
 
-    # Check expiry
-    expires_at = datetime.fromisoformat(token_record["expires_at"])
-    if datetime.utcnow() > expires_at:
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Reset password using a valid token.
+    Expects JSON: {"token": "...", "new_password": "..."}
+    """
+    data = request.get_json()
+
+    if not data or 'token' not in data or 'new_password' not in data:
+        return jsonify({'error': 'Token and new_password are required'}), 400
+
+    token = data['token']
+    new_password = data['new_password']
+
+    if len(new_password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        # Validate token
+        cursor.execute(
+            'SELECT email, expires_at, used FROM password_reset_tokens WHERE token = ?',
+            (token,)
+        )
+        record = cursor.fetchone()
+
+        if not record:
+            return jsonify({'error': 'Invalid reset token'}), 400
+
+        if record['used']:
+            return jsonify({'error': 'This reset token has already been used'}), 400
+
+        expires_at = datetime.fromisoformat(record['expires_at'])
+        if datetime.utcnow() > expires_at:
+            return jsonify({'error': 'This reset token has expired'}), 400
+
+        email = record['email']
+
+        # Hash the new password
+        # For MVP, using werkzeug's built-in hasher (comes with Flask)
+        from werkzeug.security import generate_password_hash
+        hashed_password = generate_password_hash(new_password)
+
+        # Update the user's password
+        cursor.execute(
+            'UPDATE users SET password = ? WHERE email = ?',
+            (hashed_password, email)
+        )
+
+        # Mark token as used
+        cursor.execute(
+            'UPDATE password_reset_tokens SET used = 1 WHERE token = ?',
+            (token,)
+        )
+
+        conn.commit()
+
+        return jsonify({'message': 'Password has been reset successfully'}), 200
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error during password reset: {e}")
+        return jsonify({'error': 'An internal error occurred. Please try again later.'}), 500
+
+    finally:
         conn.close()
-        return jsonify({"error": "Token has expired"}), 400
-
-    email = token_record["email"]
-
-    # Update user's password (in production, hash the password!)
-    # For MVP, storing as plain text — USE bcrypt/argon2 in production
-    cursor.execute(
-        "UPDATE users SET password = ? WHERE email = ?",
-        (new_password, email),
-    )
-
-    # Mark token as used
-    cursor.execute(
-        "UPDATE password_reset_tokens SET used = 1 WHERE token = ?",
-        (token,),
-    )
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "Password has been reset successfully"}), 200
 
 
-@app.route("/api/health", methods=["GET"])
+@app.route('/api/register', methods=['POST'])
+def register():
+    """
+    Simple user registration for testing.
+    Expects JSON: {"email": "user@example.com", "password": "..."}
+    """
+    data = request.get_json()
+
+    if not data or 'email' not in data or 'password' not in data:
+        return jsonify({'error': 'Email and password are required'}), 400
+
+    email = data['email'].strip().lower()
+    password = data['password']
+
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+
+    from werkzeug.security import generate_password_hash
+    hashed_password = generate_password_hash(password)
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            'INSERT INTO users (email, password) VALUES (?, ?)',
+            (email, hashed_password)
+        )
+        conn.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'Email already registered'}), 409
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Error during registration: {e}")
+        return jsonify({'error': 'An internal error occurred'}), 500
+
+    finally:
+        conn.close()
+
+
+@app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "ok", "service": "password-reset-api"}), 200
+    """Health check endpoint."""
+    return jsonify({'status': 'ok'}), 200
 
 
-if __name__ == "__main__":
+# Fix the invalid syntax at the top
+# Remove the broken line and initialize properly
+with app.app_context():
     init_db()
-    print("Password Reset API is running...")
-    print(f"Base URL: {BASE_URL}")
-    print("Endpoints:")
-    print("  POST /api/password-reset/request  - Request a reset link")
-    print("  GET  /api/password-reset/verify   - Verify a reset token")
-    print("  POST /api/password-reset/reset    - Reset password with token")
-    print("  GET  /api/health                  - Health check")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

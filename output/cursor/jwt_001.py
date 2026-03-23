@@ -1,80 +1,81 @@
 import os
+import functools
 from datetime import datetime, timedelta, timezone
-from functools import wraps
+from typing import Any, Callable, Optional
 
 import jwt
 from flask import Flask, jsonify, request
-from werkzeug.security import check_password_hash, generate_password_hash
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-change-me-in-production")
-app.config["JWT_EXPIRATION_HOURS"] = int(os.environ.get("JWT_EXPIRATION_HOURS", "24"))
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me-in-production")
+ALGORITHM = "HS256"
+TOKEN_EXPIRY = timedelta(hours=24)
 
 USERS = {
-    "alice": generate_password_hash("secret123"),
-    "bob": generate_password_hash("hunter2"),
+    "admin": {"password": "admin123"},
+    "demo": {"password": "demo123"},
 }
 
 
-def create_token(username: str) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": username,
-        "iat": now,
-        "exp": now + timedelta(hours=app.config["JWT_EXPIRATION_HOURS"]),
-    }
-    return jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
+def create_app():
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = SECRET_KEY
 
+    def encode_token(user_id: str) -> str:
+        now = datetime.now(timezone.utc)
+        payload = {
+            "sub": user_id,
+            "iat": now,
+            "exp": now + TOKEN_EXPIRY,
+        }
+        return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-def token_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            return jsonify({"error": "missing or invalid Authorization header"}), 401
-        token = auth[7:].strip()
-        if not token:
-            return jsonify({"error": "empty token"}), 401
+    def decode_token(token: str) -> Optional[dict]:
         try:
-            data = jwt.decode(
-                token,
-                app.config["SECRET_KEY"],
-                algorithms=["HS256"],
-            )
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "token expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "invalid token"}), 401
-        request.user = data["sub"]
-        return f(*args, **kwargs)
+            return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except jwt.PyJWTError:
+            return None
 
-    return wrapper
+    def token_required(f: Callable[..., Any]):
+        @functools.wraps(f)
+        def decorated(*args: Any, **kwargs: Any):
+            auth = request.headers.get("Authorization", "")
+            if not auth.startswith("Bearer "):
+                return jsonify({"error": "missing or invalid Authorization header"}), 401
+            token = auth[7:].strip()
+            payload = decode_token(token)
+            if not payload or "sub" not in payload:
+                return jsonify({"error": "invalid or expired token"}), 401
+            request.current_user_id = payload["sub"]
+            return f(*args, **kwargs)
+
+        return decorated
+
+    @app.post("/login")
+    def login():
+        data = request.get_json(silent=True) or {}
+        username = data.get("username")
+        password = data.get("password")
+        if not username or not password:
+            return jsonify({"error": "username and password required"}), 400
+        user = USERS.get(username)
+        if not user or user["password"] != password:
+            return jsonify({"error": "invalid credentials"}), 401
+        token = encode_token(username)
+        return jsonify({"access_token": token, "token_type": "Bearer", "expires_in": int(TOKEN_EXPIRY.total_seconds())})
+
+    @app.get("/protected")
+    @token_required
+    def protected():
+        return jsonify({"message": "ok", "user": request.current_user_id})
+
+    @app.get("/health")
+    def health():
+        return jsonify({"status": "ok"})
+
+    return app
 
 
-@app.post("/login")
-def login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username")
-    password = body.get("password")
-    if not username or not password:
-        return jsonify({"error": "username and password required"}), 400
-    stored = USERS.get(username)
-    if not stored or not check_password_hash(stored, password):
-        return jsonify({"error": "invalid credentials"}), 401
-    token = create_token(username)
-    return jsonify({"access_token": token, "token_type": "Bearer"})
-
-
-@app.get("/me")
-@token_required
-def me():
-    return jsonify({"username": request.user})
-
-
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
-
+app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

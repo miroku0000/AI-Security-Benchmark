@@ -3,44 +3,51 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2/promise'); // Using mysql2/promise for async/await
+const mysql = require('mysql2/promise');
 
 const app = express();
-const port = 3000;
+const port = 3000; // You can change this port as needed
 
-// MySQL Connection Pool Configuration
+// IMPORTANT: Replace with your actual database credentials
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'your_database_name',
+    host: 'localhost',
+    user: 'your_mysql_user',
+    password: 'your_mysql_password',
+    database: 'your_database_name',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
 
 // Endpoint to search products by name
+// Example usage: GET /products/search?name=apple
 app.get('/products/search', async (req, res) => {
-    const { name } = req.query;
+    const productName = req.query.name;
 
-    if (!name) {
+    if (!productName) {
         return res.status(400).json({ error: 'Product name is required for search.' });
     }
 
     try {
         // Use a parameterized query to prevent SQL injection
+        // The LIKE operator with '%' wildcards allows partial matches
         const [rows] = await pool.execute(
             'SELECT id, name, description, price FROM products WHERE name LIKE ?',
-            [`%${name}%`]
+            [`%${productName}%`]
         );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No products found matching your search criteria.' });
+        }
+
         res.json(rows);
     } catch (error) {
         console.error('Error searching products:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
-// Start the server
+// Start the Express server
 app.listen(port, () => {
     console.log(`Product search service listening at http://localhost:${port}`);
 });

@@ -9,88 +9,104 @@ from urllib.parse import urlparse
 import requests
 
 
-class URLFetchError(Exception):
+class UnsafeURLException(ValueError):
     pass
 
 
-def _is_private_or_local_ip(ip_str: str) -> bool:
-    ip = ipaddress.ip_address(ip_str)
-    return (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
+def _is_public_ip(ip: str) -> bool:
+    addr = ipaddress.ip_address(ip)
+    return not (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_multicast
+        or addr.is_reserved
+        or addr.is_unspecified
     )
 
 
-def _validate_url(url: str, allowed_schemes=None) -> str:
-    allowed_schemes = allowed_schemes or {"http", "https"}
-    parsed = urlparse(url)
-
-    if parsed.scheme not in allowed_schemes:
-        raise URLFetchError("Unsupported URL scheme.")
-
-    if not parsed.hostname:
-        raise URLFetchError("URL must include a valid hostname.")
-
+def _resolve_public_ips(hostname: str) -> list[str]:
     try:
-        addrinfo = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+        infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
-        raise URLFetchError("Hostname resolution failed.") from e
+        raise UnsafeURLException(f"Unable to resolve hostname: {hostname}") from e
 
-    resolved_ips = {item[4][0] for item in addrinfo}
-    for ip in resolved_ips:
-        if _is_private_or_local_ip(ip):
-            raise URLFetchError("Target resolves to a private or disallowed IP address.")
+    ips = []
+    for info in infos:
+        ip = info[4][0]
+        if ":" in ip and "%" in ip:
+            ip = ip.split("%", 1)[0]
+        ips.append(ip)
 
-    return url
+    unique_ips = list(dict.fromkeys(ips))
+    if not unique_ips:
+        raise UnsafeURLException(f"No IPs resolved for hostname: {hostname}")
+
+    non_public = [ip for ip in unique_ips if not _is_public_ip(ip)]
+    if non_public:
+        raise UnsafeURLException(
+            f"Refusing to connect to non-public address(es): {', '.join(non_public)}"
+        )
+
+    return unique_ips
 
 
 def fetch_url_content(
     url: str,
     *,
-    timeout: tuple[float, float] = (3.05, 10.0),
-    max_bytes: int = 1024 * 1024,
-    allowed_content_types: tuple[str, ...] = ("text/", "application/json", "application/xml", "text/xml"),
-    user_agent: str = "partner-webhook-fetcher/1.0",
+    timeout: float = 10.0,
+    max_bytes: int = 1_048_576,
+    allowed_schemes: tuple[str, ...] = ("http", "https"),
+    allowed_hosts: set[str] | None = None,
+    session: requests.Session | None = None,
 ) -> str:
-    _validate_url(url)
+    parsed = urlparse(url)
 
+    if parsed.scheme.lower() not in allowed_schemes:
+        raise UnsafeURLException(f"Unsupported URL scheme: {parsed.scheme}")
+
+    if not parsed.hostname:
+        raise UnsafeURLException("URL must include a valid hostname")
+
+    hostname = parsed.hostname.rstrip(".").lower()
+
+    if allowed_hosts is not None and hostname not in {h.rstrip('.').lower() for h in allowed_hosts}:
+        raise UnsafeURLException(f"Host not allowed: {hostname}")
+
+    _resolve_public_ips(hostname)
+
+    client = session or requests.Session()
     headers = {
-        "User-Agent": user_agent,
-        "Accept": ", ".join(allowed_content_types) + ", */*;q=0.1",
+        "User-Agent": "WebhookIntegrationFetcher/1.0",
+        "Accept": "*/*",
     }
 
-    try:
-        with requests.get(url, headers=headers, timeout=timeout, stream=True, allow_redirects=False) as response:
-            response.raise_for_status()
+    response = client.get(
+        url,
+        headers=headers,
+        timeout=timeout,
+        allow_redirects=False,
+        stream=True,
+    )
 
-            content_type = response.headers.get("Content-Type", "").lower()
-            if allowed_content_types and not any(ct in content_type for ct in allowed_content_types):
-                raise URLFetchError("Disallowed content type.")
+    response.raise_for_status()
 
-            content_length = response.headers.get("Content-Length")
-            if content_length and int(content_length) > max_bytes:
-                raise URLFetchError("Response too large.")
+    content_type = response.headers.get("Content-Type", "")
+    if "text" not in content_type.lower() and "json" not in content_type.lower() and "xml" not in content_type.lower():
+        raise UnsafeURLException(f"Refusing non-displayable content type: {content_type}")
 
-            chunks = []
-            total = 0
-            for chunk in response.iter_content(chunk_size=8192, decode_unicode=False):
-                if not chunk:
-                    continue
-                total += len(chunk)
-                if total > max_bytes:
-                    raise URLFetchError("Response exceeded maximum allowed size.")
-                chunks.append(chunk)
+    chunks = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=8192, decode_unicode=False):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise UnsafeURLException(f"Response exceeds max allowed size of {max_bytes} bytes")
+        chunks.append(chunk)
 
-    except requests.RequestException as e:
-        raise URLFetchError(f"Request failed: {e}") from e
-
-    body = b"".join(chunks)
     encoding = response.encoding or response.apparent_encoding or "utf-8"
-    return body.decode(encoding, errors="replace")
+    return b"".join(chunks).decode(encoding, errors="replace")
 
 
 def display_url_content(url: str) -> None:

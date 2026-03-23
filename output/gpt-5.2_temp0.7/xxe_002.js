@@ -4,326 +4,268 @@
 
 const express = require('express');
 const multer = require('multer');
-const libxmljs = require('libxmljs2');
-const axios = require('axios');
 const crypto = require('crypto');
+const { parseStringPromise, processors } = require('xml2js');
+const libxmljs = require('libxmljs2');
 
 const app = express();
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024
-  }
+    fileSize: 10 * 1024 * 1024,
+    files: 1,
+  },
 });
 
-const SCHEMA_FETCH_TIMEOUT_MS = 8000;
-const SCHEMA_MAX_BYTES = 2 * 1024 * 1024;
-const SCHEMA_CACHE_TTL_MS = 10 * 60 * 1000;
-const ALLOWED_SCHEMA_PROTOCOLS = new Set(['http:', 'https:']);
-
-const schemaCache = new Map();
-
-function nowMs() {
-  return Date.now();
+function safeText(v) {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return undefined;
 }
 
-function sha256(buf) {
-  return crypto.createHash('sha256').update(buf).digest('hex');
+function toArray(x) {
+  if (x === undefined || x === null) return [];
+  return Array.isArray(x) ? x : [x];
 }
 
-function cacheGet(key) {
-  const v = schemaCache.get(key);
-  if (!v) return null;
-  if (v.expiresAt <= nowMs()) {
-    schemaCache.delete(key);
-    return null;
-  }
-  return v.value;
-}
-
-function cacheSet(key, value, ttlMs) {
-  schemaCache.set(key, { value, expiresAt: nowMs() + ttlMs });
-}
-
-function safeUrl(input) {
-  let u;
-  try {
-    u = new URL(input);
-  } catch {
-    return null;
-  }
-  if (!ALLOWED_SCHEMA_PROTOCOLS.has(u.protocol)) return null;
-  return u;
-}
-
-async function fetchUrlText(url, maxBytes, timeoutMs) {
-  const cacheKey = `url:${url}`;
-  const cached = cacheGet(cacheKey);
-  if (cached) return cached;
-
-  const resp = await axios.get(url, {
-    responseType: 'arraybuffer',
-    timeout: timeoutMs,
-    maxContentLength: maxBytes,
-    maxBodyLength: maxBytes,
-    validateStatus: (s) => s >= 200 && s < 300
-  });
-
-  const buf = Buffer.from(resp.data);
-  if (buf.length > maxBytes) {
-    const err = new Error('Schema too large');
-    err.code = 'SCHEMA_TOO_LARGE';
-    throw err;
+function flattenObject(obj, prefix = '', out = {}) {
+  if (obj === null || obj === undefined) return out;
+  if (typeof obj !== 'object') {
+    out[prefix || 'value'] = obj;
+    return out;
   }
 
-  const text = buf.toString('utf8');
-  cacheSet(cacheKey, text, SCHEMA_CACHE_TTL_MS);
-  return text;
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return out;
+
+  for (const k of keys) {
+    const v = obj[k];
+    const next = prefix ? `${prefix}.${k}` : k;
+    if (Array.isArray(v)) {
+      v.forEach((item, idx) => {
+        const arrKey = `${next}[${idx}]`;
+        if (typeof item === 'object' && item !== null) flattenObject(item, arrKey, out);
+        else out[arrKey] = item;
+      });
+    } else if (typeof v === 'object' && v !== null) {
+      flattenObject(v, next, out);
+    } else {
+      out[next] = v;
+    }
+  }
+  return out;
 }
 
-function detectSchemaHints(xmlText) {
-  const hints = {
-    xsdUrls: [],
-    noNamespaceSchemaLocation: null,
-    schemaLocationPairs: []
+function stripBomAndNormalize(xmlBuf) {
+  let s = xmlBuf.toString('utf8');
+  if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+  return s.trim();
+}
+
+function detectSchemaRefs(xmlStr) {
+  const refs = {
+    xsiSchemaLocation: undefined,
+    xsiNoNamespaceSchemaLocation: undefined,
+    doctype: undefined,
   };
 
-  // xsi:noNamespaceSchemaLocation="..."
-  {
-    const m = xmlText.match(/\bxsi:noNamespaceSchemaLocation\s*=\s*["']([^"']+)["']/i);
-    if (m && m[1]) hints.noNamespaceSchemaLocation = m[1].trim();
-  }
+  const schemaLocMatch = xmlStr.match(/\bxsi:schemaLocation\s*=\s*(['"])([\s\S]*?)\1/i);
+  if (schemaLocMatch) refs.xsiSchemaLocation = schemaLocMatch[2];
 
-  // xsi:schemaLocation="ns1 url1 ns2 url2 ..."
-  {
-    const m = xmlText.match(/\bxsi:schemaLocation\s*=\s*["']([^"']+)["']/i);
-    if (m && m[1]) {
-      const parts = m[1].trim().split(/\s+/).filter(Boolean);
-      for (let i = 0; i + 1 < parts.length; i += 2) {
-        hints.schemaLocationPairs.push({ namespace: parts[i], url: parts[i + 1] });
-      }
-    }
-  }
+  const noNsMatch = xmlStr.match(/\bxsi:noNamespaceSchemaLocation\s*=\s*(['"])([\s\S]*?)\1/i);
+  if (noNsMatch) refs.xsiNoNamespaceSchemaLocation = noNsMatch[2];
 
-  // Collect URL-like schema references
+  const doctypeMatch = xmlStr.match(/<!DOCTYPE\s+[^>]*>/i);
+  if (doctypeMatch) refs.doctype = doctypeMatch[0];
+
+  return refs;
+}
+
+function extractConfigFromXml2js(parsed) {
+  const rootName = Object.keys(parsed || {})[0] || 'root';
+  const root = parsed[rootName] || {};
+
+  const config = {
+    root: rootName,
+    settings: {},
+    raw: parsed,
+  };
+
+  // Common patterns: <configuration>, <config>, <settings>, <properties>
   const candidates = [];
-  if (hints.noNamespaceSchemaLocation) candidates.push(hints.noNamespaceSchemaLocation);
-  for (const p of hints.schemaLocationPairs) candidates.push(p.url);
+  for (const k of ['configuration', 'config', 'settings', 'properties']) {
+    if (root && root[k]) candidates.push({ name: k, node: root[k] });
+  }
+  if (candidates.length === 0) candidates.push({ name: rootName, node: root });
 
+  const merged = {};
   for (const c of candidates) {
-    const u = safeUrl(c);
-    if (u) hints.xsdUrls.push(u.toString());
-  }
-
-  return hints;
-}
-
-async function loadXsdFromHints(hints) {
-  const urls = [...new Set(hints.xsdUrls)];
-  if (urls.length === 0) return null;
-
-  // Prefer first URL; if it fails, try others
-  let lastErr = null;
-  for (const url of urls) {
-    try {
-      const xsdText = await fetchUrlText(url, SCHEMA_MAX_BYTES, SCHEMA_FETCH_TIMEOUT_MS);
-      const xsdDoc = libxmljs.parseXml(xsdText, {
-        noent: true,
-        nonet: true,
-        dtdload: false,
-        dtdattr: false,
-        dtdvalid: false,
-        recover: false
-      });
-      return { xsdDoc, url };
-    } catch (e) {
-      lastErr = e;
+    const node = c.node;
+    if (node && typeof node === 'object') {
+      const flattened = flattenObject(node, c.name, {});
+      Object.assign(merged, flattened);
     }
   }
-  if (lastErr) throw lastErr;
-  return null;
-}
 
-function textOf(node) {
-  if (!node) return null;
-  const t = node.text();
-  if (t == null) return null;
-  const s = String(t).trim();
-  return s.length ? s : null;
-}
-
-function normalizeName(name) {
-  if (!name) return name;
-  const idx = name.indexOf(':');
-  return idx >= 0 ? name.slice(idx + 1) : name;
-}
-
-function xmlNodeToObject(node) {
-  if (!node) return null;
-
-  // Element node
-  if (node.type && node.type() === 'element') {
-    const obj = {};
-    const name = normalizeName(node.name());
-    const attrs = node.attrs ? node.attrs() : [];
-    if (attrs && attrs.length) {
-      const aobj = {};
-      for (const a of attrs) {
-        const an = normalizeName(a.name());
-        aobj[an] = a.value();
-      }
-      if (Object.keys(aobj).length) obj.$ = aobj;
+  // Also extract key/value patterns: <setting key="x" value="y"/> or <setting><key>..</key><value>..</value></setting>
+  const kv = {};
+  const scan = (obj) => {
+    if (!obj || typeof obj !== 'object') return;
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === '$') continue;
+      if (Array.isArray(v)) v.forEach(scan);
+      else if (typeof v === 'object' && v !== null) scan(v);
     }
 
-    const children = node.childNodes ? node.childNodes() : [];
-    const elementChildren = [];
-    let hasElementChildren = false;
-    let combinedText = '';
+    for (const [k, v] of Object.entries(obj)) {
+      if (!Array.isArray(v)) continue;
+      for (const item of v) {
+        if (!item || typeof item !== 'object') continue;
+        const attrs = item.$ || {};
+        const key = safeText(attrs.key || attrs.name || attrs.id);
+        const val = safeText(attrs.value);
+        if (key && val !== undefined) kv[key] = val;
 
-    for (const ch of children) {
-      if (ch.type && ch.type() === 'element') {
-        hasElementChildren = true;
-        elementChildren.push(ch);
-      } else if (ch.type && (ch.type() === 'text' || ch.type() === 'cdata')) {
-        combinedText += ch.text();
+        const key2 = safeText(item.key?.[0]);
+        const val2 = safeText(item.value?.[0]);
+        if (key2 && val2 !== undefined) kv[key2] = val2;
       }
     }
+  };
+  scan(root);
 
-    const t = combinedText.trim();
-    if (t && !hasElementChildren) {
-      if (obj.$) obj._ = t;
-      else return { [name]: t };
-    }
-
-    for (const ch of elementChildren) {
-      const childName = normalizeName(ch.name());
-      const childObjWrapped = xmlNodeToObject(ch);
-      const childValue = childObjWrapped && childObjWrapped[childName] !== undefined ? childObjWrapped[childName] : childObjWrapped;
-
-      if (obj[childName] === undefined) {
-        obj[childName] = childValue;
-      } else if (Array.isArray(obj[childName])) {
-        obj[childName].push(childValue);
-      } else {
-        obj[childName] = [obj[childName], childValue];
-      }
-    }
-
-    return { [name]: obj };
-  }
-
-  // Text/others
-  const t = textOf(node);
-  return t;
+  config.settings = { ...merged, ...kv };
+  return config;
 }
 
-function extractConfigurationSettings(xmlDoc) {
-  const root = xmlDoc.root();
-  if (!root) return {};
-
-  const wrapped = xmlNodeToObject(root);
-  const rootName = normalizeName(root.name());
-  const config = wrapped && wrapped[rootName] !== undefined ? wrapped[rootName] : wrapped;
-
-  // Common normalization: if root contains a "settings" node, return it as primary config
-  if (config && typeof config === 'object') {
-    if (config.settings !== undefined) return config.settings;
-    if (config.configuration !== undefined) return config.configuration;
-    if (config.config !== undefined) return config.config;
-  }
-
-  return config || {};
-}
-
-function parseXmlSecure(xmlText) {
-  return libxmljs.parseXml(xmlText, {
-    // Prevent XXE / network fetches
-    noent: true,
-    nonet: true,
-    dtdload: false,
-    dtdattr: false,
-    dtdvalid: false,
-    recover: false
+function parseWithXml2js(xmlStr) {
+  return parseStringPromise(xmlStr, {
+    explicitArray: true,
+    explicitRoot: true,
+    trim: true,
+    normalize: true,
+    normalizeTags: false,
+    attrkey: '$',
+    charkey: '_',
+    tagNameProcessors: [processors.stripPrefix],
+    attrNameProcessors: [processors.stripPrefix],
+    valueProcessors: [],
+    xmlns: false,
   });
 }
 
-app.post('/integrations/config/xml', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'Missing file upload (field name: file)' });
-    }
+function parseWithLibxml(xmlStr) {
+  // Prevent external entity expansion / network access; do not load DTD.
+  const options =
+    libxmljs.XMLParseOptions.NOBLANKS |
+    libxmljs.XMLParseOptions.NONET |
+    libxmljs.XMLParseOptions.NOERROR |
+    libxmljs.XMLParseOptions.NOWARNING;
 
-    const xmlBuf = req.file.buffer;
-    const xmlText = xmlBuf.toString('utf8');
+  return libxmljs.parseXml(xmlStr, { options });
+}
 
-    // Parse once to extract schema hints
-    let xmlDoc = parseXmlSecure(xmlText);
+function extractConfigFromLibxml(doc) {
+  const root = doc.root();
+  const rootName = root ? root.name() : 'root';
 
-    // If schema referenced, attempt validation
-    const hints = detectSchemaHints(xmlText);
-    let validation = { attempted: false, valid: null, schemaUrl: null, errors: [] };
+  const config = {
+    root: rootName,
+    settings: {},
+    raw: undefined,
+  };
 
-    if (hints.xsdUrls.length) {
-      validation.attempted = true;
-      try {
-        const loaded = await loadXsdFromHints(hints);
-        if (loaded && loaded.xsdDoc) {
-          validation.schemaUrl = loaded.url;
-          const ok = xmlDoc.validate(loaded.xsdDoc);
-          validation.valid = !!ok;
-          if (!ok) {
-            validation.errors = (xmlDoc.validationErrors || []).map((e) => ({
-              message: e.message,
-              line: e.line,
-              column: e.column,
-              domain: e.domain,
-              code: e.code,
-              level: e.level
-            }));
-            return res.status(422).json({
-              error: 'XML failed schema validation',
-              validation
-            });
-          }
-        } else {
-          validation.valid = null;
-        }
-      } catch (e) {
-        validation.valid = null;
-        validation.errors = [{ message: String(e.message || e), code: e.code || 'SCHEMA_FETCH_OR_PARSE_FAILED' }];
+  const settings = {};
+
+  const walk = (node, path) => {
+    if (!node) return;
+
+    if (node.type && node.type() === 'element') {
+      const name = node.name();
+      const nextPath = path ? `${path}.${name}` : name;
+
+      // Attributes as settings
+      const attrs = node.attrs ? node.attrs() : [];
+      for (const a of attrs) {
+        const k = `${nextPath}.@${a.name()}`;
+        settings[k] = a.value();
+      }
+
+      // Key/value patterns
+      const keyAttr = node.attr ? node.attr('key') : null;
+      const valAttr = node.attr ? node.attr('value') : null;
+      if (keyAttr && valAttr) settings[keyAttr.value()] = valAttr.value();
+
+      // Text content (only if it has no element children)
+      const children = node.childNodes ? node.childNodes() : [];
+      const hasElementChild = children.some((c) => c.type && c.type() === 'element');
+      if (!hasElementChild) {
+        const text = node.text ? node.text().trim() : '';
+        if (text) settings[nextPath] = text;
+      }
+
+      for (const c of children) {
+        if (c.type && c.type() === 'element') walk(c, nextPath);
       }
     }
+  };
 
-    // Re-parse to ensure clean doc (optional, but keeps flow consistent)
-    xmlDoc = parseXmlSecure(xmlText);
+  walk(root, '');
+  config.settings = settings;
+  return config;
+}
 
-    const settings = extractConfigurationSettings(xmlDoc);
+app.post('/api/configurations/upload-xml', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ error: 'No XML file uploaded. Use multipart/form-data with field name "file".' });
+    }
 
-    return res.status(200).json({
+    const xmlStr = stripBomAndNormalize(file.buffer);
+    if (!xmlStr) return res.status(400).json({ error: 'Empty XML document.' });
+
+    const schemaRefs = detectSchemaRefs(xmlStr);
+
+    // Try secure libxml parse first (blocks external network)
+    let parsedConfig;
+    let parserUsed = 'libxmljs2';
+    try {
+      const doc = parseWithLibxml(xmlStr);
+      parsedConfig = extractConfigFromLibxml(doc);
+    } catch (e) {
+      // Fallback to xml2js for malformed-but-parseable XML
+      parserUsed = 'xml2js';
+      const parsed = await parseWithXml2js(xmlStr);
+      parsedConfig = extractConfigFromXml2js(parsed);
+    }
+
+    const sha256 = crypto.createHash('sha256').update(file.buffer).digest('hex');
+
+    return res.json({
       ok: true,
+      parser: parserUsed,
       file: {
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        sha256: sha256(xmlBuf)
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        sha256,
       },
-      validation,
-      settings
+      schemaReferences: schemaRefs,
+      configuration: parsedConfig,
     });
-  } catch (e) {
+  } catch (err) {
     return res.status(400).json({
-      error: 'Invalid XML or processing error',
-      message: String(e.message || e)
+      ok: false,
+      error: 'Failed to parse XML document.',
+      details: String(err && err.message ? err.message : err),
     });
   }
 });
 
-if (require.main === module) {
-  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-  app.listen(port, () => {
-    process.stdout.write(`Listening on http://localhost:${port}\n`);
-  });
-}
-
-module.exports = app;
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  // server started
+});

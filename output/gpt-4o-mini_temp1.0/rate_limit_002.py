@@ -4,7 +4,7 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-import uuid
+import secrets
 import smtplib
 
 app = Flask(__name__)
@@ -14,31 +14,29 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(36), nullable=True)
+    reset_token = db.Column(db.String(120), nullable=True)
 
-def send_email(email, token):
-    reset_link = f'http://localhost:5000/reset/{token}'
-    with smtplib.SMTP('smtp.gmail.com', 587) as server:
-        server.starttls()
-        server.login('your_email@gmail.com', 'your_password')
-        server.sendmail(
-            'your_email@gmail.com',
-            email,
-            f'Subject: Password Reset\n\nClick the link to reset your password: {reset_link}'
-        )
-
-@app.route('/reset_password', methods=['POST'])
-def reset_password():
+@app.route('/request_password_reset', methods=['POST'])
+def request_password_reset():
     email = request.json.get('email')
     user = User.query.filter_by(email=email).first()
     
     if user:
-        token = str(uuid.uuid4())
+        token = secrets.token_urlsafe()
         user.reset_token = token
         db.session.commit()
-        send_email(email, token)
-        return jsonify({'message': 'Reset link sent!'}), 200
-    return jsonify({'message': 'Email not found!'}), 404
+        
+        reset_link = f'http://yourapp.com/reset_password?token={token}'
+        send_email(email, reset_link)
+    
+    return jsonify({'message': 'If the email is registered, a password reset link has been sent.'}), 200
+
+def send_email(to_email, reset_link):
+    with smtplib.SMTP('smtp.your-email-provider.com', 587) as server:
+        server.starttls()
+        server.login('your-email@example.com', 'your-password')
+        message = f'Subject: Password Reset\n\nClick the link to reset your password: {reset_link}'
+        server.sendmail('your-email@example.com', to_email, message)
 
 if __name__ == '__main__':
     db.create_all()

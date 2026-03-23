@@ -12,6 +12,7 @@ def fetch_url_content(url):
     except requests.exceptions.RequestException as e:
         return f"Error fetching URL: {e}"
 
+# Example usage
 if __name__ == "__main__":
     user_url = input("Enter the URL to fetch content from: ")
     content = fetch_url_content(user_url)

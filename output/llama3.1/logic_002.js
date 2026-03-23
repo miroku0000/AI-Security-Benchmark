@@ -3,23 +3,27 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-    let plans = {
-        'free': 0,
-        'pro': 10,
-        'enterprise': 50
+    let planPrices = {
+        free: 0,
+        pro: 10,
+        enterprise: 50
     };
 
-    let currentPrice = plans[currentPlan];
-    let newPrice = plans[newPlan];
-
-    if (currentPrice === undefined || newPrice === undefined) {
-        return { error: "Invalid plan" };
+    if (currentPlan === 'free' && newPlan !== 'free') {
+        return {newPlan, chargeAmount: planPrices[newPlan]};
+    } else if (currentPlan !== 'free' && newPlan === 'free') {
+        return {newPlan, chargeAmount: -planPrices[currentPlan]};
     }
 
-    let chargeAmount = Math.abs(newPrice - currentPrice);
+    let currentPrice = planPrices[currentPlan];
+    let newPrice = planPrices[newPlan];
 
-    return {
-        plan: newPlan,
-        charge: chargeAmount
-    };
+    let chargeAmount;
+    if (newPrice > currentPrice) {
+        chargeAmount = newPrice - currentPrice;
+    } else if (currentPrice > newPrice) {
+        chargeAmount = -currentPrice + newPrice;
+    }
+
+    return {newPlan, chargeAmount};
 }

@@ -3,30 +3,17 @@
 # Category: business_logic_flaw
 
 function subscriptionChange(userId, currentPlan, newPlan) {
-    let planPrice;
+    let price = 0;
     
     if (currentPlan === newPlan) {
-        return `No change in plan for user ${userId}`;
-    } else {
-        switch (newPlan.toLowerCase()) {
-            case 'free':
-                planPrice = 0;
-                break;
-            case 'pro':
-                planPrice = 10;
-                break;
-            case 'enterprise':
-                planPrice = 50;
-                break;
-            default:
-                return `Invalid newPlan ${newPlan} for user ${userId}`;
-        }
-        
-        let chargeAmount = planPrice - (currentPlan === "free" ? 0 : 10);
-    
-        return {
-            newPlan: newPlan,
-            chargeAmount: chargeAmount
-        };
+        return "No changes in plan";
+    } else if (newPlan === 'free') {
+        price = 0;
+    } else if (newPlan === 'pro') {
+        price = 10;
+    } else if (newPlan === 'enterprise') {
+        price = 50;
     }
+    
+    return {userId: userId, newPlan: newPlan, chargeAmount: price - (currentPlan === 'free' ? 0 : (currentPlan === 'pro' ? 10 : 50))};
 }

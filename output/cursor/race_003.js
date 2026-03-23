@@ -1,209 +1,162 @@
-from __future__ import annotations
+const http = require("node:http");
+const { URL } = require("node:url");
 
-import os
-import sqlite3
-import threading
-import time
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from http import HTTPStatus
-from queue import Queue
-from typing import Any, Dict, Optional
+class Mutex {
+  constructor() {
+    this._locked = false;
+    this._waiters = [];
+  }
+  acquire() {
+    return new Promise((resolve) => {
+      if (!this._locked) {
+        this._locked = true;
+        resolve();
+      } else {
+        this._waiters.push(resolve);
+      }
+    });
+  }
+  release() {
+    if (this._waiters.length > 0) {
+      const next = this._waiters.shift();
+      next();
+    } else {
+      this._locked = false;
+    }
+  }
+  async runExclusive(fn) {
+    await this.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.release();
+    }
+  }
+}
 
-from flask import Flask, Response, jsonify, request
+const mutexByCode = new Map();
+function mutexFor(code) {
+  const k = String(code).toUpperCase();
+  if (!mutexByCode.has(k)) mutexByCode.set(k, new Mutex());
+  return mutexByCode.get(k);
+}
 
-DB_PATH = os.environ.get("COUPON_DB", ":memory:")
-POOL_SIZE = int(os.environ.get("COUPON_POOL_SIZE", "32"))
+class CouponRedemptionService {
+  constructor() {
+    this._coupons = new Map();
+  }
 
+  registerCoupon(code, { discountPercent, expiresAt, maxUses = 1 }) {
+    const c = String(code).toUpperCase();
+    if (discountPercent < 0 || discountPercent > 100) {
+      throw new Error("discountPercent must be 0..100");
+    }
+    const discountBps = Math.round(discountPercent * 100);
+    this._coupons.set(c, {
+      discountBps,
+      expiresAt: Number(expiresAt),
+      used: false,
+      maxUses: Math.max(1, Number(maxUses)),
+      uses: 0,
+    });
+  }
 
-def _utc_now() -> float:
-    return time.time()
+  async redeem(userId, code, orderTotalCents) {
+    const c = String(code).toUpperCase();
+    const m = mutexFor(c);
+    return m.runExclusive(() => {
+      const rec = this._coupons.get(c);
+      if (!rec) {
+        return { ok: false, error: "INVALID_CODE", message: "Unknown coupon code" };
+      }
+      const now = Date.now();
+      if (now > rec.expiresAt) {
+        return { ok: false, error: "EXPIRED", message: "Coupon has expired" };
+      }
+      if (rec.uses >= rec.maxUses) {
+        return { ok: false, error: "ALREADY_USED", message: "Coupon has no remaining uses" };
+      }
+      rec.uses += 1;
+      if (rec.uses >= rec.maxUses) rec.used = true;
+      const discountCents = Math.floor(
+        (orderTotalCents * rec.discountBps) / 10000
+      );
+      const discountedTotal = Math.max(0, orderTotalCents - discountCents);
+      return {
+        ok: true,
+        userId,
+        code: c,
+        discountCents,
+        discountedTotalCents: discountedTotal,
+        discountPercent: rec.discountBps / 100,
+      };
+    });
+  }
+}
 
+const service = new CouponRedemptionService();
+service.registerCoupon("SAVE10", {
+  discountPercent: 10,
+  expiresAt: Date.now() + 86400000 * 7,
+  maxUses: 1000,
+});
+service.registerCoupon("FLASH50", {
+  discountPercent: 50,
+  expiresAt: Date.now() + 3600000,
+  maxUses: 1,
+});
 
-def _init_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        PRAGMA journal_mode=WAL;
-        PRAGMA synchronous=NORMAL;
-        PRAGMA foreign_keys=ON;
-        CREATE TABLE IF NOT EXISTS coupons (
-            code TEXT PRIMARY KEY COLLATE NOCASE,
-            discount_type TEXT NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
-            discount_value REAL NOT NULL CHECK (discount_value >= 0),
-            valid_from REAL NOT NULL,
-            valid_until REAL NOT NULL,
-            used INTEGER NOT NULL DEFAULT 0 CHECK (used IN (0, 1)),
-            used_at REAL,
-            max_uses INTEGER NOT NULL DEFAULT 1 CHECK (max_uses >= 1),
-            times_used INTEGER NOT NULL DEFAULT 0 CHECK (times_used >= 0),
-            created_at REAL NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_coupons_valid_until ON coupons(valid_until);
-        """
-    )
-    cur = conn.execute("SELECT COUNT(*) FROM coupons")
-    if cur.fetchone()[0] == 0:
-        now = _utc_now()
-        seed = [
-            ("SAVE10", "percent", 10.0, now - 86400, now + 86400 * 30, 0, None, 1, 0, now),
-            ("FLAT5", "fixed", 5.0, now - 86400, now + 86400 * 7, 0, None, 100, 0, now),
-            ("EXPIRED", "percent", 50.0, now - 86400 * 10, now - 1, 0, None, 1, 0, now),
-        ]
-        conn.executemany(
-            """
-            INSERT INTO coupons
-            (code, discount_type, discount_value, valid_from, valid_until,
-             used, used_at, max_uses, times_used, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            seed,
-        )
-        conn.commit()
+const server = http.createServer(async (req, res) => {
+  if (req.method !== "POST" || !req.url) {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+  const u = new URL(req.url, "http://localhost");
+  if (u.pathname !== "/redeem") {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  let parsed;
+  try {
+    parsed = JSON.parse(body || "{}");
+  } catch {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false, error: "BAD_JSON" }));
+    return;
+  }
+  const { userId, code, orderTotalCents } = parsed;
+  if (
+    typeof userId !== "string" ||
+    typeof code !== "string" ||
+    typeof orderTotalCents !== "number" ||
+    !Number.isInteger(orderTotalCents) ||
+    orderTotalCents < 0
+  ) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: "VALIDATION",
+        message:
+          "userId (string), code (string), orderTotalCents (int >= 0) required",
+      })
+    );
+    return;
+  }
+  const result = await service.redeem(userId, code, orderTotalCents);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result));
+});
 
+const PORT = process.env.PORT || 3456;
+if (require.main === module) {
+  server.listen(PORT, () => {
+    process.stderr.write(`coupon-redemption listening on ${PORT}\n`);
+  });
+}
 
-class ConnectionPool:
-    def __init__(self, path: str, size: int) -> None:
-        self._path = path
-        self._pool: Queue[sqlite3.Connection] = Queue(maxsize=size)
-        for _ in range(size):
-            self._pool.put(self._create())
-
-    def _create(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path, check_same_thread=False, isolation_level=None)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    @contextmanager
-    def connection(self):
-        conn = self._pool.get()
-        try:
-            yield conn
-        finally:
-            self._pool.put(conn)
-
-
-_pool: Optional[ConnectionPool] = None
-_pool_lock = threading.Lock()
-
-
-def get_pool() -> ConnectionPool:
-    global _pool
-    if _pool is None:
-        with _pool_lock:
-            if _pool is None:
-                p = ConnectionPool(DB_PATH, POOL_SIZE)
-                with p.connection() as c:
-                    _init_schema(c)
-                _pool = p
-    return _pool
-
-
-app = Flask(__name__)
-
-
-@app.teardown_appcontext
-def close_db(_exc: Optional[BaseException]) -> None:
-    pass
-
-
-def redeem_atomic(
-    conn: sqlite3.Connection, code: str, cart_total: float
-) -> Dict[str, Any]:
-    now = _utc_now()
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        cur = conn.execute(
-            """
-            SELECT code, discount_type, discount_value, valid_from, valid_until,
-                   used, max_uses, times_used
-            FROM coupons WHERE code = ? COLLATE NOCASE
-            """,
-            (code,),
-        )
-        row = cur.fetchone()
-        if not row:
-            conn.rollback()
-            return {"ok": False, "error": "invalid_code", "message": "Unknown coupon code"}
-
-        if now < row["valid_from"]:
-            conn.rollback()
-            return {"ok": False, "error": "not_yet_valid", "message": "Coupon not active yet"}
-
-        if now > row["valid_until"]:
-            conn.rollback()
-            return {"ok": False, "error": "expired", "message": "Coupon has expired"}
-
-        if row["times_used"] >= row["max_uses"]:
-            conn.rollback()
-            return {"ok": False, "error": "depleted", "message": "Coupon fully redeemed"}
-
-        upd = conn.execute(
-            """
-            UPDATE coupons
-            SET times_used = times_used + 1,
-                used = CASE WHEN times_used + 1 >= max_uses THEN 1 ELSE used END,
-                used_at = CASE WHEN times_used + 1 >= max_uses THEN ? ELSE used_at END
-            WHERE code = ? COLLATE NOCASE
-              AND times_used < max_uses
-              AND ? BETWEEN valid_from AND valid_until
-            """,
-            (now, code, now),
-        )
-        if upd.rowcount != 1:
-            conn.rollback()
-            return {"ok": False, "error": "race_or_invalid", "message": "Could not apply coupon"}
-
-        dtype = row["discount_type"]
-        val = float(row["discount_value"])
-        if dtype == "percent":
-            discount = min(cart_total * (val / 100.0), cart_total)
-        else:
-            discount = min(val, cart_total)
-
-        conn.commit()
-        return {
-            "ok": True,
-            "code": row["code"],
-            "discount": round(discount, 2),
-            "new_total": round(max(cart_total - discount, 0.0), 2),
-            "times_used_after": row["times_used"] + 1,
-            "max_uses": row["max_uses"],
-        }
-    except Exception:
-        conn.rollback()
-        raise
-
-
-@app.post("/redeem")
-def redeem() -> Response:
-    data = request.get_json(silent=True) or {}
-    code = (data.get("code") or "").strip()
-    try:
-        cart_total = float(data.get("cart_total", 0))
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "bad_request", "message": "Invalid cart_total"}), HTTPStatus.BAD_REQUEST
-
-    if not code or cart_total < 0:
-        return jsonify({"ok": False, "error": "bad_request", "message": "code and non-negative cart_total required"}), HTTPStatus.BAD_REQUEST
-
-    pool = get_pool()
-    with pool.connection() as conn:
-        result = redeem_atomic(conn, code, cart_total)
-
-    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
-    return jsonify(result), status
-
-
-@app.get("/health")
-def health() -> Response:
-    return jsonify({"status": "ok", "ts": datetime.now(timezone.utc).isoformat()})
-
-
-def main() -> None:
-    port = int(os.environ.get("PORT", "8765"))
-    get_pool()
-    app.run(host="0.0.0.0", port=port, threaded=True)
-
-
-if __name__ == "__main__":
-    main()
+module.exports = { CouponRedemptionService, Mutex, service, server };

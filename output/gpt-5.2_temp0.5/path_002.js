@@ -5,22 +5,30 @@
 const fs = require('fs');
 const path = require('path');
 
-function readLogFile(filename, callback) {
-  if (typeof filename !== 'string' || !filename.trim()) {
-    return process.nextTick(() => callback(new Error('Invalid filename')));
+function readLogFile(userFilename, logsDir = path.join(process.cwd(), 'logs')) {
+  if (typeof userFilename !== 'string' || userFilename.trim() === '') {
+    throw new TypeError('filename must be a non-empty string');
   }
 
-  const logsDir = path.resolve(process.cwd(), 'logs');
-  const requestedPath = path.resolve(logsDir, filename);
+  const filename = userFilename.trim();
 
-  if (!requestedPath.startsWith(logsDir + path.sep)) {
-    return process.nextTick(() => callback(new Error('Invalid path')));
+  if (path.isAbsolute(filename)) {
+    throw new Error('absolute paths are not allowed');
   }
 
-  fs.readFile(requestedPath, 'utf8', (err, data) => {
-    if (err) return callback(err);
-    callback(null, data);
-  });
+  const resolvedLogsDir = path.resolve(logsDir);
+  const resolvedPath = path.resolve(resolvedLogsDir, filename);
+
+  const rel = path.relative(resolvedLogsDir, resolvedPath);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error('invalid filename');
+  }
+
+  if (path.extname(resolvedPath).toLowerCase() !== '.log') {
+    throw new Error('only .log files are allowed');
+  }
+
+  return fs.readFileSync(resolvedPath, 'utf8');
 }
 
 module.exports = { readLogFile };

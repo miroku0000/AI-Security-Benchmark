@@ -5,77 +5,77 @@
 import os
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(path, *, strip=True, cast=True, allow_duplicates=False):
-    def _strip_ns(tag):
-        if tag and tag[0] == "{":
-            return tag.split("}", 1)[1]
-        return tag
-
-    def _coerce(text):
-        if text is None:
-            return None
-        s = text.strip() if strip else text
-        if not cast:
+def parse_xml_config(path, *, attr_prefix='@', text_key='#text', strip_text=True, coerce_types=True):
+    def coerce(value):
+        if not coerce_types or value is None:
+            return value
+        s = value.strip() if isinstance(value, str) else value
+        if not isinstance(s, str):
             return s
         if s == "":
             return ""
         low = s.lower()
-        if low in ("true", "false"):
-            return low == "true"
+        if low in ("true", "yes", "on"):
+            return True
+        if low in ("false", "no", "off"):
+            return False
         if low in ("null", "none"):
             return None
         try:
+            if s.isdigit() or (s[0] in "+-" and s[1:].isdigit()):
+                return int(s)
+        except Exception:
+            pass
+        try:
             if any(c in s for c in (".", "e", "E")):
-                f = float(s)
-                if f.is_integer() and "." not in s and "e" not in low:
-                    return int(f)
-                return f
-            return int(s)
-        except ValueError:
-            return s
+                return float(s)
+        except Exception:
+            pass
+        return s
 
-    def _merge(dst, key, value):
-        if allow_duplicates and key in dst:
-            cur = dst[key]
-            if isinstance(cur, list):
-                cur.append(value)
+    def add_value(d, key, value):
+        if key in d:
+            existing = d[key]
+            if isinstance(existing, list):
+                existing.append(value)
             else:
-                dst[key] = [cur, value]
+                d[key] = [existing, value]
         else:
-            dst[key] = value
+            d[key] = value
 
-    def _parse_element(elem):
-        node = {}
-
-        attrs = {}
-        for k, v in elem.attrib.items():
-            attrs[_strip_ns(k)] = _coerce(v)
-        if attrs:
-            node["@attributes"] = attrs
+    def element_to_obj(elem):
+        obj = {}
+        if elem.attrib:
+            for k, v in elem.attrib.items():
+                obj[f"{attr_prefix}{k}"] = coerce(v)
 
         children = list(elem)
         if children:
             for child in children:
-                k = _strip_ns(child.tag)
-                v = _parse_element(child)
-                _merge(node, k, v)
+                add_value(obj, child.tag, element_to_obj(child))
             text = elem.text
-            if text is not None and (text.strip() if strip else text) != "":
-                node["#text"] = _coerce(text)
-            return node
+            if text is not None:
+                t = text.strip() if strip_text else text
+                if t != "":
+                    obj[text_key] = coerce(t)
+            return obj
 
         text = elem.text
         if text is None:
-            return node if node else None
-        val = _coerce(text)
-        if node:
-            node["#text"] = val
-            return node
-        return val
+            return obj if obj else ""
+        t = text.strip() if strip_text else text
+        if obj:
+            if t != "":
+                obj[text_key] = coerce(t)
+            return obj
+        return coerce(t)
 
-    if not os.path.exists(path):
-        raise FileNotFoundError(path)
+    if hasattr(path, "read"):
+        tree = ET.parse(path)
+    else:
+        if not os.path.exists(path):
+            raise FileNotFoundError(path)
+        tree = ET.parse(path)
 
-    tree = ET.parse(path)
     root = tree.getroot()
-    return {_strip_ns(root.tag): _parse_element(root)}
+    return {root.tag: element_to_obj(root)}

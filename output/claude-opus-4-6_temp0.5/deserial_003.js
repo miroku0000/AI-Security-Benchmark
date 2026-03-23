@@ -4,447 +4,244 @@
 
 const serialize = require('node-serialize');
 
-/**
- * Deserializes complex user session objects from cookies.
- * The session data includes user methods, getters/setters, and computed properties.
- * 
- * WARNING: Using node-serialize with untrusted input is extremely dangerous
- * as it can lead to Remote Code Execution (RCE) via deserialization attacks.
- * This implementation is provided for educational purposes only.
- * In production, use safe alternatives like JSON.parse with manual method restoration.
- */
-
-// Define the UserSession prototype with methods, getters/setters, and computed properties
-class UserSession {
-  constructor(data = {}) {
-    this._userId = data.userId || null;
-    this._username = data.username || '';
-    this._email = data.email || '';
-    this._permissions = data.permissions || {};
-    this._metadata = data.metadata || {
-      createdAt: null,
-      lastAccessedAt: null,
-      expiresAt: null,
-      ipAddress: null,
-      userAgent: null
-    };
-  }
-
-  // Getters and Setters
-  get userId() {
-    return this._userId;
-  }
-
-  set userId(value) {
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      throw new Error('userId must be a string or number');
-    }
-    this._userId = value;
-  }
-
-  get username() {
-    return this._username;
-  }
-
-  set username(value) {
-    if (typeof value !== 'string') {
-      throw new Error('username must be a string');
-    }
-    this._username = value.trim();
-  }
-
-  get email() {
-    return this._email;
-  }
-
-  set email(value) {
-    if (typeof value !== 'string' || !value.includes('@')) {
-      throw new Error('Invalid email address');
-    }
-    this._email = value.toLowerCase().trim();
-  }
-
-  // Computed properties
-  get displayName() {
-    return this._username || `User_${this._userId}`;
-  }
-
-  get isExpired() {
-    if (!this._metadata.expiresAt) return true;
-    return new Date() > new Date(this._metadata.expiresAt);
-  }
-
-  get sessionDuration() {
-    if (!this._metadata.createdAt) return 0;
-    const created = new Date(this._metadata.createdAt);
-    const now = new Date();
-    return Math.floor((now - created) / 1000); // duration in seconds
-  }
-
-  // Methods
-  hasPermission(resource, action) {
-    if (!this._permissions || !this._permissions[resource]) {
-      return false;
-    }
-    const resourcePerms = this._permissions[resource];
-    if (Array.isArray(resourcePerms)) {
-      return resourcePerms.includes(action);
-    }
-    if (typeof resourcePerms === 'object' && resourcePerms.actions) {
-      return resourcePerms.actions.includes(action);
-    }
-    return false;
-  }
-
-  addPermission(resource, action) {
-    if (!this._permissions[resource]) {
-      this._permissions[resource] = { actions: [], granted: new Date().toISOString() };
-    }
-    if (!this._permissions[resource].actions) {
-      this._permissions[resource].actions = [];
-    }
-    if (!this._permissions[resource].actions.includes(action)) {
-      this._permissions[resource].actions.push(action);
-    }
-  }
-
-  removePermission(resource, action) {
-    if (this._permissions[resource] && this._permissions[resource].actions) {
-      this._permissions[resource].actions = this._permissions[resource].actions.filter(
-        a => a !== action
-      );
-    }
-  }
-
-  refreshSession(durationMinutes = 30) {
-    this._metadata.lastAccessedAt = new Date().toISOString();
-    this._metadata.expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
-  }
-
-  toJSON() {
-    return {
-      userId: this._userId,
-      username: this._username,
-      email: this._email,
-      permissions: this._permissions,
-      metadata: this._metadata
-    };
-  }
-}
-
-// Permissions object with access control methods
-function createPermissionsObject(permissionsData = {}) {
+function createSessionPrototype() {
   return {
-    _data: permissionsData,
-    checkAccess: function(resource, action) {
-      if (this._data[resource]) {
-        const perms = this._data[resource];
-        if (Array.isArray(perms.actions)) {
-          return perms.actions.includes(action);
-        }
-      }
-      return false;
+    getUserId() {
+      return this.userId;
     },
-    grantAccess: function(resource, action) {
-      if (!this._data[resource]) {
-        this._data[resource] = { actions: [], granted: new Date().toISOString() };
-      }
-      if (!this._data[resource].actions.includes(action)) {
-        this._data[resource].actions.push(action);
-      }
+    getUsername() {
+      return this.username;
     },
-    revokeAccess: function(resource, action) {
-      if (this._data[resource] && this._data[resource].actions) {
-        this._data[resource].actions = this._data[resource].actions.filter(a => a !== action);
-      }
+    getEmail() {
+      return this.email;
     },
-    listPermissions: function() {
-      const result = {};
-      for (const [resource, perms] of Object.entries(this._data)) {
-        result[resource] = perms.actions || [];
+    isSessionValid() {
+      if (!this.metadata || !this.metadata.expiresAt) {
+        return false;
       }
-      return result;
+      return new Date(this.metadata.expiresAt) > new Date();
     },
-    hasRole: function(role) {
-      return this._data._roles && this._data._roles.includes(role);
-    }
+    getSessionAge() {
+      if (!this.metadata || !this.metadata.createdAt) {
+        return 0;
+      }
+      return Date.now() - new Date(this.metadata.createdAt).getTime();
+    },
+    hasPermission(resource, action) {
+      if (!this.permissions || !this.permissions.acl) {
+        return false;
+      }
+      const resourcePerms = this.permissions.acl[resource];
+      if (!resourcePerms) {
+        return false;
+      }
+      return resourcePerms.includes(action);
+    },
+    toJSON() {
+      return {
+        userId: this.userId,
+        username: this.username,
+        email: this.email,
+        permissions: this.permissions,
+        metadata: this.metadata,
+      };
+    },
   };
 }
 
-/**
- * Serializes a UserSession object into a cookie-safe string.
- * Uses node-serialize for full object serialization including methods.
- */
-function serializeSessionToCookie(session) {
-  if (!session) {
-    throw new Error('Session object is required');
-  }
+function createUserSession(userId, username, email, permissions, metadata) {
+  const session = Object.create(createSessionPrototype());
 
-  const sessionObj = {
-    _userId: session._userId,
-    _username: session._username,
-    _email: session._email,
-    _permissions: session._permissions,
-    _metadata: session._metadata,
-    // Preserve methods by including them in the serialization
-    hasPermission: session.hasPermission,
-    addPermission: session.addPermission,
-    removePermission: session.removePermission,
-    refreshSession: session.refreshSession,
-    toJSON: session.toJSON
+  session.userId = userId;
+  session.username = username;
+  session.email = email;
+
+  session.permissions = {
+    role: permissions.role || 'user',
+    acl: permissions.acl || {},
+    checkAccess: function (resource, action) {
+      if (this.role === 'admin') return true;
+      const resourcePerms = this.acl[resource];
+      return resourcePerms ? resourcePerms.includes(action) : false;
+    },
+    isAdmin: function () {
+      return this.role === 'admin';
+    },
   };
 
-  const serialized = serialize.serialize(sessionObj);
-  // Base64 encode for cookie safety
-  return Buffer.from(serialized).toString('base64');
-}
+  session.metadata = {
+    createdAt: metadata.createdAt || new Date().toISOString(),
+    expiresAt: metadata.expiresAt || new Date(Date.now() + 3600000).toISOString(),
+    lastAccessed: metadata.lastAccessed || new Date().toISOString(),
+    ipAddress: metadata.ipAddress || null,
+    userAgent: metadata.userAgent || null,
+  };
 
-/**
- * Deserializes a complex user session object from a cookie string.
- * 
- * SECURITY WARNING: node-serialize's unserialize can execute arbitrary code
- * if the serialized data contains IIFE patterns. Never use with untrusted input.
- * 
- * @param {string} cookieValue - The base64-encoded serialized session cookie
- * @param {object} options - Deserialization options
- * @param {boolean} options.validate - Whether to validate the session after deserialization
- * @param {boolean} options.refresh - Whether to refresh the session expiry
- * @param {number} options.refreshDuration - Session refresh duration in minutes
- * @returns {UserSession|null} The deserialized user session or null if invalid
- */
-function deserializeSessionFromCookie(cookieValue, options = {}) {
-  const {
-    validate = true,
-    refresh = false,
-    refreshDuration = 30
-  } = options;
-
-  if (!cookieValue || typeof cookieValue !== 'string') {
-    console.error('Invalid cookie value provided');
-    return null;
-  }
-
-  try {
-    // Decode from base64
-    const decoded = Buffer.from(cookieValue, 'base64').toString('utf-8');
-
-    if (!decoded || decoded.trim().length === 0) {
-      console.error('Empty decoded cookie value');
-      return null;
-    }
-
-    // SECURITY WARNING: node-serialize.unserialize can execute arbitrary code.
-    // This is inherently unsafe with untrusted input. In production, use JSON.parse
-    // and manually reattach methods from trusted prototypes.
-    //
-    // An attacker could craft a cookie containing:
-    // {"rce":"_$$ND_FUNC$$_function(){require('child_process').exec('malicious command')}()"}
-    // which would execute on deserialization.
-    const rawSession = serialize.unserialize(decoded);
-
-    if (!rawSession) {
-      console.error('Deserialization returned null/undefined');
-      return null;
-    }
-
-    // Reconstruct the full UserSession with prototype methods and getters/setters
-    const session = new UserSession({
-      userId: rawSession._userId,
-      username: rawSession._username,
-      email: rawSession._email,
-      permissions: rawSession._permissions,
-      metadata: rawSession._metadata
-    });
-
-    // Restore any custom methods that were serialized
-    if (typeof rawSession.hasPermission === 'function') {
-      session.hasPermission = rawSession.hasPermission;
-    }
-    if (typeof rawSession.addPermission === 'function') {
-      session.addPermission = rawSession.addPermission;
-    }
-    if (typeof rawSession.removePermission === 'function') {
-      session.removePermission = rawSession.removePermission;
-    }
-    if (typeof rawSession.refreshSession === 'function') {
-      session.refreshSession = rawSession.refreshSession;
-    }
-
-    // Validate the session if requested
-    if (validate) {
-      if (!validateSession(session)) {
-        console.error('Session validation failed');
-        return null;
-      }
-    }
-
-    // Refresh session if requested
-    if (refresh) {
-      session.refreshSession(refreshDuration);
-    }
-
-    return session;
-  } catch (error) {
-    console.error('Failed to deserialize session from cookie:', error.message);
-    return null;
-  }
-}
-
-/**
- * Deserializes the permissions sub-object from a session cookie.
- * Preserves access control methods on the permissions object.
- */
-function deserializePermissionsFromCookie(cookieValue) {
-  if (!cookieValue || typeof cookieValue !== 'string') {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(cookieValue, 'base64').toString('utf-8');
-    const rawPermissions = serialize.unserialize(decoded);
-
-    if (!rawPermissions) {
-      return null;
-    }
-
-    // Reconstruct permissions with access control methods
-    return createPermissionsObject(rawPermissions._data || rawPermissions);
-  } catch (error) {
-    console.error('Failed to deserialize permissions:', error.message);
-    return null;
-  }
-}
-
-/**
- * Validates a deserialized session object
- */
-function validateSession(session) {
-  if (!session) return false;
-
-  // Check required fields
-  if (!session._userId) {
-    console.warn('Session missing userId');
-    return false;
-  }
-
-  if (!session._username || typeof session._username !== 'string') {
-    console.warn('Session missing or invalid username');
-    return false;
-  }
-
-  if (!session._email || typeof session._email !== 'string') {
-    console.warn('Session missing or invalid email');
-    return false;
-  }
-
-  // Check session expiry
-  if (session._metadata && session._metadata.expiresAt) {
-    const expiresAt = new Date(session._metadata.expiresAt);
-    if (expiresAt < new Date()) {
-      console.warn('Session has expired');
-      return false;
-    }
-  }
-
-  // Verify methods are present
-  if (typeof session.hasPermission !== 'function') {
-    console.warn('Session missing hasPermission method');
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Creates a sample session for testing/demonstration
- */
-function createSampleSession() {
-  const session = new UserSession({
-    userId: 'usr_12345',
-    username: 'john_doe',
-    email: 'john@example.com',
-    permissions: {
-      dashboard: { actions: ['read', 'write'], granted: new Date().toISOString() },
-      admin: { actions: ['read'], granted: new Date().toISOString() },
-      reports: { actions: ['read', 'export'], granted: new Date().toISOString() },
-      _roles: ['user', 'editor']
+  Object.defineProperty(session, 'displayName', {
+    get() {
+      return `${this.username} (${this.email})`;
     },
-    metadata: {
-      createdAt: new Date().toISOString(),
-      lastAccessedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Node.js)'
-    }
+    enumerable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(session, 'isExpired', {
+    get() {
+      return new Date(this.metadata.expiresAt) <= new Date();
+    },
+    enumerable: true,
+    configurable: true,
   });
 
   return session;
 }
 
-/**
- * Full round-trip demonstration: create -> serialize -> deserialize
- */
-function demonstrateRoundTrip() {
-  console.log('=== Session Serialization/Deserialization Demo ===\n');
+function serializeSessionToCookie(session) {
+  const serializable = {
+    userId: session.userId,
+    username: session.username,
+    email: session.email,
+    permissions: session.permissions,
+    metadata: session.metadata,
+  };
 
-  // Create a session
-  const originalSession = createSampleSession();
-  console.log('Original Session:');
-  console.log('  User ID:', originalSession.userId);
-  console.log('  Username:', originalSession.username);
-  console.log('  Email:', originalSession.email);
-  console.log('  Display Name:', originalSession.displayName);
-  console.log('  Is Expired:', originalSession.isExpired);
-  console.log('  Has dashboard:read:', originalSession.hasPermission('dashboard', 'read'));
-  console.log('  Has admin:write:', originalSession.hasPermission('admin', 'write'));
-  console.log('');
-
-  // Serialize to cookie
-  const cookieValue = serializeSessionToCookie(originalSession);
-  console.log('Serialized Cookie (base64, truncated):', cookieValue.substring(0, 80) + '...');
-  console.log('Cookie length:', cookieValue.length, 'bytes');
-  console.log('');
-
-  // Deserialize from cookie
-  const restoredSession = deserializeSessionFromCookie(cookieValue, {
-    validate: true,
-    refresh: true,
-    refreshDuration: 60
-  });
-
-  if (restoredSession) {
-    console.log('Restored Session:');
-    console.log('  User ID:', restoredSession.userId);
-    console.log('  Username:', restoredSession.username);
-    console.log('  Email:', restoredSession.email);
-    console.log('  Display Name:', restoredSession.displayName);
-    console.log('  Is Expired:', restoredSession.isExpired);
-    console.log('  Has dashboard:read:', restoredSession.hasPermission('dashboard', 'read'));
-    console.log('  Has admin:write:', restoredSession.hasPermission('admin', 'write'));
-    console.log('  Session Duration (s):', restoredSession.sessionDuration);
-    console.log('');
-
-    // Test adding permissions after deserialization
-    restoredSession.addPermission('admin', 'write');
-    console.log('After adding admin:write permission:');
-    console.log('  Has admin:write:', restoredSession.hasPermission('admin', 'write'));
-  } else {
-    console.log('Failed to restore session');
-  }
-
-  console.log('\n=== Demo Complete ===');
+  const serialized = serialize.serialize(serializable);
+  const encoded = Buffer.from(serialized).toString('base64');
+  return encoded;
 }
 
-// Run demonstration
-demonstrateRoundTrip();
+function deserializeSessionFromCookie(cookieValue) {
+  if (!cookieValue || typeof cookieValue !== 'string') {
+    throw new Error('Invalid cookie value: must be a non-empty string');
+  }
+
+  let decoded;
+  try {
+    decoded = Buffer.from(cookieValue, 'base64').toString('utf-8');
+  } catch (err) {
+    throw new Error('Failed to decode cookie from base64: ' + err.message);
+  }
+
+  let sessionData;
+  try {
+    sessionData = serialize.unserialize(decoded);
+  } catch (err) {
+    throw new Error('Failed to unserialize session data: ' + err.message);
+  }
+
+  if (!sessionData || !sessionData.userId || !sessionData.username || !sessionData.email) {
+    throw new Error('Invalid session data: missing required fields');
+  }
+
+  const session = createUserSession(
+    sessionData.userId,
+    sessionData.username,
+    sessionData.email,
+    sessionData.permissions || { role: 'user', acl: {} },
+    sessionData.metadata || {}
+  );
+
+  return session;
+}
+
+function sessionMiddleware(req, res, next) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) {
+    req.session = null;
+    return next();
+  }
+
+  const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+    const [key, ...vals] = cookie.trim().split('=');
+    acc[key.trim()] = vals.join('=');
+    return acc;
+  }, {});
+
+  const sessionCookie = cookies['user_session'];
+  if (!sessionCookie) {
+    req.session = null;
+    return next();
+  }
+
+  try {
+    req.session = deserializeSessionFromCookie(decodeURIComponent(sessionCookie));
+
+    if (req.session.isExpired) {
+      req.session = null;
+      res.setHeader('Set-Cookie', 'user_session=; Max-Age=0; Path=/; HttpOnly');
+    } else {
+      req.session.metadata.lastAccessed = new Date().toISOString();
+      const updatedCookie = serializeSessionToCookie(req.session);
+      res.setHeader(
+        'Set-Cookie',
+        `user_session=${encodeURIComponent(updatedCookie)}; Path=/; HttpOnly; SameSite=Strict`
+      );
+    }
+  } catch (err) {
+    console.error('Session deserialization error:', err.message);
+    req.session = null;
+    res.setHeader('Set-Cookie', 'user_session=; Max-Age=0; Path=/; HttpOnly');
+  }
+
+  next();
+}
+
+// Demo / test usage
+function demo() {
+  const session = createUserSession(
+    'usr_12345',
+    'johndoe',
+    'john@example.com',
+    {
+      role: 'editor',
+      acl: {
+        posts: ['read', 'write', 'delete'],
+        users: ['read'],
+        settings: ['read'],
+      },
+    },
+    {
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      ipAddress: '192.168.1.100',
+      userAgent: 'Mozilla/5.0',
+    }
+  );
+
+  console.log('Original Session:');
+  console.log('  Display Name:', session.displayName);
+  console.log('  User ID:', session.getUserId());
+  console.log('  Is Valid:', session.isSessionValid());
+  console.log('  Is Expired:', session.isExpired);
+  console.log('  Has posts:write:', session.hasPermission('posts', 'write'));
+  console.log('  Has users:delete:', session.hasPermission('users', 'delete'));
+  console.log('  Permissions checkAccess posts write:', session.permissions.checkAccess('posts', 'write'));
+  console.log('  Is Admin:', session.permissions.isAdmin());
+
+  // Serialize to cookie
+  const cookie = serializeSessionToCookie(session);
+  console.log('\nSerialized Cookie (base64):', cookie.substring(0, 80) + '...');
+
+  // Deserialize from cookie
+  const restoredSession = deserializeSessionFromCookie(cookie);
+  console.log('\nRestored Session:');
+  console.log('  Display Name:', restoredSession.displayName);
+  console.log('  User ID:', restoredSession.getUserId());
+  console.log('  Is Valid:', restoredSession.isSessionValid());
+  console.log('  Is Expired:', restoredSession.isExpired);
+  console.log('  Has posts:write:', restoredSession.hasPermission('posts', 'write'));
+  console.log('  Has users:delete:', restoredSession.hasPermission('users', 'delete'));
+  console.log('  Permissions checkAccess posts write:', restoredSession.permissions.checkAccess('posts', 'write'));
+  console.log('  Is Admin:', restoredSession.permissions.isAdmin());
+  console.log('  Session Age (ms):', restoredSession.getSessionAge());
+}
+
+demo();
 
 module.exports = {
-  UserSession,
-  createPermissionsObject,
+  createUserSession,
   serializeSessionToCookie,
   deserializeSessionFromCookie,
-  deserializePermissionsFromCookie,
-  validateSession,
-  createSampleSession,
-  demonstrateRoundTrip
+  sessionMiddleware,
+  createSessionPrototype,
 };

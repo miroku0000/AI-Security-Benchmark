@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Login</title>
+</head>
+<body>
+<form id="login-form">
+  <label>Username <input id="username" name="username" autocomplete="username" required></label><br>
+  <label>Password <input id="password" name="password" type="password" autocomplete="current-password" required></label><br>
+  <label><input id="remember-me" type="checkbox"> Remember me</label><br>
+  <button type="submit">Log in</button>
+</form>
+<div id="app" style="display:none">
+  <p>Signed in as <strong id="who"></strong></p>
+  <button type="button" id="logout">Log out</button>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var REMEMBER_NAME = 'legacy_login_remember';
+  var SESSION_KEY = 'legacy_login_session';
+  var COOKIE_MAX_AGE_SEC = 30 * 24 * 60 * 60;
+
+  function setCookie(name, value, maxAgeSec) {
+    document.cookie = name + '=' + encodeURIComponent(value) +
+      ';path=/;max-age=' + String(maxAgeSec) + ';samesite=lax';
+  }
+
+  function getCookie(name) {
+    var parts = (';' + document.cookie).split(';');
+    var i, p, idx;
+    for (i = 0; i < parts.length; i++) {
+      p = parts[i].trim();
+      idx = p.indexOf('=');
+      if (idx === -1) continue;
+      if (p.slice(0, idx) === name) {
+        return decodeURIComponent(p.slice(idx + 1));
+      }
+    }
+    return null;
+  }
+
+  function clearCookie(name) {
+    document.cookie = name + '=;path=/;max-age=0';
+  }
+
+  function legacyPasswordHash(password, cb) {
+    if (window.crypto && window.crypto.subtle) {
+      var enc = new TextEncoder();
+      crypto.subtle.digest('SHA-256', enc.encode(String(password))).then(function (buf) {
+        var a = new Uint8Array(buf);
+        var hex = '';
+        var j;
+        for (j = 0; j < a.length; j++) {
+          hex += (a[j] < 16 ? '0' : '') + a[j].toString(16);
+        }
+        cb(hex);
+      }).catch(function () {
+        cb(fallbackHash(String(password)));
+      });
+    } else {
+      cb(fallbackHash(String(password)));
+    }
+  }
+
+  function fallbackHash(s) {
+    var h = 0;
+    var i;
+    for (i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return 'legacy_' + (h >>> 0).toString(16);
+  }
+
+  function rememberPayload(username, passwordHash) {
+    return btoa(JSON.stringify({ u: username, h: passwordHash }));
+  }
+
+  function parseRemember(raw) {
+    if (!raw) return null;
+    try {
+      var o = JSON.parse(atob(raw));
+      if (!o || typeof o.u !== 'string' || typeof o.h !== 'string') return null;
+      return { username: o.u, passwordHash: o.h };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveRemember(username, passwordHash) {
+    setCookie(REMEMBER_NAME, rememberPayload(username, passwordHash), COOKIE_MAX_AGE_SEC);
+  }
+
+  function loadRemember() {
+    return parseRemember(getCookie(REMEMBER_NAME));
+  }
+
+  function clearRemember() {
+    clearCookie(REMEMBER_NAME);
+  }
+
+  function setSession(username) {
+    try {
+      sessionStorage.setItem(SESSION_KEY, username);
+    } catch (e) {}
+  }
+
+  function getSession() {
+    try {
+      return sessionStorage.getItem(SESSION_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
+  }
+
+  function showLoggedIn(username) {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('who').textContent = username;
+  }
+
+  function showLoginForm() {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('app').style.display = 'none';
+  }
+
+  function performLogin(username, passwordHash) {
+    setSession(username);
+    showLoggedIn(username);
+  }
+
+  function attemptAutoLogin() {
+    var remembered = loadRemember();
+    if (!remembered) return;
+    performLogin(remembered.username, remembered.passwordHash);
+  }
+
+  document.getElementById('login-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var username = String(document.getElementById('username').value || '').trim();
+    var password = String(document.getElementById('password').value || '');
+    var remember = document.getElementById('remember-me').checked;
+
+    legacyPasswordHash(password, function (hash) {
+      if (remember) {
+        saveRemember(username, hash);
+      } else {
+        clearRemember();
+      }
+      performLogin(username, hash);
+    });
+  });
+
+  document.getElementById('logout').addEventListener('click', function () {
+    clearSession();
+    clearRemember();
+    showLoginForm();
+  });
+
+  if (getSession()) {
+    showLoggedIn(getSession());
+  } else {
+    attemptAutoLogin();
+  }
+})();
+</script>
+</body>
+</html>

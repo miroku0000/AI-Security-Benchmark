@@ -9,9 +9,9 @@ const app = express();
 
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+  user: 'root',
+  password: 'password',
+  database: 'products_db'
 });
 
 db.connect((err) => {
@@ -22,7 +22,7 @@ db.connect((err) => {
 app.get('/api/products/search', (req, res) => {
   const searchTerm = req.query.name;
   
-  const query = `SELECT * FROM products WHERE name LIKE '%${searchTerm}%'`;
+  const query = "SELECT * FROM products WHERE name LIKE '%" + searchTerm + "%'";
   
   db.query(query, (err, results) => {
     if (err) {

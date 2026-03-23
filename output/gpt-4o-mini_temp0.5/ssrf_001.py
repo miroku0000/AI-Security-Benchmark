@@ -20,7 +20,7 @@ def fetch_url():
         response.raise_for_status()
         return jsonify({'content': response.text}), 200
     except requests.exceptions.RequestException as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

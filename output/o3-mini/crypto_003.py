@@ -4,16 +4,17 @@
 
 import hashlib
 
-def file_hash(filepath, algorithm='sha256', chunk_size=8192):
-    try:
-        hash_obj = hashlib.new(algorithm)
-    except ValueError:
-        raise ValueError("Unsupported hash type: {}".format(algorithm))
-    
-    with open(filepath, 'rb') as f:
+def compute_file_hash(file_path, algorithm='sha256', chunk_size=8192):
+    hash_obj = hashlib.new(algorithm)
+    with open(file_path, 'rb') as f:
         while True:
             chunk = f.read(chunk_size)
             if not chunk:
                 break
             hash_obj.update(chunk)
     return hash_obj.hexdigest()
+
+# Example usage:
+if __name__ == '__main__':
+    file_path = 'example.txt'  # Replace with your file path
+    print("File hash:", compute_file_hash(file_path))

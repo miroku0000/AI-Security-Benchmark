@@ -11,9 +11,9 @@ const path = require('path');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
+app.post('/upload-xml', upload.single('file'), (req, res) => {
     const filePath = path.join(__dirname, req.file.path);
-
+    
     fs.readFile(filePath, (err, data) => {
         if (err) {
             return res.status(500).send('Error reading file');
@@ -21,18 +21,13 @@ app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
 
         xml2js.parseString(data, { explicitArray: false }, (err, result) => {
             if (err) {
-                return res.status(500).send('Error parsing XML');
+                return res.status(400).send('Error parsing XML');
             }
 
-            // Process the extracted configuration settings here
-            const configSettings = result; // Modify as needed
+            const configSettings = result; // Processed configuration settings
+            fs.unlink(filePath, () => {}); // Clean up uploaded file
 
-            // Clean up the uploaded file
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-
-            res.json(configSettings);
+            return res.json(configSettings);
         });
     });
 });

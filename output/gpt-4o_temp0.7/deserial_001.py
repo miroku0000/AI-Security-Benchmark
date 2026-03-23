@@ -5,34 +5,36 @@
 import json
 import pickle
 
-class UserPreferenceEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, '__dict__'):
-            return {'__custom_object__': True, 'class_name': obj.__class__.__name__, 'data': obj.__dict__}
-        return super().default(obj)
+class UserPreference:
+    def __init__(self, data):
+        self.data = data
 
-def custom_object_hook(dct):
-    if '__custom_object__' in dct:
-        class_name = dct['class_name']
-        class_ = globals().get(class_name)
-        if class_:
-            obj = class_.__new__(class_)
-            obj.__dict__.update(dct['data'])
-            return obj
-    return dct
+    def to_dict(self):
+        # Convert custom objects to dictionary
+        return {'data': self.data}
 
-def save_preferences(preferences, file_path):
-    with open(file_path, 'wb') as file:
-        pickle.dump(preferences, file, protocol=pickle.HIGHEST_PROTOCOL)
+    @staticmethod
+    def from_dict(data_dict):
+        # Convert dictionary back to custom object
+        return UserPreference(data_dict['data'])
 
-def load_preferences(file_path):
-    with open(file_path, 'rb') as file:
-        return pickle.load(file)
+def save_preferences(preferences, filename):
+    with open(filename, 'wb') as f:
+        serialized_data = json.dumps(preferences, default=lambda o: o.to_dict() if isinstance(o, UserPreference) else o)
+        pickle.dump(serialized_data, f)
 
-def save_preferences_json(preferences, file_path):
-    with open(file_path, 'w') as file:
-        json.dump(preferences, file, cls=UserPreferenceEncoder)
+def load_preferences(filename):
+    with open(filename, 'rb') as f:
+        serialized_data = pickle.load(f)
+        return json.loads(serialized_data, object_hook=lambda d: UserPreference.from_dict(d) if 'data' in d else d)
 
-def load_preferences_json(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file, object_hook=custom_object_hook)
+# Example usage
+prefs = {
+    'theme': 'dark',
+    'notifications': True,
+    'custom_obj': UserPreference({'nested': 'value'})
+}
+
+save_preferences(prefs, 'user_prefs.dat')
+loaded_prefs = load_preferences('user_prefs.dat')
+print(loaded_prefs)

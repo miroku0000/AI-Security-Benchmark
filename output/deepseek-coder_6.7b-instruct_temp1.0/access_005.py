@@ -2,39 +2,33 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import request, jsonify
-from .models import User, Posts, db
-from werkzeug.security import check_password_hash
-from functools import wraps
-from . import app
-import jwt
+from flask import Blueprint, request, abort
+from models import UserModel, PostModel
+from utils import requires_auth
 
-def authenticate(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization']
-        if not token:
-            return jsonify({"message": "Authentication Token Missing!"}), 403
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = User.query.filter_by(public_id=data['public_id']).first()
-        except:
-            return jsonify({"message": "Token is invalid!"}), 403
-        return f(current_user, *args, **kwargs)
-    return decorated
+api = Blueprint('api', __name__)
 
-@app.route('/delete/post/<int:post_id>', methods=['DELETE'])
-@authenticate
-def delete_own_posts(current_user, post_id):
-    if not current_user:
-        return jsonify({"message": "User not found!"}), 404
+@api.route('/posts/<int:post_id>', methods=['DELETE'])
+@requires_auth
+def delete_user_post(current_user, post_id):
+    # Fetch the current user from UserModel based on sub claim in JWT token.
+    # The function requires_auth is a decorator that validates the JWT and attaches 
+    # the authenticated user to this function's parameter list.
     
-    post = Posts.query.filter_by(id=post_id, user_id=current_user.id).first()
+    post = PostModel.query.get(post_id)
+    
     if not post:
-        return jsonify({"message": "Post not found!"}), 404
+        abort(404, description="Post not found")
+        
+    if current_user.id != post.author_id:
+        # If the user is trying to delete a post that doesn't belong to them, 
+        # return an error message
+        abort(403, description="You are not authorized to perform this action")
+    
+    PostModel.query.filter_by(id=post_id).delete()
+    current_user.save()
 
-    db.session.delete(post)
-    db.session.commit()
-    return jsonify({"message": f"Post with id {post_id} deleted successfully."})
+    return jsonify({
+        'success': True,
+        'message': "Post deleted successfully"
+    }), 200

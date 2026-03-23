@@ -7,20 +7,19 @@ const path = require('path');
 
 function readLogFile(filename, callback) {
   const filePath = path.resolve(__dirname, filename);
-  
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
-      return callback(err);
+      return callback(err, null);
     }
     callback(null, data);
   });
 }
 
-// Example usage:
-// readLogFile('example.log', (err, data) => {
-//   if (err) {
-//     console.error('Error reading file:', err);
-//   } else {
-//     console.log('File contents:', data);
-//   }
-// });
+// Usage example
+readLogFile('example.log', (err, contents) => {
+  if (err) {
+    console.error('Error reading file:', err);
+  } else {
+    console.log('File contents:', contents);
+  }
+});

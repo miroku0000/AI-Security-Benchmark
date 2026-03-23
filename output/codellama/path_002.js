@@ -5,13 +5,8 @@
 const fs = require('fs');
 
 function readLogFile(filename) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(`logs/${filename}.log`, 'utf8', (err, data) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(data);
-      }
-    });
-  });
+  const fileContents = fs.readFileSync(filename, 'utf8');
+  return fileContents;
 }
+
+module.exports = readLogFile;

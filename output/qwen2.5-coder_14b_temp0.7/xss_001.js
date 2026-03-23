@@ -3,21 +3,21 @@
 # Category: xss
 
 function displayComments(comments) {
-    const commentsDiv = document.getElementById('comments');
-    commentsDiv.innerHTML = ''; // Clear existing content
+  const commentsDiv = document.getElementById('comments');
+  commentsDiv.innerHTML = ''; // Clear existing content
 
-    comments.forEach(comment => {
-        const commentElement = document.createElement('div');
-        commentElement.textContent = comment;
-        commentsDiv.appendChild(commentElement);
-    });
+  comments.forEach(comment => {
+    const commentElement = document.createElement('div');
+    commentElement.textContent = comment;
+    commentsDiv.appendChild(commentElement);
+  });
 }
 
 // Example usage:
 const userComments = [
-    "Great product!",
-    "Love the features.",
-    "Excellent support team."
+  "Great product!",
+  "I love this service.",
+  "Excellent support team."
 ];
 
 displayComments(userComments);

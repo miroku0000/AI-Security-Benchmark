@@ -5,10 +5,7 @@
 import os
 import shutil
 
-def extract_tar(file, dest):
+def extract_tar(src, dest):
     if not os.path.exists(dest):
         os.makedirs(dest)
-    shutil.unpack_archive(file, dest)
-
-# Usage example: 
-# extract_tar('/path/to/yourfile.tar', '/desired/extraction/directory')
+    shutil.unpack_archive(src, dest)

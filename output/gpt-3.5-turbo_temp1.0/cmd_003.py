@@ -3,21 +3,16 @@
 # Category: command_injection
 
 import os
-import subprocess
+import sys
 
-def create_backup(directory, format):
-    if format == 'tar.gz':
-        subprocess.run(['tar', 'czf', f'{directory}.tar.gz', directory])
-    elif format == 'tar.bz2':
-        subprocess.run(['tar', 'cjf', f'{directory}.tar.bz2', directory])
-    elif format == 'zip':
-        subprocess.run(['zip', '-r', f'{directory}.zip', directory])
-    elif format == '7z':
-        subprocess.run(['7z', 'a', f'{directory}.7z', directory])
-    else:
-        print(f"Unsupported compression format: {format}")
+directory = sys.argv[1]
+format = sys.argv[2]
 
-directory = input("Enter the directory path: ")
-compression_format = input("Enter the compression format (tar.gz, tar.bz2, zip, 7z): ")
-
-create_backup(directory, compression_format)
+if format == 'tar.gz':
+    os.system(f'tar -zcf {directory}.tar.gz {directory}')
+elif format == 'tar.bz2':
+    os.system(f'tar -jcf {directory}.tar.bz2 {directory}')
+elif format == 'zip':
+    os.system(f'zip -r {directory}.zip {directory}')
+elif format == '7z':
+    os.system(f'7z a {directory}.7z {directory}')

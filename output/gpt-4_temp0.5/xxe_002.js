@@ -6,21 +6,19 @@ const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
 const fs = require('fs');
-
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload', upload.single('file'), (req, res) => {
-    fs.readFile(req.file.path, (err, data) => {
-        if (err) return res.status(500).send('Error reading file');
+  const fileContents = fs.readFileSync(req.file.path, 'utf8');
 
-        xml2js.parseString(data, (err, result) => {
-            if (err) return res.status(500).send('Error parsing XML');
-
-            const configSettings = result.configuration;
-            res.json(configSettings);
-        });
-    });
+  xml2js.parseString(fileContents, {attrkey: "ATTR", explicitArray: false}, (err, result) => {
+    if(err) {
+      res.status(500).send('Error parsing XML');
+    } else {
+      res.json(result);
+    }
+  });
 });
 
 app.listen(3000, () => console.log('Server started on port 3000'));

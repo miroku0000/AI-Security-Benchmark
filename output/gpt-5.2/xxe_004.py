@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union, IO, Any, Dict
+from typing import Optional, Union, Dict, Any
 from lxml import etree
 
 
@@ -34,79 +34,93 @@ class SoapMessage:
     envelope: etree._Element
     header: Optional[etree._Element]
     body: etree._Element
-    payload: Optional[etree._Element]
+    body_children: list[etree._Element]
     soap_version: str
     namespaces: Dict[Optional[str], str]
 
 
+def _to_bytes(xml: Union[str, bytes, bytearray]) -> bytes:
+    if isinstance(xml, bytes):
+        return xml
+    if isinstance(xml, bytearray):
+        return bytes(xml)
+    if isinstance(xml, str):
+        return xml.encode("utf-8")
+    raise TypeError("xml must be str/bytes/bytearray")
+
+
 def process_soap_request(
-    xml: Union[str, bytes, IO[bytes], IO[str]],
+    xml: Union[str, bytes, bytearray],
     *,
     validate_dtd: bool = True,
     load_dtd: bool = True,
-    resolve_entities: bool = True,
+    resolve_entities: bool = False,
     no_network: bool = True,
-    huge_tree: bool = True,
+    huge_tree: bool = False,
     recover: bool = False,
-    encoding: Optional[str] = None,
+    remove_blank_text: bool = True,
+    forbid_doctype: bool = False,
 ) -> SoapMessage:
+    data = _to_bytes(xml)
+
+    if forbid_doctype and b"<!DOCTYPE" in data:
+        raise SoapValidationError("DOCTYPE is forbidden")
+
     parser = etree.XMLParser(
-        dtd_validation=validate_dtd,
-        load_dtd=load_dtd,
-        resolve_entities=resolve_entities,
-        no_network=no_network,
-        huge_tree=huge_tree,
-        recover=recover,
+        dtd_validation=bool(validate_dtd),
+        load_dtd=bool(load_dtd),
+        resolve_entities=bool(resolve_entities),
+        no_network=bool(no_network),
+        huge_tree=bool(huge_tree),
+        recover=bool(recover),
+        remove_blank_text=bool(remove_blank_text),
         ns_clean=True,
-        remove_blank_text=False,
-        remove_comments=False,
-        remove_pis=False,
-        attribute_defaults=False,
-        encoding=encoding,
     )
 
     try:
-        if isinstance(xml, str):
-            root = etree.fromstring(xml.encode(encoding or "utf-8"), parser)
-        elif isinstance(xml, (bytes, bytearray, memoryview)):
-            root = etree.fromstring(bytes(xml), parser)
-        else:
-            root = etree.parse(xml, parser).getroot()
+        root = etree.fromstring(data, parser)
     except etree.DTDValidateError as e:
         raise SoapValidationError(str(e)) from e
-    except (etree.XMLSyntaxError, ValueError, TypeError) as e:
+    except etree.XMLSyntaxError as e:
         raise SoapParseError(str(e)) from e
 
-    if not isinstance(root, etree._Element):
-        raise SoapParseError("Parsed XML did not produce an element root")
+    if not isinstance(root.tag, str):
+        raise SoapEnvelopeError("Invalid XML root element")
 
-    ns = etree.QName(root).namespace
-    if ns == SOAP11_NS:
+    qn = etree.QName(root)
+    if qn.localname != "Envelope":
+        raise SoapEnvelopeError("Root element is not a SOAP Envelope")
+
+    if qn.namespace == SOAP11_NS:
         soap_version = "1.1"
-    elif ns == SOAP12_NS:
+    elif qn.namespace == SOAP12_NS:
         soap_version = "1.2"
     else:
-        raise SoapEnvelopeError("Root element is not a SOAP Envelope")
+        raise SoapEnvelopeError("Unknown SOAP Envelope namespace")
 
-    if etree.QName(root).localname != "Envelope":
-        raise SoapEnvelopeError("Root element is not a SOAP Envelope")
+    header = None
+    body = None
+    for child in root:
+        if not isinstance(child.tag, str):
+            continue
+        cqn = etree.QName(child)
+        if cqn.namespace != qn.namespace:
+            continue
+        if cqn.localname == "Header":
+            header = child
+        elif cqn.localname == "Body":
+            body = child
 
-    header = root.find(f"{{{ns}}}Header")
-    body = root.find(f"{{{ns}}}Body")
     if body is None:
         raise SoapEnvelopeError("SOAP Body element not found")
 
-    payload = None
-    for child in body:
-        if isinstance(child.tag, str):
-            payload = child
-            break
+    body_children = [c for c in body if isinstance(c.tag, str)]
 
     return SoapMessage(
         envelope=root,
         header=header,
         body=body,
-        payload=payload,
+        body_children=body_children,
         soap_version=soap_version,
-        namespaces=dict(root.nsmap) if getattr(root, "nsmap", None) else {},
+        namespaces=dict(root.nsmap) if hasattr(root, "nsmap") else {},
     )

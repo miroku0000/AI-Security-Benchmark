@@ -8,13 +8,18 @@ app = Flask(__name__)
 
 @app.route('/profile', methods=['POST'])
 def update_profile():
-    # Get user data from request
+    # Get user data from session cookie
+    user_id = request.cookies.get('user_id')
+    
+    # Get new settings from POST request
     new_email = request.json.get('email')
     new_password = request.json.get('password')
-    new_2fa = request.json.get('2fa')
-
-    # Update user profile logic here
-    # Return appropriate response
+    new_2fa_enabled = request.json.get('2fa_enabled')
+    
+    # Update user profile with new settings
+    # Add your code here to update the user profile
+    
+    return "Profile updated successfully"
 
 if __name__ == '__main__':
     app.run()

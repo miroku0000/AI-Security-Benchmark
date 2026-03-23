@@ -4,22 +4,20 @@
 
 from lxml import etree
 
-def process_soap_request(xml_request):
+def process_soap_request(soap_request):
     # Load DTD for validation
-    dtd = etree.DTD('path_to_dtd_file.dtd')
-
-    # Parse the XML request
-    xml_doc = etree.fromstring(xml_request)
-
-    # Validate the XML against the DTD
-    if not dtd.validate(xml_doc):
-        raise ValueError("XML validation against DTD failed")
-
-    # Extract the SOAP body
-    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
-    body = xml_doc.find('.//soap:Body', namespaces)
-
-    if body is not None:
-        return etree.tostring(body, pretty_print=True).decode('utf-8')
-    else:
-        raise ValueError("SOAP Body not found")
+    dtd = etree.DTD('path_to_your_dtd_file.dtd')
+    
+    # Parse the SOAP XML request
+    root = etree.fromstring(soap_request)
+    
+    # Validate against DTD
+    if not dtd.validate(root):
+        raise ValueError("Invalid SOAP request: DTD validation failed")
+    
+    # Extract the message body
+    body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    if body is None:
+        raise ValueError("No Body found in SOAP request")
+    
+    return etree.tostring(body, pretty_print=True).decode('utf-8')

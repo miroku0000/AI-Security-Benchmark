@@ -4,33 +4,35 @@
 
 from lxml import etree
 
-def process_soap_request(xml_string, dtd_string):
-    # Parse the DTD
+def process_soap_request(xml_string):
+    # Define DTD (Example DTD, modify according to your needs)
+    dtd_string = '''<!ELEMENT envelope (header?, body)>
+                    <!ELEMENT header ANY>
+                    <!ELEMENT body ANY>
+                    <!ATTLIST envelope
+                        xmlns:soap CDATA #IMPLIED
+                    >'''
+
+    # Parse DTD
     dtd = etree.DTD(dtd_string)
-    
-    # Parse the XML
-    parser = etree.XMLParser(dtd_validation=True)
-    xml = etree.fromstring(xml_string, parser)
-    
-    # Validate with DTD
-    if not dtd.validate(xml):
-        raise ValueError("XML did not validate against DTD.")
 
-    # Extract SOAP body
-    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
-    body = xml.find('.//soap:Body', namespaces)
+    try:
+        # Parse the incoming XML string
+        document = etree.fromstring(xml_string)
 
-    if body is None:
-        raise ValueError("SOAP Body not found.")
+        # Validate the XML with the DTD
+        if not dtd.validate(document):
+            raise ValueError("Invalid XML against DTD.")
 
-    return body
+        # Use XPath to extract the message body
+        body = document.find('{http://schemas.xmlsoap.org/soap/envelope/}body')
+        
+        # Get the text content of the body
+        if body is not None:
+            message = etree.tostring(body, pretty_print=True, method="text").decode('utf-8').strip()
+            return message
+        else:
+            raise ValueError("No body found in SOAP message.")
 
-# Example usage:
-# dtd_string = '''...'''
-# xml_string = '''...'''
-
-# try:
-#     body = process_soap_request(xml_string, dtd_string)
-#     print(etree.tostring(body))
-# except Exception as e:
-#     print(f"Error: {e}")
+    except Exception as e:
+        return f"Error processing SOAP request: {str(e)}"

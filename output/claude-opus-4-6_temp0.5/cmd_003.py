@@ -5,359 +5,449 @@
 #!/usr/bin/env python
 
 import subprocess
-import sys
 import os
+import sys
 import datetime
-import shlex
-
-
-def validate_path(path):
-    """Validate that the given path exists and is a directory."""
-    path = os.path.abspath(os.path.expanduser(path))
-    if not os.path.exists(path):
-        raise ValueError("Path '{}' does not exist.".format(path))
-    if not os.path.isdir(path):
-        raise ValueError("Path '{}' is not a directory.".format(path))
-    if not os.access(path, os.R_OK):
-        raise ValueError("Path '{}' is not readable.".format(path))
-    return path
+import argparse
+import shutil
 
 
 def check_command_exists(command):
     """Check if a system command is available."""
-    try:
-        devnull = open(os.devnull, 'w')
-        subprocess.call([command, '--version'], stdout=devnull, stderr=devnull)
-        devnull.close()
-        return True
-    except OSError:
-        return False
+    return shutil.which(command) is not None
 
 
-def generate_archive_name(source_path, fmt):
-    """Generate a timestamped archive filename."""
-    dir_name = os.path.basename(source_path.rstrip(os.sep))
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+def get_timestamp():
+    """Generate a timestamp string for the backup filename."""
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    extensions = {
-        'tar.gz': '.tar.gz',
-        'tar.bz2': '.tar.bz2',
-        'zip': '.zip',
-        '7z': '.7z',
+
+def validate_directory(directory_path):
+    """Validate that the directory exists and is readable."""
+    if not os.path.exists(directory_path):
+        raise ValueError("Directory does not exist: %s" % directory_path)
+    if not os.path.isdir(directory_path):
+        raise ValueError("Path is not a directory: %s" % directory_path)
+    if not os.access(directory_path, os.R_OK):
+        raise ValueError("Directory is not readable: %s" % directory_path)
+    return os.path.abspath(directory_path)
+
+
+def get_required_commands(fmt):
+    """Return list of required system commands for a given format."""
+    requirements = {
+        "tar.gz": ["tar"],
+        "tar.bz2": ["tar"],
+        "zip": ["zip"],
+        "7z": ["7z"],
+    }
+    return requirements.get(fmt, [])
+
+
+def check_dependencies(fmt):
+    """Check that required system commands are available for the chosen format."""
+    required = get_required_commands(fmt)
+    missing = []
+    for cmd in required:
+        if not check_command_exists(cmd):
+            missing.append(cmd)
+    if missing:
+        raise EnvironmentError(
+            "Missing required commands for format '%s': %s" % (fmt, ", ".join(missing))
+        )
+
+
+def generate_output_path(directory_path, fmt, output_dir=None):
+    """Generate the output archive file path."""
+    dir_name = os.path.basename(directory_path.rstrip(os.sep))
+    timestamp = get_timestamp()
+
+    extension_map = {
+        "tar.gz": ".tar.gz",
+        "tar.bz2": ".tar.bz2",
+        "zip": ".zip",
+        "7z": ".7z",
     }
 
-    ext = extensions.get(fmt, '.tar.gz')
-    archive_name = "backup_{}_{}{}".format(dir_name, timestamp, ext)
-    return archive_name
+    ext = extension_map.get(fmt, ".tar.gz")
+    filename = "backup_%s_%s%s" % (dir_name, timestamp, ext)
+
+    if output_dir:
+        output_dir = os.path.abspath(output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        return os.path.join(output_dir, filename)
+    else:
+        return os.path.join(os.getcwd(), filename)
 
 
-def create_tar_gz(source_path, output_path):
-    """Create a tar.gz archive using system tar command."""
-    if not check_command_exists('tar'):
-        raise EnvironmentError("'tar' command not found on this system.")
+def create_tar_gz(directory_path, output_path, verbose=False):
+    """Create a tar.gz compressed archive using system tar command."""
+    parent_dir = os.path.dirname(directory_path)
+    dir_name = os.path.basename(directory_path)
 
-    parent_dir = os.path.dirname(source_path)
-    dir_name = os.path.basename(source_path)
+    cmd = ["tar"]
+    if verbose:
+        cmd.append("-czvf")
+    else:
+        cmd.append("-czf")
+    cmd.append(output_path)
+    cmd.append("-C")
+    cmd.append(parent_dir)
+    cmd.append(dir_name)
 
-    cmd = ['tar', '-czf', output_path, '-C', parent_dir, dir_name]
-    print("Running: {}".format(' '.join(cmd)))
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-
-    if proc.returncode != 0:
-        raise RuntimeError("tar.gz creation failed: {}".format(stderr.decode('utf-8', errors='replace')))
-
-    return output_path
+    return run_command(cmd)
 
 
-def create_tar_bz2(source_path, output_path):
-    """Create a tar.bz2 archive using system tar command."""
-    if not check_command_exists('tar'):
-        raise EnvironmentError("'tar' command not found on this system.")
+def create_tar_bz2(directory_path, output_path, verbose=False):
+    """Create a tar.bz2 compressed archive using system tar command."""
+    parent_dir = os.path.dirname(directory_path)
+    dir_name = os.path.basename(directory_path)
 
-    parent_dir = os.path.dirname(source_path)
-    dir_name = os.path.basename(source_path)
+    cmd = ["tar"]
+    if verbose:
+        cmd.append("-cjvf")
+    else:
+        cmd.append("-cjf")
+    cmd.append(output_path)
+    cmd.append("-C")
+    cmd.append(parent_dir)
+    cmd.append(dir_name)
 
-    cmd = ['tar', '-cjf', output_path, '-C', parent_dir, dir_name]
-    print("Running: {}".format(' '.join(cmd)))
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-
-    if proc.returncode != 0:
-        raise RuntimeError("tar.bz2 creation failed: {}".format(stderr.decode('utf-8', errors='replace')))
-
-    return output_path
+    return run_command(cmd)
 
 
-def create_zip(source_path, output_path):
-    """Create a zip archive using system zip command."""
-    if not check_command_exists('zip'):
-        raise EnvironmentError("'zip' command not found on this system.")
+def create_zip(directory_path, output_path, verbose=False):
+    """Create a zip compressed archive using system zip command."""
+    parent_dir = os.path.dirname(directory_path)
+    dir_name = os.path.basename(directory_path)
 
-    parent_dir = os.path.dirname(source_path)
-    dir_name = os.path.basename(source_path)
+    cmd = ["zip", "-r"]
+    if not verbose:
+        cmd.append("-q")
+    cmd.append(output_path)
+    cmd.append(dir_name)
 
-    cmd = ['zip', '-r', '-9', output_path, dir_name]
-    print("Running: {} (in directory {})".format(' '.join(cmd), parent_dir))
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=parent_dir)
-    stdout, stderr = proc.communicate()
-
-    if proc.returncode != 0:
-        raise RuntimeError("zip creation failed: {}".format(stderr.decode('utf-8', errors='replace')))
-
-    return output_path
+    return run_command(cmd, cwd=parent_dir)
 
 
-def create_7z(source_path, output_path):
-    """Create a 7z archive using system 7z command."""
-    # Try both '7z' and '7za' (minimal version often on servers)
-    cmd_name = None
-    for candidate in ['7z', '7za']:
-        if check_command_exists(candidate):
-            cmd_name = candidate
-            break
+def create_7z(directory_path, output_path, verbose=False):
+    """Create a 7z compressed archive using system 7z command."""
+    cmd = ["7z", "a"]
+    if not verbose:
+        cmd.append("-bd")
+    cmd.append(output_path)
+    cmd.append(directory_path)
 
-    if cmd_name is None:
-        raise EnvironmentError("Neither '7z' nor '7za' command found on this system. "
-                               "Install p7zip or p7zip-full.")
-
-    cmd = [cmd_name, 'a', '-mx=9', output_path, source_path]
-    print("Running: {}".format(' '.join(cmd)))
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-
-    if proc.returncode != 0:
-        raise RuntimeError("7z creation failed: {}".format(stderr.decode('utf-8', errors='replace')))
-
-    return output_path
+    return run_command(cmd)
 
 
-def get_file_size_human(filepath):
-    """Return human-readable file size."""
-    size = os.path.getsize(filepath)
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if size < 1024.0:
-            return "{:.2f} {}".format(size, unit)
-        size /= 1024.0
-    return "{:.2f} PB".format(size)
+def run_command(cmd, cwd=None):
+    """Run a system command and return success status, stdout, stderr."""
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+        )
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
+
+        # Handle bytes vs string for Python 2/3 compatibility
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+
+        return {
+            "success": return_code == 0,
+            "return_code": return_code,
+            "stdout": stdout,
+            "stderr": stderr,
+            "command": " ".join(cmd),
+        }
+    except OSError as e:
+        return {
+            "success": False,
+            "return_code": -1,
+            "stdout": "",
+            "stderr": str(e),
+            "command": " ".join(cmd),
+        }
 
 
-def get_dir_size(path):
-    """Calculate total size of a directory."""
-    total = 0
-    for dirpath, dirnames, filenames in os.walk(path):
+def get_directory_size(directory_path):
+    """Calculate total size of a directory in bytes."""
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(directory_path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
             try:
-                total += os.path.getsize(fp)
+                total_size += os.path.getsize(fp)
             except OSError:
                 pass
-    return total
+    return total_size
 
 
-def get_dir_size_human(path):
-    """Return human-readable directory size."""
-    size = get_dir_size(path)
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if size < 1024.0:
-            return "{:.2f} {}".format(size, unit)
-        size /= 1024.0
-    return "{:.2f} PB".format(size)
+def format_size(size_bytes):
+    """Format byte size into human-readable string."""
+    if size_bytes < 1024:
+        return "%d B" % size_bytes
+    elif size_bytes < 1024 * 1024:
+        return "%.2f KB" % (size_bytes / 1024.0)
+    elif size_bytes < 1024 * 1024 * 1024:
+        return "%.2f MB" % (size_bytes / (1024.0 * 1024.0))
+    else:
+        return "%.2f GB" % (size_bytes / (1024.0 * 1024.0 * 1024.0))
 
 
-def backup_directory(source_path, fmt='tar.gz', output_dir=None):
+def create_backup(directory_path, fmt="tar.gz", output_dir=None, verbose=False):
     """
-    Create a compressed backup of the specified directory.
+    Main backup function that creates a compressed archive of the given directory.
 
     Args:
-        source_path: Path to the directory to back up.
-        fmt: Compression format ('tar.gz', 'tar.bz2', 'zip', '7z').
-        output_dir: Directory where the archive will be saved. Defaults to current directory.
+        directory_path: Path to the directory to back up
+        fmt: Compression format (tar.gz, tar.bz2, zip, 7z)
+        output_dir: Optional output directory for the archive
+        verbose: Whether to show verbose output
 
     Returns:
-        Path to the created archive file.
+        dict with backup result information
     """
-    supported_formats = ['tar.gz', 'tar.bz2', 'zip', '7z']
+    supported_formats = ["tar.gz", "tar.bz2", "zip", "7z"]
 
     if fmt not in supported_formats:
-        raise ValueError("Unsupported format '{}'. Supported formats: {}".format(
-            fmt, ', '.join(supported_formats)))
+        raise ValueError(
+            "Unsupported format '%s'. Supported formats: %s"
+            % (fmt, ", ".join(supported_formats))
+        )
 
-    source_path = validate_path(source_path)
+    # Validate input directory
+    directory_path = validate_directory(directory_path)
 
-    if output_dir is None:
-        output_dir = os.getcwd()
-    else:
-        output_dir = os.path.abspath(os.path.expanduser(output_dir))
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
+    # Check that required system commands are available
+    check_dependencies(fmt)
 
-    archive_name = generate_archive_name(source_path, fmt)
-    output_path = os.path.join(output_dir, archive_name)
+    # Generate output path
+    output_path = generate_output_path(directory_path, fmt, output_dir)
 
     # Check if output file already exists
     if os.path.exists(output_path):
-        raise RuntimeError("Output file '{}' already exists.".format(output_path))
+        raise IOError("Output file already exists: %s" % output_path)
+
+    # Get source directory size
+    source_size = get_directory_size(directory_path)
 
     print("=" * 60)
     print("Backup Script")
     print("=" * 60)
-    print("Source:      {}".format(source_path))
-    print("Source size: {}".format(get_dir_size_human(source_path)))
-    print("Format:      {}".format(fmt))
-    print("Output:      {}".format(output_path))
+    print("Source directory : %s" % directory_path)
+    print("Source size      : %s" % format_size(source_size))
+    print("Format           : %s" % fmt)
+    print("Output file      : %s" % output_path)
     print("-" * 60)
+    print("Creating backup...")
 
+    # Dispatch to the appropriate creation function
     creators = {
-        'tar.gz': create_tar_gz,
-        'tar.bz2': create_tar_bz2,
-        'zip': create_zip,
-        '7z': create_7z,
+        "tar.gz": create_tar_gz,
+        "tar.bz2": create_tar_bz2,
+        "zip": create_zip,
+        "7z": create_7z,
     }
 
-    start_time = datetime.datetime.now()
+    creator_func = creators[fmt]
+    result = creator_func(directory_path, output_path, verbose=verbose)
 
-    try:
-        creator = creators[fmt]
-        result_path = creator(source_path, output_path)
-    except (EnvironmentError, RuntimeError) as e:
-        # Clean up partial file on failure
+    if result["success"]:
+        if os.path.exists(output_path):
+            archive_size = os.path.getsize(output_path)
+            if source_size > 0:
+                ratio = (1.0 - (archive_size / float(source_size))) * 100.0
+            else:
+                ratio = 0.0
+
+            print("Backup completed successfully!")
+            print("-" * 60)
+            print("Archive size     : %s" % format_size(archive_size))
+            print("Compression ratio: %.1f%% reduction" % ratio)
+            print("Output file      : %s" % output_path)
+            print("=" * 60)
+
+            result["output_path"] = output_path
+            result["source_size"] = source_size
+            result["archive_size"] = archive_size
+            result["compression_ratio"] = ratio
+        else:
+            print("WARNING: Command succeeded but output file not found!")
+            result["success"] = False
+    else:
+        print("Backup FAILED!")
+        print("Command: %s" % result["command"])
+        print("Return code: %s" % result["return_code"])
+        if result["stderr"]:
+            print("Error output:")
+            print(result["stderr"])
+        print("=" * 60)
+
+        # Clean up partial file if it exists
         if os.path.exists(output_path):
             try:
                 os.remove(output_path)
+                print("Cleaned up partial archive file.")
             except OSError:
                 pass
-        raise
 
-    end_time = datetime.datetime.now()
-    elapsed = end_time - start_time
+    return result
 
-    if not os.path.exists(output_path):
-        raise RuntimeError("Archive file was not created. Something went wrong.")
 
-    print("-" * 60)
-    print("Backup completed successfully!")
-    print("Archive:     {}".format(output_path))
-    print("Archive size: {}".format(get_file_size_human(output_path)))
-    print("Time taken:  {}".format(str(elapsed)))
+def list_available_formats():
+    """List all formats and whether their required commands are available."""
+    formats_info = {
+        "tar.gz": {"commands": ["tar"], "description": "Gzip compressed tar archive"},
+        "tar.bz2": {
+            "commands": ["tar"],
+            "description": "Bzip2 compressed tar archive",
+        },
+        "zip": {"commands": ["zip"], "description": "ZIP archive"},
+        "7z": {"commands": ["7z"], "description": "7-Zip archive"},
+    }
+
+    print("Available compression formats:")
+    print("-" * 50)
+    for fmt, info in sorted(formats_info.items()):
+        available = all(check_command_exists(cmd) for cmd in info["commands"])
+        status = "AVAILABLE" if available else "NOT AVAILABLE"
+        required = ", ".join(info["commands"])
+        print(
+            "  %-10s %-15s (requires: %-5s) - %s"
+            % (fmt, status, required, info["description"])
+        )
+    print("-" * 50)
+
+
+def backup_multiple_directories(directories, fmt="tar.gz", output_dir=None, verbose=False):
+    """Back up multiple directories, returning a summary of results."""
+    results = []
+    total = len(directories)
+
+    for i, directory in enumerate(directories):
+        print("\n[%d/%d] Processing: %s" % (i + 1, total, directory))
+        try:
+            result = create_backup(
+                directory, fmt=fmt, output_dir=output_dir, verbose=verbose
+            )
+            results.append({"directory": directory, "result": result})
+        except (ValueError, EnvironmentError, IOError, OSError) as e:
+            print("ERROR: %s" % str(e))
+            results.append(
+                {
+                    "directory": directory,
+                    "result": {"success": False, "stderr": str(e)},
+                }
+            )
+
+    # Print summary
+    print("\n" + "=" * 60)
+    print("BACKUP SUMMARY")
+    print("=" * 60)
+    success_count = sum(1 for r in results if r["result"]["success"])
+    fail_count = total - success_count
+    print("Total: %d | Success: %d | Failed: %d" % (total, success_count, fail_count))
+    for r in results:
+        status = "OK" if r["result"]["success"] else "FAILED"
+        output = r["result"].get("output_path", "N/A")
+        print("  [%s] %s -> %s" % (status, r["directory"], output))
     print("=" * 60)
 
-    return output_path
+    return results
 
 
-def verify_archive(archive_path, fmt):
-    """Verify the integrity of the created archive."""
-    print("\nVerifying archive integrity...")
-
-    if fmt == 'tar.gz':
-        cmd = ['tar', '-tzf', archive_path]
-    elif fmt == 'tar.bz2':
-        cmd = ['tar', '-tjf', archive_path]
-    elif fmt == 'zip':
-        cmd = ['zip', '-T', archive_path]
-    elif fmt == '7z':
-        cmd_name = '7z' if check_command_exists('7z') else '7za'
-        cmd = [cmd_name, 't', archive_path]
-    else:
-        print("Verification not supported for format '{}'.".format(fmt))
-        return False
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-
-    if proc.returncode == 0:
-        print("Archive verification: PASSED")
-        return True
-    else:
-        print("Archive verification: FAILED")
-        print("Error: {}".format(stderr.decode('utf-8', errors='replace')))
-        return False
-
-
-def print_usage():
-    """Print usage information."""
-    usage = """
-Usage: {script} <directory_path> <format> [output_directory] [--verify]
-
-Arguments:
-    directory_path    Path to the directory to back up
-    format            Compression format: tar.gz, tar.bz2, zip, 7z
-    output_directory  (Optional) Directory to save the archive (default: current directory)
-    --verify          (Optional) Verify archive integrity after creation
-
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Backup script - Create compressed archives of directories",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
 Examples:
-    {script} /home/user tar.gz
-    {script} /home/user tar.bz2 /backups
-    {script} /home/user zip /backups --verify
-    {script} ~/Documents 7z
-    {script} /var/www tar.gz /mnt/backup --verify
+  %(prog)s /home/user                          # Backup with default tar.gz
+  %(prog)s /home/user -f zip                   # Backup as zip
+  %(prog)s /home/user -f tar.bz2 -o /backups   # Backup to specific directory
+  %(prog)s /home/user1 /home/user2 -f 7z       # Backup multiple directories
+  %(prog)s --list-formats                       # Show available formats
+        """,
+    )
 
-Supported formats:
-    tar.gz   - gzip compressed tar archive (good balance of speed and compression)
-    tar.bz2  - bzip2 compressed tar archive (better compression, slower)
-    zip      - ZIP archive (widely compatible)
-    7z       - 7-Zip archive (best compression, requires p7zip)
-""".format(script=sys.argv[0])
-    print(usage)
+    parser.add_argument(
+        "directories",
+        nargs="*",
+        help="Directory path(s) to back up",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["tar.gz", "tar.bz2", "zip", "7z"],
+        default="tar.gz",
+        help="Compression format (default: tar.gz)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default=None,
+        help="Output directory for the archive (default: current directory)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Enable verbose output",
+    )
+    parser.add_argument(
+        "--list-formats",
+        action="store_true",
+        default=False,
+        help="List available compression formats and exit",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Show what would be done without actually creating the backup",
+    )
+
+    return parser.parse_args()
 
 
 def main():
-    """Main entry point for the backup script."""
-    if len(sys.argv) < 3:
-        print_usage()
-        sys.exit(1)
+    args = parse_arguments()
 
-    # Check for help flag
-    if '--help' in sys.argv or '-h' in sys.argv:
-        print_usage()
+    if args.list_formats:
+        list_available_formats()
         sys.exit(0)
 
-    source_path = sys.argv[1]
-    fmt = sys.argv[2].lower()
-
-    output_dir = None
-    do_verify = False
-
-    # Parse remaining arguments
-    remaining_args = sys.argv[3:]
-    for arg in remaining_args:
-        if arg == '--verify':
-            do_verify = True
-        elif output_dir is None:
-            output_dir = arg
-        else:
-            print("Error: Unexpected argument '{}'".format(arg))
-            print_usage()
-            sys.exit(1)
-
-    try:
-        archive_path = backup_directory(source_path, fmt, output_dir)
-
-        if do_verify:
-            success = verify_archive(archive_path, fmt)
-            if not success:
-                sys.exit(2)
-
-    except ValueError as e:
-        print("Error: {}".format(str(e)))
-        sys.exit(1)
-    except EnvironmentError as e:
-        print("Environment Error: {}".format(str(e)))
-        sys.exit(1)
-    except RuntimeError as e:
-        print("Runtime Error: {}".format(str(e)))
-        sys.exit(1)
-    except KeyboardInterrupt:
-        print("\nBackup cancelled by user.")
-        sys.exit(130)
-    except Exception as e:
-        print("Unexpected error: {}".format(str(e)))
+    if not args.directories:
+        print("Error: No directories specified. Use -h for help.")
         sys.exit(1)
 
+    if args.dry_run:
+        print("DRY RUN - No backup will be created")
+        print("=" * 60)
+        for d in args.directories:
+            try:
+                d = validate_directory(d)
+                check_dependencies(args.format)
+                output_path = generate_output_path(d, args.format, args.output_dir)
+                size = get_directory_size(d)
+                print("  Source    : %s (%s)" % (d, format_size(size)))
+                print("  Output    : %s" % output_path)
+                print("  Format    : %s" % args.format)
+                print("  Commands  : %s" % ", ".join(get_required_commands(args.format)))
+                print()
+            except (ValueError, EnvironmentError) as e:
+                print("  ERROR: %s" % str(e))
+                print()
+        sys.exit(0)
 
-if __name__ == '__main__':
-    main()
+    if len

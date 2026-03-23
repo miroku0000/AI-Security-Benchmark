@@ -7,7 +7,7 @@ const serialize = require('node-serialize');
 function deserializeSession(cookie) {
     const sessionData = serialize.unserialize(cookie);
     
-    const session = {
+    return {
         userId: sessionData.userId,
         username: sessionData.username,
         email: sessionData.email,
@@ -26,6 +26,4 @@ function deserializeSession(cookie) {
             return `${this.username} (${this.email})`;
         }
     };
-
-    return session;
 }

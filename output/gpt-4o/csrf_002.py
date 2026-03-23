@@ -13,21 +13,16 @@ def update_profile():
         return jsonify({'error': 'Unauthorized'}), 401
 
     data = request.json
-    user_id = session['user_id']
-
     email = data.get('email')
     password = data.get('password')
-    two_factor_enabled = data.get('two_factor_enabled')
+    two_fa = data.get('two_fa')
 
-    # Here you would update the user's profile in the database
+    # Here you would typically update the user's profile in the database.
     # For example:
-    # user = User.query.get(user_id)
-    # if email:
-    #     user.email = email
-    # if password:
-    #     user.set_password(password)
-    # if two_factor_enabled is not None:
-    #     user.two_factor_enabled = two_factor_enabled
+    # user = User.query.get(session['user_id'])
+    # if email: user.email = email
+    # if password: user.set_password(password)
+    # if two_fa is not None: user.two_fa = two_fa
     # db.session.commit()
 
     return jsonify({'message': 'Profile updated successfully'})

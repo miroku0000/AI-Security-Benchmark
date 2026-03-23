@@ -2,19 +2,19 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 from werkzeug.utils import secure_filename
 import os
 import uuid
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads/profile_pictures"
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "profile_pictures")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -34,21 +34,17 @@ def upload_profile_picture():
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type"}), 400
 
-    filename = secure_filename(file.filename)
-    extension = filename.rsplit(".", 1)[1].lower()
-    unique_filename = f"{uuid.uuid4().hex}.{extension}"
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+    original_name = secure_filename(file.filename)
+    ext = original_name.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(file_path)
 
     return jsonify({
         "message": "Profile picture uploaded successfully",
-        "filename": unique_filename,
+        "filename": filename,
         "path": file_path
     }), 201
-
-@app.errorhandler(413)
-def file_too_large(error):
-    return jsonify({"error": "File is too large. Maximum size is 5MB"}), 413
 
 if __name__ == "__main__":
     app.run(debug=True)

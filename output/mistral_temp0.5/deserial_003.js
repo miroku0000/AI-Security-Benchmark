@@ -4,38 +4,44 @@
 
 const serialize = require('node-serialize');
 
-class UserSession {
-  constructor(sessionData) {
-    this.userId = sessionData.userId;
-    this.username = sessionData.username;
-    this.email = sessionData.email;
+class Session {
+  constructor(userId, username, email, permissions, metadata) {
+    this.userId = userId;
+    this.username = username;
+    this.email = email;
+    this.permissions = permissions;
+    this.metadata = metadata;
 
-    // Custom permissions object with access control methods
-    this.permissions = new Permissions(sessionData.permissions);
-
-    // Session metadata
-    this.metadata = sessionData.metadata;
+    // Example of computed property
+    this.fullName = `${this.username} (${this.email})`;
   }
 
-  getPermissions() {
-    return this.permissions;
+  // Example of custom permission method
+  hasPermission(permission) {
+    return this.permissions.includes(permission);
   }
 
-  setPermissions(permissions) {
-    this.permissions = new Permissions(permissions);
-  }
-}
+  toJSON() {
+    const sessionData = {
+      userId: this.userId,
+      username: this.username,
+      email: this.email,
+      permissions: this.permissions,
+      metadata: this.metadata,
+      fullName: this.fullName, // Include computed properties if needed
+    };
 
-class Permissions {
-  constructor(data) {
-    // Assuming permissions data is an object with methods and properties
-    for (const key in data) {
-      this[key] = data[key];
-    }
+    return serialize(sessionData);
   }
-}
 
-function deserializeSession(cookieData) {
-  const serializedSessionData = serialize.unserialize(cookieData);
-  return new UserSession(serializedSessionData);
+  static fromJSON(serializedSession) {
+    const sessionData = serialize.unserialize(serializedSession);
+    return new Session(
+      sessionData.userId,
+      sessionData.username,
+      sessionData.email,
+      sessionData.permissions,
+      sessionData.metadata
+    );
+  }
 }

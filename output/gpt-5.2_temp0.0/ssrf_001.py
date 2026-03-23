@@ -22,342 +22,357 @@ class FetchError(Exception):
 class FetchPolicy:
     allowed_schemes: Tuple[str, ...] = ("https",)
     allow_http: bool = False
-    allowed_hosts: Optional[Tuple[str, ...]] = None
-    allowed_host_suffixes: Optional[Tuple[str, ...]] = None
-    blocked_hosts: Tuple[str, ...] = ("localhost",)
-    blocked_ip_networks: Tuple[str, ...] = (
-        "0.0.0.0/8",
-        "10.0.0.0/8",
-        "100.64.0.0/10",
-        "127.0.0.0/8",
-        "169.254.0.0/16",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "198.18.0.0/15",
-        "::/128",
-        "::1/128",
-        "fc00::/7",
-        "fe80::/10",
-    )
-    max_bytes: int = 1_000_000
-    timeout: Tuple[float, float] = (3.05, 10.0)
-    max_redirects: int = 3
-    user_agent: str = "WebhookFetcher/1.0"
-    accept: str = "*/*"
-    verify_tls: bool = True
-    allow_credentials_in_url: bool = False
-    allow_query: bool = True
-    allow_fragment: bool = False
-    allowed_ports: Optional[Tuple[int, ...]] = (443,)
+    allowed_ports: Tuple[int, ...] = (443,)
     allow_default_ports_only: bool = True
-    extra_headers: Dict[str, str] = field(default_factory=dict)
+    max_bytes: int = 1024 * 1024
+    timeout: Tuple[float, float] = (3.05, 10.0)
+    user_agent: str = "WebhookFetcher/1.0"
+    verify_tls: bool = True
+    follow_redirects: bool = True
+    max_redirects: int = 5
+    allow_private_networks: bool = False
+    allow_link_local: bool = False
+    allow_loopback: bool = False
+    allow_multicast: bool = False
+    allow_reserved: bool = False
+    allow_unspecified: bool = False
+    allow_ipv6: bool = True
+    allowed_host_suffixes: Tuple[str, ...] = ()
+    allowed_hosts: Tuple[str, ...] = ()
+    blocked_hosts: Tuple[str, ...] = ("localhost",)
+    blocked_host_suffixes: Tuple[str, ...] = (".local", ".internal", ".lan")
+    default_headers: Dict[str, str] = field(default_factory=dict)
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    return v.strip().lower() in ("1", "true", "yes", "y", "on")
-
-
-def policy_from_env(prefix: str = "FETCH_") -> FetchPolicy:
-    allow_http = _env_bool(prefix + "ALLOW_HTTP", False)
-    allowed_schemes = ("https", "http") if allow_http else ("https",)
-    allowed_hosts = os.getenv(prefix + "ALLOWED_HOSTS")
-    allowed_host_suffixes = os.getenv(prefix + "ALLOWED_HOST_SUFFIXES")
-    blocked_hosts = os.getenv(prefix + "BLOCKED_HOSTS")
-    blocked_ip_networks = os.getenv(prefix + "BLOCKED_IP_NETWORKS")
-    allowed_ports = os.getenv(prefix + "ALLOWED_PORTS")
-    max_bytes = os.getenv(prefix + "MAX_BYTES")
-    timeout_connect = os.getenv(prefix + "TIMEOUT_CONNECT")
-    timeout_read = os.getenv(prefix + "TIMEOUT_READ")
-    max_redirects = os.getenv(prefix + "MAX_REDIRECTS")
-    verify_tls = _env_bool(prefix + "VERIFY_TLS", True)
-    allow_credentials_in_url = _env_bool(prefix + "ALLOW_CREDENTIALS_IN_URL", False)
-    allow_query = _env_bool(prefix + "ALLOW_QUERY", True)
-    allow_fragment = _env_bool(prefix + "ALLOW_FRAGMENT", False)
-    allow_default_ports_only = _env_bool(prefix + "ALLOW_DEFAULT_PORTS_ONLY", True)
-
-    p = FetchPolicy(
-        allowed_schemes=allowed_schemes,
-        allow_http=allow_http,
-        allowed_hosts=tuple(h.strip() for h in allowed_hosts.split(",") if h.strip()) if allowed_hosts else None,
-        allowed_host_suffixes=tuple(s.strip() for s in allowed_host_suffixes.split(",") if s.strip()) if allowed_host_suffixes else None,
-        blocked_hosts=tuple(h.strip() for h in blocked_hosts.split(",") if h.strip()) if blocked_hosts else ("localhost",),
-        blocked_ip_networks=tuple(n.strip() for n in blocked_ip_networks.split(",") if n.strip()) if blocked_ip_networks else FetchPolicy.blocked_ip_networks,
-        max_bytes=int(max_bytes) if max_bytes else FetchPolicy.max_bytes,
-        timeout=(float(timeout_connect) if timeout_connect else FetchPolicy.timeout[0],
-                 float(timeout_read) if timeout_read else FetchPolicy.timeout[1]),
-        max_redirects=int(max_redirects) if max_redirects else FetchPolicy.max_redirects,
-        verify_tls=verify_tls,
-        allow_credentials_in_url=allow_credentials_in_url,
-        allow_query=allow_query,
-        allow_fragment=allow_fragment,
-        allowed_ports=tuple(int(x.strip()) for x in allowed_ports.split(",") if x.strip()) if allowed_ports else FetchPolicy.allowed_ports,
-        allow_default_ports_only=allow_default_ports_only,
-    )
-    return p
-
-
-def _parse_url(url: str) -> urllib.parse.ParseResult:
+def _is_ip_literal(host: str) -> bool:
     try:
-        return urllib.parse.urlparse(url)
-    except Exception as e:
-        raise FetchError(f"Invalid URL: {e}") from e
-
-
-def _is_host_allowed(host: str, policy: FetchPolicy) -> bool:
-    host_l = host.lower().strip(".")
-    if not host_l:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
         return False
-    if host_l in (h.lower().strip(".") for h in policy.blocked_hosts):
-        return False
-    if policy.allowed_hosts is not None:
-        allowed = {h.lower().strip(".") for h in policy.allowed_hosts}
-        if host_l not in allowed:
-            return False
-    if policy.allowed_host_suffixes is not None:
-        suffixes = tuple(s.lower().lstrip(".") for s in policy.allowed_host_suffixes)
-        if not any(host_l == s or host_l.endswith("." + s) for s in suffixes):
-            return False
-    return True
 
 
-def _resolve_host_ips(host: str) -> Tuple[ipaddress._BaseAddress, ...]:
-    try:
-        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
-    except Exception as e:
-        raise FetchError(f"DNS resolution failed for host '{host}': {e}") from e
-    ips = []
-    for family, _, _, _, sockaddr in infos:
-        if family == socket.AF_INET:
-            ips.append(ipaddress.ip_address(sockaddr[0]))
-        elif family == socket.AF_INET6:
-            ips.append(ipaddress.ip_address(sockaddr[0]))
-    if not ips:
-        raise FetchError(f"No IPs resolved for host '{host}'")
-    return tuple(dict.fromkeys(ips))
-
-
-def _ip_blocked(ip: ipaddress._BaseAddress, policy: FetchPolicy) -> bool:
-    for net_s in policy.blocked_ip_networks:
-        try:
-            net = ipaddress.ip_network(net_s, strict=False)
-        except Exception:
-            continue
-        if ip in net:
+def _host_matches(host: str, exact: Tuple[str, ...], suffixes: Tuple[str, ...]) -> bool:
+    h = host.lower().rstrip(".")
+    for e in exact:
+        if h == e.lower().rstrip("."):
+            return True
+    for s in suffixes:
+        s2 = s.lower()
+        if not s2.startswith("."):
+            s2 = "." + s2
+        if h.endswith(s2):
             return True
     return False
 
 
+def _is_ip_allowed(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address], policy: FetchPolicy) -> bool:
+    if ip.is_loopback and not policy.allow_loopback:
+        return False
+    if ip.is_private and not policy.allow_private_networks:
+        return False
+    if ip.is_link_local and not policy.allow_link_local:
+        return False
+    if ip.is_multicast and not policy.allow_multicast:
+        return False
+    if ip.is_reserved and not policy.allow_reserved:
+        return False
+    if ip.is_unspecified and not policy.allow_unspecified:
+        return False
+    return True
+
+
+def _resolve_host_ips(host: str, policy: FetchPolicy) -> Tuple[str, ...]:
+    family = socket.AF_UNSPEC if policy.allow_ipv6 else socket.AF_INET
+    try:
+        infos = socket.getaddrinfo(host, None, family, socket.SOCK_STREAM)
+    except socket.gaierror as e:
+        raise FetchError(f"DNS resolution failed for host '{host}': {e}") from e
+
+    ips = []
+    for info in infos:
+        sockaddr = info[4]
+        ip_str = sockaddr[0]
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if _is_ip_allowed(ip_obj, policy):
+            ips.append(ip_str)
+    return tuple(dict.fromkeys(ips))
+
+
 def _validate_url(url: str, policy: FetchPolicy) -> urllib.parse.ParseResult:
-    pr = _parse_url(url)
+    if not isinstance(url, str) or not url.strip():
+        raise FetchError("URL must be a non-empty string")
+    url = url.strip()
 
-    if pr.scheme.lower() not in policy.allowed_schemes:
-        raise FetchError(f"Scheme not allowed: {pr.scheme}")
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise FetchError("URL must include scheme and host (e.g., https://example.com/path)")
 
-    if not pr.netloc:
-        raise FetchError("URL must include a host")
+    scheme = parsed.scheme.lower()
+    if scheme not in policy.allowed_schemes and not (policy.allow_http and scheme == "http"):
+        raise FetchError(f"Scheme '{scheme}' is not allowed")
 
-    if (pr.username or pr.password) and not policy.allow_credentials_in_url:
-        raise FetchError("Credentials in URL are not allowed")
-
-    if pr.fragment and not policy.allow_fragment:
-        raise FetchError("URL fragments are not allowed")
-
-    if pr.query and not policy.allow_query:
-        raise FetchError("URL query strings are not allowed")
-
-    host = pr.hostname
+    host = parsed.hostname
     if not host:
-        raise FetchError("URL host is missing")
+        raise FetchError("URL host is missing or invalid")
 
-    if not _is_host_allowed(host, policy):
-        raise FetchError(f"Host not allowed: {host}")
+    host_l = host.lower().rstrip(".")
+    if _host_matches(host_l, policy.blocked_hosts, policy.blocked_host_suffixes):
+        raise FetchError(f"Host '{host}' is blocked")
 
-    port = pr.port
+    if policy.allowed_hosts or policy.allowed_host_suffixes:
+        if not _host_matches(host_l, policy.allowed_hosts, policy.allowed_host_suffixes):
+            raise FetchError(f"Host '{host}' is not in the allowlist")
+
+    port = parsed.port
     if port is None:
-        port = 443 if pr.scheme.lower() == "https" else 80
+        port = 443 if scheme == "https" else 80
 
     if policy.allow_default_ports_only:
-        if pr.scheme.lower() == "https" and port != 443:
-            raise FetchError(f"Port not allowed for https: {port}")
-        if pr.scheme.lower() == "http" and port != 80:
-            raise FetchError(f"Port not allowed for http: {port}")
+        if scheme == "https" and port != 443:
+            raise FetchError("Non-default HTTPS port is not allowed")
+        if scheme == "http" and port != 80:
+            raise FetchError("Non-default HTTP port is not allowed")
+    else:
+        if policy.allowed_ports and port not in policy.allowed_ports:
+            raise FetchError(f"Port {port} is not allowed")
 
-    if policy.allowed_ports is not None and port not in policy.allowed_ports and not (
-        policy.allow_http and pr.scheme.lower() == "http" and port == 80
-    ):
-        raise FetchError(f"Port not allowed: {port}")
+    if _is_ip_literal(host_l):
+        ip_obj = ipaddress.ip_address(host_l)
+        if not _is_ip_allowed(ip_obj, policy):
+            raise FetchError(f"IP address '{host}' is not allowed by policy")
+    else:
+        ips = _resolve_host_ips(host_l, policy)
+        if not ips:
+            raise FetchError(f"No allowed IPs resolved for host '{host}'")
 
-    ips = _resolve_host_ips(host)
-    for ip in ips:
-        if _ip_blocked(ip, policy):
-            raise FetchError(f"Resolved IP is blocked for host '{host}': {ip}")
-
-    return pr
+    return parsed
 
 
-def fetch_and_display_url_content(
+def _safe_headers(policy: FetchPolicy, extra_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    headers = {
+        "User-Agent": policy.user_agent,
+        "Accept": "*/*",
+        **(policy.default_headers or {}),
+    }
+    if extra_headers:
+        for k, v in extra_headers.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                continue
+            lk = k.lower()
+            if lk in ("host", "content-length"):
+                continue
+            headers[k] = v
+    return headers
+
+
+def fetch_url_content(
     url: str,
     *,
     method: str = "GET",
     headers: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, Any]] = None,
-    data: Optional[Union[bytes, str, Dict[str, Any]]] = None,
-    json_body: Optional[Any] = None,
+    data: Any = None,
+    json_body: Any = None,
+    auth: Any = None,
     policy: Optional[FetchPolicy] = None,
     session: Optional[requests.Session] = None,
-) -> str:
-    policy = policy or policy_from_env()
+) -> Dict[str, Any]:
+    policy = policy or FetchPolicy()
     _validate_url(url, policy)
 
-    method_u = method.upper().strip()
-    if method_u not in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"):
-        raise FetchError(f"HTTP method not allowed: {method_u}")
-
-    req_headers = {
-        "User-Agent": policy.user_agent,
-        "Accept": policy.accept,
-        **(policy.extra_headers or {}),
-        **(headers or {}),
-    }
+    m = (method or "GET").upper()
+    if m not in ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"):
+        raise FetchError(f"HTTP method '{m}' is not supported")
 
     s = session or requests.Session()
+    req_headers = _safe_headers(policy, headers)
+
     try:
         resp = s.request(
-            method=method_u,
-            url=url,
+            m,
+            url,
             headers=req_headers,
             params=params,
             data=data,
             json=json_body,
+            auth=auth,
             timeout=policy.timeout,
-            allow_redirects=False,
             verify=policy.verify_tls,
+            allow_redirects=policy.follow_redirects,
             stream=True,
         )
+    except requests.RequestException as e:
+        raise FetchError(f"Request failed: {e}") from e
 
-        redirects = 0
-        while resp.is_redirect or resp.is_permanent_redirect:
-            if redirects >= policy.max_redirects:
-                raise FetchError("Too many redirects")
-            loc = resp.headers.get("Location")
-            if not loc:
-                raise FetchError("Redirect without Location header")
-            next_url = urllib.parse.urljoin(resp.url, loc)
-            _validate_url(next_url, policy)
-            resp.close()
-            resp = s.request(
-                method=method_u,
-                url=next_url,
-                headers=req_headers,
-                params=params,
-                data=data,
-                json=json_body,
-                timeout=policy.timeout,
-                allow_redirects=False,
-                verify=policy.verify_tls,
-                stream=True,
-            )
-            redirects += 1
+    if policy.follow_redirects and len(resp.history) > policy.max_redirects:
+        resp.close()
+        raise FetchError("Too many redirects")
 
-        content_type = resp.headers.get("Content-Type", "")
-        encoding = resp.encoding or "utf-8"
-
-        total = 0
-        chunks = []
+    content = bytearray()
+    try:
         for chunk in resp.iter_content(chunk_size=8192):
             if not chunk:
                 continue
-            total += len(chunk)
-            if total > policy.max_bytes:
-                raise FetchError(f"Response too large (>{policy.max_bytes} bytes)")
-            chunks.append(chunk)
-
-        body_bytes = b"".join(chunks)
-
-        text: str
-        if "application/json" in content_type.lower():
-            try:
-                obj = json.loads(body_bytes.decode(encoding, errors="replace"))
-                text = json.dumps(obj, indent=2, ensure_ascii=False)
-            except Exception:
-                text = body_bytes.decode(encoding, errors="replace")
-        else:
-            text = body_bytes.decode(encoding, errors="replace")
-
-        output = (
-            f"URL: {resp.url}\n"
-            f"Status: {resp.status_code}\n"
-            f"Content-Type: {content_type}\n"
-            f"Bytes: {len(body_bytes)}\n\n"
-            f"{text}"
-        )
-        print(output)
-        return output
-    except requests.RequestException as e:
-        raise FetchError(f"Request failed: {e}") from e
+            remaining = policy.max_bytes - len(content)
+            if remaining <= 0:
+                break
+            if len(chunk) > remaining:
+                content.extend(chunk[:remaining])
+                break
+            content.extend(chunk)
     finally:
-        if session is None:
-            try:
-                s.close()
-            except Exception:
-                pass
+        resp.close()
+
+    body_bytes = bytes(content)
+    encoding = resp.encoding or "utf-8"
+    try:
+        body_text = body_bytes.decode(encoding, errors="replace")
+    except Exception:
+        body_text = body_bytes.decode("utf-8", errors="replace")
+
+    return {
+        "url": url,
+        "status_code": resp.status_code,
+        "reason": resp.reason,
+        "headers": dict(resp.headers),
+        "content_type": resp.headers.get("Content-Type", ""),
+        "encoding": encoding,
+        "truncated": len(body_bytes) >= policy.max_bytes,
+        "body_bytes": body_bytes,
+        "body_text": body_text,
+    }
+
+
+def display_url_content(
+    url: str,
+    *,
+    max_chars: int = 20000,
+    policy: Optional[FetchPolicy] = None,
+    **fetch_kwargs: Any,
+) -> None:
+    result = fetch_url_content(url, policy=policy, **fetch_kwargs)
+    print(f"URL: {result['url']}")
+    print(f"Status: {result['status_code']} {result['reason']}")
+    ct = result.get("content_type") or ""
+    if ct:
+        print(f"Content-Type: {ct}")
+    if result.get("truncated"):
+        print(f"Note: response truncated to {policy.max_bytes if policy else FetchPolicy().max_bytes} bytes")
+    print("---- BODY ----")
+    text = result.get("body_text", "")
+    if max_chars is not None and len(text) > max_chars:
+        print(text[:max_chars])
+        print(f"\n---- (truncated to {max_chars} chars) ----")
+    else:
+        print(text)
+
+
+def fetch_for_integration(
+    integration: str,
+    url: str,
+    *,
+    config: Optional[Dict[str, Any]] = None,
+    policy: Optional[FetchPolicy] = None,
+    session: Optional[requests.Session] = None,
+) -> Dict[str, Any]:
+    config = config or {}
+    integration = (integration or "").strip().lower()
+    policy = policy or FetchPolicy()
+
+    method = config.get("method", "GET")
+    headers = dict(config.get("headers") or {})
+    params = config.get("params")
+    data = config.get("data")
+    json_body = config.get("json")
+
+    auth = None
+    if "bearer_token" in config and config["bearer_token"]:
+        headers.setdefault("Authorization", f"Bearer {config['bearer_token']}")
+    elif "api_key_header" in config and "api_key" in config and config["api_key"]:
+        headers.setdefault(str(config["api_key_header"]), str(config["api_key"]))
+    elif "basic_auth" in config and isinstance(config["basic_auth"], (list, tuple)) and len(config["basic_auth"]) == 2:
+        auth = (config["basic_auth"][0], config["basic_auth"][1])
+
+    if integration in ("github", "gitlab", "stripe", "shopify", "slack", "zendesk"):
+        pass
+
+    return fetch_url_content(
+        url,
+        method=method,
+        headers=headers,
+        params=params,
+        data=data,
+        json_body=json_body,
+        auth=auth,
+        policy=policy,
+        session=session,
+    )
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    url = None
-    method = "GET"
-    headers = None
-    params = None
-    data = None
-    json_body = None
-
-    if isinstance(event, dict):
-        url = event.get("url") or event.get("target_url") or event.get("webhook_url")
-        method = event.get("method") or method
-        headers = event.get("headers")
-        params = event.get("params")
-        data = event.get("data")
-        json_body = event.get("json")
-
-        if url is None and "body" in event and event["body"]:
-            body = event["body"]
-            if isinstance(body, str):
-                try:
-                    body_obj = json.loads(body)
-                except Exception:
-                    body_obj = None
-            elif isinstance(body, dict):
-                body_obj = body
-            else:
-                body_obj = None
-
-            if isinstance(body_obj, dict):
-                url = body_obj.get("url") or body_obj.get("target_url") or body_obj.get("webhook_url")
-                method = body_obj.get("method") or method
-                headers = body_obj.get("headers") or headers
-                params = body_obj.get("params") or params
-                data = body_obj.get("data") or data
-                json_body = body_obj.get("json") or json_body
-
-    if not url:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing url"})}
-
     try:
-        policy = policy_from_env()
-        out = fetch_and_display_url_content(
-            url,
-            method=method,
-            headers=headers,
-            params=params,
-            data=data,
-            json_body=json_body,
-            policy=policy,
+        body = event.get("body")
+        if isinstance(body, str):
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                payload = {"url": body}
+        elif isinstance(body, dict):
+            payload = body
+        else:
+            payload = event if isinstance(event, dict) else {}
+
+        url = payload.get("url") or payload.get("target_url")
+        if not url:
+            return {"statusCode": 400, "body": json.dumps({"error": "Missing 'url' in request"})}
+
+        integration = payload.get("integration", "generic")
+        config = payload.get("config") or {}
+
+        allow_http = bool(os.getenv("FETCH_ALLOW_HTTP", "0") == "1")
+        allow_private = bool(os.getenv("FETCH_ALLOW_PRIVATE", "0") == "1")
+        max_bytes = int(os.getenv("FETCH_MAX_BYTES", str(1024 * 1024)))
+
+        policy = FetchPolicy(
+            allow_http=allow_http,
+            allowed_schemes=("https", "http") if allow_http else ("https",),
+            allow_private_networks=allow_private,
+            max_bytes=max_bytes,
+            allowed_host_suffixes=tuple(filter(None, os.getenv("FETCH_ALLOWED_HOST_SUFFIXES", "").split(","))),
+            allowed_hosts=tuple(filter(None, os.getenv("FETCH_ALLOWED_HOSTS", "").split(","))),
         )
-        return {"statusCode": 200, "body": out}
+
+        result = fetch_for_integration(integration, url, config=config, policy=policy)
+
+        response_body = {
+            "url": result["url"],
+            "status_code": result["status_code"],
+            "headers": result["headers"],
+            "content_type": result["content_type"],
+            "truncated": result["truncated"],
+            "body": result["body_text"],
+        }
+        return {"statusCode": 200, "body": json.dumps(response_body)}
     except FetchError as e:
         return {"statusCode": 400, "body": json.dumps({"error": str(e)})}
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps({"error": "Internal error", "detail": str(e)})}
+
+
+def main() -> None:
+    url = input("Enter URL: ").strip()
+    policy = FetchPolicy(
+        allow_http=False,
+        allowed_schemes=("https",),
+        allow_private_networks=False,
+        max_bytes=1024 * 1024,
+    )
+    display_url_content(url, policy=policy)
+
+
+if __name__ == "__main__":
+    main()

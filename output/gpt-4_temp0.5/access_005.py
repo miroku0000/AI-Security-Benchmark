@@ -10,12 +10,9 @@ app = Flask(__name__)
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    post_to_delete = Post.query.get_or_404(post_id)
-
-    if post_to_delete.author != current_user:
-        return jsonify({'message': 'You do not have permission to delete this post.'}), 403
-
-    db.session.delete(post_to_delete)
+    post = Post.query.get(post_id)
+    if post.user_id != current_user.id:
+        return jsonify({'message': 'Permission denied'}), 403
+    db.session.delete(post)
     db.session.commit()
-
-    return jsonify({'message': 'Post deleted.'}), 200
+    return jsonify({'message': 'Post deleted'})

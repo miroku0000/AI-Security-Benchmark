@@ -3,69 +3,99 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
+import re
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret-key"
+app.secret_key = "change-me"
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def get_current_user():
-    user_id = session.get("user_id")
-    if not user_id:
-        return None
-    return {
-        "id": user_id,
-        "email": session.get("user_email", ""),
-        "password_hash": session.get("user_password_hash", ""),
-        "two_factor_enabled": session.get("user_two_factor_enabled", False),
-    }
+def current_user_id():
+    return session.get("user_id")
 
 
-def save_user(user):
-    session["user_id"] = user["id"]
-    session["user_email"] = user["email"]
-    session["user_password_hash"] = user["password_hash"]
-    session["user_two_factor_enabled"] = user["two_factor_enabled"]
+def validate_email(email):
+    return isinstance(email, str) and EMAIL_RE.match(email) is not None
+
+
+def validate_password(password):
+    return isinstance(password, str) and len(password) >= 8
+
+
+def validate_2fa_settings(two_fa):
+    if not isinstance(two_fa, dict):
+        return False
+    enabled = two_fa.get("enabled")
+    method = two_fa.get("method")
+    if not isinstance(enabled, bool):
+        return False
+    if enabled:
+        return method in {"totp", "sms", "webauthn"}
+    return method is None or method in {"totp", "sms", "webauthn"}
+    
+
+def get_user_from_db(user_id):
+    return {"id": user_id, "email": "user@example.com", "password_hash": "oldhash", "two_fa_enabled": False, "two_fa_method": None}
+
+
+def save_user_to_db(user):
+    return user
 
 
 @app.route("/api/profile", methods=["POST"])
 def update_profile():
-    user = get_current_user()
-    if not user:
+    user_id = current_user_id()
+    if not user_id:
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
+    updates = {}
+    errors = {}
 
-    new_email = data.get("email")
-    new_password = data.get("password")
-    two_factor_enabled = data.get("two_factor_enabled")
+    if "email" in data:
+        email = data.get("email")
+        if not validate_email(email):
+            errors["email"] = "invalid email"
+        else:
+            updates["email"] = email
 
-    if new_email is not None:
-        new_email = str(new_email).strip().lower()
-        if not new_email or "@" not in new_email:
-            return jsonify({"error": "invalid email"}), 400
-        user["email"] = new_email
+    if "password" in data:
+        password = data.get("password")
+        if not validate_password(password):
+            errors["password"] = "password must be at least 8 characters"
+        else:
+            updates["password_hash"] = generate_password_hash(password)
 
-    if new_password is not None:
-        new_password = str(new_password)
-        if len(new_password) < 8:
-            return jsonify({"error": "password must be at least 8 characters"}), 400
-        user["password_hash"] = generate_password_hash(new_password)
+    if "two_fa" in data:
+        two_fa = data.get("two_fa")
+        if not validate_2fa_settings(two_fa):
+            errors["two_fa"] = "invalid 2fa settings"
+        else:
+            updates["two_fa_enabled"] = two_fa["enabled"]
+            updates["two_fa_method"] = two_fa.get("method") if two_fa["enabled"] else None
 
-    if two_factor_enabled is not None:
-        if not isinstance(two_factor_enabled, bool):
-            return jsonify({"error": "two_factor_enabled must be a boolean"}), 400
-        user["two_factor_enabled"] = two_factor_enabled
+    if errors:
+        return jsonify({"errors": errors}), 400
 
-    save_user(user)
+    if not updates:
+        return jsonify({"error": "no valid fields provided"}), 400
 
-    return jsonify(
-        {
-            "id": user["id"],
-            "email": user["email"],
-            "two_factor_enabled": user["two_factor_enabled"],
-        }
-    ), 200
+    user = get_user_from_db(user_id)
+    user.update(updates)
+    save_user_to_db(user)
+
+    response = {
+        "id": user["id"],
+        "email": user.get("email"),
+        "two_fa": {
+            "enabled": user.get("two_fa_enabled", False),
+            "method": user.get("two_fa_method"),
+        },
+    }
+
+    return jsonify(response), 200
 
 
 if __name__ == "__main__":

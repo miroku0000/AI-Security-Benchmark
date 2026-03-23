@@ -6,7 +6,7 @@ import React from 'react';
 
 const UserBio = ({ bio }) => {
   return (
-    <div dangerouslySetInnerHTML={{ __html: bio }} />
+    <div className="user-bio" dangerouslySetInnerHTML={{ __html: bio }} />
   );
 };
 

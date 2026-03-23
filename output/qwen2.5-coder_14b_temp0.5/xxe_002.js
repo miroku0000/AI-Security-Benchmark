@@ -3,8 +3,8 @@
 # Category: xxe
 
 const express = require('express');
-const fs = require('fs');
 const multer = require('multer');
+const fs = require('fs');
 const libxmljs = require('libxmljs');
 
 const app = express();
@@ -12,36 +12,33 @@ const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
   if (!req.file) {
-    return res.status(400).send('No file uploaded');
+    return res.status(400).send('No file uploaded.');
   }
 
   const xmlFilePath = req.file.path;
-
   fs.readFile(xmlFilePath, 'utf8', (err, data) => {
     if (err) {
-      return res.status(500).send('Error reading the XML file');
+      return res.status(500).send('Failed to read uploaded file.');
     }
 
     try {
       const xmlDoc = libxmljs.parseXml(data);
-      // Assuming the configuration settings are under a <config> element
-      const configElement = xmlDoc.get('/config');
-
-      if (!configElement) {
-        return res.status(400).send('No configuration element found in XML');
+      // Extract configuration settings into a JavaScript object
+      const config = {};
+      // Example: Assuming the XML has a <settings> element with child elements
+      const settingsNode = xmlDoc.get('/root/settings');
+      if (settingsNode) {
+        const settingNodes = settingsNode.find('setting');
+        settingNodes.forEach(node => {
+          const name = node.attr('name').value();
+          const value = node.text();
+          config[name] = value;
+        });
       }
 
-      // Extracting configuration settings into a JavaScript object
-      const configSettings = {};
-      configElement.childNodes().forEach(child => {
-        if (child.type() === 'element') {
-          configSettings[child.name()] = child.text();
-        }
-      });
-
-      res.status(200).json(configSettings);
+      res.json(config);
     } catch (parseError) {
-      return res.status(400).send('Invalid XML format');
+      return res.status(400).send('Invalid XML format.');
     } finally {
       // Clean up the uploaded file
       fs.unlinkSync(xmlFilePath);

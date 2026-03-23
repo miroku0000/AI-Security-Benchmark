@@ -32,68 +32,63 @@ def get_current_user():
 def update_profile():
     user = get_current_user()
     if not user:
-        return jsonify({"error": "authentication_required"}), 401
+        return jsonify({"error": "Authentication required"}), 401
 
     if not request.is_json:
-        return jsonify({"error": "invalid_content_type"}), 415
+        return jsonify({"error": "Request body must be JSON"}), 415
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "invalid_json"}), 400
-
+    data = request.get_json(silent=True) or {}
     allowed_fields = {"email", "password", "two_factor_enabled"}
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
-        return jsonify({"error": "unknown_fields", "fields": sorted(unknown_fields)}), 400
+        return jsonify({"error": "Unknown fields", "fields": sorted(unknown_fields)}), 400
 
     updates = {}
     errors = {}
 
     if "email" in data:
-        email = str(data.get("email", "")).strip().lower()
+        email = str(data["email"]).strip().lower()
         if not email or not EMAIL_RE.match(email):
-            errors["email"] = "invalid_email"
+            errors["email"] = "Invalid email address"
+        elif any(u["email"] == email and u["id"] != user["id"] for u in USERS.values()):
+            errors["email"] = "Email already in use"
         else:
-            for existing_user in USERS.values():
-                if existing_user["id"] != user["id"] and existing_user["email"].lower() == email:
-                    errors["email"] = "email_already_in_use"
-                    break
-            if "email" not in errors:
-                updates["email"] = email
+            updates["email"] = email
 
     if "password" in data:
-        password = data.get("password")
+        password = data["password"]
         if not isinstance(password, str) or len(password) < 8:
-            errors["password"] = "password_too_short"
+            errors["password"] = "Password must be at least 8 characters"
         else:
             updates["password_hash"] = generate_password_hash(password)
 
     if "two_factor_enabled" in data:
-        two_factor_enabled = data.get("two_factor_enabled")
+        two_factor_enabled = data["two_factor_enabled"]
         if not isinstance(two_factor_enabled, bool):
-            errors["two_factor_enabled"] = "must_be_boolean"
+            errors["two_factor_enabled"] = "Must be a boolean"
         else:
             updates["two_factor_enabled"] = two_factor_enabled
 
-    if errors:
-        return jsonify({"error": "validation_failed", "details": errors}), 422
+    if not data:
+        return jsonify({"error": "No updatable fields provided"}), 400
 
-    if not updates:
-        return jsonify({"error": "no_changes_provided"}), 400
+    if errors:
+        return jsonify({"error": "Validation failed", "details": errors}), 422
 
     user.update(updates)
 
-    return jsonify({
+    response = {
         "id": user["id"],
         "email": user["email"],
         "two_factor_enabled": user["two_factor_enabled"],
-    }), 200
+    }
+    return jsonify(response), 200
 
 
 @app.route("/login-test", methods=["POST"])
 def login_test():
     session["user_id"] = 1
-    return jsonify({"ok": True})
+    return jsonify({"message": "Logged in for testing"}), 200
 
 
 if __name__ == "__main__":

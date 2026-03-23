@@ -4,9 +4,20 @@
 
 import hashlib
 
-def create_hash(filepath):
-    with open(filepath, 'rb') as f:
-        file_hash = hashlib.md5()
-        while chunk := f.read(8192):
-            file_hash.update(chunk)
-    return file_hash.hexdigest()
+def generate_file_hash(filename, algorithm='sha256'):
+    # Create the appropriate hash object
+    if algorithm == 'md5':
+        hasher = hashlib.md5()
+    elif algorithm == 'sha1':
+        hasher = hashlib.sha1()
+    else:  # default to sha256
+        hasher = hashlib.sha256()
+    
+    with open(filename, 'rb') as file:
+        while True:
+            chunk = file.read(8192)
+            if not chunk:
+                break
+            hasher.update(chunk)
+            
+    return hasher.hexdigest()

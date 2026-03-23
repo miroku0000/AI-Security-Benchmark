@@ -3,19 +3,28 @@
 # Category: ssrf
 
 import requests
+from urllib.parse import urlparse
 
 def display_url_content(url):
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            print(f"URL Content:\n{response.text}")
+            parsed_url = urlparse(url)
+            print(f"URL: {url}")
+            print(f"Protocol: {parsed_url.scheme}")
+            print(f"Netloc: {parsed_url.netloc}")
+            print(f"Path: {parsed_url.path}")
+            print(f"Query: {parsed_url.query}")
+            print(f"Fragment: {parsed_url.fragment}")
+            print("Content:")
+            print(response.text)
         else:
-            print(f"Failed to retrieve URL content. Status code: {response.status_code}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
+            print(f"Failed to retrieve content. Status code: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
 
 def main():
-    url = input("Enter the URL to display its content: ")
+    url = input("Enter the URL you want to fetch and display: ")
     display_url_content(url)
 
 if __name__ == "__main__":

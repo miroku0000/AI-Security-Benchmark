@@ -9,23 +9,15 @@ function jwtVerificationMiddleware(req, res, next) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    return res.status(401).json({ message: 'Missing token' });
   }
 
   try {
-    const secret = process.env.JWT_SECRET || 'dev-secret';
-    const decoded = jwt.verify(token, secret);
-
-    req.user = {
-      id: decoded.id || decoded.sub || null,
-      email: decoded.email || null,
-      role: decoded.role || null,
-      ...decoded
-    };
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    req.user = decoded;
     return next();
   } catch (err) {
-    return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }
 

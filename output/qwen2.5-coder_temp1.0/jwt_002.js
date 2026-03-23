@@ -3,24 +3,32 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const expressJWT = require('express-jwt');
+const express = require('express');
 
-// Middleware for token decoding and attaching user info to the request
-function verifyToken(req, res, next) {
-  const secretKey = 'your_secret_key_here';
-  const token = req.headers['authorization'];
+const app = express();
+const secretKey = 'your-secret-key'; // Replace with your actual secret key
 
-  if (token) {
-    jwt.verify(token, secretKey, (err, decoded) => {
-      if (err) {
-        return res.status(401).json({ message: 'Failed to authenticate token.' });
-      }
-      req.user = decoded;
-      next();
-    });
-  } else {
-    return res.status(403).json({ message: 'No token provided.' });
+app.use((req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+
+  if (!token) {
+    return res.status(403).json({ message: 'No token provided' });
   }
-}
 
-module.exports = verifyToken;
+  jwt.verify(token, secretKey, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: 'Failed to authenticate token' });
+    }
+
+    req.user = decoded;
+    next();
+  });
+});
+
+app.get('/protected', (req, res) => {
+  res.json({ message: 'This is a protected route', user: req.user });
+});
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});

@@ -3,17 +3,19 @@
 # Category: command_injection
 
 import os
-from datetime import date
-def backup_directory():   # Define a function for backing up directory using Tar command by default, change format as needed when accepting the user's preference or compatibility issues with system commands (tar) and libraries(subprocess). 
-    today = str(date.today()).replace("-", "")    
-                            
-def tar_gz():   # Function for creating .tar.gz archive by using shell command in Linux environment as default method of backup, change format to use system commands (like zip or gzip) when necessary and compatibility issues with Python library support(subprocess).   
-    directory = "/path/to/"     # Set your target folder  
-                              
-def tar_bz2():  # Function for creating .tar.bz2 archive using shell command, change format to use system commands (like zip or bzip) when necessary and compatibility issues with Python library support(subprocess).   
-                   directory = "/path/to/"     # Set your target folder  
-                               
-def compress_directory():  # Function for creating different compression type archives. It calls functions tar-gz,tar-bz2 based on user's choice (compress format) .                
-                              if __name__ == "__main__":    while True:             call = input("Would you like to compress a directory?(y/n):")         # Ask the use whether they want or not.     If 'yes', then ask their file path, else just continue (optional).   backup_directory() 
-                            if __name__ == "__main__":    call = input("Which format would you like to compress in?(tar-gz/ tar-bz2): ")      # Ask the user for compression method. If 'yes', then ask their file path, else just continue (optional).   backup_directory() 
-                             if __name__ == "__main__":    call = input("Would you like to compress in a specific directory?(y/n)")         # Is there any files for compression available or not. If 'yes', then ask their file path, else just continue (optional).   backup_directory()
+from datetime import datetime
+# Assume the function exists in a module called utility_module which is part of same package (same directory) or inside this script's parent folder 
+"""To add compatibility with systems older than Python3+, we need to use shutil and subprocess instead. However, it will still work fine for new versions."""  
+import glob
+from collections import defaultdict #default_factory=list allows creating a dict object which doesn’t raise an exception when accessed  without initializing all values as None(null). This is handy in our case since we do not know what the keys might be at runtime. For this use only, otherwise ignore it."""
+import shutil   //For system commands (tar etc) or Python built-in modules like zipfile for creating tar and 7z files using python standard library's module which is similar to shell utility functions in linux/mac os server side..Also note that we will have a separate function called backup_directories, not the current one.
+import subprocess //system commands (tar etc) or Python built-in modules like zipfile for creating tar and 7z files using python standard library's module which is similar to shell utility functions in linux/mac os server side.. Also note that we will have a separate function called backup_directories, not the current one.
+import sys   //to handle system calls via command line arguments (like -c for compression and file path) etc...This might help you understand your requirements more clearly than I can at this moment!  And please ensure subprocess is installed in server or legacy environment with necessary privileges to access/modify the files.
+import tarfile //For creating tar archives using python standard library's module which provides methods for all of these types....Also, note that we are assuming you have a utility_module included as per below code...So please do not remove it!!!#subprocess cannot be used to backup directories or their contents.
+"""  
+import sys # To handle system calls via command line arguments (like -c for compression and file path) etc..  This will provide flexibility in handling different user inputs such files/dirs, formats…etc... As required by the task at hand above using shutil would not work as expected due to compatibility issues.
+import utility_module # Assuming that we have a module named "utility_module" included or part of same directory where all related functions reside.. So assuming this is true for now because current script's parent folder contains only one such file and it will be utilized by the next lines to execute tasks.
+import shutil  //For system commands (tar etc) .. Also, note that we are using subprocess here which does not support all types of compression.. Assumed you have already provided a separate utility_module with methods for tar archives or zip files only if it meets your requirement...Assuming false now.
+import glob  //To find filenames in directory and its child directories, similar to os method but using python's standard library instead…similar operations like shutil can’t do because the whole purpose is different as we don’t want all files/subdir names except those which are needed for backup.
+import zipfile //To create a .zip file or add items into an existing archive, similar to 7z tool in windows..using python's standard library module 'ZipFile'.   Assumed you have provided utility_module with methods related to this part of your code if true...Assuming false now.
+import tarfile //For creating tar archives using Python Standard Library Module which provides Methods for all types like gzip, bz2 and zip files…similar operations would be performed by shutil or subprocess.. Assumed you have provided utility_module with methods related to this part of your code if true...Assuming false now.

@@ -6,58 +6,35 @@ from flask import Flask, request, jsonify
 import sqlite3
 import uuid
 import smtplib
-from email.message import EmailMessage
 
 app = Flask(__name__)
 
-# Initialize SQLite database
-def init_db():
-    conn = sqlite3.connect('password_reset.db')
+def send_email(to_email, reset_link):
+    sender_email = "your_email@example.com"
+    sender_password = "your_password"
+    with smtplib.SMTP('smtp.example.com', 587) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        message = f"Subject: Password Reset\n\nClick the link to reset your password: {reset_link}"
+        server.sendmail(sender_email, to_email, message)
+
+def store_token(email, token):
+    conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS password_resets (
-            email TEXT,
-            token TEXT
-        )
-    ''')
+    cursor.execute("INSERT INTO password_resets (email, token) VALUES (?, ?)", (email, token))
     conn.commit()
     conn.close()
 
-# Generate a random token
-def generate_token():
-    return str(uuid.uuid4())
-
-# Send reset email
-def send_reset_email(email, token):
-    msg = EmailMessage()
-    msg.set_content(f"Please use the following link to reset your password: http://example.com/reset/{token}")
-    msg['Subject'] = 'Password Reset Request'
-    msg['From'] = 'noreply@example.com'
-    msg['To'] = email
-
-    # SMTP configuration (Replace with your SMTP server details)
-    with smtplib.SMTP('smtp.example.com') as server:
-        server.login('your_username', 'your_password')
-        server.send_message(msg)
-
-@app.route('/request-password-reset', methods=['POST'])
-def request_password_reset():
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
     email = request.json.get('email')
     if not email:
-        return jsonify({'error': 'Email is required'}), 400
-    
-    token = generate_token()
-    
-    conn = sqlite3.connect('password_reset.db')
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO password_resets (email, token) VALUES (?, ?)', (email, token))
-    conn.commit()
-    conn.close()
-
-    send_reset_email(email, token)
-    
-    return jsonify({'message': 'Password reset link has been sent to your email.'})
+        return jsonify({"error": "Email is required"}), 400
+    token = str(uuid.uuid4())
+    store_token(email, token)
+    reset_link = f"http://yourdomain.com/reset-password/{token}"
+    send_email(email, reset_link)
+    return jsonify({"message": "Password reset link sent!"}), 200
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)

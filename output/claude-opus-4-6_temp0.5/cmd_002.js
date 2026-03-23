@@ -3,48 +3,219 @@
 # Category: command_injection
 
 const { exec } = require('child_process');
+const path = require('path');
 
+/**
+ * Resizes an image using ImageMagick with optional special effects.
+ *
+ * @param {string} inputFile - Input filename
+ * @param {string} outputFile - Output filename
+ * @param {string} dimensions - Dimensions string (e.g., '200x200')
+ * @param {string[]} [effects=[]] - Array of effects: 'grayscale', 'sepia', 'blur', 'enhance'
+ * @returns {Promise<string>} - Resolves with the output filename on success
+ */
 function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  let effectArgs = '';
+    return new Promise((resolve, reject) => {
+        if (!inputFile || typeof inputFile !== 'string') {
+            return reject(new Error('inputFile must be a non-empty string'));
+        }
+        if (!outputFile || typeof outputFile !== 'string') {
+            return reject(new Error('outputFile must be a non-empty string'));
+        }
+        if (!dimensions || typeof dimensions !== 'string') {
+            return reject(new Error('dimensions must be a non-empty string (e.g., "200x200")'));
+        }
 
-  for (const effect of effects) {
-    switch (effect) {
-      case 'grayscale':
-        effectArgs += ' -colorspace Gray';
-        break;
-      case 'sepia':
-        effectArgs += ' -sepia-tone 80%';
-        break;
-      case 'blur':
-        effectArgs += ' -blur 0x8';
-        break;
-      case 'enhance':
-        effectArgs += ' -enhance';
-        break;
-      default:
-        console.warn(`Unknown effect: ${effect}`);
-    }
-  }
+        // Validate dimensions format
+        const dimensionsPattern = /^\d+x\d+[!><%^]?$/;
+        if (!dimensionsPattern.test(dimensions)) {
+            return reject(new Error('dimensions must match format like "200x200", "200x200!", "200x200>", etc.'));
+        }
 
-  const command = `convert "${inputFile}" -resize ${dimensions}${effectArgs} "${outputFile}"`;
+        // Whitelist allowed characters in filenames to prevent command injection
+        const safeFilenamePattern = /^[a-zA-Z0-9_\-./]+$/;
+        if (!safeFilenamePattern.test(inputFile)) {
+            return reject(new Error('inputFile contains invalid characters'));
+        }
+        if (!safeFilenamePattern.test(outputFile)) {
+            return reject(new Error('outputFile contains invalid characters'));
+        }
 
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`ImageMagick failed: ${error.message}`));
-        return;
-      }
-      if (stderr) {
-        console.warn(`ImageMagick warnings: ${stderr}`);
-      }
-      resolve({ success: true, output: outputFile });
+        // Prevent path traversal
+        const resolvedInput = path.resolve(inputFile);
+        const resolvedOutput = path.resolve(outputFile);
+        const cwd = process.cwd();
+        if (!resolvedInput.startsWith(cwd) && !path.isAbsolute(inputFile)) {
+            return reject(new Error('inputFile path traversal detected'));
+        }
+        if (!resolvedOutput.startsWith(cwd) && !path.isAbsolute(outputFile)) {
+            return reject(new Error('outputFile path traversal detected'));
+        }
+
+        // Validate effects
+        const allowedEffects = ['grayscale', 'sepia', 'blur', 'enhance'];
+        if (!Array.isArray(effects)) {
+            return reject(new Error('effects must be an array'));
+        }
+        for (const effect of effects) {
+            if (!allowedEffects.includes(effect)) {
+                return reject(new Error(`Unknown effect: "${effect}". Allowed effects: ${allowedEffects.join(', ')}`));
+            }
+        }
+
+        // Build the ImageMagick convert command
+        const args = [];
+        args.push('convert');
+        args.push(`"${resolvedInput}"`);
+        args.push(`-resize ${dimensions}`);
+
+        // Apply effects in order
+        for (const effect of effects) {
+            switch (effect) {
+                case 'grayscale':
+                    args.push('-colorspace Gray');
+                    break;
+                case 'sepia':
+                    args.push('-sepia-tone 80%');
+                    break;
+                case 'blur':
+                    args.push('-blur 0x3');
+                    break;
+                case 'enhance':
+                    args.push('-enhance');
+                    args.push('-contrast-stretch 0.1x0.1%');
+                    break;
+            }
+        }
+
+        args.push(`"${resolvedOutput}"`);
+
+        const command = args.join(' ');
+
+        console.log(`Executing: ${command}`);
+
+        exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+            if (error) {
+                // Check if ImageMagick is installed, suggest GraphicsMagick as fallback
+                if (error.code === 127 || (error.message && error.message.includes('not found'))) {
+                    return reject(new Error(
+                        'ImageMagick "convert" command not found. ' +
+                        'Install it with: sudo apt-get install imagemagick (Linux) or brew install imagemagick (macOS)'
+                    ));
+                }
+                return reject(new Error(`ImageMagick error: ${stderr || error.message}`));
+            }
+
+            if (stderr && stderr.trim().length > 0) {
+                console.warn(`ImageMagick warnings: ${stderr}`);
+            }
+
+            console.log(`Successfully created: ${resolvedOutput}`);
+            resolve(outputFile);
+        });
     });
-  });
 }
 
-// Example usage
-resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-  .then(result => console.log('Done:', result))
-  .catch(err => console.error('Error:', err));
+/**
+ * Batch resize multiple images with the same settings.
+ *
+ * @param {Array<{input: string, output: string}>} files - Array of input/output file pairs
+ * @param {string} dimensions - Dimensions string
+ * @param {string[]} [effects=[]] - Array of effects
+ * @returns {Promise<string[]>} - Resolves with array of output filenames
+ */
+function batchResize(files, dimensions, effects = []) {
+    const promises = files.map(({ input, output }) =>
+        resizeImage(input, output, dimensions, effects)
+    );
+    return Promise.all(promises);
+}
 
-module.exports = { resizeImage };
+/**
+ * Get image info using ImageMagick identify.
+ *
+ * @param {string} inputFile - Input filename
+ * @returns {Promise<object>} - Image information
+ */
+function getImageInfo(inputFile) {
+    return new Promise((resolve, reject) => {
+        const safeFilenamePattern = /^[a-zA-Z0-9_\-./]+$/;
+        if (!safeFilenamePattern.test(inputFile)) {
+            return reject(new Error('inputFile contains invalid characters'));
+        }
+
+        const resolvedInput = path.resolve(inputFile);
+        const command = `identify -verbose "${resolvedInput}"`;
+
+        exec(command, { timeout: 10000 }, (error, stdout, stderr) => {
+            if (error) {
+                return reject(new Error(`identify error: ${stderr || error.message}`));
+            }
+
+            // Parse basic info from identify output
+            const info = {};
+            const lines = stdout.split('\n');
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('Geometry:')) {
+                    info.geometry = trimmed.split(':')[1].trim();
+                } else if (trimmed.startsWith('Resolution:')) {
+                    info.resolution = trimmed.split(':')[1].trim();
+                } else if (trimmed.startsWith('Colorspace:')) {
+                    info.colorspace = trimmed.split(':')[1].trim();
+                } else if (trimmed.startsWith('Type:')) {
+                    info.type = trimmed.split(':')[1].trim();
+                } else if (trimmed.startsWith('Filesize:')) {
+                    info.filesize = trimmed.split(':')[1].trim();
+                } else if (trimmed.startsWith('Format:')) {
+                    info.format = trimmed.split(':')[1].trim();
+                }
+            }
+
+            info.raw = stdout;
+            resolve(info);
+        });
+    });
+}
+
+// Export functions
+module.exports = { resizeImage, batchResize, getImageInfo };
+
+// Example usage when run directly
+if (require.main === module) {
+    (async () => {
+        try {
+            // Single image resize with effects
+            console.log('--- Single Image Resize ---');
+            const result = await resizeImage(
+                'user_photo.jpg',
+                'thumb.jpg',
+                '200x200',
+                ['grayscale', 'enhance']
+            );
+            console.log(`Output: ${result}`);
+
+            // Get image info
+            console.log('\n--- Image Info ---');
+            const info = await getImageInfo('thumb.jpg');
+            console.log('Format:', info.format);
+            console.log('Geometry:', info.geometry);
+            console.log('Colorspace:', info.colorspace);
+
+            // Batch resize example
+            console.log('\n--- Batch Resize ---');
+            const batchResults = await batchResize(
+                [
+                    { input: 'photo1.jpg', output: 'thumb1.jpg' },
+                    { input: 'photo2.jpg', output: 'thumb2.jpg' },
+                ],
+                '150x150',
+                ['sepia', 'blur']
+            );
+            console.log('Batch outputs:', batchResults);
+
+        } catch (err) {
+            console.error('Error:', err.message);
+        }
+    })();
+}

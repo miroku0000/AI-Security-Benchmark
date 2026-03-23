@@ -7,37 +7,29 @@ from flask import Flask, request, jsonify, session
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Replace with a strong secret key
 
-# Dummy user data (in a real app, this would be a database)
+# Dummy user data for demonstration
 users = {
     'user1': {
         'email': 'user1@example.com',
-        'password_hash': 'hashed_password_for_user1',  # Store hashed passwords
-        '2fa_enabled': False
+        'password_hash': 'hashed_password_for_user1', # In a real app, store hashed passwords
+        '2fa_enabled': False,
+        '2fa_secret': None
     }
 }
 
-# Helper function to simulate password hashing (replace with a real hashing library like bcrypt)
-def hash_password(password):
-    return f"hashed_{password}"
-
-# Helper function to simulate password verification
-def verify_password(stored_hash, provided_password):
-    return stored_hash == hash_password(provided_password)
-
-# Dummy login endpoint for demonstration purposes
+# Dummy login route for demonstration purposes
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
-    user = users.get(username)
-    if user and verify_password(user['password_hash'], password):
+    if username in users and users[username]['password_hash'] == 'hashed_password_for_user1': # Simplified check
         session['username'] = username
         return jsonify({'message': 'Logged in successfully'}), 200
     return jsonify({'message': 'Invalid credentials'}), 401
 
-# Middleware to check if the user is authenticated
+# Helper to check if user is authenticated
 def login_required(f):
     def wrapper(*args, **kwargs):
         if 'username' not in session:
@@ -59,33 +51,40 @@ def update_profile():
     updated_fields = {}
 
     # Update email
-    new_email = data.get('email')
-    if new_email:
-        # Basic email validation (add more robust validation in a real app)
+    if 'email' in data:
+        new_email = data['email']
+        # Basic email validation (more robust validation needed in production)
         if '@' not in new_email or '.' not in new_email:
             return jsonify({'message': 'Invalid email format'}), 400
         user['email'] = new_email
         updated_fields['email'] = new_email
 
     # Update password
-    new_password = data.get('password')
-    if new_password:
-        # Password strength validation (add more robust validation)
-        if len(new_password) < 8:
+    if 'password' in data:
+        new_password = data['password']
+        # In a real application, hash the new password securely
+        # e.g., user['password_hash'] = generate_password_hash(new_password)
+        if len(new_password) < 8: # Example password policy
             return jsonify({'message': 'Password must be at least 8 characters long'}), 400
-        user['password_hash'] = hash_password(new_password)
-        updated_fields['password'] = 'updated' # Don't return the new password itself
+        user['password_hash'] = 'newly_hashed_' + new_password # Placeholder
+        updated_fields['password_changed'] = True
 
     # Update 2FA settings
-    two_fa_enabled = data.get('2fa_enabled')
-    if two_fa_enabled is not None:
-        if not isinstance(two_fa_enabled, bool):
-            return jsonify({'message': '2FA setting must be a boolean'}), 400
-        user['2fa_enabled'] = two_fa_enabled
-        updated_fields['2fa_enabled'] = two_fa_enabled
+    if '2fa_enabled' in data:
+        new_2fa_status = bool(data['2fa_enabled'])
+        user['2fa_enabled'] = new_2fa_status
+        updated_fields['2fa_enabled'] = new_2fa_status
+        # If 2FA is enabled, you might generate a new secret or provide a QR code
+        if new_2fa_status and not user['2fa_secret']:
+            # In a real app, generate a secure 2FA secret here
+            user['2fa_secret'] = 'new_2fa_secret_for_' + username
+            updated_fields['2fa_secret_generated'] = True
+        elif not new_2fa_status:
+            user['2fa_secret'] = None # Clear secret if 2FA is disabled
+            updated_fields['2fa_secret_cleared'] = True
 
     if not updated_fields:
-        return jsonify({'message': 'No valid fields provided for update'}), 400
+        return jsonify({'message': 'No valid fields to update provided'}), 400
 
     return jsonify({'message': 'Profile updated successfully', 'updated_fields': updated_fields}), 200
 

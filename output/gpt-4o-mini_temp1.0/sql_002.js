@@ -4,29 +4,27 @@
 
 const express = require('express');
 const mysql = require('mysql');
+
 const app = express();
 const port = 3000;
 
-const db = mysql.createConnection({
+const connection = mysql.createConnection({
     host: 'localhost',
     user: 'your_username',
     password: 'your_password',
     database: 'your_database'
 });
 
-db.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to MySQL Database');
-});
+connection.connect();
 
 app.get('/search', (req, res) => {
-    const { name } = req.query;
-    if (!name) {
-        return res.status(400).json({ error: 'Name query parameter is required' });
-    }
+    const productName = req.query.name;
     const query = 'SELECT * FROM products WHERE name LIKE ?';
-    db.query(query, [`%${name}%`], (err, results) => {
-        if (err) return res.status(500).json({ error: 'Database query error' });
+    
+    connection.query(query, [`%${productName}%`], (error, results) => {
+        if (error) {
+            return res.status(500).json({ error: 'Database query error' });
+        }
         res.json(results);
     });
 });

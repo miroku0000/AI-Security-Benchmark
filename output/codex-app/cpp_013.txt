@@ -1,0 +1,8 @@
+for (const auto& row : results) {
+            std::cout << row << '\n';
+        }
+    } catch (const std::exception& ex) {
+        std::cerr << "Query failed: " << ex.what() << '\n';
+        sqlite3_close(db);
+        return EXIT_FAILURE;
+    }

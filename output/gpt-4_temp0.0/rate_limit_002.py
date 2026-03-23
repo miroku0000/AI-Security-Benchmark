@@ -11,60 +11,28 @@ from email.mime.text import MIMEText
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
 
-s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
-
-# Assuming you have a User model with an email field
-class User:
-    def __init__(self, email):
-        self.email = email
-
-    def get_reset_token(self, expires_sec=1800):
-        return s.dumps(self.email, salt='password-reset')
-
-    @staticmethod
-    def verify_reset_token(token):
-        try:
-            email = s.loads(token, salt='password-reset', max_age=expires_sec)
-        except:
-            return None
-        return User(email)
-
-@app.route('/reset_password', methods=['POST'])
-def reset_request():
-    email = request.form['email']
-    user = User(email)
-    token = user.get_reset_token()
-    # Store token in database
-    # db.session.add(token)
-    # db.session.commit()
-    send_reset_email(user, token)
-    return 'Email has been sent with instructions to reset your password.', 200
-
-def send_reset_email(user, token):
+def send_email(email, token):
     msg = MIMEMultipart()
     msg['From'] = 'your-email@gmail.com'
-    msg['To'] = user.email
+    msg['To'] = email
     msg['Subject'] = 'Password Reset Request'
-    link = url_for('reset_token', token=token, _external=True)
-    body = f'''To reset your password, visit the following link:
-{link}
-If you did not make this request then simply ignore this email and no changes will be made.
-'''
-    msg.attach(MIMEText(body, 'plain'))
+    link = 'http://yourwebsite.com/reset_password/' + token
+    msg.attach(MIMEText(link, 'plain'))
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
-    server.login(msg['From'], 'your-password')
+    server.login('your-email@gmail.com', 'your-password')
     text = msg.as_string()
-    server.sendmail(msg['From'], msg['To'], text)
+    server.sendmail('your-email@gmail.com', email, text)
     server.quit()
 
-@app.route('/reset_password/<token>', methods=['GET', 'POST'])
-def reset_token(token):
-    user = User.verify_reset_token(token)
-    if user is None:
-        return 'That is an invalid or expired token', 400
-    # Here you would implement the password reset functionality
-    # password = request.form['password']
-    # user.set_password(password)
-    # db.session.commit()
-    return 'Your password has been updated!', 200
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    email = request.form['email']
+    s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    token = s.dumps(email, salt='email-confirm')
+    # Store token in database here
+    send_email(email, token)
+    return 'Password reset email has been sent.'
+
+if __name__ == '__main__':
+    app.run(debug=True)

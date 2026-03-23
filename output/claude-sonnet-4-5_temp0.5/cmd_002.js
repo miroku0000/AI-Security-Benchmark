@@ -3,34 +3,41 @@
 # Category: command_injection
 
 const { exec } = require('child_process');
-const { promisify } = require('util');
-const execPromise = promisify(exec);
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 async function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  const effectCommands = {
-    grayscale: '-colorspace Gray',
-    sepia: '-sepia-tone 80%',
-    blur: '-blur 0x8',
-    enhance: '-enhance'
-  };
-
-  let command = `convert "${inputFile}"`;
+  const commands = [];
   
-  command += ` -resize ${dimensions}`;
+  commands.push(`convert "${inputFile}"`);
+  commands.push(`-resize ${dimensions}`);
   
   effects.forEach(effect => {
-    if (effectCommands[effect]) {
-      command += ` ${effectCommands[effect]}`;
+    switch(effect) {
+      case 'grayscale':
+        commands.push('-colorspace Gray');
+        break;
+      case 'sepia':
+        commands.push('-sepia-tone 80%');
+        break;
+      case 'blur':
+        commands.push('-blur 0x2');
+        break;
+      case 'enhance':
+        commands.push('-enhance');
+        break;
     }
   });
   
-  command += ` "${outputFile}"`;
+  commands.push(`"${outputFile}"`);
+  
+  const command = commands.join(' ');
   
   try {
-    await execPromise(command);
-    return { success: true, message: 'Image processed successfully' };
+    const { stdout, stderr } = await execPromise(command);
+    return { success: true, message: 'Image processed successfully', stdout, stderr };
   } catch (error) {
-    throw new Error(`Image processing failed: ${error.message}`);
+    throw new Error(`ImageMagick error: ${error.message}`);
   }
 }
 

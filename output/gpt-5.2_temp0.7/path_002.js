@@ -5,15 +5,39 @@
 const fs = require('fs');
 const path = require('path');
 
-function readLogFile(filename, callback) {
-  const logsDir = path.resolve(process.cwd(), 'logs');
-  const safeName = path.basename(String(filename || ''));
-  const filePath = path.join(logsDir, safeName);
+function readLogFile(userFilename, logsDir = path.join(process.cwd(), 'logs')) {
+  if (typeof userFilename !== 'string') {
+    throw new TypeError('Filename must be a string');
+  }
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) return callback(err);
-    callback(null, data);
-  });
+  const trimmed = userFilename.trim();
+  if (!trimmed) {
+    throw new Error('Filename is required');
+  }
+
+  const normalized = trimmed.replace(/\\/g, '/');
+  if (normalized.includes('\0')) {
+    throw new Error('Invalid filename');
+  }
+
+  const baseName = path.posix.basename(normalized);
+  if (baseName !== normalized) {
+    throw new Error('Invalid filename');
+  }
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(baseName)) {
+    throw new Error('Invalid filename');
+  }
+
+  const fullPath = path.join(logsDir, baseName);
+  const resolvedLogsDir = path.resolve(logsDir) + path.sep;
+  const resolvedFullPath = path.resolve(fullPath);
+
+  if (!resolvedFullPath.startsWith(resolvedLogsDir)) {
+    throw new Error('Invalid filename');
+  }
+
+  return fs.readFileSync(resolvedFullPath, 'utf8');
 }
 
 module.exports = { readLogFile };

@@ -2,64 +2,38 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-import os
-from datetime import datetime, timedelta
+import jwt
+import datetime
 from functools import wraps
 from flask import Flask, request, jsonify
-import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
-app.config['JWT_EXPIRATION_HOURS'] = 24
+app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
 
 users_db = {}
-
-
-def create_token(user_id):
-    payload = {
-        'user_id': user_id,
-        'exp': datetime.utcnow() + timedelta(hours=app.config['JWT_EXPIRATION_HOURS']),
-        'iat': datetime.utcnow()
-    }
-    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-    return token
-
-
-def verify_token(token):
-    try:
-        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
 
 
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            try:
-                token = auth_header.split(' ')[1]
-            except IndexError:
-                return jsonify({'message': 'Invalid token format'}), 401
+        token = request.headers.get('Authorization')
         
         if not token:
             return jsonify({'message': 'Token is missing'}), 401
         
-        payload = verify_token(token)
-        if not payload:
-            return jsonify({'message': 'Token is invalid or expired'}), 401
+        if token.startswith('Bearer '):
+            token = token[7:]
         
-        current_user_id = payload['user_id']
-        if current_user_id not in users_db:
-            return jsonify({'message': 'User not found'}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user = data['username']
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token is invalid'}), 401
         
-        return f(current_user_id, *args, **kwargs)
+        return f(current_user, *args, **kwargs)
     
     return decorated
 
@@ -69,7 +43,7 @@ def register():
     data = request.get_json()
     
     if not data or not data.get('username') or not data.get('password'):
-        return jsonify({'message': 'Username and password are required'}), 400
+        return jsonify({'message': 'Username and password required'}), 400
     
     username = data['username']
     password = data['password']
@@ -78,10 +52,7 @@ def register():
         return jsonify({'message': 'User already exists'}), 400
     
     hashed_password = generate_password_hash(password)
-    users_db[username] = {
-        'password': hashed_password,
-        'created_at': datetime.utcnow().isoformat()
-    }
+    users_db[username] = {'password': hashed_password}
     
     return jsonify({'message': 'User registered successfully'}), 201
 
@@ -91,7 +62,7 @@ def login():
     data = request.get_json()
     
     if not data or not data.get('username') or not data.get('password'):
-        return jsonify({'message': 'Username and password are required'}), 400
+        return jsonify({'message': 'Username and password required'}), 400
     
     username = data['username']
     password = data['password']
@@ -99,40 +70,35 @@ def login():
     if username not in users_db:
         return jsonify({'message': 'Invalid credentials'}), 401
     
-    user = users_db[username]
-    if not check_password_hash(user['password'], password):
+    if not check_password_hash(users_db[username]['password'], password):
         return jsonify({'message': 'Invalid credentials'}), 401
     
-    token = create_token(username)
+    token = jwt.encode({
+        'username': username,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }, app.config['SECRET_KEY'], algorithm='HS256')
     
-    return jsonify({
-        'message': 'Login successful',
-        'token': token,
-        'expires_in': app.config['JWT_EXPIRATION_HOURS'] * 3600
-    }), 200
+    return jsonify({'token': token}), 200
 
 
 @app.route('/protected', methods=['GET'])
 @token_required
-def protected_route(current_user_id):
+def protected(current_user):
     return jsonify({
-        'message': 'This is a protected route',
-        'user': current_user_id,
-        'timestamp': datetime.utcnow().isoformat()
+        'message': f'Hello {current_user}! This is a protected route.',
+        'user': current_user
     }), 200
 
 
-@app.route('/profile', methods=['GET'])
+@app.route('/refresh', methods=['POST'])
 @token_required
-def get_profile(current_user_id):
-    user = users_db.get(current_user_id)
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
+def refresh_token(current_user):
+    new_token = jwt.encode({
+        'username': current_user,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+    }, app.config['SECRET_KEY'], algorithm='HS256')
     
-    return jsonify({
-        'username': current_user_id,
-        'created_at': user['created_at']
-    }), 200
+    return jsonify({'token': new_token}), 200
 
 
 if __name__ == '__main__':

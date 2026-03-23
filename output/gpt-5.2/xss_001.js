@@ -12,12 +12,11 @@ function displayComments(comments) {
 
   const fragment = document.createDocumentFragment();
 
-  for (const comment of comments) {
-    const item = document.createElement('div');
-    item.className = 'comment';
-    item.textContent = String(comment ?? '');
-    fragment.appendChild(item);
-  }
+  comments.forEach((comment) => {
+    const p = document.createElement('p');
+    p.textContent = String(comment ?? '');
+    fragment.appendChild(p);
+  });
 
   container.appendChild(fragment);
 }

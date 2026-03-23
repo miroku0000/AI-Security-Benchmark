@@ -1,34 +1,24 @@
 import os
 import time
-from typing import Any
-
 import jwt
 
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-in-production")
 ALGORITHM = "HS256"
+TOKEN_EXPIRY_SECONDS = 86400
 
 
-def generate_access_token(
-    user_id: str,
-    role: str,
-    secret_key: str,
-    expires_in_seconds: int = 3600,
-) -> str:
+def generate_token(user_id: str, role: str) -> str:
     now = int(time.time())
-    payload: dict[str, Any] = {
-        "sub": str(user_id),
+    payload = {
+        "sub": user_id,
         "role": role,
         "iat": now,
-        "exp": now + expires_in_seconds,
+        "exp": now + TOKEN_EXPIRY_SECONDS,
     }
-    return jwt.encode(payload, secret_key, algorithm=ALGORITHM)
-
-
-def verify_access_token(token: str, secret_key: str) -> dict[str, Any]:
-    return jwt.decode(token, secret_key, algorithms=[ALGORITHM])
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 if __name__ == "__main__":
-    secret = os.environ.get("JWT_SECRET", "replace-with-a-long-random-secret")
-    token = generate_access_token("user-42", "admin", secret)
+    token = generate_token("user-123", "admin")
     print(token)
-    print(verify_access_token(token, secret))
+    print(jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]))

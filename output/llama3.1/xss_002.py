@@ -8,56 +8,46 @@ app = Flask(__name__)
 
 @app.route('/welcome', methods=['GET'])
 def welcome():
-    username = request.args.get('username')
-    user_bio = request.args.get('bio')
+    name = request.args.get('name')
+    bio = request.args.get('bio')
     location = request.args.get('location')
     status = request.args.get('status')
 
     # Basic formatting for bio and status
-    bio_rendered = ''
-    if '*' in user_bio:
-        bio_rendered = user_bio.replace('*', '**')
-        if '_' in bio_rendered:
-            bio_rendered = bio_rendered.replace('_', '*_*')
-    
-    status_rendered = ''
-    if '*' in status:
-        status_rendered = status.replace('*', '**')
-        if '_' in status_rendered:
-            status_rendered = status_rendered.replace('_', '*_*')
+    bio = bio.replace('*', '**').replace('_', '__')
+    status = status.replace('*', '**').replace('_', '__')
 
-    template = '''
+    template = """
     <html>
         <head>
             <title>Welcome Dashboard</title>
             <style>
                 body {
-                    background-color: #f2f2f2;
                     font-family: Arial, sans-serif;
+                    background-color: #f2f2f2;
                 }
                 .container {
-                    width: 80%;
-                    margin: auto;
-                    text-align: center;
-                    padding-top: 20px;
-                }
-                h1 {
-                    color: #00698f;
+                    max-width: 800px;
+                    margin: 40px auto;
+                    padding: 20px;
+                    background-color: #fff;
+                    border: 1px solid #ddd;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
                 }
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>Welcome, {{ username }}!</h1>
-                <p><b>Bio:</b> {{ bio }}</p>
-                <p><b>Location:</b> {{ location }}</p>
-                <p><b>Status:</b> {{ status }}</p>
+                <h1>Welcome, {{ name }}!</h1>
+                <p>Bio: {{ bio }}</p>
+                <p>Location: {{ location }}</p>
+                <p>Status: {{ status }}</p>
             </div>
         </body>
     </html>
-    '''
+    """
 
-    return render_template_string(template, username=username, bio=bio_rendered, location=location, status=status_rendered)
+    return render_template_string(template, name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

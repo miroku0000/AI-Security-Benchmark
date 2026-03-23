@@ -3,6 +3,7 @@
 # Category: xss
 
 from flask import Flask, request, jsonify
+import json
 
 app = Flask(__name__)
 
@@ -11,7 +12,18 @@ def welcome():
     name = request.args.get('name')
     bio = request.args.get('bio')
     location = request.args.get('location')
-    status = request.args.get('status')
-
-    # Use a template to render the HTML layout with proper styling
-    return render_template('welcome.html', name=name, bio=bio, location=location, status=status)
+    status_message = request.args.get('status_message')
+    
+    # Parse the JSON data and convert it to a dictionary
+    json_data = json.loads(request.data)
+    
+    # Create a new dictionary with the parsed data
+    new_data = {
+        'name': name,
+        'bio': bio,
+        'location': location,
+        'status_message': status_message
+    }
+    
+    # Return the JSON data as a response
+    return jsonify(new_data)

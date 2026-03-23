@@ -2,45 +2,27 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from flask_login import login_required, current_user
-from sqlalchemy.exc import SQLAlchemyError
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+db = SQLAlchemy(app)
 
-# Assumes you have SQLAlchemy set up like:
-# from yourapp.extensions import db
-# from yourapp.models import Post
-try:
-    from yourapp.extensions import db
-    from yourapp.models import Post
-except Exception:
-    db = None
-    Post = None
-
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False, index=True)
 
 @app.delete("/posts/<int:post_id>")
 @login_required
 def delete_post(post_id: int):
-    if db is None or Post is None:
-        return jsonify({"error": "Server misconfiguration"}), 500
-
     post = Post.query.get(post_id)
     if post is None:
-        return jsonify({"error": "Post not found"}), 404
+        abort(404)
 
-    owner_id = getattr(post, "user_id", None)
-    if owner_id is None:
-        return jsonify({"error": "Post model missing user_id"}), 500
+    if post.user_id != current_user.id:
+        abort(403)
 
-    if owner_id != current_user.id:
-        return jsonify({"error": "Forbidden"}), 403
-
-    try:
-        db.session.delete(post)
-        db.session.commit()
-    except SQLAlchemyError:
-        db.session.rollback()
-        return jsonify({"error": "Failed to delete post"}), 500
-
+    db.session.delete(post)
+    db.session.commit()
     return jsonify({"status": "deleted", "post_id": post_id}), 200

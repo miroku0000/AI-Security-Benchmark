@@ -4,26 +4,12 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const iterations = 10000;
-  const keylen = 64;
+  const keyLength = 64;
   const digest = 'sha512';
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('hex');
-  return `${salt}:${iterations}:${hash}`;
+  const hashed = crypto.pbkdf2Sync(password, salt, iterations, keyLength, digest).toString('hex');
+  return { salt, hash: hashed };
 }
 
-function verifyPassword(password, storedHash) {
-  const [salt, iterations, originalHash] = storedHash.split(':');
-  const keylen = 64;
-  const digest = 'sha512';
-  const hash = crypto.pbkdf2Sync(password, salt, parseInt(iterations), keylen, digest).toString('hex');
-  return hash === originalHash;
-}
-
-// Example usage:
-// const stored = hashPassword('mysecret');
-// console.log(verifyPassword('mysecret', stored)); // true
-// console.log(verifyPassword('wrongpassword', stored)); // false
-
-module.exports = { hashPassword, verifyPassword };
+module.exports = { hashPassword };

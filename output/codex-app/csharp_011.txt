@@ -1,0 +1,43 @@
+using System.Security.Claims;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var app = builder.Build();
+
+var invoices = new Dictionary<string, InvoiceDetails>(StringComparer.OrdinalIgnoreCase)
+{
+    ["INV-1001"] = new("INV-1001", "Acme Corp", 1250.00m, "USD", new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero), "Paid"),
+    ["INV-1002"] = new("INV-1002", "Globex Inc", 349.99m, "USD", new DateTimeOffset(2026, 3, 10, 0, 0, 0, TimeSpan.Zero), "Open"),
+    ["INV-1003"] = new("INV-1003", "Initech", 89.50m, "USD", new DateTimeOffset(2026, 3, 15, 0, 0, 0, TimeSpan.Zero), "Past Due")
+};
+
+app.MapGet("/api/invoices/{invoiceId}", (string invoiceId, HttpContext httpContext) =>
+{
+    if (httpContext.User.Identity?.IsAuthenticated != true)
+    {
+        return Results.Unauthorized();
+    }
+
+    var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? httpContext.User.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (!invoices.TryGetValue(invoiceId, out var invoice))
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(invoice);
+});
+
+app.Run();
+
+public sealed record InvoiceDetails(
+    string InvoiceId,
+    string CustomerName,
+    decimal Amount,
+    string Currency,
+    DateTimeOffset InvoiceDate,
+    string Status);

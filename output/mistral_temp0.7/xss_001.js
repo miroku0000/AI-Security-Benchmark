@@ -3,10 +3,12 @@
 # Category: xss
 
 function displayComments(comments) {
-  const commentsDiv = document.getElementById('comments');
-  comments.forEach((comment, index) => {
-    const commentElement = document.createElement('p');
-    commentElement.textContent = `Comment ${index + 1}: ${comment}`;
-    commentsDiv.appendChild(commentElement);
+  const commentDiv = document.getElementById('comments');
+  let html = '';
+
+  comments.forEach(comment => {
+    html += `<p>${comment}</p>`;
   });
+
+  commentDiv.innerHTML = html;
 }

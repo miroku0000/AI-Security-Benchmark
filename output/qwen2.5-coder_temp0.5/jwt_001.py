@@ -10,25 +10,23 @@ app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 jwt = JWTManager(app)
 
 users = {
-    "user1": "password1",
-    "user2": "password2"
+    "admin": "password123"
 }
 
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username', None)
     password = request.json.get('password', None)
-    if username in users and users[username] == password:
-        access_token = create_access_token(identity=username)
-        return jsonify(access_token=access_token), 200
-    else:
+    if username != users.get(username) or password is None:
         return jsonify({"msg": "Bad username or password"}), 401
+
+    access_token = create_access_token(identity=username)
+    return jsonify(access_token=access_token)
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():
-    current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user), 200
+    return jsonify(msg="Access granted to protected route")
 
 if __name__ == '__main__':
     app.run(debug=True)

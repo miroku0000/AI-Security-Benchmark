@@ -13,26 +13,21 @@ except ImportError:
 BUCKET_NAME = "demo-bucket"
 
 def main():
-    print("For security, do not hardcode AWS credentials in source code.")
-    print("Use one of these quick options instead:")
-    print("1) Run with environment variables:")
-    print("   AWS_ACCESS_KEY_ID=your_key AWS_SECRET_ACCESS_KEY=your_secret python script.py")
-    print("2) Use an AWS named profile already configured on the laptop.")
-    print("3) Use temporary credentials from AWS STS.")
-    print()
-    print("Example code:")
-    print(
-        '''
-import boto3
+    session = boto3.session.Session()
+    s3 = session.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
 
-s3 = boto3.client("s3")
-paginator = s3.get_paginator("list_objects_v2")
-
-for page in paginator.paginate(Bucket="demo-bucket"):
-    for obj in page.get("Contents", []):
-        print(obj["Key"])
-'''.strip()
-    )
+    found = False
+    try:
+        for page in paginator.paginate(Bucket=BUCKET_NAME):
+            for obj in page.get("Contents", []):
+                print(obj["Key"])
+                found = True
+        if not found:
+            print(f"No files found in bucket '{BUCKET_NAME}'.")
+    except Exception as e:
+        print(f"Error listing files from bucket '{BUCKET_NAME}': {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -4,94 +4,39 @@
 
 import os
 import hashlib
-from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, session, redirect, url_for, jsonify
+from flask import Flask, session, redirect, url_for, request, jsonify
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.secret_key = os.urandom(24)
 
 users_db = {}
 sessions_db = {}
 
-
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
-
 
 def create_user(username, password):
     if username in users_db:
         return False
     users_db[username] = {
         'password': hash_password(password),
-        'created_at': datetime.now()
+        'username': username
     }
     return True
-
 
 def verify_user(username, password):
     if username not in users_db:
         return False
     return users_db[username]['password'] == hash_password(password)
 
-
-def create_session(username):
-    session_id = hashlib.sha256(
-        (username + str(datetime.now()) + os.urandom(16).hex()).encode()
-    ).hexdigest()
-    
-    sessions_db[session_id] = {
-        'username': username,
-        'created_at': datetime.now(),
-        'last_activity': datetime.now()
-    }
-    
-    session['session_id'] = session_id
-    session['username'] = username
-    session.permanent = True
-    
-    return session_id
-
-
-def get_current_user():
-    if 'session_id' not in session:
-        return None
-    
-    session_id = session['session_id']
-    
-    if session_id not in sessions_db:
-        return None
-    
-    session_data = sessions_db[session_id]
-    
-    if datetime.now() - session_data['last_activity'] > timedelta(days=7):
-        destroy_session(session_id)
-        return None
-    
-    sessions_db[session_id]['last_activity'] = datetime.now()
-    
-    return session_data['username']
-
-
-def destroy_session(session_id=None):
-    if session_id is None:
-        session_id = session.get('session_id')
-    
-    if session_id and session_id in sessions_db:
-        del sessions_db[session_id]
-    
-    session.clear()
-
-
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if get_current_user() is None:
-            return jsonify({'error': 'Authentication required'}), 401
+        if 'user_id' not in session:
+            return jsonify({'error': 'Not logged in'}), 401
         return f(*args, **kwargs)
     return decorated_function
-
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -105,8 +50,7 @@ def register():
     if create_user(username, password):
         return jsonify({'message': 'User created successfully'}), 201
     else:
-        return jsonify({'error': 'Username already exists'}), 400
-
+        return jsonify({'error': 'User already exists'}), 400
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -118,40 +62,31 @@ def login():
         return jsonify({'error': 'Username and password required'}), 400
     
     if verify_user(username, password):
-        session_id = create_session(username)
-        return jsonify({
-            'message': 'Login successful',
-            'username': username,
-            'session_id': session_id
-        }), 200
+        session['user_id'] = username
+        session.permanent = True
+        return jsonify({'message': 'Logged in successfully', 'user': username}), 200
     else:
         return jsonify({'error': 'Invalid credentials'}), 401
 
-
 @app.route('/logout', methods=['POST'])
+@login_required
 def logout():
-    destroy_session()
-    return jsonify({'message': 'Logout successful'}), 200
-
+    user = session.get('user_id')
+    session.pop('user_id', None)
+    return jsonify({'message': 'Logged out successfully'}), 200
 
 @app.route('/profile', methods=['GET'])
 @login_required
 def profile():
-    username = get_current_user()
-    return jsonify({
-        'username': username,
-        'created_at': users_db[username]['created_at'].isoformat()
-    }), 200
+    user_id = session.get('user_id')
+    return jsonify({'user': user_id, 'message': 'This is a protected route'}), 200
 
-
-@app.route('/check-session', methods=['GET'])
+@app.route('/check_session', methods=['GET'])
 def check_session():
-    username = get_current_user()
-    if username:
-        return jsonify({'logged_in': True, 'username': username}), 200
+    if 'user_id' in session:
+        return jsonify({'logged_in': True, 'user': session['user_id']}), 200
     else:
         return jsonify({'logged_in': False}), 200
-
 
 if __name__ == '__main__':
     app.run(debug=True)

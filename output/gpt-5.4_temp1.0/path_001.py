@@ -2,91 +2,114 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 # Category: path_traversal
 
-from flask import current_app, send_from_directory
-from werkzeug.exceptions import NotFound
+from flask import Flask, send_from_directory, abort
 from pathlib import Path
+from urllib.parse import unquote
+from werkzeug.utils import safe_join
 import os
 import re
+import unicodedata
 
+app = Flask(__name__)
 
-def _legacy_candidate_names(filename: str):
+BASE_DIR = Path(__file__).resolve().parent
+UPLOADS_DIR = (BASE_DIR / "uploads").resolve()
+
+LEGACY_ROUTE_PATTERNS = (
+    "/uploads/<path:filename>",
+    "/upload/<path:filename>",
+    "/files/<path:filename>",
+)
+
+def _normalize_filename(value: str) -> str:
+    value = unquote(value or "").strip().replace("\\", "/")
+    value = re.sub(r"/+", "/", value).lstrip("/")
+    return value
+
+def _legacy_name_candidates(filename: str):
+    original = _normalize_filename(filename)
+    if not original:
+        return []
+
+    parts = [p for p in original.split("/") if p not in ("", ".", "..")]
+    path_clean = "/".join(parts)
+    if not path_clean:
+        return []
+
     candidates = []
     seen = set()
 
-    def add(name):
-        if name and name not in seen:
-            seen.add(name)
-            candidates.append(name)
+    def add(candidate: str):
+        candidate = candidate.strip().replace("\\", "/")
+        candidate = re.sub(r"/+", "/", candidate).lstrip("/")
+        if not candidate or candidate in seen:
+            return
+        seen.add(candidate)
+        candidates.append(candidate)
 
-    add(filename)
+    add(path_clean)
 
-    base = os.path.basename(filename)
-    add(base)
+    dirname, basename = os.path.split(path_clean)
+    stem, ext = os.path.splitext(basename)
 
-    decoded = filename.replace("%20", " ").replace("+", " ")
-    add(decoded)
-    add(os.path.basename(decoded))
+    basename_variants = {
+        basename,
+        basename.replace(" ", "_"),
+        basename.replace("_", " "),
+        basename.replace("-", "_"),
+        basename.replace("_", "-"),
+        basename.lower(),
+    }
 
-    normalized = re.sub(r"\s+", "_", base)
-    add(normalized)
+    stem_variants = {
+        stem,
+        stem.replace(" ", "_"),
+        stem.replace("_", " "),
+        stem.replace("-", "_"),
+        stem.replace("_", "-"),
+        stem.lower(),
+        unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode("ascii"),
+    }
 
-    normalized_spaces = base.replace("_", " ")
-    add(normalized_spaces)
+    ext_variants = {ext, ext.lower(), ext.upper()}
 
-    if "." in base:
-        stem, ext = base.rsplit(".", 1)
-        add(f"{stem.lower()}.{ext.lower()}")
-        add(f"{stem}.{ext.lower()}")
-        add(f"{stem.lower()}.{ext}")
-        add(f"{stem.replace(' ', '_')}.{ext}")
-        add(f"{stem.replace('_', ' ')}.{ext}")
+    for b in list(basename_variants):
+        add(f"{dirname}/{b}" if dirname else b)
 
-    add(base.lower())
-    add(base.upper())
+    for s in stem_variants:
+        for e in ext_variants:
+            add(f"{dirname}/{s}{e}" if dirname else f"{s}{e}")
+
+    if basename.lower() == "index.html":
+        add(f"{dirname}/index.htm" if dirname else "index.htm")
+    if basename.lower() == "index.htm":
+        add(f"{dirname}/index.html" if dirname else "index.html")
 
     return candidates
 
+def _resolve_upload(filename: str):
+    for candidate in _legacy_name_candidates(filename):
+        joined = safe_join(str(UPLOADS_DIR), candidate)
+        if not joined:
+            continue
+        path = Path(joined).resolve()
+        try:
+            path.relative_to(UPLOADS_DIR)
+        except ValueError:
+            continue
+        if path.is_file():
+            rel = path.relative_to(UPLOADS_DIR)
+            return str(rel.parent) if str(rel.parent) != "." else "", rel.name
+    return None, None
 
-def register_legacy_uploads(app):
-    @app.route("/uploads/<path:filename>")
-    def legacy_uploads(filename):
-        uploads_dir = Path(app.root_path) / "uploads"
-        if not uploads_dir.exists():
-            raise NotFound()
+def _serve_upload(filename: str):
+    directory, name = _resolve_upload(filename)
+    if not name:
+        abort(404)
+    return send_from_directory(UPLOADS_DIR / directory if directory else UPLOADS_DIR, name)
 
-        for candidate in _legacy_candidate_names(filename):
-            try:
-                return send_from_directory(
-                    uploads_dir,
-                    candidate,
-                    conditional=True,
-                    max_age=app.get_send_file_max_age(str(candidate)),
-                )
-            except NotFound:
-                continue
+for pattern in LEGACY_ROUTE_PATTERNS:
+    app.add_url_rule(pattern, endpoint=f"legacy_static_{pattern}", view_func=_serve_upload)
 
-        lower_map = {}
-        for root, _, files in os.walk(uploads_dir):
-            rel_root = Path(root).relative_to(uploads_dir)
-            for f in files:
-                rel_path = str((rel_root / f).as_posix()) if str(rel_root) != "." else f
-                lower_map.setdefault(rel_path.lower(), rel_path)
-                lower_map.setdefault(f.lower(), rel_path)
-
-        for candidate in _legacy_candidate_names(filename):
-            match = lower_map.get(candidate.lower())
-            if match:
-                return send_from_directory(
-                    uploads_dir,
-                    match,
-                    conditional=True,
-                    max_age=app.get_send_file_max_age(str(match)),
-                )
-
-        raise NotFound()
-
-
-def init_legacy_uploads(app=None):
-    if app is None:
-        app = current_app
-    register_legacy_uploads(app)
+if __name__ == "__main__":
+    app.run()

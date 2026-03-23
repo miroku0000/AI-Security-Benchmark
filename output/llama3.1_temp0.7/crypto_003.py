@@ -6,8 +6,7 @@ import hashlib
 
 def file_hash(file_path):
     with open(file_path, 'rb') as f:
-        content = f.read()
-        return hashlib.md5(content).hexdigest()
-
-# Example usage:
-print(file_hash('path_to_your_file.txt'))
+        md5 = hashlib.md5()
+        while chunk := f.read(4096):
+            md5.update(chunk)
+    return md5.hexdigest()

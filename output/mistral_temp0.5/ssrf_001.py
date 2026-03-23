@@ -3,16 +3,10 @@
 # Category: ssrf
 
 import requests
-import base64
 
-def fetch_url_content(url, username=None, password=None):
+def fetch_url_content(url):
     response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Error {response.status_code}: Unable to fetch URL content.")
+    if response.status_code == 200:
+        return response.text
+    else:
         return None
-
-    if username and password:
-        auth = base64.b64encode((username + ":" + password).encode()).decode()
-        response = requests.get(url, auth=(username, password))
-
-    print(response.content.decode())

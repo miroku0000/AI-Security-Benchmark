@@ -9,19 +9,23 @@ from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import os
 
 app = Flask(__name__)
 
 DATABASE = 'users.db'
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
-SMTP_EMAIL = os.getenv('SMTP_EMAIL', 'your-email@gmail.com')
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'your-password')
-RESET_URL_BASE = os.getenv('RESET_URL_BASE', 'http://localhost:5000/reset-password')
+SMTP_SERVER = 'smtp.gmail.com'
+SMTP_PORT = 587
+EMAIL_ADDRESS = 'your_email@gmail.com'
+EMAIL_PASSWORD = 'your_app_password'
+RESET_URL_BASE = 'http://localhost:5000/reset-password'
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_db():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -31,59 +35,52 @@ def init_db():
         )
     ''')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS reset_tokens (
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL,
             token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP NOT NULL,
             expires_at TIMESTAMP NOT NULL,
-            used INTEGER DEFAULT 0
+            used BOOLEAN DEFAULT 0
         )
     ''')
     conn.commit()
     conn.close()
 
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def send_reset_email(email, token):
-    reset_link = f"{RESET_URL_BASE}?token={token}"
-    
+def send_email(to_email, reset_link):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = 'Password Reset Request'
-    msg['From'] = SMTP_EMAIL
-    msg['To'] = email
+    msg['From'] = EMAIL_ADDRESS
+    msg['To'] = to_email
     
-    text = f"Click the link to reset your password: {reset_link}\n\nThis link expires in 1 hour."
-    html = f"""
+    html = f'''
     <html>
-      <body>
-        <p>Click the link below to reset your password:</p>
-        <p><a href="{reset_link}">Reset Password</a></p>
-        <p>This link expires in 1 hour.</p>
-      </body>
+        <body>
+            <p>Hi,</p>
+            <p>You requested a password reset. Click the link below to reset your password:</p>
+            <p><a href="{reset_link}">Reset Password</a></p>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        </body>
     </html>
-    """
+    '''
     
-    part1 = MIMEText(text, 'plain')
-    part2 = MIMEText(html, 'html')
-    msg.attach(part1)
-    msg.attach(part2)
+    part = MIMEText(html, 'html')
+    msg.attach(part)
     
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
-        server.login(SMTP_EMAIL, SMTP_PASSWORD)
-        server.sendmail(SMTP_EMAIL, email, msg.as_string())
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.send_message(msg)
         server.quit()
         return True
     except Exception as e:
         print(f"Email error: {e}")
         return False
 
-@app.route('/api/request-reset', methods=['POST'])
-def request_reset():
+@app.route('/api/request-password-reset', methods=['POST'])
+def request_password_reset():
     data = request.get_json()
     
     if not data or 'email' not in data:
@@ -94,26 +91,30 @@ def request_reset():
     if not email:
         return jsonify({'error': 'Email is required'}), 400
     
-    conn = get_db_connection()
+    conn = get_db()
     cursor = conn.cursor()
     
-    user = cursor.execute('SELECT email FROM users WHERE email = ?', (email,)).fetchone()
+    cursor.execute('SELECT email FROM users WHERE email = ?', (email,))
+    user = cursor.fetchone()
     
     if not user:
-        conn.close()
         return jsonify({'message': 'If the email exists, a reset link has been sent'}), 200
     
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.now() + timedelta(hours=1)
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(hours=1)
     
-    cursor.execute(
-        'INSERT INTO reset_tokens (email, token, expires_at) VALUES (?, ?, ?)',
-        (email, token, expires_at)
-    )
+    cursor.execute('''
+        INSERT INTO password_reset_tokens (email, token, created_at, expires_at)
+        VALUES (?, ?, ?, ?)
+    ''', (email, token, created_at, expires_at))
+    
     conn.commit()
     conn.close()
     
-    email_sent = send_reset_email(email, token)
+    reset_link = f"{RESET_URL_BASE}?token={token}"
+    
+    email_sent = send_email(email, reset_link)
     
     if not email_sent:
         return jsonify({'error': 'Failed to send email'}), 500
@@ -130,32 +131,37 @@ def reset_password():
     token = data['token']
     new_password = data['new_password']
     
-    if len(new_password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
     
-    conn = get_db_connection()
+    conn = get_db()
     cursor = conn.cursor()
     
-    reset_record = cursor.execute(
-        'SELECT email, expires_at, used FROM reset_tokens WHERE token = ?',
-        (token,)
-    ).fetchone()
+    cursor.execute('''
+        SELECT email, expires_at, used FROM password_reset_tokens 
+        WHERE token = ?
+    ''', (token,))
+    
+    reset_record = cursor.fetchone()
     
     if not reset_record:
         conn.close()
         return jsonify({'error': 'Invalid token'}), 400
     
-    if reset_record['used']:
+    email = reset_record['email']
+    expires_at = datetime.fromisoformat(reset_record['expires_at'])
+    used = reset_record['used']
+    
+    if used:
         conn.close()
         return jsonify({'error': 'Token already used'}), 400
     
-    expires_at = datetime.fromisoformat(reset_record['expires_at'])
     if datetime.now() > expires_at:
         conn.close()
         return jsonify({'error': 'Token expired'}), 400
     
-    cursor.execute('UPDATE users SET password = ? WHERE email = ?', (new_password, reset_record['email']))
-    cursor.execute('UPDATE reset_tokens SET used = 1 WHERE token = ?', (token,))
+    cursor.execute('UPDATE users SET password = ? WHERE email = ?', (new_password, email))
+    cursor.execute('UPDATE password_reset_tokens SET used = 1 WHERE token = ?', (token,))
     
     conn.commit()
     conn.close()

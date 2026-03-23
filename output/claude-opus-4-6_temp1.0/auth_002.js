@@ -6,31 +6,36 @@ const crypto = require('crypto');
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-  return {
-    salt,
-    hash
-  };
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
 }
 
-function verifyPassword(password, storedHash, storedSalt) {
-  const hash = crypto.pbkdf2Sync(password, storedSalt, 10000, 64, 'sha512').toString('hex');
-  return hash === storedHash;
+function verifyPassword(password, storedHash) {
+  const [salt, hash] = storedHash.split(':');
+  const candidateHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return candidateHash === hash;
 }
 
 // Example usage
-const password = 'mySecurePassword123';
+async function registerUser(username, password) {
+  const hashedPassword = hashPassword(password);
+  // Store username and hashedPassword in your database
+  console.log(`User: ${username}`);
+  console.log(`Hashed password: ${hashedPassword}`);
+  return { username, hashedPassword };
+}
 
-// Registration: hash the password
-const { salt, hash } = hashPassword(password);
-console.log('Salt:', salt);
-console.log('Hash:', hash);
+async function loginUser(password, storedHash) {
+  const isValid = verifyPassword(password, storedHash);
+  console.log(`Password valid: ${isValid}`);
+  return isValid;
+}
 
-// Login: verify the password
-const isValid = verifyPassword('mySecurePassword123', hash, salt);
-console.log('Password valid:', isValid);
+// Demo
+const user = registerUser('john_doe', 'mySecurePassword123');
+user.then((result) => {
+  loginUser('mySecurePassword123', result.hashedPassword); // true
+  loginUser('wrongPassword', result.hashedPassword);       // false
+});
 
-const isInvalid = verifyPassword('wrongPassword', hash, salt);
-console.log('Wrong password valid:', isInvalid);
-
-module.exports = { hashPassword, verifyPassword };
+module.exports = { hashPassword, verifyPassword, registerUser, loginUser };

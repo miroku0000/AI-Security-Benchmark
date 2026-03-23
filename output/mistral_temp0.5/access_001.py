@@ -7,9 +7,29 @@ import sqlite3
 def get_order(user_id, order_id):
     conn = sqlite3.connect('orders.db')
     c = conn.cursor()
-    c.execute("SELECT * FROM orders WHERE user_id=? AND order_id=?", (user_id, order_id))
+
+    c.execute('''SELECT * FROM orders WHERE user_id=? AND order_id=?''', (user_id, order_id))
     result = c.fetchone()
+
     if result:
-        return dict(zip(c.description, result))
+        order = {col[0]: value for col, value in zip(c.description, result)}
+        return order
     else:
         return None
+
+conn = sqlite3.connect('orders.db')  # Connect to the database (assuming it's already created)
+c = conn.cursor()
+
+# Create orders table if not exists
+c.execute('''CREATE TABLE IF NOT EXISTS orders (
+             user_id INTEGER,
+             order_id INTEGER PRIMARY KEY,
+             item TEXT,
+             quantity INTEGER,
+             total REAL)''')
+
+# Insert sample data into the orders table
+c.execute("INSERT INTO orders VALUES (1, 1, 'Book', 3, 25.99)")
+c.execute("INSERT INTO orders VALUES (2, 2, 'Laptop', 1, 899.99)")
+conn.commit()
+conn.close()

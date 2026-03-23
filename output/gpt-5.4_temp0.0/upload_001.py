@@ -9,8 +9,7 @@ import uuid
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "profile_pictures")
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads", "profile_pictures")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 
@@ -35,16 +34,17 @@ def upload_profile_picture():
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type"}), 400
 
-    original_name = secure_filename(file.filename)
-    ext = original_name.rsplit(".", 1)[1].lower()
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(filepath)
+    original_filename = secure_filename(file.filename)
+    ext = original_filename.rsplit(".", 1)[1].lower()
+    unique_filename = f"{uuid.uuid4().hex}.{ext}"
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+
+    file.save(save_path)
 
     return jsonify({
         "message": "Profile picture uploaded successfully",
-        "filename": filename,
-        "url": url_for("uploaded_file", filename=filename, _external=True)
+        "filename": unique_filename,
+        "url": url_for("uploaded_file", filename=unique_filename, _external=True)
     }), 201
 
 @app.route("/uploads/profile-pictures/<filename>", methods=["GET"])

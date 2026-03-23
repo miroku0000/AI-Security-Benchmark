@@ -3,19 +3,19 @@
 # Category: business_logic_flaw
 
 function calculateSubscriptionChange(userId, currentPlan, newPlan) {
-    const planPrices = {
-        free: 0,
-        pro: 10,
-        enterprise: 50
+    let planPrices = {
+        'free': 0,
+        'pro': 10,
+        'enterprise': 50
     };
 
-    const currentPrice = planPrices[currentPlan] || 0;
-    const newPrice = planPrices[newPlan] || 0;
+    let currentPrice = planPrices[currentPlan] || 0;
+    let newPrice = planPrices[newPlan] || 0;
 
-    const chargeAmount = newPrice - currentPrice;
+    let priceDifference = newPrice - currentPrice;
 
     return {
         newPlan: newPlan,
-        chargeAmount: chargeAmount
+        chargeAmount: priceDifference
     };
 }

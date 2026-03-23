@@ -7,92 +7,114 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const app = express();
-const PORT = 3000;
+const UPLOAD_DIR = 'uploads/';
 
-// Define the directory where uploaded files will be stored
-const uploadDir = 'uploads/';
-
-// Ensure the upload directory exists. If not, create it.
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+// Ensure the upload directory exists
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Configure Multer for disk storage
+// Configure multer storage
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        // Specify the directory where files should be saved
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        // Generate a unique filename to prevent overwriting
-        // Example: fieldname-timestamp.ext
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-    }
+  destination: function (req, file, cb) {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+  }
 });
 
-// Create the Multer instance with the configured storage
+// Initialize multer upload middleware
 const upload = multer({ storage: storage });
 
-/**
- * Node.js function to handle a single file upload.
- * This function is designed to be used as an Express route handler
- * after the `upload.single()` middleware has processed the file.
- *
- * @param {object} req - The Express request object, containing `req.file` if a file was uploaded.
- * @param {object} res - The Express response object.
- */
-function handleSingleFileUpload(req, res) {
-    // Check if a file was actually uploaded by Multer
+// Function to set up and start the file upload server
+function setupFileUploadServer(port = 3000) {
+  const app = express();
+
+  // Serve static files from the 'uploads' directory
+  app.use('/uploads', express.static(path.join(__dirname, UPLOAD_DIR)));
+
+  // Basic route to serve an HTML form for file upload
+  app.get('/', (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>File Upload</title>
+        <style>
+          body { font-family: sans-serif; margin: 2em; }
+          form { border: 1px solid #ccc; padding: 2em; border-radius: 8px; max-width: 400px; margin: 0 auto; }
+          input[type="file"] { display: block; margin-bottom: 1em; }
+          button { padding: 0.8em 1.5em; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+          button:hover { background-color: #0056b3; }
+          h1 { text-align: center; }
+          p { margin-top: 1em; }
+          a { color: #007bff; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <h1>Upload a File</h1>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+          <input type="file" name="myFile" />
+          <button type="submit">Upload</button>
+        </form>
+      </body>
+      </html>
+    `);
+  });
+
+  // POST route to handle file uploads
+  // 'myFile' is the name of the input field in the HTML form
+  app.post('/upload', upload.single('myFile'), (req, res) => {
     if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+      return res.status(400).send('No file uploaded.');
     }
 
-    // Respond with success and the filename
-    res.send(`File uploaded successfully: ${req.file.filename} saved to ${uploadDir}`);
+    console.log('File uploaded:', req.file);
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Upload Success</title>
+        <style>
+          body { font-family: sans-serif; margin: 2em; }
+          div { border: 1px solid #ccc; padding: 2em; border-radius: 8px; max-width: 400px; margin: 0 auto; }
+          h1 { text-align: center; color: green; }
+          p { margin-top: 1em; }
+          a { color: #007bff; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <div>
+          <h1>File Uploaded Successfully!</h1>
+          <p><strong>Original Name:</strong> ${req.file.originalname}</p>
+          <p><strong>New Name:</strong> ${req.file.filename}</p>
+          <p><strong>Size:</strong> ${req.file.size} bytes</p>
+          <p><strong>Path:</strong> ${req.file.path}</p>
+          <p><a href="/">Upload another file</a></p>
+          <p><a href="/uploads/${req.file.filename}" target="_blank">View uploaded file</a></p>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+
+  // Start the server
+  app.listen(port, () => {
+    console.log(`File upload server listening at http://localhost:${port}`);
+    console.log(`Uploads will be saved to the '${UPLOAD_DIR}' directory.`);
+  });
+
+  return app; // Return the Express app instance
 }
 
-/**
- * Node.js function to handle multiple file uploads (as an array).
- * This function is designed to be used as an Express route handler
- * after the `upload.array()` middleware has processed the files.
- *
- * @param {object} req - The Express request object, containing `req.files` if files were uploaded.
- * @param {object} res - The Express response object.
- */
-function handleMultipleFilesUpload(req, res) {
-    // Check if files were actually uploaded by Multer
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).send('No files uploaded.');
-    }
+module.exports = setupFileUploadServer;
 
-    // Get the filenames of all uploaded files
-    const filenames = req.files.map(file => file.filename).join(', ');
-
-    // Respond with success and the filenames
-    res.send(`Files uploaded successfully: ${filenames} saved to ${uploadDir}`);
-}
-
-// --- Express Routes ---
-
-// A simple root route to confirm the server is running
-app.get('/', (req, res) => {
-    res.send('Server is running. Use POST requests to /upload/single or /upload/multiple to upload files.');
-});
-
-// Route for handling a single file upload
-// 'myFile' is the expected field name in the multipart form data
-app.post('/upload/single', upload.single('myFile'), handleSingleFileUpload);
-
-// Route for handling multiple file uploads (up to 10 files)
-// 'myFiles' is the expected field name in the multipart form data
-app.post('/upload/multiple', upload.array('myFiles', 10), handleMultipleFilesUpload);
-
-// --- Start the Server ---
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Uploaded files will be saved in the '${uploadDir}' directory.`);
-    console.log('To test, send POST requests with multipart/form-data.');
-    console.log('For single file: POST /upload/single with field "myFile"');
-    console.log('For multiple files: POST /upload/multiple with field "myFiles"');
-});
+// To run this server:
+// 1. Save the code as a .js file (e.g., uploadServer.js).
+// 2. Install dependencies: npm install express multer
+// 3. Run from your terminal: node uploadServer.js
+// 4. Open your browser to http://localhost:3000

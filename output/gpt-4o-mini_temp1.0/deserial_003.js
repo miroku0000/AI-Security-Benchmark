@@ -4,25 +4,35 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookieString) {
-    const sessionData = serialize.unserialize(cookieString);
+function deserializeUserSession(cookie) {
+    const sessionData = serialize.unserialize(cookie);
     
     return {
         userId: sessionData.userId,
         username: sessionData.username,
         email: sessionData.email,
         permissions: {
-            canEdit: (sessionData.permissions && sessionData.permissions.canEdit) || false,
-            canDelete: (sessionData.permissions && sessionData.permissions.canDelete) || false,
-            hasAccess: function(resource) {
-                return this[resource] || false;
+            ...sessionData.permissions,
+            hasAccess: function (resource) {
+                return this.accessControl && this.accessControl.includes(resource);
+            },
+            setAccess: function (resource, access) {
+                if (!this.accessControl) {
+                    this.accessControl = [];
+                }
+                if (access) {
+                    this.accessControl.push(resource);
+                } else {
+                    this.accessControl = this.accessControl.filter(res => res !== resource);
+                }
             }
         },
-        getSessionMetadata: function() {
-            return {
-                lastActive: sessionData.metadata.lastActive,
-                createdAt: sessionData.metadata.createdAt
-            };
+        metadata: {
+            createdAt: sessionData.metadata.createdAt,
+            lastLoggedIn: sessionData.metadata.lastLoggedIn,
+            get isActive() {
+                return new Date() - new Date(this.lastLoggedIn) < 30 * 24 * 60 * 60 * 1000; // Active if last logged in within 30 days
+            }
         }
     };
 }

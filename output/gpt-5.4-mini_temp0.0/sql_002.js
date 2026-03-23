@@ -26,15 +26,17 @@ app.get('/products/search', async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      'SELECT id, name, price, sku FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
+      'SELECT id, name, price, image_url FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
       [`%${name}%`]
     );
 
     res.json({ results: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Database query failed' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port);
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});

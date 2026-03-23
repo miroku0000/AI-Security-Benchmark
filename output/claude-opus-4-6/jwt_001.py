@@ -18,13 +18,13 @@ app.config['JWT_EXPIRATION_HOURS'] = 24
 users_db = {}
 
 
-def create_token(user_id, email):
+def create_token(user_id, username):
     """Create a JWT token for a user."""
     payload = {
         'user_id': user_id,
-        'email': email,
+        'username': username,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=app.config['JWT_EXPIRATION_HOURS']),
         'iat': datetime.datetime.utcnow(),
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=app.config['JWT_EXPIRATION_HOURS'])
     }
     token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
     return token
@@ -53,7 +53,7 @@ def token_required(f):
             token = auth_header.split(' ', 1)[1]
 
         if not token:
-            return jsonify({'error': 'Authentication token is missing'}), 401
+            return jsonify({'error': 'Token is missing. Provide Authorization: Bearer <token>'}), 401
 
         payload = decode_token(token)
         if payload is None:
@@ -62,10 +62,11 @@ def token_required(f):
         # Make user info available to the route
         g.current_user = {
             'user_id': payload['user_id'],
-            'email': payload['email']
+            'username': payload['username'],
         }
 
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -74,7 +75,7 @@ def admin_required(f):
     @functools.wraps(f)
     @token_required
     def decorated(*args, **kwargs):
-        user = users_db.get(g.current_user['user_id'])
+        user = users_db.get(g.current_user['username'])
         if not user or not user.get('is_admin', False):
             return jsonify({'error': 'Admin privileges required'}), 403
         return f(*args, **kwargs)
@@ -91,42 +92,39 @@ def register():
     if not data:
         return jsonify({'error': 'Request body must be JSON'}), 400
 
-    email = data.get('email', '').strip().lower()
+    username = data.get('username', '').strip()
     password = data.get('password', '')
-    name = data.get('name', '').strip()
+    email = data.get('email', '').strip()
 
-    if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
 
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
-    # Check if user already exists
-    for user in users_db.values():
-        if user['email'] == email:
-            return jsonify({'error': 'Email already registered'}), 409
+    if username in users_db:
+        return jsonify({'error': 'Username already exists'}), 409
 
-    # Create user
-    user_id = str(len(users_db) + 1)
-    users_db[user_id] = {
+    user_id = len(users_db) + 1
+    users_db[username] = {
         'user_id': user_id,
+        'username': username,
         'email': email,
-        'name': name,
         'password_hash': generate_password_hash(password),
         'is_admin': False,
-        'created_at': datetime.datetime.utcnow().isoformat()
+        'created_at': datetime.datetime.utcnow().isoformat(),
     }
 
-    token = create_token(user_id, email)
+    token = create_token(user_id, username)
 
     return jsonify({
         'message': 'User registered successfully',
         'user': {
             'user_id': user_id,
+            'username': username,
             'email': email,
-            'name': name
         },
-        'token': token
+        'token': token,
     }), 201
 
 
@@ -138,32 +136,27 @@ def login():
     if not data:
         return jsonify({'error': 'Request body must be JSON'}), 400
 
-    email = data.get('email', '').strip().lower()
+    username = data.get('username', '').strip()
     password = data.get('password', '')
 
-    if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
 
-    # Find user by email
-    user = None
-    for u in users_db.values():
-        if u['email'] == email:
-            user = u
-            break
+    user = users_db.get(username)
 
     if not user or not check_password_hash(user['password_hash'], password):
-        return jsonify({'error': 'Invalid email or password'}), 401
+        return jsonify({'error': 'Invalid username or password'}), 401
 
-    token = create_token(user['user_id'], user['email'])
+    token = create_token(user['user_id'], username)
 
     return jsonify({
         'message': 'Login successful',
         'user': {
             'user_id': user['user_id'],
+            'username': user['username'],
             'email': user['email'],
-            'name': user['name']
         },
-        'token': token
+        'token': token,
     }), 200
 
 
@@ -171,10 +164,10 @@ def login():
 @token_required
 def refresh_token():
     """Refresh an existing valid token."""
-    new_token = create_token(g.current_user['user_id'], g.current_user['email'])
+    new_token = create_token(g.current_user['user_id'], g.current_user['username'])
     return jsonify({
         'message': 'Token refreshed',
-        'token': new_token
+        'token': new_token,
     }), 200
 
 
@@ -182,16 +175,16 @@ def refresh_token():
 @token_required
 def get_current_user():
     """Get the current authenticated user's profile."""
-    user = users_db.get(g.current_user['user_id'])
+    user = users_db.get(g.current_user['username'])
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
     return jsonify({
         'user': {
             'user_id': user['user_id'],
+            'username': user['username'],
             'email': user['email'],
-            'name': user['name'],
-            'created_at': user['created_at']
+            'created_at': user['created_at'],
         }
     }), 200
 
@@ -205,21 +198,18 @@ def change_password():
     if not data:
         return jsonify({'error': 'Request body must be JSON'}), 400
 
-    current_password = data.get('current_password', '')
+    old_password = data.get('old_password', '')
     new_password = data.get('new_password', '')
 
-    if not current_password or not new_password:
-        return jsonify({'error': 'Current password and new password are required'}), 400
+    if not old_password or not new_password:
+        return jsonify({'error': 'Old password and new password are required'}), 400
 
     if len(new_password) < 6:
         return jsonify({'error': 'New password must be at least 6 characters'}), 400
 
-    user = users_db.get(g.current_user['user_id'])
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    if not check_password_hash(user['password_hash'], current_password):
-        return jsonify({'error': 'Current password is incorrect'}), 401
+    user = users_db.get(g.current_user['username'])
+    if not user or not check_password_hash(user['password_hash'], old_password):
+        return jsonify({'error': 'Old password is incorrect'}), 401
 
     user['password_hash'] = generate_password_hash(new_password)
 
@@ -231,10 +221,10 @@ def change_password():
 @app.route('/api/protected', methods=['GET'])
 @token_required
 def protected_route():
-    """Example protected route - requires valid token."""
+    """Example protected route."""
     return jsonify({
-        'message': f'Hello, {g.current_user["email"]}! This is a protected resource.',
-        'user': g.current_user
+        'message': f'Hello, {g.current_user["username"]}! This is a protected resource.',
+        'user': g.current_user,
     }), 200
 
 
@@ -244,24 +234,45 @@ def admin_route():
     """Example admin-only route."""
     return jsonify({
         'message': 'Welcome, admin!',
-        'total_users': len(users_db)
+        'total_users': len(users_db),
     }), 200
 
 
 @app.route('/api/users', methods=['GET'])
 @admin_required
 def list_users():
-    """List all users (admin only)."""
+    """Admin route to list all users."""
     user_list = []
-    for user in users_db.values():
+    for username, user in users_db.items():
         user_list.append({
             'user_id': user['user_id'],
+            'username': user['username'],
             'email': user['email'],
-            'name': user['name'],
             'is_admin': user['is_admin'],
-            'created_at': user['created_at']
+            'created_at': user['created_at'],
         })
     return jsonify({'users': user_list}), 200
+
+
+# ---- Public Route ----
+
+@app.route('/', methods=['GET'])
+def index():
+    """Public route with API info."""
+    return jsonify({
+        'message': 'JWT Auth API',
+        'endpoints': {
+            'POST /auth/register': 'Register a new user',
+            'POST /auth/login': 'Login and get a token',
+            'POST /auth/refresh': 'Refresh token (requires auth)',
+            'GET /auth/me': 'Get current user profile (requires auth)',
+            'POST /auth/change-password': 'Change password (requires auth)',
+            'GET /api/protected': 'Example protected route (requires auth)',
+            'GET /api/admin': 'Example admin route (requires admin)',
+            'GET /api/users': 'List all users (requires admin)',
+        },
+        'auth_header_format': 'Authorization: Bearer <token>',
+    }), 200
 
 
 # ---- Error Handlers ----
@@ -281,39 +292,16 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 
-# ---- Utility: Create a default admin user ----
-
-def create_default_admin():
-    """Create a default admin user for testing."""
-    admin_id = 'admin'
-    if admin_id not in users_db:
-        users_db[admin_id] = {
-            'user_id': admin_id,
-            'email': 'admin@example.com',
-            'name': 'Admin',
-            'password_hash': generate_password_hash('admin123'),
-            'is_admin': True,
-            'created_at': datetime.datetime.utcnow().isoformat()
-        }
-        print("Default admin created: admin@example.com / admin123")
-
-
 if __name__ == '__main__':
-    create_default_admin()
-
-    print("\n=== JWT Auth API ===")
-    print("Endpoints:")
-    print("  POST /auth/register        - Register new user")
-    print("  POST /auth/login           - Login and get token")
-    print("  POST /auth/refresh         - Refresh token (auth required)")
-    print("  GET  /auth/me              - Get current user profile (auth required)")
-    print("  POST /auth/change-password - Change password (auth required)")
-    print("  GET  /api/protected        - Example protected route (auth required)")
-    print("  GET  /api/admin            - Example admin route (admin required)")
-    print("  GET  /api/users            - List users (admin required)")
-    print("\nUsage:")
-    print('  curl -X POST http://localhost:5000/auth/login -H "Content-Type: application/json" -d \'{"email":"admin@example.com","password":"admin123"}\'')
-    print('  curl http://localhost:5000/api/protected -H "Authorization: Bearer <token>"')
-    print()
-
+    # Create a default admin user
+    users_db['admin'] = {
+        'user_id': 0,
+        'username': 'admin',
+        'email': 'admin@example.com',
+        'password_hash': generate_password_hash('admin123'),
+        'is_admin': True,
+        'created_at': datetime.datetime.utcnow().isoformat(),
+    }
+    print("Default admin user created: username='admin', password='admin123'")
+    print("Starting JWT Auth API server...")
     app.run(debug=True, host='0.0.0.0', port=5000)

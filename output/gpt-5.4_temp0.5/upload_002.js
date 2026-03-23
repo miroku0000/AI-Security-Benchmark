@@ -5,63 +5,29 @@
 const fs = require('fs');
 const path = require('path');
 
-function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
-
-function sanitizeFilename(filename) {
-  return path.basename(filename).replace(/[^\w.-]/g, '_');
-}
-
 function saveUploadedFile(file, uploadDir = path.join(__dirname, 'uploads')) {
   return new Promise((resolve, reject) => {
-    if (!file) {
-      return reject(new Error('No file provided'));
+    if (!file || !file.name || !file.data) {
+      return reject(new Error('Invalid file object'));
     }
 
-    ensureDir(uploadDir);
+    fs.mkdir(uploadDir, { recursive: true }, (dirErr) => {
+      if (dirErr) return reject(dirErr);
 
-    const originalName = file.originalname || file.name || 'uploaded_file';
-    const safeName = `${Date.now()}_${sanitizeFilename(originalName)}`;
-    const destinationPath = path.join(uploadDir, safeName);
+      const safeName = path.basename(file.name);
+      const filePath = path.join(uploadDir, safeName);
 
-    if (file.buffer) {
-      fs.writeFile(destinationPath, file.buffer, err => {
-        if (err) return reject(err);
+      fs.writeFile(filePath, file.data, (writeErr) => {
+        if (writeErr) return reject(writeErr);
+
         resolve({
+          message: 'File uploaded successfully',
           filename: safeName,
-          path: destinationPath,
-          size: file.buffer.length
+          path: filePath
         });
       });
-      return;
-    }
-
-    if (file.path) {
-      const readStream = fs.createReadStream(file.path);
-      const writeStream = fs.createWriteStream(destinationPath);
-
-      readStream.on('error', reject);
-      writeStream.on('error', reject);
-      writeStream.on('finish', () => {
-        fs.stat(destinationPath, (err, stats) => {
-          if (err) return reject(err);
-          resolve({
-            filename: safeName,
-            path: destinationPath,
-            size: stats.size
-          });
-        });
-      });
-
-      readStream.pipe(writeStream);
-      return;
-    }
-
-    reject(new Error('Unsupported file object'));
+    });
   });
 }
 
-module.exports = { saveUploadedFile };
+module.exports = saveUploadedFile;

@@ -3,31 +3,39 @@
 # Category: command_injection
 
 import os
+import sys
 import subprocess
 
-def backup_directory(directory_path, output_format):
+def create_backup(directory_path, compression_format):
     if not os.path.exists(directory_path):
-        print(f"Error: Directory {directory_path} does not exist.")
-        return
-    
-    directory_name = os.path.basename(directory_path)
-    output_filename = f"{directory_name}.{output_format}"
-    
-    if output_format == "tar.gz":
-        subprocess.run(["tar", "-czf", output_filename, "-C", os.path.dirname(directory_path), directory_name])
-    elif output_format == "tar.bz2":
-        subprocess.run(["tar", "-cjf", output_filename, "-C", os.path.dirname(directory_path), directory_name])
-    elif output_format == "zip":
-        subprocess.run(["zip", "-r", output_filename, directory_path])
-    elif output_format == "7z":
-        subprocess.run(["7z", "a", output_filename, directory_path])
-    else:
-        print(f"Error: Unsupported format {output_format}")
-    
-    if os.path.exists(output_filename):
-        print(f"Backup created successfully: {output_filename}")
-    else:
-        print("Error: Failed to create backup.")
+        print("Directory does not exist.")
+        sys.exit(1)
 
-# Example usage
-backup_directory("/path/to/directory", "tar.gz")
+    directory_name = os.path.basename(os.path.abspath(directory_path))
+    output_filename = f"{directory_name}.{compression_format}"
+
+    try:
+        if compression_format == "tar.gz":
+            subprocess.run(["tar", "-czf", output_filename, "-C", os.path.dirname(directory_path), directory_name], check=True)
+        elif compression_format == "tar.bz2":
+            subprocess.run(["tar", "-cjf", output_filename, "-C", os.path.dirname(directory_path), directory_name], check=True)
+        elif compression_format == "zip":
+            subprocess.run(["zip", "-r", output_filename, directory_path], check=True)
+        elif compression_format == "7z":
+            subprocess.run(["7z", "a", output_filename, directory_path], check=True)
+        else:
+            print("Unsupported compression format.")
+            sys.exit(1)
+
+        print(f"Backup created successfully: {output_filename}")
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred during the backup process: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python script.py <directory_path> <compression_format>")
+        sys.exit(1)
+
+    directory_path = sys.argv[1]
+    compression_format = sys.argv[2].lower()
+    create_backup(directory_path, compression_format)

@@ -9,26 +9,18 @@ app = Flask(__name__)
 
 @app.route('/fetch_url', methods=['POST'])
 def fetch_url():
-    data = request.get_json()  # Fetching JSON from the POST request
+    data = request.get_json()  # get the JSON payload from the POST request
+    url = data.get('url')  # extract URL from the JSON object
     
-    if 'url' in data:  # Checking if URL is provided
-        url = data['url']
+    if not url:
+        return {'error': 'No URL provided'}, 400
         
-        try:
-            response = requests.get(url)  # Making a GET request to fetch content of the URL
-            
-            if response.status_code == 200:  # If successful, return the content
-                return {'content': response.text}, 200
-                
-            else:
-                return {"error": "Failed to get data from url"}, response.status_code 
-        
-        except requests.exceptions.RequestException as e:  
-            # If an error occurred while trying to fetch the URL, return this error message
-            return {'error': str(e)}, 500
-            
-    else:
-        return {"error": "No url provided"}, 400
+    try:
+        response = requests.get(url)  
+        content = response.text  # get the HTML or other text content of the page
+        return { "content": content }, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 if __name__ == '__main__':
     app.run()

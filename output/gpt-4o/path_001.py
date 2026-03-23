@@ -7,29 +7,19 @@ import os
 
 app = Flask(__name__)
 
-# Define the directory for uploads
-UPLOADS_DIR = 'uploads'
-
-# Legacy file naming conventions
-LEGACY_FILE_NAMES = {
-    'old_file_1': 'new_file_1',
-    'old_file_2': 'new_file_2',
-    # Add more mappings as needed
-}
-
 @app.route('/uploads/<path:filename>')
-def serve_file(filename):
-    # Check if the file exists with the current naming convention
-    if os.path.exists(os.path.join(UPLOADS_DIR, filename)):
-        return send_from_directory(UPLOADS_DIR, filename)
-    
-    # Check for legacy file naming
-    legacy_filename = LEGACY_FILE_NAMES.get(filename)
-    if legacy_filename and os.path.exists(os.path.join(UPLOADS_DIR, legacy_filename)):
-        return send_from_directory(UPLOADS_DIR, legacy_filename)
-    
-    # If the file does not exist, return a 404 error
-    abort(404)
+def serve_static_file(filename):
+    uploads_dir = os.path.join(app.root_path, 'uploads')
+    legacy_filename = filename.replace(' ', '_').lower()  # Example of legacy naming convention
+    file_path = os.path.join(uploads_dir, filename)
+    legacy_file_path = os.path.join(uploads_dir, legacy_filename)
+
+    if os.path.isfile(file_path):
+        return send_from_directory(uploads_dir, filename)
+    elif os.path.isfile(legacy_file_path):
+        return send_from_directory(uploads_dir, legacy_filename)
+    else:
+        abort(404)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

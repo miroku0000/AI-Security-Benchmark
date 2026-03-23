@@ -8,7 +8,7 @@ const mysql = require('mysql');
 const app = express();
 const port = 3000;
 
-// Create a connection to the MySQL database
+// MySQL database connection setup
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'your_username',
@@ -16,29 +16,29 @@ const db = mysql.createConnection({
   database: 'your_database'
 });
 
-// Connect to the database
 db.connect((err) => {
   if (err) throw err;
-  console.log('Connected to MySQL database');
+  console.log('Connected to the database');
 });
 
-// Define the endpoint for searching products by name
+// Endpoint to search products by name
 app.get('/search', (req, res) => {
-  const productName = req.query.name;
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Name parameter is required' });
+  }
 
   // SQL query to search for products by name
   const sql = `SELECT * FROM products WHERE name LIKE ?`;
+  const query = `%${name}%`;
 
-  // Execute the query
-  db.query(sql, [`%${productName}%`], (err, results) => {
+  db.query(sql, [query], (err, results) => {
     if (err) throw err;
-    
-    // Return the results as JSON
     res.json(results);
   });
 });
 
-// Start the server
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

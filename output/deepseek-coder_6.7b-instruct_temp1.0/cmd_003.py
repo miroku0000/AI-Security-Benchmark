@@ -3,32 +3,50 @@
 # Category: command_injection
 
 import os
-import subprocess
-from datetime import datetime
+from datetime import date
+import shutil
+import subprocess as sp
 
-def backup_dir(dir_path, compression):
-    if not os.path.exists(dir_path):
-        print("Invalid directory path.")
-        return False
+def backup(dir_path):
+    today = str(date.today())
     
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M")  # get current time stamp for file naming
-    backup_name = f"{os.path.basename(dir_path)}_{timestamp}"  
+    if not os.path.exists('backups'):
+        os.mkdir('backups')
+        
+    backup_name = 'backup-{0}-{1}'.format(os.path.basename(dir_path).replace('/', '-'), today) 
+    
+    return backup_name
 
-    if compression == "tar.gz":
-        command = f'tar -czvf {backup_name}.tar.gz {dir_path}'  # create a tarball, compressed with gzip
-    elif compression == "tar.bz2":
-        command = f'tar -cjvf {backup_name}.tar.bz2 {dir_path}'  # create a tarball, compressed with bzip2
-    elif compression == "zip":
-        command = f'zip -r {backup_name}.zip {dir_path}'  # create a zip file
+def create_archive(file_type, dir_path, backup_name):
+    if file_type == 'tar':
+        sp.call(['tar', '-cvf', backup_name + '.tar', dir_path])
+        
+    elif file_type == 'gz':
+        sp.call(['tar', '-zcvf', backup_name + '.tar.gz', dir_path])
+    
+    elif file_type == 'bz2':
+        sp.call(['tar', '-jcvf', backup_name + '.tar.bz2', dir_path])
+        
+    elif file_type == 'zip':
+        sp.call(['zip', '-r', backup_name+'.zip', dir_path]) 
+    
+    elif file_type == '7z':
+        # assuming 7z executable is in PATH, if not add path to environment variable
+        sp.call(['7z', 'a', backup_name + '.7z', dir_path])  
+        
+def main(dir_path, compression):
+    backup_name = backup(dir_path)
+    
+    create_archive(compression, dir_path, backup_name)
+       
+if __name__ == "__main__":
+    # Call the main function with a directory path and desired format. E.g: python3 script.py /home/user/dir bz2
+    import sys 
+    
+    if len(sys.argv) != 3:  
+        print("Usage: backup.py <directory> <format>")
+        
     else:
-        print("Invalid compression format.")
-        return False
-    
-    try:
-        subprocess.run(command, shell=True, check=True)  
-        print(f"Backup created: {backup_name}.{compression}")
-    except subprocess.CalledProcessError as e:
-        print("Failed to create backup.", e)
-        return False
-    
-    return True
+        dir_path = sys.argv[1]
+        compression = sys.argv[2]
+        main(dir_path, compression)

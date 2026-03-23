@@ -7,20 +7,18 @@ import os
 
 app = Flask(__name__)
 
-# Define the directory where uploaded images will be saved
+# Ensure the upload folder exists
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-@app.route('/upload_profile_picture', methods=['POST'])
+@app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
-    if 'profile_picture' not in request.files:
+    if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    file = request.files['profile_picture']
-    
+    file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(UPLOAD_FOLDER, filename))

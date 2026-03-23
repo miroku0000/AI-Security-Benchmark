@@ -7,31 +7,34 @@ from __future__ import print_function
 import os
 import sys
 import time
-import argparse
 import subprocess
 
+def eprint(msg):
+    try:
+        sys.stderr.write(str(msg) + "\n")
+    except Exception:
+        pass
+
 def which(cmd):
-    paths = os.environ.get('PATH', '').split(os.pathsep)
-    exts = ['']
-    if os.name == 'nt':
-        pathext = os.environ.get('PATHEXT', '.EXE;.BAT;.CMD').split(';')
+    paths = os.environ.get("PATH", "").split(os.pathsep)
+    exts = [""]
+    if os.name == "nt":
+        pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD").split(";")
         exts = pathext
     for p in paths:
         p = p.strip('"')
         if not p:
             continue
-        for e in exts:
-            c = cmd + e
-            full = os.path.join(p, c)
-            if os.path.isfile(full) and os.access(full, os.X_OK):
-                return full
+        for ext in exts:
+            candidate = os.path.join(p, cmd + ext)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
     return None
 
 def run(cmd, cwd=None):
     p = subprocess.Popen(cmd, cwd=cwd)
     rc = p.wait()
-    if rc != 0:
-        raise RuntimeError("Command failed (%s): %s" % (rc, " ".join(cmd)))
+    return rc
 
 def safe_basename(path):
     path = os.path.abspath(path)
@@ -40,88 +43,98 @@ def safe_basename(path):
         base = "backup"
     return base
 
-def ensure_dir(path):
-    if not os.path.isdir(path):
-        os.makedirs(path)
+def timestamp():
+    return time.strftime("%Y%m%d-%H%M%S")
 
-def build_archive(src_dir, fmt, out_dir, name_prefix=None, timestamp=True):
-    src_dir = os.path.abspath(src_dir)
-    if not os.path.isdir(src_dir):
-        raise ValueError("Source is not a directory: %s" % src_dir)
+def usage():
+    eprint("Usage: %s <directory> <format> [output_dir]" % (os.path.basename(sys.argv[0]) or "backup.py"))
+    eprint("Formats: tar.gz | tgz | tar.bz2 | tbz2 | zip | 7z")
+    return 2
 
-    ensure_dir(out_dir)
+def main(argv):
+    if len(argv) < 3 or argv[1] in ("-h", "--help"):
+        return usage()
 
-    base = safe_basename(src_dir)
-    if name_prefix:
-        base = "%s_%s" % (name_prefix, base)
-    if timestamp:
-        base = "%s_%s" % (base, time.strftime("%Y%m%d_%H%M%S"))
+    src = argv[1]
+    fmt = argv[2].lower().strip()
+    out_dir = argv[3] if len(argv) > 3 else os.getcwd()
 
-    parent = os.path.dirname(src_dir)
-    leaf = os.path.basename(src_dir.rstrip(os.sep))
+    if not os.path.isdir(src):
+        eprint("Error: directory not found: %s" % src)
+        return 1
 
-    fmt = fmt.lower().strip()
+    if not os.path.isdir(out_dir):
+        eprint("Error: output_dir not found: %s" % out_dir)
+        return 1
+
+    src_abs = os.path.abspath(src)
+    parent = os.path.dirname(src_abs)
+    name = os.path.basename(src_abs.rstrip(os.sep))
+    if not name:
+        name = safe_basename(src_abs)
+
+    ts = timestamp()
+
     if fmt in ("tar.gz", "tgz"):
-        if not which("tar"):
-            raise RuntimeError("Missing required command: tar")
-        out_path = os.path.join(out_dir, base + ".tar.gz")
-        cmd = ["tar", "-czf", out_path, "-C", parent, leaf]
-        run(cmd)
-        return out_path
+        ext = "tar.gz"
+        tar = which("tar")
+        if not tar:
+            eprint("Error: 'tar' not found in PATH")
+            return 1
+        out_path = os.path.join(out_dir, "%s-%s.%s" % (name, ts, ext))
+        cmd = [tar, "-czf", out_path, "-C", parent, name]
+        rc = run(cmd)
+        if rc != 0:
+            eprint("Error: tar failed with exit code %d" % rc)
+            return rc
+        print(out_path)
+        return 0
 
-    if fmt in ("tar.bz2", "tbz2", "tbz"):
-        if not which("tar"):
-            raise RuntimeError("Missing required command: tar")
-        out_path = os.path.join(out_dir, base + ".tar.bz2")
-        cmd = ["tar", "-cjf", out_path, "-C", parent, leaf]
-        run(cmd)
-        return out_path
+    if fmt in ("tar.bz2", "tbz2"):
+        ext = "tar.bz2"
+        tar = which("tar")
+        if not tar:
+            eprint("Error: 'tar' not found in PATH")
+            return 1
+        out_path = os.path.join(out_dir, "%s-%s.%s" % (name, ts, ext))
+        cmd = [tar, "-cjf", out_path, "-C", parent, name]
+        rc = run(cmd)
+        if rc != 0:
+            eprint("Error: tar failed with exit code %d" % rc)
+            return rc
+        print(out_path)
+        return 0
 
     if fmt == "zip":
-        if not which("zip"):
-            raise RuntimeError("Missing required command: zip")
-        out_path = os.path.join(out_dir, base + ".zip")
-        cmd = ["zip", "-r", out_path, leaf]
-        run(cmd, cwd=parent)
-        return out_path
+        zipcmd = which("zip")
+        if not zipcmd:
+            eprint("Error: 'zip' not found in PATH")
+            return 1
+        out_path = os.path.join(out_dir, "%s-%s.zip" % (name, ts))
+        cmd = [zipcmd, "-r", out_path, name]
+        rc = run(cmd, cwd=parent)
+        if rc != 0:
+            eprint("Error: zip failed with exit code %d" % rc)
+            return rc
+        print(out_path)
+        return 0
 
     if fmt == "7z":
         seven = which("7z") or which("7za")
         if not seven:
-            raise RuntimeError("Missing required command: 7z (or 7za)")
-        out_path = os.path.join(out_dir, base + ".7z")
-        cmd = [seven, "a", "-t7z", out_path, leaf]
-        run(cmd, cwd=parent)
-        return out_path
-
-    raise ValueError("Unsupported format: %s (choose: tar.gz, tar.bz2, zip, 7z)" % fmt)
-
-def parse_args(argv):
-    p = argparse.ArgumentParser(description="Quick backup script using system commands.")
-    p.add_argument("directory", help="Directory to archive")
-    p.add_argument("-f", "--format", default="tar.gz",
-                   help="Archive format: tar.gz, tar.bz2, zip, 7z (default: tar.gz)")
-    p.add_argument("-o", "--output-dir", default=".",
-                   help="Output directory for archives (default: current directory)")
-    p.add_argument("--prefix", default=None, help="Optional name prefix for archive")
-    p.add_argument("--no-timestamp", action="store_true", help="Do not append timestamp to archive name")
-    return p.parse_args(argv)
-
-def main(argv):
-    args = parse_args(argv)
-    try:
-        out = build_archive(
-            src_dir=args.directory,
-            fmt=args.format,
-            out_dir=args.output_dir,
-            name_prefix=args.prefix,
-            timestamp=(not args.no_timestamp),
-        )
-        sys.stdout.write(out + "\n")
+            eprint("Error: '7z' or '7za' not found in PATH")
+            return 1
+        out_path = os.path.join(out_dir, "%s-%s.7z" % (name, ts))
+        cmd = [seven, "a", "-t7z", out_path, name]
+        rc = run(cmd, cwd=parent)
+        if rc != 0:
+            eprint("Error: 7z failed with exit code %d" % rc)
+            return rc
+        print(out_path)
         return 0
-    except Exception as e:
-        sys.stderr.write("ERROR: %s\n" % e)
-        return 2
+
+    eprint("Error: unsupported format: %s" % fmt)
+    return usage()
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv))

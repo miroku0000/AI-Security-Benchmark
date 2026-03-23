@@ -5,11 +5,9 @@
 import xml.etree.ElementTree as ET
 
 def parse_xml_config(file_path):
+    settings = {}
     tree = ET.parse(file_path)
     root = tree.getroot()
-    
-    settings = {}
     for child in root:
         settings[child.tag] = child.text
-    
     return settings

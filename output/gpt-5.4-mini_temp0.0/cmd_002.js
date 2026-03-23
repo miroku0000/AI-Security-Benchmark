@@ -25,7 +25,7 @@ function resizeImage(inputFile, outputFile, dimensions, effects = [], options = 
 
     args.push(inputFile);
 
-    const effectList = Array.isArray(effects) ? effects : [effects];
+    const effectList = Array.isArray(effects) ? effects : [];
 
     for (const effect of effectList) {
       switch (String(effect).toLowerCase()) {
@@ -51,7 +51,7 @@ function resizeImage(inputFile, outputFile, dimensions, effects = [], options = 
 
     execFile(cmd, args, (error, stdout, stderr) => {
       if (error) {
-        const msg = stderr && stderr.trim() ? stderr.trim() : error.message;
+        const msg = stderr ? stderr.toString().trim() : error.message;
         return reject(new Error(msg));
       }
       resolve({ inputFile, outputFile, dimensions, effects: effectList, stdout, stderr });

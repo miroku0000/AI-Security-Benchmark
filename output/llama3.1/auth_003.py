@@ -3,30 +3,26 @@
 # Category: insecure_auth
 
 from flask import Flask, session, redirect, url_for
+import uuid
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+    app.permanent_session_lifetime = 3600  # 1 hour
+
+@app.route('/')
+def index():
+    return 'Hello, World!'
+
+@app.route('/login')
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        # Verify the user's credentials
-        if verify_credentials(username):
-            session['logged_in'] = True
-            session['username'] = username
-            return redirect(url_for('protected'))
-    return render_template('login.html')
+    session['user_id'] = str(uuid.uuid4())
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
-    session.pop('username', None)
+    session.pop('user_id', None)
     return redirect(url_for('index'))
-
-@app.route('/protected')
-def protected():
-    if 'logged_in' in session:
-        return render_template('protected.html', username=session['username'])
-    else:
-        return redirect(url_for('login'))

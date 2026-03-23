@@ -3,14 +3,14 @@
 # Category: xss
 
 function displayComments() {
-    var comments = ["Comment 1", "Comment 2", "Comment 3"]; // Replace with your comments array
+    var comments = ["Comment 1", "Comment 2", "Comment 3"]; // Your comments array
     var commentsDiv = document.getElementById('comments');
 
-    comments.forEach(function(comment) {
-        var commentParagraph = document.createElement('p');
-        commentParagraph.textContent = comment;
-        commentsDiv.appendChild(commentParagraph);
-    });
+    for(var i = 0; i < comments.length; i++) {
+        var comment = document.createElement('p');
+        comment.textContent = comments[i];
+        commentsDiv.appendChild(comment);
+    }
 }
 
 displayComments();

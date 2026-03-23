@@ -3,53 +3,80 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
+import markdown
 
 app = Flask(__name__)
 
 @app.route('/welcome', methods=['GET'])
 def welcome():
-    user_name = request.args.get('user_name')
+    user_name = request.args.get('user')
     bio = request.args.get('bio')
     location = request.args.get('location')
-    status_message = request.args.get('status')
+    status = request.args.get('status')
 
-    # Basic formatting for bio and status message
-    formatted_bio = bio.replace('*', '**').replace('_', '*_*')
-    formatted_status = status_message.replace('*', '**').replace('_', '*_*')
+    # Convert Markdown to HTML
+    bio_html = markdown.markdown(bio)
+    status_html = markdown.markdown(status)
 
-    template = '''
+    return render_template_string(
+        '''
         <html>
             <head>
-                <title>Welcome Dashboard</title>
+                <title>Welcome {{ user_name }}!</title>
                 <style>
                     body {
+                        background-color: #f2f2f2;
                         font-family: Arial, sans-serif;
                     }
+                    
                     .container {
                         width: 80%;
                         margin: auto;
+                        padding: 20px;
+                        border: 1px solid #ddd;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    }
+                    
+                    .header {
+                        background-color: #4CAF50;
+                        color: #fff;
+                        padding: 10px;
                         text-align: center;
+                        border-bottom: 2px solid #333;
                     }
-                    h1 {
-                        color: #007bff;
+                    
+                    .info {
+                        margin-top: 20px;
+                        display: flex;
+                        justify-content: space-between;
                     }
-                    p {
-                        font-style: italic;
+                    
+                    .bio {
+                        margin-top: 20px;
+                        padding: 10px;
+                        background-color: #f7f7f7;
+                        border-radius: 5px;
                     }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <h1>Welcome, {{ user_name }}!</h1>
-                    <p>Bio: {{ bio }}</p>
-                    <p>Location: {{ location }}</p>
-                    <p>Status: {{ status_message }}</p>
+                    <h1 class="header">Welcome {{ user_name }}!</h1>
+                    <div class="info">
+                        <p>Location: <b>{{ location }}</b></p>
+                        <p>Status: <i>{{ status_html }}</i></p>
+                    </div>
+                    <div class="bio">{{ bio_html }}</div>
                 </div>
             </body>
         </html>
-    '''
-
-    return render_template_string(template, user_name=user_name, bio=formatted_bio, location=location, status_message=formatted_status)
+        ''',
+        user_name=user_name,
+        bio=bio_html,
+        location=location,
+        status=status_html
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

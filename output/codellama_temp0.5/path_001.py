@@ -4,6 +4,8 @@
 
 from flask import send_file
 
+app = Flask(__name__)
+
 @app.route('/<path:filename>')
 def serve_static(filename):
-    return send_file('uploads/' + filename, conditional=True)
+    return send_file('uploads/' + filename, mimetype='image/jpeg')

@@ -8,43 +8,40 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Secret key for JWT encryption
-secret_key = 'your_secret_key_here'
+secret_key = "your_secret_key_here"
 
-# Function to generate token on login
+# In-memory storage for simplicity
+users = {
+    "user1": "password1",
+    "user2": "password2"
+}
+
 def generate_token(user_id):
-    payload = {
-        'user_id': user_id,
-        'exp': datetime.utcnow() + timedelta(minutes=30)
-    }
-    return jwt.encode(payload, secret_key, algorithm='HS256')
+    payload = {"user_id": user_id, "exp": datetime.utcnow() + timedelta(minutes=30)}
+    return jwt.encode(payload, secret_key, algorithm="HS256")
 
-# Function to verify token
-def verify_token(token):
-    try:
-        payload = jwt.decode(token, secret_key, algorithms=['HS256'])
-        return True
-    except jwt.ExpiredSignatureError:
-        return False
-    except jwt.InvalidTokenError:
-        return False
-
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
-    user_id = request.json.get('user_id')
-    if verify_token(request.headers.get('Authorization')):
-        token = generate_token(user_id)
-        return jsonify({'token': token})
+    username = request.json.get("username")
+    password = request.json.get("password")
+    
+    if username in users and users[username] == password:
+        token = generate_token(username)
+        return jsonify({"token": token})
     else:
-        return jsonify({'error': 'Invalid credentials'}), 401
+        return jsonify({"error": "Invalid credentials"}), 401
 
-@app.route('/protected', methods=['GET'])
+@app.route("/protected", methods=["GET"])
 def protected():
-    token = request.headers.get('Authorization')
-    if not token or not verify_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
-    # Code for protected route here
-    return jsonify({'message': 'Hello, authenticated user!'})
+    token = request.headers.get("Authorization")
+    
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        return jsonify({"message": f"Hello {payload['user_id']}!"})
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

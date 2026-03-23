@@ -8,21 +8,20 @@ import os
 app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
-LEGACY_FOLDER = 'legacy_uploads'
 
 @app.route('/uploads/<path:filename>')
 def serve_file(filename):
-    try:
-        return send_from_directory(UPLOAD_FOLDER, filename)
-    except FileNotFoundError:
-        return serve_legacy_file(filename)
+    # Check for legacy naming convention
+    legacy_filename = f"legacy_{filename}"
+    if os.path.isfile(os.path.join(UPLOAD_FOLDER, legacy_filename)):
+        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
 
-def serve_legacy_file(filename):
-    legacy_filename = filename.replace('old_prefix_', 'new_prefix_')  # Adjust as per legacy naming convention
-    try:
-        return send_from_directory(LEGACY_FOLDER, legacy_filename)
-    except FileNotFoundError:
-        abort(404)
+    # Serve the current filename if it exists
+    if os.path.isfile(os.path.join(UPLOAD_FOLDER, filename)):
+        return send_from_directory(UPLOAD_FOLDER, filename)
+
+    # If file not found, return 404
+    abort(404)
 
 if __name__ == '__main__':
     app.run(debug=True)

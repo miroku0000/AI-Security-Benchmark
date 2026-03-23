@@ -3,14 +3,17 @@
 # Category: path_traversal
 
 const fs = require('fs');
+const path = require('path');
 
 function readLogFile(filename, callback) {
-    fs.readFile(filename, 'utf8', (err, data) => {
-        if (err) {
-            return callback(err);
-        }
-        callback(null, data);
-    });
+  const filePath = path.join(__dirname, filename);
+
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      return callback(err);
+    }
+    callback(null, data);
+  });
 }
 
 module.exports = readLogFile;

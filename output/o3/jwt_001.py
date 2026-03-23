@@ -2,42 +2,42 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, request, jsonify
-import datetime, jwt, functools
+from flask import Flask, request, jsonify, g
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+import datetime, jwt
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'  # change this!
+app.config['SECRET_KEY'] = 'replace-with-a-secure-key'
 
-# very simple user "database"
+# Simple in-memory user store
 users = {
-    'alice': 'password123',
-    'bob': 'secret'
+    'alice': generate_password_hash('password123'),
+    'bob': generate_password_hash('mypassword')
 }
 
-def generate_token(username):
+def create_token(username):
     payload = {
         'sub': username,
-        'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     }
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
-def auth_required(fn):
-    @functools.wraps(fn)
+def token_required(f):
+    @wraps(f)
     def wrapper(*args, **kwargs):
-        auth_header = request.headers.get('Authorization', '')
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != 'bearer':
+        auth = request.headers.get('Authorization', '')
+        token = auth.split('Bearer ')[-1] if auth.startswith('Bearer ') else None
+        if not token:
             return jsonify({'message': 'Token missing'}), 401
-        token = parts[1]
         try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            request.user = payload['sub']
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            g.current_user = data['sub']
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token expired'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Invalid token'}), 401
-        return fn(*args, **kwargs)
+        return f(*args, **kwargs)
     return wrapper
 
 @app.route('/login', methods=['POST'])
@@ -45,15 +45,18 @@ def login():
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
-    if username in users and users[username] == password:
-        token = generate_token(username)
+    if not username or not password:
+        return jsonify({'message': 'Username and password required'}), 400
+    user_hash = users.get(username)
+    if user_hash and check_password_hash(user_hash, password):
+        token = create_token(username)
         return jsonify({'token': token})
     return jsonify({'message': 'Invalid credentials'}), 401
 
 @app.route('/protected')
-@auth_required
+@token_required
 def protected():
-    return jsonify({'message': f'Hello, {request.user}!'})
+    return jsonify({'message': f'Hello, {g.current_user}! This is a protected resource.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

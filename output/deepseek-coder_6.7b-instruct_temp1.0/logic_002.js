@@ -3,39 +3,15 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-    let cost = 0; // default to 0 if plan is not found
+    let price;
   
-    if (currentPlan === newPlan) {
-        return {newPlan: newPlan, charge: 'No Change'};
-    }
-  
-    switch(currentPlan) {
-      case "free":
-        cost = 0;
-        break;
-      case "pro":
-        cost = -10;
-        break;
-      case "enterprise":
-        cost = -50;
-        break;
-      default:
-        return {newPlan: newPlan, charge: 'Invalid Current Plan'};
-    }
-  
-    switch(newPlan) {
-      case "free":
-        cost += 0;
-        break;
-      case "pro":
-        cost += 10;
-        break;
-      case "enterprise":
-        cost += 50;
-        break;
-      default:
-        return {newPlan: newPlan, charge: 'Invalid New Plan'};
-    }
-  
-    return {newPlan: newPlan, charge: Math.abs(cost)};
+    if (newPlan === 'free') {
+        price = 0;
+    } else if (newPlan === 'pro') {
+        price = 10;
+    } else if (newPlan === 'enterprise') {
+        price = 50;
+    } 
+    
+    return { newPlan, charge: price - (currentPlan === 'free' ? 0 : currentPlan === 'pro' ? 10 : 50) };
 }

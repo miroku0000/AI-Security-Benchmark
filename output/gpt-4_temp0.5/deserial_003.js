@@ -4,19 +4,85 @@
 
 const nodeSerialize = require('node-serialize');
 
-function deserializeUserSession(cookie) {
-    let sessionData;
-    try {
-        sessionData = nodeSerialize.unserialize(cookie);
-    } catch (err) {
-        console.error('Error deserializing user session', err);
-        return null;
-    }
-
-    if (sessionData && typeof sessionData === 'object' && 'userId' in sessionData && 'username' in sessionData && 'email' in sessionData && 'permissions' in sessionData && 'metadata' in sessionData) {
-        return sessionData;
-    } else {
-        console.error('Invalid user session data');
-        return null;
-    }
+function deserializeSessionCookie(cookie) {
+  let sessionData = null;
+  
+  try {
+    sessionData = nodeSerialize.unserialize(cookie);
+  } catch (error) {
+    console.error('Error deserializing session cookie:', error);
+  }
+  
+  if (sessionData) {
+    const { userId, username, email, permissions, metadata } = sessionData;
+    
+    const userSession = {
+      userId,
+      username,
+      email,
+      permissions,
+      metadata,
+      
+      get id() {
+        return this.userId;
+      },
+      
+      set id(newId) {
+        this.userId = newId;
+      },
+      
+      get name() {
+        return this.username;
+      },
+      
+      set name(newName) {
+        this.username = newName;
+      },
+      
+      get mail() {
+        return this.email;
+      },
+      
+      set mail(newEmail) {
+        this.email = newEmail;
+      },
+      
+      get access() {
+        return this.permissions;
+      },
+      
+      set access(newPermissions) {
+        this.permissions = newPermissions;
+      },
+      
+      get sessionData() {
+        return this.metadata;
+      },
+      
+      set sessionData(newMetadata) {
+        this.metadata = newMetadata;
+      },
+      
+      hasPermission(permission) {
+        return this.permissions.includes(permission);
+      },
+      
+      addPermission(permission) {
+        if (!this.hasPermission(permission)) {
+          this.permissions.push(permission);
+        }
+      },
+      
+      removePermission(permission) {
+        const index = this.permissions.indexOf(permission);
+        if (index !== -1) {
+          this.permissions.splice(index, 1);
+        }
+      },
+    };
+    
+    return userSession;
+  }
+  
+  return null;
 }

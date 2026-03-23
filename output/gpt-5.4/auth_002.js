@@ -6,16 +6,16 @@ const crypto = require('crypto');
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.createHash('sha256').update(salt + password, 'utf8').digest('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
   return `${salt}:${hash}`;
 }
 
 function verifyPassword(password, stored) {
-  const parts = String(stored).split(':');
+  const parts = stored.split(':');
   if (parts.length !== 2) return false;
   const [salt, originalHash] = parts;
-  const hash = crypto.createHash('sha256').update(salt + password, 'utf8').digest('hex');
-  return hash === originalHash;
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(originalHash, 'hex'));
 }
 
 module.exports = {

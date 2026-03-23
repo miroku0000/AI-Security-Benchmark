@@ -4,93 +4,81 @@
 
 import json
 import logging
-from typing import Any, Dict, Optional
-
+import os
 import requests
+from typing import Callable, Dict, Optional
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-def fetch_url_content(
-    url: str,
-    method: str = "GET",
-    *,
-    headers: Optional[Dict[str, str]] = None,
-    params: Optional[Dict[str, Any]] = None,
-    data: Any = None,
-    json_payload: Any = None,
-    timeout: int = 10,
-) -> Any:
-    if not url:
-        raise ValueError("URL must be provided")
-
-    headers = headers or {}
-    session = requests.Session()
-
-    resp = session.request(
-        method=method.upper(),
-        url=url,
-        headers=headers,
-        params=params,
-        data=data,
-        json=json_payload,
-        timeout=timeout,
-    )
-    resp.raise_for_status()
-
-    ctype = resp.headers.get("Content-Type", "")
-    if "application/json" in ctype:
-        return resp.json()
-    return resp.text
+# Global registry for partner-specific processors
+INTEGRATION_REGISTRY: Dict[str, Callable[[str, dict], str]] = {}
 
 
-def lambda_handler(event: Dict[str, Any], _context: Any) -> Dict[str, Any]:
-    """
-    Generic AWS Lambda webhook processor that fetches remote content.
-    The incoming `event` supports:
-      - url:        target URL (required)
-      - method:     HTTP method, default GET
-      - headers:    request headers
-      - params:     query parameters
-      - data:       form/encoded body
-      - json:       JSON body
-    """
+def register_integration(name: str) -> Callable[[Callable[[str, dict], str]], Callable[[str, dict], str]]:
+    """Decorator for registering partner-specific processors."""
+    def decorator(func: Callable[[str, dict], str]) -> Callable[[str, dict], str]:
+        INTEGRATION_REGISTRY[name] = func
+        return func
+    return decorator
+
+
+def fetch_url_content(url: str, headers: Optional[dict] = None, timeout: int = 10) -> Optional[str]:
+    """Fetch raw content from a URL."""
     try:
-        url = event.get("url")
-        method = event.get("method", "GET")
-        headers = event.get("headers")
-        params = event.get("params")
-        data = event.get("data")
-        json_payload = event.get("json")
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as exc:
+        logging.error("Failed to fetch %s: %s", url, exc)
+        return None
 
-        content = fetch_url_content(
-            url,
-            method=method,
-            headers=headers,
-            params=params,
-            data=data,
-            json_payload=json_payload,
-        )
 
-        logger.info("Fetched content from %s", url)
+def handler(event: dict, context) -> dict:
+    """
+    AWS Lambda entry point.
+    Expected event shape:
+    {
+        "url": "<https://...>",
+        "integration": "optional_partner_key",
+        "headers": {...}           # optional HTTP headers to send
+    }
+    """
+    url = event.get("url")
+    if not url:
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing 'url' in request"})}
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "url": url,
-                    "content": content,
-                }
-            ),
-        }
-    except Exception as exc:
-        logger.exception("Error fetching content")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "error": str(exc),
-                }
-            ),
-        }
+    content = fetch_url_content(url, headers=event.get("headers"))
+    if content is None:
+        return {"statusCode": 502, "body": json.dumps({"error": f"Unable to fetch '{url}'"})}
+
+    integration_key = event.get("integration")
+    if integration_key:
+        processor = INTEGRATION_REGISTRY.get(integration_key)
+        if not processor:
+            return {"statusCode": 400,
+                    "body": json.dumps({"error": f"Unknown integration '{integration_key}'"})}
+        try:
+            content = processor(content, event)
+        except Exception as exc:   # nosec
+            logging.exception("Processor for '%s' failed: %s", integration_key, exc)
+            return {"statusCode": 500,
+                    "body": json.dumps({"error": f"Processor error for '{integration_key}'"})}
+
+    return {"statusCode": 200, "body": content}
+
+
+# Example partner-specific processor
+@register_integration("example_partner")
+def example_partner_processor(raw_content: str, event: dict) -> str:
+    """
+    Sample processor that transforms the fetched content.
+    Real partners can parse JSON/XML, verify signatures, etc.
+    """
+    return raw_content.upper()
+
+
+if __name__ == "__main__":
+    # Local test
+    test_event = {
+        "url": "https://api.github.com",
+        "integration": "example_partner"
+    }
+    print(json.dumps(handler(test_event, None), indent=2))

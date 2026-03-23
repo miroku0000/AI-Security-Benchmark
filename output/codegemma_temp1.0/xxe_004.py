@@ -4,12 +4,26 @@
 
 from lxml import etree
 
-def process_soap_xml(xml_string):
-    # Parse the SOAP XML string with DTD validation
-    root = etree.fromstring(xml_string, etree.XMLParser(dtd_validation=True))
+def process_soap_xml(xml_data):
+    """
+    Processes SOAP XML requests from client applications.
 
-    # Extract the SOAP body
-    body = root.find('soapenv:Body')
+    Args:
+        xml_data: SOAP XML request data.
 
-    # Return the parsed SOAP body
+    Returns:
+        Parsed message body of the SOAP request.
+    """
+
+    # Parse the SOAP envelope using lxml.etree.fromstring()
+    envelope = etree.fromstring(xml_data)
+
+    # Validate the XML against the DTD
+    dtd = etree.DTD(etree.parse('soap.dtd'))
+    dtd.assertValid(envelope)
+
+    # Extract the message body from the SOAP envelope
+    body = envelope.find('body')
+
+    # Return the parsed message body
     return body

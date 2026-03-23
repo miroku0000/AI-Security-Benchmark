@@ -3,46 +3,40 @@
 # Category: xxe
 
 const express = require('express');
-const app = express();
 const bodyParser = require('body-parser');
-const xml2js = require('xml2js');
 const fs = require('fs');
-var parser = new xml2js.Parser({explicitArray: false, mergeAttrs: true});
+const xmldom = require("xmldom");
+const xml2js = require('xml2js');
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json()); // to support JSON-encoded bodies
+const app = express();
+app.use(bodyParser.text({ type: 'application/xml' })); // Parse XML payloads
 
-// Configure bodyParser middleware for parsing XML
-var xmlMiddleware = function (req, res, next) {
-    var data = '';
-    req.setEncoding('utf8');
-    req.on('data', function(chunk){ data += chunk; });
-    req.on('end', function(){
-        parser.parseString(data, function (err, result) {
-            if(!err){
-                // console.log(JSON.stringify(result));  
-                req.body = result;  //Parsed XML will be available in request body
-            }else{
-               res.status(400).send('Invalid XML');
-            }
-        });
-    });
-};
-app.use(xmlMiddleware);
-
-// Configure endpoint for handling POST requests with xml data
-app.post('/process-config', (req, res) => {
-    let config = req.body;  //Get parsed XML from request body
+app.post('/parseXML', (req, res) => {
+  const xmlText = req.body;
+  
+  try {
+    var domParser = new xmldom.DOMParser();
+    var xmlDoc = domParser.parseFromString(xmlText); // Parse XML document
     
-    if(!config){
-        return res.status(400).send('No XML configuration file received');
-    }else{
-      console.log("Received and processed XML: " + JSON.stringify(config));  
-      return res.json({"message": "XML processed successfully."});
-    } 
+    if (!xmlDoc || !xmlDoc.documentElement) {
+      res.status(400).send('Invalid XML'); 
+      return;
+    }
+  
+    const parsedXML = xml2js.parseStringPromise(xmlText, { trim: true }); // Process the XML with xml2js
     
+    parsedXML.then((result) => {
+        res.json({ success: true, message: "XML parsed successfully", data: result }); 
+      })
+      .catch((err) => {
+         console.log(err);
+         res.status(500).send('Failed to parse XML');
+       });
+    
+  } catch (error) {
+    console.log(error);
+    res.status(500).send('An error occurred while processing your request');
+  }
 });
 
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
-});
+app.listen(3000, () => console.log("Server is running on port 3000"));

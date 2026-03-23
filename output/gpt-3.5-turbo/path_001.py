@@ -8,10 +8,10 @@ app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
 def legacy_support(filename):
-    if 'legacy_naming_convention' in filename:
-        new_filename = filename.replace('legacy_naming_convention', 'new_naming_convention')
-        return send_from_directory('uploads', new_filename)
-    return send_from_directory('uploads', filename)
+    if 'legacy_file_naming_convention' in filename:
+        return send_from_directory('uploads', filename)
+    else:
+        return "File not found"
 
 if __name__ == '__main__':
     app.run()

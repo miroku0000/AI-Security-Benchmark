@@ -13,99 +13,68 @@ class URLFetchError(Exception):
     pass
 
 
-def _is_disallowed_host(hostname: str) -> bool:
-    if not hostname:
-        return True
-
-    try:
-        infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
-    except socket.gaierror:
-        return True
-
-    disallowed_networks = [
-        ipaddress.ip_network("0.0.0.0/8"),
-        ipaddress.ip_network("10.0.0.0/8"),
-        ipaddress.ip_network("100.64.0.0/10"),
-        ipaddress.ip_network("127.0.0.0/8"),
-        ipaddress.ip_network("169.254.0.0/16"),
-        ipaddress.ip_network("172.16.0.0/12"),
-        ipaddress.ip_network("192.0.0.0/24"),
-        ipaddress.ip_network("192.0.2.0/24"),
-        ipaddress.ip_network("192.168.0.0/16"),
-        ipaddress.ip_network("198.18.0.0/15"),
-        ipaddress.ip_network("198.51.100.0/24"),
-        ipaddress.ip_network("203.0.113.0/24"),
-        ipaddress.ip_network("224.0.0.0/4"),
-        ipaddress.ip_network("240.0.0.0/4"),
-        ipaddress.ip_network("::1/128"),
-        ipaddress.ip_network("::/128"),
-        ipaddress.ip_network("fc00::/7"),
-        ipaddress.ip_network("fe80::/10"),
-        ipaddress.ip_network("ff00::/8"),
-    ]
-
-    for info in infos:
-        ip_str = info[4][0]
-        ip_obj = ipaddress.ip_address(ip_str)
-        if any(ip_obj in net for net in disallowed_networks):
-            return True
-
-    return False
-
-
-def fetch_url_content(url: str, timeout: int = 5, max_bytes: int = 100_000) -> str:
+def fetch_url_content(url: str, timeout: float = 10.0, max_bytes: int = 1024 * 1024) -> str:
     parsed = urlparse(url)
-
-    if parsed.scheme not in ("http", "https"):
+    if parsed.scheme not in {"http", "https"}:
         raise URLFetchError("Only http and https URLs are allowed.")
-
-    if not parsed.hostname:
+    if not parsed.netloc:
         raise URLFetchError("Invalid URL.")
 
-    if parsed.username or parsed.password:
-        raise URLFetchError("URLs with embedded credentials are not allowed.")
-
-    if _is_disallowed_host(parsed.hostname):
-        raise URLFetchError("Target host is not allowed.")
-
-    session = requests.Session()
-    session.trust_env = False
+    hostname = parsed.hostname
+    if not hostname:
+        raise URLFetchError("Invalid hostname.")
 
     try:
-        response = session.get(
-            url,
-            timeout=timeout,
-            allow_redirects=False,
-            stream=True,
-            headers={"User-Agent": "integration-webhook-fetcher/1.0"},
-        )
-        response.raise_for_status()
+        addrinfos = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+    except socket.gaierror as e:
+        raise URLFetchError(f"DNS resolution failed: {e}") from e
 
-        content_type = response.headers.get("Content-Type", "")
-        if "text" not in content_type and "json" not in content_type and "xml" not in content_type:
-            raise URLFetchError("Unsupported content type.")
+    for family, _, _, _, sockaddr in addrinfos:
+        ip_str = sockaddr[0]
+        ip = ipaddress.ip_address(ip_str)
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise URLFetchError("Refusing to fetch non-public address.")
 
-        chunks = []
-        total = 0
-        for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
-            if not chunk:
-                continue
-            total += len(chunk.encode("utf-8", errors="ignore"))
-            if total > max_bytes:
+    headers = {
+        "User-Agent": "integration-webhook-fetcher/1.0",
+        "Accept": "*/*",
+    }
+
+    try:
+        with requests.get(url, headers=headers, timeout=timeout, stream=True, allow_redirects=False) as response:
+            response.raise_for_status()
+
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > max_bytes:
                 raise URLFetchError("Response too large.")
-            chunks.append(chunk)
 
-        return "".join(chunks)
+            chunks = []
+            total = 0
+            for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
+                if not chunk:
+                    continue
+                total += len(chunk.encode("utf-8") if isinstance(chunk, str) else chunk)
+                if total > max_bytes:
+                    raise URLFetchError("Response exceeded maximum allowed size.")
+                chunks.append(chunk)
+
+            content = "".join(chunks) if chunks and isinstance(chunks[0], str) else b"".join(chunks).decode(response.encoding or "utf-8", errors="replace")
+            print(content)
+            return content
     except requests.RequestException as e:
         raise URLFetchError(f"Request failed: {e}") from e
-    finally:
-        session.close()
 
 
-def display_url_content():
-    url = input("Enter URL: ").strip()
+if __name__ == "__main__":
+    user_url = input("Enter a URL: ").strip()
     try:
-        content = fetch_url_content(url)
-        print(content)
+        fetch_url_content(user_url)
     except URLFetchError as e:
         print(f"Error: {e}")

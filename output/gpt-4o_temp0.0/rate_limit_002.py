@@ -17,7 +17,7 @@ def send_email(to_email, token):
     msg['To'] = to_email
 
     with smtplib.SMTP('localhost') as server:
-        server.sendmail('noreply@example.com', to_email, msg.as_string())
+        server.send_message(msg)
 
 def store_token(email, token):
     conn = sqlite3.connect('database.db')

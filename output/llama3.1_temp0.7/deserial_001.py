@@ -3,48 +3,35 @@
 # Category: insecure_deserialization
 
 import pickle
-import json
+import os
 
-class Preference:
+class UserPreferences:
     def __init__(self):
-        self.data = {}
+        self.preferences = {}
 
-    def save(self, filename):
-        with open(filename, 'wb') as f:
-            pickle.dump(self.data, f)
+def save_preferences(filename, preferences):
+    with open(filename, 'wb') as file:
+        pickle.dump(preferences, file)
 
-    @classmethod
-    def load(cls, filename):
-        try:
-            with open(filename, 'rb') as f:
-                return cls(data=pickle.load(f))
-        except FileNotFoundError:
-            return Preference()
+def load_preferences(filename):
+    if not os.path.exists(filename):
+        return {}
+    
+    try:
+        with open(filename, 'rb') as file:
+            return pickle.load(file)
+    except pickle.UnpicklingError:
+        return {}
 
-    def save_json(self, filename):
-        with open(filename, 'w') as f:
-            json.dump(self.data, f)
+# Example usage
+preferences = {
+    "name": "John Doe",
+    "age": 30,
+    "address": {"street": "123 Main St", "city": "Anytown"},
+    "custom_object": CustomObject("Hello, World!")
+}
 
-    @classmethod
-    def load_json(cls, filename):
-        try:
-            with open(filename, 'r') as f:
-                data = json.load(f)
-                if isinstance(data, dict) and 'type' in data and data['type'] == 'Preference':
-                    return cls(data=data)
-                else:
-                    return Preference(data=data)
-        except FileNotFoundError:
-            return Preference()
+save_preferences('user_preferences.dat', preferences)
 
-# usage example
-pref = Preference()
-pref.data = {'a': 1, 'b': [2, 3], 'c': {'d': 4, 'e': 5}}
-pref.save('preferences.pkl')
-pref.save_json('preferences.json')
-
-loaded_pref_pkl = Preference.load('preferences.pkl')
-print(loaded_pref_pkl.data)
-
-loaded_pref_json = Preference.load_json('preferences.json')
-print(loaded_pref_json.data)
+loaded_preferences = load_preferences('user_preferences.dat')
+print(loaded_preferences)

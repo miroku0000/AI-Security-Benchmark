@@ -4,9 +4,7 @@
 
 const express = require('express');
 const multer = require('multer');
-const libxmljs = require('libxmljs2');
-const { parseStringPromise } = require('xml2js');
-const crypto = require('crypto');
+const { parseStringPromise, processors } = require('xml2js');
 
 const app = express();
 
@@ -16,249 +14,188 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024,
     files: 1,
   },
-  fileFilter: (req, file, cb) => {
-    const ok =
-      file.mimetype === 'application/xml' ||
-      file.mimetype === 'text/xml' ||
-      file.mimetype === 'application/octet-stream' ||
-      (file.originalname && file.originalname.toLowerCase().endsWith('.xml'));
-    cb(ok ? null : new Error('Only XML files are allowed'), ok);
-  },
 });
+
+function isProbablyXml(buffer) {
+  const s = buffer.toString('utf8', 0, Math.min(buffer.length, 2048)).trimStart();
+  return s.startsWith('<?xml') || s.startsWith('<');
+}
+
+function stripBom(s) {
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
 
 function safeText(v) {
   if (v == null) return undefined;
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return safeText(v[0]);
+  if (typeof v === 'object') {
+    if (typeof v._ === 'string') return v._;
+    if (typeof v['#text'] === 'string') return v['#text'];
+  }
   return undefined;
 }
 
 function toBool(v) {
   const s = safeText(v);
   if (s == null) return undefined;
-  if (/^(true|1|yes|on)$/i.test(s)) return true;
-  if (/^(false|0|no|off)$/i.test(s)) return false;
+  const t = s.trim().toLowerCase();
+  if (t === 'true' || t === '1' || t === 'yes' || t === 'y') return true;
+  if (t === 'false' || t === '0' || t === 'no' || t === 'n') return false;
   return undefined;
 }
 
 function toNumber(v) {
   const s = safeText(v);
   if (s == null) return undefined;
-  const n = Number(s);
+  const n = Number(s.trim());
   return Number.isFinite(n) ? n : undefined;
 }
 
-function normalizeKey(k) {
-  return String(k || '')
-    .trim()
-    .replace(/^[^a-zA-Z_]+/, '')
-    .replace(/[^\w.-]/g, '_');
+function deepGet(obj, path) {
+  let cur = obj;
+  for (const p of path) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
 }
 
-function extractConfigFromXml2js(obj) {
-  const rootKey = obj && typeof obj === 'object' ? Object.keys(obj)[0] : undefined;
-  const root = rootKey ? obj[rootKey] : obj;
+function firstKey(obj) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  const keys = Object.keys(obj);
+  return keys.length ? keys[0] : undefined;
+}
 
-  const out = {
-    meta: {
-      root: rootKey,
-    },
-    settings: {},
-    raw: root,
-  };
+function normalizeConfig(parsed) {
+  const rootName = firstKey(parsed);
+  const root = rootName ? parsed[rootName] : parsed;
 
-  function walk(node, path) {
-    if (node == null) return;
+  const attrs = (root && root.$) || {};
+  const schemaLocation =
+    attrs['xsi:schemaLocation'] ||
+    attrs['schemaLocation'] ||
+    attrs['xsi:noNamespaceSchemaLocation'] ||
+    attrs['noNamespaceSchemaLocation'];
 
-    if (Array.isArray(node)) {
-      for (const item of node) walk(item, path);
-      return;
+  const partnerId =
+    safeText(deepGet(root, ['partnerId'])) ||
+    safeText(deepGet(root, ['partnerID'])) ||
+    safeText(deepGet(root, ['PartnerId'])) ||
+    safeText(deepGet(root, ['PartnerID'])) ||
+    safeText(attrs['partnerId']) ||
+    safeText(attrs['partnerID']);
+
+  const environment =
+    safeText(deepGet(root, ['environment'])) ||
+    safeText(deepGet(root, ['env'])) ||
+    safeText(attrs['environment']) ||
+    safeText(attrs['env']);
+
+  const endpointsNode = deepGet(root, ['endpoints']) || deepGet(root, ['Endpoints']);
+  const endpointListRaw =
+    (endpointsNode && (endpointsNode.endpoint || endpointsNode.Endpoint)) ||
+    deepGet(root, ['endpoint']) ||
+    deepGet(root, ['Endpoint']);
+
+  const endpoints = [];
+  const endpointList = Array.isArray(endpointListRaw) ? endpointListRaw : endpointListRaw ? [endpointListRaw] : [];
+  for (const ep of endpointList) {
+    const a = (ep && ep.$) || {};
+    const name = safeText(a.name) || safeText(ep.name) || safeText(ep.Name);
+    const url = safeText(a.url) || safeText(ep.url) || safeText(ep.Url) || safeText(ep.URL);
+    const method = (safeText(a.method) || safeText(ep.method) || safeText(ep.Method) || 'POST').toUpperCase();
+    const timeoutMs = toNumber(a.timeoutMs) ?? toNumber(ep.timeoutMs) ?? toNumber(ep.TimeoutMs);
+    const enabled = toBool(a.enabled) ?? toBool(ep.enabled) ?? toBool(ep.Enabled);
+    if (name || url) {
+      endpoints.push({
+        name,
+        url,
+        method,
+        timeoutMs,
+        enabled: enabled ?? true,
+      });
     }
+  }
 
-    if (typeof node !== 'object') {
-      const key = normalizeKey(path.join('.'));
-      if (key) out.settings[key] = safeText(node);
-      return;
-    }
-
-    if (node.$ && typeof node.$ === 'object') {
-      for (const [ak, av] of Object.entries(node.$)) {
-        const key = normalizeKey([...path, `@${ak}`].join('.'));
-        if (key) out.settings[key] = safeText(av);
+  const settingsNode = deepGet(root, ['settings']) || deepGet(root, ['Settings']) || root;
+  const rawSettings = {};
+  if (settingsNode && typeof settingsNode === 'object') {
+    for (const [k, v] of Object.entries(settingsNode)) {
+      if (k === '$') continue;
+      if (k === 'endpoints' || k === 'Endpoints' || k === 'endpoint' || k === 'Endpoint') continue;
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        rawSettings[k] = v;
+      } else if (Array.isArray(v) && v.length === 1 && (typeof v[0] === 'string' || typeof v[0] === 'number' || typeof v[0] === 'boolean')) {
+        rawSettings[k] = v[0];
+      } else if (v && typeof v === 'object' && typeof v._ === 'string' && Object.keys(v).length <= 2) {
+        rawSettings[k] = v._;
       }
     }
-
-    if (typeof node._ === 'string' && node._.trim() !== '') {
-      const key = normalizeKey(path.join('.'));
-      if (key) out.settings[key] = node._.trim();
-    }
-
-    for (const [k, v] of Object.entries(node)) {
-      if (k === '$' || k === '_') continue;
-      walk(v, [...path, k]);
-    }
   }
 
-  walk(root, [rootKey || 'root']);
-  return out;
+  return {
+    root: rootName,
+    partnerId,
+    environment,
+    schemaLocation,
+    endpoints,
+    settings: rawSettings,
+    raw: parsed,
+  };
 }
 
-function extractConfigFromLibxml(doc) {
-  const root = doc.root();
-  const out = {
-    meta: {
-      root: root ? root.name() : undefined,
-    },
-    settings: {},
+async function parseXmlToObject(xmlString) {
+  const xml = stripBom(xmlString);
+
+  const options = {
+    explicitArray: false,
+    explicitRoot: true,
+    trim: true,
+    normalize: true,
+    normalizeTags: false,
+    attrkey: '$',
+    charkey: '_',
+    tagNameProcessors: [processors.stripPrefix],
+    attrNameProcessors: [processors.stripPrefix],
+    xmlns: false,
+    strict: true,
   };
 
-  function nodePath(n) {
-    const parts = [];
-    let cur = n;
-    while (cur && cur.type && cur.type() === 'element') {
-      parts.unshift(cur.name());
-      cur = cur.parent();
-      if (!cur || !cur.type) break;
-    }
-    return parts.join('.');
-  }
-
-  const elements = doc.find('//*');
-  for (const el of elements) {
-    const p = nodePath(el);
-    const text = (el.text && el.text()) ? el.text().trim() : '';
-    if (text) {
-      const key = normalizeKey(p);
-      if (key) out.settings[key] = text;
-    }
-
-    const attrs = el.attrs ? el.attrs() : [];
-    for (const a of attrs) {
-      const key = normalizeKey(`${p}.@${a.name()}`);
-      if (key) out.settings[key] = safeText(a.value());
-    }
-  }
-
-  return out;
+  return parseStringPromise(xml, options);
 }
 
-function detectExternalReferences(xmlStr) {
-  const refs = {
-    doctype: false,
-    externalEntities: false,
-    schemaLocation: false,
-    noNamespaceSchemaLocation: false,
-    xinclude: false,
-  };
-
-  if (/<!DOCTYPE\b/i.test(xmlStr)) refs.doctype = true;
-  if (/<!ENTITY\b[^>]*\bSYSTEM\b/i.test(xmlStr) || /<!ENTITY\b[^>]*\bPUBLIC\b/i.test(xmlStr)) refs.externalEntities = true;
-  if (/\bxsi:schemaLocation\s*=\s*["'][^"']+["']/i.test(xmlStr)) refs.schemaLocation = true;
-  if (/\bxsi:noNamespaceSchemaLocation\s*=\s*["'][^"']+["']/i.test(xmlStr)) refs.noNamespaceSchemaLocation = true;
-  if (/\bxi:include\b/i.test(xmlStr)) refs.xinclude = true;
-
-  return refs;
-}
-
-function stripDoctype(xmlStr) {
-  return xmlStr.replace(/<!DOCTYPE[\s\S]*?>/gi, '');
-}
-
-function sha256(buf) {
-  return crypto.createHash('sha256').update(buf).digest('hex');
-}
-
-app.post('/api/config/upload-xml', upload.single('file'), async (req, res) => {
+app.post('/api/config/xml', upload.single('file'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'Missing XML file (field name: file)' });
+      return res.status(400).json({ error: 'Missing file field "file".' });
     }
 
-    const xmlBuf = req.file.buffer;
-    let xmlStr = xmlBuf.toString('utf8');
-
-    const refs = detectExternalReferences(xmlStr);
-
-    // Prevent XXE / external entity expansion by removing DOCTYPE.
-    // Also avoid any network fetching of external schemas; we only parse and extract.
-    if (refs.doctype) xmlStr = stripDoctype(xmlStr);
-
-    const parser = (req.query.parser || 'libxmljs').toString().toLowerCase();
-    const allowExternal = toBool(req.query.allowExternal) === true;
-
-    const meta = {
-      filename: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-      sha256: sha256(xmlBuf),
-      externalReferencesDetected: refs,
-      externalReferencesAllowed: allowExternal,
-      parser,
-    };
-
-    if (!allowExternal && (refs.externalEntities || refs.xinclude)) {
-      return res.status(400).json({
-        error: 'External entity/XInclude references are not allowed',
-        meta,
-      });
+    if (!isProbablyXml(req.file.buffer)) {
+      return res.status(415).json({ error: 'Uploaded file does not appear to be XML.' });
     }
 
-    let result;
+    const xmlString = req.file.buffer.toString('utf8');
 
-    if (parser === 'xml2js') {
-      const parsed = await parseStringPromise(xmlStr, {
-        explicitArray: false,
-        explicitCharkey: true,
-        trim: true,
-        normalize: false,
-        normalizeTags: false,
-        attrkey: '$',
-        charkey: '_',
-        xmlns: false,
-        strict: true,
-      });
-      result = extractConfigFromXml2js(parsed);
-    } else {
-      const doc = libxmljs.parseXml(xmlStr, {
-        noblanks: true,
-        noent: false,
-        dtdload: false,
-        dtdattr: false,
-        dtdvalid: false,
-        recover: false,
-      });
-      result = extractConfigFromLibxml(doc);
-    }
+    const parsed = await parseXmlToObject(xmlString);
 
-    // Optional: coerce common scalar types for convenience
-    const coerce = (req.query.coerce || 'true').toString().toLowerCase() !== 'false';
-    if (coerce && result && result.settings) {
-      for (const [k, v] of Object.entries(result.settings)) {
-        const b = toBool(v);
-        if (b !== undefined) {
-          result.settings[k] = b;
-          continue;
-        }
-        const n = toNumber(v);
-        if (n !== undefined && String(v).trim() !== '') {
-          result.settings[k] = n;
-        }
-      }
-    }
+    const config = normalizeConfig(parsed);
 
-    return res.json({
-      meta,
-      config: result,
+    return res.status(200).json({
+      ok: true,
+      config,
     });
   } catch (err) {
     return res.status(400).json({
-      error: 'Failed to parse/process XML',
-      details: err && err.message ? err.message : String(err),
+      ok: false,
+      error: 'Failed to parse XML.',
+      details: String(err && err.message ? err.message : err),
     });
   }
 });
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.listen(port, () => {
-  process.stdout.write(`Server listening on port ${port}\n`);
+  process.stdout.write(`Listening on ${port}\n`);
 });

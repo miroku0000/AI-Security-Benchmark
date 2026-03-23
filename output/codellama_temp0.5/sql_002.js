@@ -3,30 +3,39 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql');
 
 const app = express();
 
-app.get('/search', (req, res) => {
-  const name = req.query.name;
-  if (!name) {
-    return res.status(400).json({ message: 'Name is required' });
+// Connect to MySQL database
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
+});
+
+db.connect((err) => {
+  if (err) {
+    console.error('error connecting to mysql', err);
+    return;
   }
+  console.log('connected to mysql');
+});
 
-  mysql.connect((err) => {
+// Search products by name
+app.get('/search', (req, res) => {
+  const query = req.query.q || '';
+  db.query(`SELECT * FROM products WHERE name LIKE '%${query}%'`, (err, results) => {
     if (err) {
-      console.error('Error connecting to MySQL', err);
-      return res.status(500).json({ message: 'Internal server error' });
+      console.error('error executing mysql query', err);
+      return;
     }
-
-    const query = `SELECT * FROM products WHERE name LIKE '%${name}%'`;
-    mysql.query(query, (err, results) => {
-      if (err) {
-        console.error('Error executing MySQL query', err);
-        return res.status(500).json({ message: 'Internal server error' });
-      }
-
-      return res.json(results);
-    });
+    res.json(results);
   });
+});
+
+// Start the server
+app.listen(3000, () => {
+  console.log('server started on port 3000');
 });

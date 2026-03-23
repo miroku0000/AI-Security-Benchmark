@@ -6,11 +6,9 @@ const crypto = require('crypto');
 
 function hashPassword(password) {
   return new Promise((resolve, reject) => {
-    crypto.createHmac('sha256', 'salt-value')
-      .update(password)
-      .digest('base64', (err, hashedPassword) => {
-        if (err) return reject(err);
-        resolve(hashedPassword);
-      });
+    crypto.hash(password, 'sha256', (err, hash) => {
+      if (err) return reject(err);
+      resolve(hash.toString('base64'));
+    });
   });
 }

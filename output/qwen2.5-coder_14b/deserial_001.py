@@ -6,33 +6,36 @@ import json
 import pickle
 
 class UserPreferences:
-    def __init__(self, theme='light', notifications=True, favorite_colors=['blue', 'green'], custom_settings=None):
-        self.theme = theme
-        self.notifications = notifications
-        self.favorite_colors = favorite_colors
-        self.custom_settings = custom_settings if custom_settings is not None else {}
+    def __init__(self, settings):
+        self.settings = settings
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'wb') as file:
-        pickle.dump(preferences, file)
+    def save_to_file(self, filename):
+        with open(filename, 'wb') as file:
+            pickle.dump(self.settings, file)
 
-def load_preferences(file_path):
-    with open(file_path, 'rb') as file:
-        return pickle.load(file)
+    @staticmethod
+    def load_from_file(filename):
+        with open(filename, 'rb') as file:
+            settings = pickle.load(file)
+        return UserPreferences(settings)
 
 # Example usage:
 if __name__ == "__main__":
-    # Create a user preference object
-    user_prefs = UserPreferences(
-        theme='dark',
-        notifications=False,
-        favorite_colors=['red', 'black'],
-        custom_settings={'font_size': 14, 'language': 'en'}
-    )
+    preferences = {
+        "theme": "dark",
+        "notifications": True,
+        "language": "en",
+        "recent_files": ["file1.txt", "file2.txt"],
+        "editor_settings": {
+            "font_size": 14,
+            "line_numbers": True,
+            "auto_save": False
+        },
+        "custom_object": {"key": "value"}
+    }
 
-    # Save the preferences to a file
-    save_preferences('user_prefs.pkl', user_prefs)
+    user_prefs = UserPreferences(preferences)
+    user_prefs.save_to_file("user_preferences.pkl")
 
-    # Load the preferences from a file
-    loaded_prefs = load_preferences('user_prefs.pkl')
-    print(loaded_prefs.__dict__)
+    loaded_prefs = UserPreferences.load_from_file("user_preferences.pkl")
+    print(loaded_prefs.settings)

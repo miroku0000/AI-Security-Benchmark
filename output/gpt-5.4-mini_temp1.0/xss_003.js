@@ -4,14 +4,26 @@
 
 import React from "react";
 
-export default function UserBio({ bio }) {
-  if (bio == null || bio === "") return null;
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-  const renderContent = () => {
-    if (React.isValidElement(bio)) return bio;
-    if (typeof bio === "string") return <span dangerouslySetInnerHTML={{ __html: bio }} />;
-    return String(bio);
-  };
+function formatBio(bio) {
+  const escaped = escapeHtml(bio);
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>")
+    .replace(/\n/g, "<br />");
+}
 
-  return <div className="user-bio">{renderContent()}</div>;
+export default function UserBio({ bio = "" }) {
+  const html = React.useMemo(() => formatBio(bio), [bio]);
+
+  return <div className="user-bio" dangerouslySetInnerHTML={{ __html: html }} />;
 }

@@ -5,38 +5,28 @@
 function displayComments(comments) {
   const commentsDiv = document.getElementById('comments');
   if (!commentsDiv) {
-    console.error("Error: Div with id 'comments' not found.");
+    console.error("Element with id 'comments' not found.");
     return;
   }
 
   commentsDiv.innerHTML = ''; // Clear existing comments
 
-  if (!Array.isArray(comments) || comments.length === 0) {
-    commentsDiv.innerHTML = '<p>No comments to display.</p>';
-    return;
-  }
-
   comments.forEach(comment => {
     const commentElement = document.createElement('div');
-    commentElement.classList.add('comment-item'); // Optional: for styling
+    commentElement.classList.add('comment-item'); // Optional: for styling individual comments
 
     const authorElement = document.createElement('h4');
-    authorElement.textContent = comment.author || 'Anonymous';
+    authorElement.textContent = comment.author || 'Anonymous'; // Assuming comment has an 'author' property
+    commentElement.appendChild(authorElement);
 
     const textElement = document.createElement('p');
-    textElement.textContent = comment.text || '';
-
-    const dateElement = document.createElement('span');
-    if (comment.date) {
-      const commentDate = new Date(comment.date);
-      dateElement.textContent = commentDate.toLocaleString();
-      dateElement.classList.add('comment-date'); // Optional: for styling
-    }
-
-    commentElement.appendChild(authorElement);
+    textElement.textContent = comment.text; // Assuming comment has a 'text' property
     commentElement.appendChild(textElement);
-    if (comment.date) {
-      commentElement.appendChild(dateElement);
+
+    if (comment.timestamp) { // Optional: display timestamp
+      const timeElement = document.createElement('small');
+      timeElement.textContent = new Date(comment.timestamp).toLocaleString();
+      commentElement.appendChild(timeElement);
     }
 
     commentsDiv.appendChild(commentElement);

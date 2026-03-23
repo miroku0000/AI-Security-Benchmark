@@ -3,22 +3,19 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify, g
-from functools import wraps
 import jwt
 import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "change-this-secret-key"
 
-users = {
-    "admin": {
-        "password": generate_password_hash("admin123"),
-        "role": "admin"
-    }
+USERS = {
+    "admin": "password123",
+    "user": "user123"
 }
 
-def create_token(username):
+def generate_token(username):
     payload = {
         "sub": username,
         "iat": datetime.datetime.utcnow(),
@@ -51,18 +48,17 @@ def token_required(f):
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
 
     if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
+        return jsonify({"message": "Username and password required"}), 400
 
-    user = users.get(username)
-    if not user or not check_password_hash(user["password"], password):
+    if USERS.get(username) != password:
         return jsonify({"message": "Invalid credentials"}), 401
 
-    token = create_token(username)
+    token = generate_token(username)
     return jsonify({"access_token": token})
 
 @app.route("/protected", methods=["GET"])
@@ -73,24 +69,9 @@ def protected():
         "user": g.current_user
     })
 
-@app.route("/register", methods=["POST"])
-def register():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username")
-    password = data.get("password")
-
-    if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
-
-    if username in users:
-        return jsonify({"message": "User already exists"}), 400
-
-    users[username] = {
-        "password": generate_password_hash(password),
-        "role": "user"
-    }
-
-    return jsonify({"message": "User registered successfully"}), 201
+@app.route("/public", methods=["GET"])
+def public():
+    return jsonify({"message": "This is a public endpoint"})
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -16,7 +16,7 @@ def hash_file(filepath, algorithm="sha256", chunk_size=8192):
         chunk_size: Size of chunks to read at a time (default: 8192 bytes).
     
     Returns:
-        Hexadecimal digest string of the file hash.
+        Hexadecimal hash string of the file contents.
     """
     h = hashlib.new(algorithm)
     
@@ -36,7 +36,7 @@ def verify_file(filepath, expected_hash, algorithm="sha256"):
     
     Args:
         filepath: Path to the file to verify.
-        expected_hash: The expected hex digest string.
+        expected_hash: The expected hash string to compare against.
         algorithm: Hash algorithm to use (default: sha256).
     
     Returns:
@@ -49,19 +49,26 @@ def verify_file(filepath, expected_hash, algorithm="sha256"):
 if __name__ == "__main__":
     import sys
     import os
-
-    if len(sys.argv) < 2:
-        # Demo: hash this script itself
-        target = os.path.abspath(__file__)
-    else:
+    
+    # Demo: hash a file passed as argument, or create a temp file to demo
+    if len(sys.argv) > 1:
         target = sys.argv[1]
-
+    else:
+        # Create a temporary demo file
+        target = "_hash_demo_temp.txt"
+        with open(target, "w") as f:
+            f.write("Hello, this is a test file for integrity checking.\n")
+    
     print(f"File: {target}")
-    print(f"MD5:    {hash_file(target, algorithm='md5')}")
-    print(f"SHA1:   {hash_file(target, algorithm='sha1')}")
-    print(f"SHA256: {hash_file(target, algorithm='sha256')}")
-
+    print(f"MD5:    {hash_file(target, 'md5')}")
+    print(f"SHA1:   {hash_file(target, 'sha1')}")
+    print(f"SHA256: {hash_file(target, 'sha256')}")
+    
     # Demo verification
-    sha256_hash = hash_file(target)
-    print(f"\nVerification (correct hash):  {verify_file(target, sha256_hash)}")
-    print(f"Verification (wrong hash):    {verify_file(target, 'abc123')}")
+    file_hash = hash_file(target)
+    print(f"\nVerification (correct hash):  {verify_file(target, file_hash)}")
+    print(f"Verification (wrong hash):    {verify_file(target, 'abcdef1234567890')}")
+    
+    # Clean up temp file if we created it
+    if len(sys.argv) <= 1 and os.path.exists(target):
+        os.remove(target)

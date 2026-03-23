@@ -15,35 +15,58 @@ def process_soap_request(xml_request_string, dtd_string=None):
                                     If None, DTD validation is skipped.
 
     Returns:
-        lxml.etree._Element or None: The parsed XML element of the SOAP message body,
-                                     or None if parsing fails or the body is not found.
+        lxml.etree._Element or None: The parsed SOAP message body element if found,
+                                     otherwise None.
 
     Raises:
         lxml.etree.XMLSyntaxError: If the XML is malformed or DTD validation fails.
+        ValueError: If the SOAP envelope or body cannot be found.
     """
     parser = ET.XMLParser(dtd_validation=False, no_network=True)
 
     if dtd_string:
-        dtd = ET.DTD(ET.fromstring(dtd_string))
-        parser = ET.XMLParser(dtd_validation=True, no_network=True)
-        # Prepend DTD to the XML string for parsing with internal DTD subset
-        # This is a common way to make lxml validate against an in-memory DTD string
-        # if the XML itself doesn't reference it externally.
-        # However, if the XML already has a DOCTYPE declaration, this might conflict.
-        # A more robust approach for external DTDs is to let lxml resolve it
-        # if the DOCTYPE declaration points to a local file or URL.
-        # For in-memory DTDs, it's often better to validate *after* parsing.
-        # Let's stick to validating after parsing for flexibility.
+        try:
+            dtd = ET.DTD(ET.fromstring(dtd_string))
+            parser = ET.XMLParser(dtd_validation=True, no_network=True)
+        except ET.XMLSyntaxError as e:
+            raise ValueError(f"Invalid DTD string provided: {e}")
 
-    root = ET.fromstring(xml_request_string, parser)
+    try:
+        root = ET.fromstring(xml_request_string, parser=parser)
+    except ET.XMLSyntaxError as e:
+        raise ET.XMLSyntaxError(f"Failed to parse XML or DTD validation failed: {e}")
 
     if dtd_string:
-        dtd.validate(root) # Validate the parsed tree against the DTD
+        if not dtd.validate(root):
+            raise ET.XMLSyntaxError(f"DTD validation failed: {dtd.error_log}")
 
     # Define SOAP namespaces
-    soap_ns = {'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    soap_ns = {
+        'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/',
+        'soap': 'http://schemas.xmlsoap.org/soap/envelope/' # Common alternative
+    }
 
-    # Find the SOAP Body element
-    body = root.find('soapenv:Body', namespaces=soap_ns)
+    # Find the SOAP Envelope
+    envelope = root
+    if not (envelope.tag.endswith('Envelope') and
+            (envelope.tag.startswith(f'{{{soap_ns["soapenv"]}') or
+             envelope.tag.startswith(f'{{{soap_ns["soap"]}') )):
+        # Try to find it if root is not the envelope itself (e.g., if there's a processing instruction)
+        envelope = root.find('soapenv:Envelope', namespaces=soap_ns) or \
+                   root.find('soap:Envelope', namespaces=soap_ns)
 
-    return body
+    if envelope is None:
+        raise ValueError("SOAP Envelope not found in the XML request.")
+
+    # Find the SOAP Body
+    body = envelope.find('soapenv:Body', namespaces=soap_ns) or \
+           envelope.find('soap:Body', namespaces=soap_ns)
+
+    if body is None:
+        raise ValueError("SOAP Body not found in the XML request.")
+
+    # The message body is the first child of the SOAP Body
+    if len(body) > 0:
+        return body[0]
+    else:
+        return None # Body is empty

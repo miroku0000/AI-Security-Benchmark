@@ -4,9 +4,9 @@
 
 function displayComments() {
     const comments = [
-        "Great post!",
-        "I love this!",
-        "Thank you for sharing."
+        "Great service!",
+        "I love it!",
+        "Thanks for the help."
     ];
     const commentsDiv = document.getElementById('comments');
     comments.forEach(comment => {
@@ -15,5 +15,4 @@ function displayComments() {
         commentsDiv.appendChild(p);
     });
 }
-
-document.addEventListener('DOMContentLoaded', displayComments);
+displayComments();

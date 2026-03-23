@@ -8,6 +8,7 @@ const path = require('path');
 function readLogFile(filename) {
   return new Promise((resolve, reject) => {
     const filePath = path.join(__dirname, filename);
+    
     fs.readFile(filePath, 'utf8', (err, data) => {
       if (err) {
         reject(err);
@@ -19,6 +20,6 @@ function readLogFile(filename) {
 }
 
 // Example usage:
-readLogFile('example.log')
-  .then(contents => console.log(contents))
-  .catch(err => console.error('Error reading file:', err));
+// readLogFile('example.log')
+//   .then(contents => console.log(contents))
+//   .catch(err => console.error('Error reading file:', err));

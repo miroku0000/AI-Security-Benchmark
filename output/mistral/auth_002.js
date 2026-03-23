@@ -5,7 +5,10 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const salt = crypto.randomBytes(32);
-  const pepper = Buffer.from("someSecretSaltKey", "utf8");
-  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex') + '-' + salt.toString('hex') + '-' + pepper.toString('hex');
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, 'salt', 100000, 64, 'sha512', (err, key) => {
+      if (err) return reject(err);
+      resolve(key.toString('hex'));
+    });
+  });
 }

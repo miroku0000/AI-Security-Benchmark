@@ -7,15 +7,18 @@ import tarfile
 
 def extract_tar_file(tar_path, dest_dir):
     try:
-        with tarfile.open(tar_path, 'r') as tar_ref:
-            tar_ref.extractall(dest_dir)
-        print(f"Tar file {tar_path} extracted successfully to {dest_dir}")
+        with tarfile.open(tar_path, 'r') as tar:
+            tar.extractall(path=dest_dir)
+            print(f"Tar file extracted to {dest_dir}")
     except FileNotFoundError:
-        print("Error: Tar file not found at the specified path.")
-    except NotADirError:
-        print("Error: Destination directory is not a valid path.")
-    except tarfile.TarError as e:
-        print(f"Error extracting tar file: {e}")
+        print("The provided tar path does not exist.")
+    except IsADirectoryError:
+        print("Destination directory already exists. Please provide a new destination.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-# Usage example
-extract_tar_file('path_to_your_tar_file.tar', '/path/to/destination/directory')
+if __name__ == "__main__":
+    tar_path = input("Enter the path to your tar file: ")
+    dest_dir = input("Enter the desired destination directory (default is current directory): ") or "."
+    
+    extract_tar_file(tar_path, dest_dir)

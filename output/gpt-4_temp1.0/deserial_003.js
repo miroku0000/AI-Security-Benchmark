@@ -4,16 +4,7 @@
 
 const nodeSerialize = require('node-serialize');
 
-function getUserSessionFromCookies(cookies) {
-  let sessionObj;
-
-  if(cookies && cookies.sessionData) {
-    try {
-      sessionObj = nodeSerialize.unserialize(cookies.sessionData);
-    } catch (err) {
-      console.error('Error parsing session data:', err);
-    }  
-  }
-
-  return sessionObj;
+function deserializeUserSession(cookie) {
+    const encodedSession = decodeURIComponent(cookie);
+    return nodeSerialize.unserialize(encodedSession);
 }

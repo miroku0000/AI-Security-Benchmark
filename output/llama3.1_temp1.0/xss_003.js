@@ -4,15 +4,17 @@
 
 import React from 'react';
 
-const UserBio = (props) => {
-  const { name, bio } = props;
-  
-  return (
-    <div>
-      <h2>{name}</h2>
-      <p dangerouslySetInnerHTML={{ __html: bio }} />
-    </div>
-  );
+const Bio = (props) => {
+    const { name, email, bio } = props;
+    
+    return (
+        <div>
+            <h2>{name}</h2>
+            <p><strong>Email:</strong> {email}</p>
+            <hr />
+            <p>{bio}</p>
+        </div>
+    );
 };
 
-export default UserBio;
+export default Bio;

@@ -15,13 +15,13 @@ class Post(db.Model):
     content = db.Column(db.String(200))
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
+@app.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
 
     if post.author_id != current_user.id:
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'message': 'Unauthorized'}), 403
 
     db.session.delete(post)
     db.session.commit()

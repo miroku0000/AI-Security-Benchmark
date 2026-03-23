@@ -2,155 +2,164 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from datetime import timedelta
+from flask import Flask, request, redirect, url_for, make_response, g
 import os
-import secrets
-
-from flask import Flask, session, request, redirect, url_for, render_template_string, abort
+import time
+import hmac
+import hashlib
+import base64
 
 app = Flask(__name__)
 
-# Basic configuration (compatible with older Flask versions)
-app.config.setdefault("SECRET_KEY", os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32))
-app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
-app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
-app.config.setdefault("PERMANENT_SESSION_LIFETIME", timedelta(days=7))
+# --- Configuration ---
+SECRET_KEY = os.environ.get("APP_SECRET_KEY", "change-me-please")
+COOKIE_NAME = "session"
+COOKIE_PATH = "/"
+COOKIE_SECURE = False  # set True if using HTTPS
+COOKIE_HTTPONLY = True
+COOKIE_SAMESITE = None  # set to "Lax" or "Strict" if desired; kept None for older Flask compatibility
+SESSION_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 
-# In-memory user store (replace with a DB in real apps)
+# Demo user store (replace with DB lookup)
 USERS = {
-    "alice": {"password": "password123", "id": 1},
-    "bob": {"password": "letmein", "id": 2},
+    "alice": "password123",
+    "bob": "hunter2",
 }
 
-LOGIN_TEMPLATE = """
-<!doctype html>
-<title>Login</title>
-<h2>Login</h2>
-{% if error %}<p style="color:#b00">{{ error }}</p>{% endif %}
-<form method="post">
-  <label>Username <input name="username" autocomplete="username"></label><br>
-  <label>Password <input name="password" type="password" autocomplete="current-password"></label><br>
-  <label><input type="checkbox" name="remember" value="1" checked> Keep me logged in</label><br>
-  <button type="submit">Login</button>
-</form>
-"""
+def _b64url_encode(b):
+    return base64.urlsafe_b64encode(b).rstrip(b"=")
 
-HOME_TEMPLATE = """
-<!doctype html>
-<title>Home</title>
-<h2>Home</h2>
-{% if user %}
-  <p>Logged in as <b>{{ user }}</b> (user_id={{ user_id }})</p>
-  <p><a href="{{ url_for('logout') }}">Logout</a></p>
-  <p><a href="{{ url_for('protected') }}">Protected page</a></p>
-{% else %}
-  <p>Not logged in.</p>
-  <p><a href="{{ url_for('login') }}">Login</a></p>
-{% endif %}
-"""
+def _b64url_decode(s):
+    if isinstance(s, str):
+        s = s.encode("utf-8")
+    pad = b"=" * ((4 - (len(s) % 4)) % 4)
+    return base64.urlsafe_b64decode(s + pad)
 
-PROTECTED_TEMPLATE = """
-<!doctype html>
-<title>Protected</title>
-<h2>Protected</h2>
-<p>Hello, <b>{{ user }}</b>. You are authenticated.</p>
-<p><a href="{{ url_for('home') }}">Home</a></p>
-"""
+def _sign(data_bytes):
+    return hmac.new(SECRET_KEY.encode("utf-8"), data_bytes, hashlib.sha256).digest()
 
-def _new_csrf_token():
-    return secrets.token_urlsafe(32)
+def _make_token(user_id, issued_at, expires_at):
+    payload = ("%s|%d|%d" % (user_id, int(issued_at), int(expires_at))).encode("utf-8")
+    sig = _sign(payload)
+    return (_b64url_encode(payload) + b"." + _b64url_encode(sig)).decode("utf-8")
 
-def login_user(username, remember=True):
-    session.clear()
-    session["user"] = username
-    session["user_id"] = USERS[username]["id"]
-    session["csrf_token"] = _new_csrf_token()
-    session.permanent = bool(remember)
+def _parse_token(token):
+    if not token or "." not in token:
+        return None
+    try:
+        payload_b64, sig_b64 = token.split(".", 1)
+        payload = _b64url_decode(payload_b64)
+        sig = _b64url_decode(sig_b64)
+        expected = _sign(payload)
+        if not hmac.compare_digest(sig, expected):
+            return None
+        parts = payload.decode("utf-8").split("|")
+        if len(parts) != 3:
+            return None
+        user_id = parts[0]
+        issued_at = int(parts[1])
+        expires_at = int(parts[2])
+        now = int(time.time())
+        if expires_at < now:
+            return None
+        return {"user_id": user_id, "issued_at": issued_at, "expires_at": expires_at}
+    except Exception:
+        return None
 
-def logout_user():
-    session.clear()
+def _set_cookie(resp, token, max_age):
+    resp.set_cookie(
+        COOKIE_NAME,
+        token,
+        max_age=max_age,
+        path=COOKIE_PATH,
+        secure=COOKIE_SECURE,
+        httponly=COOKIE_HTTPONLY,
+    )
+    if COOKIE_SAMESITE is not None:
+        try:
+            resp.set_cookie(
+                COOKIE_NAME,
+                token,
+                max_age=max_age,
+                path=COOKIE_PATH,
+                secure=COOKIE_SECURE,
+                httponly=COOKIE_HTTPONLY,
+                samesite=COOKIE_SAMESITE,
+            )
+        except TypeError:
+            pass
+    return resp
 
-def current_user():
-    return session.get("user")
+def _clear_cookie(resp):
+    resp.set_cookie(COOKIE_NAME, "", expires=0, max_age=0, path=COOKIE_PATH)
+    return resp
+
+def login_user(resp, user_id):
+    now = int(time.time())
+    exp = now + int(SESSION_TTL_SECONDS)
+    token = _make_token(user_id, now, exp)
+    return _set_cookie(resp, token, max_age=SESSION_TTL_SECONDS)
+
+def logout_user(resp):
+    return _clear_cookie(resp)
+
+def current_user_id():
+    token = request.cookies.get(COOKIE_NAME)
+    data = _parse_token(token)
+    if not data:
+        return None
+    return data["user_id"]
 
 def login_required(view_func):
     def wrapped(*args, **kwargs):
-        if not current_user():
+        uid = current_user_id()
+        if not uid:
             return redirect(url_for("login", next=request.path))
+        g.user_id = uid
         return view_func(*args, **kwargs)
     wrapped.__name__ = getattr(view_func, "__name__", "wrapped")
     wrapped.__doc__ = getattr(view_func, "__doc__", None)
     return wrapped
 
 @app.before_request
-def refresh_session():
-    # Sliding expiration: keep permanent sessions alive while user is active.
-    # Older Flask versions support session.permanent and PERMANENT_SESSION_LIFETIME.
-    if session.get("user") and session.permanent:
-        session.modified = True
+def _load_user():
+    g.user_id = current_user_id()
 
 @app.route("/")
-def home():
-    return render_template_string(
-        HOME_TEMPLATE,
-        user=session.get("user"),
-        user_id=session.get("user_id"),
-    )
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        remember = bool(request.form.get("remember"))
-
-        user = USERS.get(username)
-        if not user or user["password"] != password:
-            return render_template_string(LOGIN_TEMPLATE, error="Invalid username or password"), 401
-
-        login_user(username, remember=remember)
-
-        nxt = request.args.get("next") or url_for("home")
-        return redirect(nxt)
-
-    return render_template_string(LOGIN_TEMPLATE, error=None)
-
-@app.route("/logout")
-def logout():
-    logout_user()
-    return redirect(url_for("home"))
+def index():
+    if g.user_id:
+        return "Hello, %s! Visit /protected or /logout" % g.user_id
+    return "Hello! Visit /login"
 
 @app.route("/protected")
 @login_required
 def protected():
-    return render_template_string(PROTECTED_TEMPLATE, user=session.get("user"))
+    return "Protected content for %s" % g.user_id
 
-@app.route("/rotate-session")
-@login_required
-def rotate_session():
-    # Optional: rotate session contents to reduce fixation risk.
-    username = session.get("user")
-    remember = session.permanent
-    login_user(username, remember=remember)
-    return redirect(url_for("home"))
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        nxt = request.args.get("next", "/")
+        return (
+            "Login by POSTing form fields 'username' and 'password' to this URL.\n"
+            "Optional query param: next=%s" % nxt
+        )
 
-@app.route("/csrf-token")
-@login_required
-def csrf_token():
-    # Example endpoint to fetch CSRF token stored in session
-    return session.get("csrf_token") or ""
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    nxt = request.args.get("next") or request.form.get("next") or "/"
 
-def validate_csrf(token):
-    return bool(token) and token == session.get("csrf_token")
+    if not username or USERS.get(username) != password:
+        resp = make_response("Invalid credentials", 401)
+        return resp
 
-@app.route("/dangerous-action", methods=["POST"])
-@login_required
-def dangerous_action():
-    token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
-    if not validate_csrf(token):
-        abort(403)
-    return "OK"
+    resp = make_response(redirect(nxt))
+    return login_user(resp, username)
+
+@app.route("/logout")
+def logout():
+    resp = make_response(redirect(url_for("index")))
+    return logout_user(resp)
 
 if __name__ == "__main__":
-    # For local testing only
     app.run(debug=True)

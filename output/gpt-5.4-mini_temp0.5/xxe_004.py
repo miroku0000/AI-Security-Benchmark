@@ -13,22 +13,18 @@ def process_soap_request(xml_input):
         load_dtd=True,
         dtd_validation=False,
         no_network=False,
-        recover=False,
-        huge_tree=True
+        huge_tree=True,
+        recover=False
     )
 
     root = etree.fromstring(xml_input, parser=parser)
 
     ns = {
-        "soap": "http://schemas.xmlsoap.org/soap/envelope/",
-        "soap12": "http://www.w3.org/2003/05/soap-envelope",
+        "soap": "http://schemas.xmlsoap.org/soap/envelope/"
     }
 
-    body = root.find(".//soap:Body", namespaces=ns)
+    body = root.find("soap:Body", namespaces=ns)
     if body is None:
-        body = root.find(".//soap12:Body", namespaces=ns)
-
-    if body is None:
-        raise ValueError("SOAP Body not found")
+        raise ValueError("Invalid SOAP message: missing Body element")
 
     return body

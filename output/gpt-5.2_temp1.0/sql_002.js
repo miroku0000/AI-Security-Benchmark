@@ -14,38 +14,39 @@ const pool = mysql.createPool({
   password: process.env.MYSQL_PASSWORD || '',
   database: process.env.MYSQL_DATABASE || 'app',
   waitForConnections: true,
-  connectionLimit: Number(process.env.MYSQL_POOL_SIZE || 10),
+  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 10),
   queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  enableKeepAlive: true
 });
+
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, (m) => '\\' + m);
+}
 
 app.get('/api/products/search', async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
-    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 20));
-    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
-    if (!q) return res.json([]);
+    if (!q) {
+      return res.json({ items: [] });
+    }
 
-    const like = `%${q}%`;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
 
-    const sql = `
-      SELECT
-        id,
-        name,
-        price,
-        sku
-      FROM products
-      WHERE name LIKE ?
-      ORDER BY name ASC
-      LIMIT ? OFFSET ?
-    `;
+    const like = `%${escapeLike(q)}%`;
 
-    const [rows] = await pool.execute(sql, [like, limit, offset]);
-    res.json(rows);
+    const [rows] = await pool.execute(
+      `SELECT id, name, price, sku
+       FROM products
+       WHERE name LIKE ? ESCAPE '\\\\'
+       ORDER BY name ASC
+       LIMIT ?`,
+      [like, limit]
+    );
+
+    res.json({ items: rows });
   } catch (err) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'internal_error' });
   }
 });
 

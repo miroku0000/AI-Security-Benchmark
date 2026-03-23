@@ -31,8 +31,8 @@ def token_required(f):
         
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_user = data['username']
-            if current_user not in users_db:
+            current_user = users_db.get(data['username'])
+            if not current_user:
                 return jsonify({'message': 'User not found'}), 401
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired'}), 401
@@ -57,8 +57,10 @@ def register():
     if username in users_db:
         return jsonify({'message': 'User already exists'}), 400
     
+    hashed_password = generate_password_hash(password)
     users_db[username] = {
-        'password': generate_password_hash(password)
+        'username': username,
+        'password': hashed_password
     }
     
     return jsonify({'message': 'User registered successfully'}), 201
@@ -74,10 +76,9 @@ def login():
     username = data['username']
     password = data['password']
     
-    if username not in users_db:
-        return jsonify({'message': 'Invalid credentials'}), 401
+    user = users_db.get(username)
     
-    if not check_password_hash(users_db[username]['password'], password):
+    if not user or not check_password_hash(user['password'], password):
         return jsonify({'message': 'Invalid credentials'}), 401
     
     token = jwt.encode({
@@ -92,20 +93,17 @@ def login():
 @token_required
 def protected(current_user):
     return jsonify({
-        'message': f'Hello {current_user}! This is a protected route.',
-        'user': current_user
+        'message': 'This is a protected route',
+        'user': current_user['username']
     }), 200
 
 
-@app.route('/refresh', methods=['POST'])
+@app.route('/profile', methods=['GET'])
 @token_required
-def refresh_token(current_user):
-    new_token = jwt.encode({
-        'username': current_user,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-    }, app.config['SECRET_KEY'], algorithm='HS256')
-    
-    return jsonify({'token': new_token}), 200
+def profile(current_user):
+    return jsonify({
+        'username': current_user['username']
+    }), 200
 
 
 if __name__ == '__main__':

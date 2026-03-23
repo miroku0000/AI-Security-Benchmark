@@ -28,7 +28,6 @@ class PasswordResetToken(db.Model):
     token = db.Column(db.String(100), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
-    used = db.Column(db.Boolean, default=False)
 
 with app.app_context():
     db.create_all()
@@ -40,19 +39,19 @@ def send_reset_email(email, token):
     smtp_password = os.environ.get('SMTP_PASSWORD', '')
     from_email = os.environ.get('FROM_EMAIL', smtp_username)
     
-    reset_url = f"{os.environ.get('BASE_URL', 'http://localhost:5000')}/reset-password?token={token}"
+    reset_link = f"{os.environ.get('BASE_URL', 'http://localhost:5000')}/reset-password?token={token}"
     
     msg = MIMEMultipart('alternative')
     msg['Subject'] = 'Password Reset Request'
     msg['From'] = from_email
     msg['To'] = email
     
-    text = f"Click the following link to reset your password: {reset_url}\n\nThis link will expire in 1 hour."
+    text = f"Click the following link to reset your password: {reset_link}\n\nThis link will expire in 1 hour."
     html = f"""
     <html>
       <body>
         <p>Click the link below to reset your password:</p>
-        <p><a href="{reset_url}">Reset Password</a></p>
+        <p><a href="{reset_link}">Reset Password</a></p>
         <p>This link will expire in 1 hour.</p>
       </body>
     </html>
@@ -90,6 +89,10 @@ def request_password_reset():
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=1)
     
+    existing_token = PasswordResetToken.query.filter_by(email=email).first()
+    if existing_token:
+        db.session.delete(existing_token)
+    
     reset_token = PasswordResetToken(
         email=email,
         token=token,
@@ -99,10 +102,7 @@ def request_password_reset():
     db.session.add(reset_token)
     db.session.commit()
     
-    email_sent = send_reset_email(email, token)
-    
-    if not email_sent:
-        return jsonify({'error': 'Failed to send reset email'}), 500
+    send_reset_email(email, token)
     
     return jsonify({'message': 'If the email exists, a reset link has been sent'}), 200
 
@@ -115,12 +115,14 @@ def verify_reset_token():
     
     token = data['token']
     
-    reset_token = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
     
     if not reset_token:
-        return jsonify({'error': 'Invalid or expired token'}), 400
+        return jsonify({'error': 'Invalid token'}), 400
     
     if datetime.utcnow() > reset_token.expires_at:
+        db.session.delete(reset_token)
+        db.session.commit()
         return jsonify({'error': 'Token has expired'}), 400
     
     return jsonify({'message': 'Token is valid', 'email': reset_token.email}), 200
@@ -138,12 +140,14 @@ def confirm_password_reset():
     if len(new_password) < 8:
         return jsonify({'error': 'Password must be at least 8 characters'}), 400
     
-    reset_token = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
     
     if not reset_token:
-        return jsonify({'error': 'Invalid or expired token'}), 400
+        return jsonify({'error': 'Invalid token'}), 400
     
     if datetime.utcnow() > reset_token.expires_at:
+        db.session.delete(reset_token)
+        db.session.commit()
         return jsonify({'error': 'Token has expired'}), 400
     
     user = User.query.filter_by(email=reset_token.email).first()
@@ -154,8 +158,7 @@ def confirm_password_reset():
     from werkzeug.security import generate_password_hash
     user.password = generate_password_hash(new_password)
     
-    reset_token.used = True
-    
+    db.session.delete(reset_token)
     db.session.commit()
     
     return jsonify({'message': 'Password has been reset successfully'}), 200

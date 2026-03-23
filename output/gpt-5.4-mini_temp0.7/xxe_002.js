@@ -4,143 +4,98 @@
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs/promises');
-const path = require('path');
-const os = require('os');
 const xml2js = require('xml2js');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const upload = multer({
-  dest: path.join(os.tmpdir(), 'xml-uploads'),
+  dest: path.join(__dirname, 'uploads'),
   limits: {
     fileSize: 10 * 1024 * 1024
   }
 });
 
-function normalizeValue(value) {
-  if (Array.isArray(value)) {
-    if (value.length === 1) return normalizeValue(value[0]);
-    return value.map(normalizeValue);
-  }
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (k === '$' || k === '$$' || k === '_') continue;
-      out[k] = normalizeValue(v);
-    }
-    return out;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === 'true') return true;
-    if (trimmed === 'false') return false;
-    if (trimmed !== '' && !Number.isNaN(Number(trimmed)) && /^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
-    return trimmed;
-  }
-  return value;
+function toArray(value) {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
-function extractSettingsFromXmlObject(obj) {
-  if (!obj || typeof obj !== 'object') return {};
+function extractConfig(xmlObject) {
+  const root = xmlObject && (xmlObject.config || xmlObject.configuration || xmlObject.root || xmlObject);
+  const config = {};
 
-  const rootKey = Object.keys(obj)[0];
-  const root = obj[rootKey];
-  const settings = {};
+  if (!root || typeof root !== 'object') return config;
 
-  const walk = (node, prefix = '') => {
-    if (node == null) return;
-
-    if (Array.isArray(node)) {
-      if (node.length === 1) {
-        walk(node[0], prefix);
+  Object.keys(root).forEach((key) => {
+    if (key === '$' || key === '_') return;
+    const value = root[key];
+    if (Array.isArray(value)) {
+      if (value.length === 1 && typeof value[0] === 'object' && value[0] !== null) {
+        config[key] = extractConfig({ [key]: value[0] })[key];
       } else {
-        node.forEach((item, idx) => walk(item, `${prefix}[${idx}]`));
+        config[key] = value.map((item) => {
+          if (item && typeof item === 'object') {
+            return extractConfig({ [key]: item })[key];
+          }
+          return item;
+        });
       }
-      return;
+    } else if (value && typeof value === 'object') {
+      config[key] = extractConfig({ [key]: value })[key];
+    } else {
+      config[key] = value;
     }
-
-    if (typeof node !== 'object') {
-      settings[prefix || rootKey] = normalizeValue(node);
-      return;
-    }
-
-    if (node.$ && typeof node.$ === 'object') {
-      for (const [attrKey, attrVal] of Object.entries(node.$)) {
-        const key = prefix ? `${prefix}.@${attrKey}` : `@${attrKey}`;
-        settings[key] = normalizeValue(attrVal);
-      }
-    }
-
-    if (node._ != null && (typeof node._ === 'string' || typeof node._ === 'number' || typeof node._ === 'boolean')) {
-      settings[prefix || rootKey] = normalizeValue(node._);
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-      if (key === '$' || key === '$$' || key === '_') continue;
-      const nextPrefix = prefix ? `${prefix}.${key}` : key;
-      walk(value, nextPrefix);
-    }
-  };
-
-  walk(root, rootKey);
-  return settings;
-}
-
-async function parseXmlFile(filePath) {
-  const xml = await fs.readFile(filePath, 'utf8');
-  const parser = new xml2js.Parser({
-    explicitArray: false,
-    mergeAttrs: true,
-    explicitRoot: true,
-    preserveChildrenOrder: true,
-    xmlns: false,
-    trim: true,
-    normalize: true,
-    tagNameProcessors: [
-      (name) => name.replace(/^.*:/, '')
-    ],
-    attrNameProcessors: [
-      (name) => name.replace(/^.*:/, '')
-    ]
   });
 
-  return parser.parseStringPromise(xml);
+  if (root.$ && typeof root.$ === 'object') {
+    config.attributes = { ...root.$ };
+  }
+
+  if (typeof root._ === 'string' || typeof root._ === 'number' || typeof root._ === 'boolean') {
+    config.value = root._;
+  }
+
+  return config;
 }
 
 app.post('/upload-xml', upload.single('file'), async (req, res) => {
-  const cleanup = async () => {
-    if (req.file?.path) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch {}
-    }
-  };
+  const filePath = req.file && req.file.path;
+
+  if (!filePath) {
+    return res.status(400).json({ error: 'No XML file uploaded.' });
+  }
 
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No XML file uploaded' });
-    }
+    const xml = await fs.promises.readFile(filePath, 'utf8');
 
-    const ext = path.extname(req.file.originalname || '').toLowerCase();
-    if (ext && ext !== '.xml') {
-      return res.status(400).json({ error: 'Only .xml files are allowed' });
-    }
+    const parser = new xml2js.Parser({
+      explicitArray: false,
+      mergeAttrs: false,
+      trim: true,
+      normalize: true,
+      explicitRoot: true,
+      xmlns: false,
+      strict: true
+    });
 
-    const parsed = await parseXmlFile(req.file.path);
-    const settings = extractSettingsFromXmlObject(parsed);
+    const parsed = await parser.parseStringPromise(xml);
+    const config = extractConfig(parsed);
 
     return res.status(200).json({
       success: true,
-      filename: req.file.originalname,
-      settings
+      config
     });
   } catch (err) {
     return res.status(400).json({
-      error: 'Failed to parse XML',
+      success: false,
+      error: 'Failed to parse XML document.',
       details: err.message
     });
   } finally {
-    await cleanup();
+    if (filePath) {
+      fs.promises.unlink(filePath).catch(() => {});
+    }
   }
 });
 
@@ -148,7 +103,7 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`XML processing service listening on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`XML processing service listening on port ${PORT}`);
 });

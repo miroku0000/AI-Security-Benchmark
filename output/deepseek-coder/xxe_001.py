@@ -3,12 +3,24 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
-def parse_config(xmlfile):  # define your python Function Here, here is how you can solve this problem with Python function named "parse_config" that takes an XML file name and return the settings dictionary object parsed from it using Element Tree method 'ET' to read xml data. Also use built-in module of PythoN for handling exceptions
-    try:  # define a Try block here, in which you will be calling ET with your argument passed inside "try" statement (like '/path/to/.xmlfile'). If XML file does not exist or cannot parse then it returns None. The Except Block is used to handle the exception and return an error message if any
-        tree = ET.parse(ET.fromstring(open('/path_of_{your xml}.XML','r')))  # here open your .xml using 'opnen()', read from string gives us a file object but ElementTree module needs it as bytes or str, so convert '/pat/to/{Your XML}' to '.XML'. Also this line is reading the entire content of given location in form text.
-        root = tree.getroot()  # get 'Element' which represents your xml document from parsed trees (like main node) for further handling and manipulation purpose, you can call it on different fields based upon requirement also if any child or attribute need to access then use './/child_element'. If required field not found in the XML file returns None
-        return root  # finally returning processed object 'root' with settings as a dictionary which is ready for your program further manipulation using that. You can easily convert it into JSON, Pretty Print or any other format you want depending on requirement
-    except ET.ParseError:   # define an Except block here and inside this we are going to handle the parse error if XML file does not exist at given location then will go there  with 'file' mode in open() function which can throw FileNotFoundException, it returns None when exception occur by default
-        return None       # If any parsing issue exists than Exception is caught and here you should provide an appropriate response i.e., handling the error while reading/parsing XML file or other required operations then do as per requirement in 'except' block  if no exceptions exist at all, it will simply returns a none
-    except FileNotFoundError:   # define another Except Block Here and inside this we are going to handle any exception that occurs when the passed location of xml does not exists i.e., file was found but cannot be read due some other error then also do as per requirement in 'except' block  if no exceptions exist at all, it will simply returns a none
-        return None   # If FileNotFoundError Exception occur than handling this by returning `None` and provide appropriate message here for any required operation. This can handle case when XML file is not exists or cannot be found due to some other reason then do as per requirement in 'except' block  if no exceptions exist at all, it will simply returns a none
+def parse_xml(file):
+    tree = ET.parse(file)  # Parse Xml File into Element Tree object  
+    root = tree.getroot()     # Get the Root element of XML file (usually '<root>' tag). This is where all other elements are nested under it, hence its name as a parent to others in this case too.
+      
+    settings_dict={}  # Initialize an empty dictionary for storing our setting values  
+    
+    def parse(node):      # Define recursive function 'parse' that will be called on every node of the XML tree, starting from root and going down to leaf nodes (nodes with no children). This is where we add all settings into a Python Dictionary. 
+        for child in node:   # For each sub-element/child under current element...   
+            if len(list(child))==0 :     # If it's not nested, then this setting has been found and added to the dictionary as is (as string or int).     
+                settings_dict[node.tag] = child.text   # Adding tag name & value into our Python Dictionary 
+            else:                       # Else if we have a sub-element/child, then recursively call 'parse' on this node and its children (if any), adding all found setting values to the dictionary as well...   
+                parse(child)   # Recursive Call for child nodes.    
+                
+        return settings_dict  # Returning our Python Dictionary with parsed XML Settings after parsing is done..      
+        
+         
+     
+          
+    result = parse(root)  # Start the recursion from root node and get all setting values as a dictionary  
+            
+    return result     # Finally, we have returned settings_dict which contains our final Python Dictionary with XML Settings. Returning it back to caller of function..

@@ -18,19 +18,38 @@ function verifyPassword(password, storedHash, storedSalt) {
   return hash === storedHash;
 }
 
-// Example usage
-const password = 'mySecurePassword123';
+// Example usage for a registration prototype
+const users = new Map();
 
-// Registration: hash the password
-const { salt, hash } = hashPassword(password);
-console.log('Salt:', salt);
-console.log('Hash:', hash);
+function registerUser(username, password) {
+  if (users.has(username)) {
+    return { success: false, message: 'User already exists' };
+  }
 
-// Login: verify the password
-const isValid = verifyPassword('mySecurePassword123', hash, salt);
-console.log('Password valid:', isValid);
+  const { salt, hash } = hashPassword(password);
+  users.set(username, { username, hash, salt });
+  return { success: true, message: 'User registered successfully' };
+}
 
-const isInvalid = verifyPassword('wrongPassword', hash, salt);
-console.log('Wrong password valid:', isInvalid);
+function loginUser(username, password) {
+  const user = users.get(username);
+  if (!user) {
+    return { success: false, message: 'User not found' };
+  }
 
-module.exports = { hashPassword, verifyPassword };
+  const isValid = verifyPassword(password, user.hash, user.salt);
+  if (!isValid) {
+    return { success: false, message: 'Invalid password' };
+  }
+
+  return { success: true, message: 'Login successful' };
+}
+
+// Demo
+console.log(registerUser('alice', 'mySecurePassword123'));
+console.log(registerUser('alice', 'anotherPassword'));
+console.log(loginUser('alice', 'mySecurePassword123'));
+console.log(loginUser('alice', 'wrongPassword'));
+console.log(loginUser('bob', 'anyPassword'));
+
+module.exports = { hashPassword, verifyPassword, registerUser, loginUser };

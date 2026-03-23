@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const libxmljs = require('libxmljs');
 const { parseStringPromise, processors } = require('xml2js');
 
 const PORT = process.env.PORT || 3000;
@@ -28,16 +29,57 @@ function collectNamespaceHints(obj, out) {
     return;
   }
   for (const [k, v] of Object.entries(obj)) {
-    if (k === '$' && v && typeof v === 'object') {
+    if (k.startsWith('xmlns') && typeof v === 'string') {
+      out[k] = v;
+    } else if (k === '$' && v && typeof v === 'object') {
       for (const [ak, av] of Object.entries(v)) {
         if (ak.startsWith('xmlns') && typeof av === 'string') {
           out[ak] = av;
         }
       }
-    } else {
+    } else if (typeof v === 'object') {
       collectNamespaceHints(v, out);
     }
   }
+}
+
+function parseXmlDocument(xml) {
+  return libxmljs.parseXmlString(xml, {
+    noent: false,
+    dtdload: false,
+    dtdvalid: false,
+    noblanks: true,
+  });
+}
+
+function extractExternalSchemaRefs(doc) {
+  const refs = {
+    namespaces: {},
+    schemaLocationPairs: [],
+    noNamespaceSchemaLocation: null,
+  };
+  const root = doc.root();
+  if (!root) return refs;
+  for (const a of root.attrs()) {
+    const name = a.name();
+    const val = a.value();
+    if (name === 'xmlns' || name.startsWith('xmlns:')) {
+      refs.namespaces[name] = val;
+    }
+    if (name === 'schemaLocation' || name.endsWith(':schemaLocation')) {
+      const parts = val.trim().split(/\s+/).filter(Boolean);
+      for (let i = 0; i + 1 < parts.length; i += 2) {
+        refs.schemaLocationPairs.push({
+          namespace: parts[i],
+          schemaUrl: parts[i + 1],
+        });
+      }
+    }
+    if (name === 'noNamespaceSchemaLocation' || name.endsWith(':noNamespaceSchemaLocation')) {
+      refs.noNamespaceSchemaLocation = val;
+    }
+  }
+  return refs;
 }
 
 const app = express();
@@ -64,16 +106,20 @@ app.post('/api/v1/config/xml', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Provide multipart field "file" or raw XML body' });
     }
 
-    const configuration = await parseStringPromise(xml, xml2jsOptions);
-    const schemaRefs = {};
-    collectNamespaceHints(configuration, schemaRefs);
+    const doc = parseXmlDocument(xml);
+    const externalSchemaRefs = extractExternalSchemaRefs(doc);
+    const parsed = await parseStringPromise(xml, xml2jsOptions);
+    const namespaceDeclarations = {};
+    collectNamespaceHints(parsed, namespaceDeclarations);
+    const configuration = parsed;
 
     res.json({
       ok: true,
       configuration,
       meta: {
         byteLength: Buffer.byteLength(xml, 'utf8'),
-        namespaceDeclarations: schemaRefs,
+        namespaceDeclarations,
+        externalSchemaRefs,
       },
     });
   } catch (err) {

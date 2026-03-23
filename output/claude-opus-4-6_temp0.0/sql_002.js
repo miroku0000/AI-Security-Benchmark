@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -28,7 +28,7 @@ app.get('/api/products/search', async (req, res) => {
   const trimmedName = name.trim();
 
   if (trimmedName.length > 200) {
-    return res.status(400).json({ error: 'Search term must be 200 characters or fewer.' });
+    return res.status(400).json({ error: 'Search term is too long. Maximum 200 characters allowed.' });
   }
 
   let connection;
@@ -36,7 +36,7 @@ app.get('/api/products/search', async (req, res) => {
     connection = await pool.getConnection();
 
     const [rows] = await connection.execute(
-      'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT 50',
+      'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? LIMIT 50',
       [`%${trimmedName}%`]
     );
 
@@ -55,8 +55,12 @@ app.get('/api/products/search', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Product search API listening on port ${port}`);
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found.' });
+});
+
+app.listen(PORT, () => {
+  console.log(`Product search API running on port ${PORT}`);
 });
 
 module.exports = app;

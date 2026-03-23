@@ -15,27 +15,29 @@ def dashboard():
     user_status = request.args.get('status', 'Online')
 
     # Sanitize inputs to prevent XSS, but allow specific formatting tags
-    # This is a basic example; for production, consider a more robust markdown/HTML sanitizer
+    # This is a basic example; a more robust solution might use a dedicated markdown parser
+    # or a more sophisticated HTML sanitizer.
     def sanitize_and_format(text):
-        # Escape HTML entities first
+        # Escape all HTML characters first
         escaped_text = cgi.escape(text)
-        # Then replace allowed formatting
+        # Then, replace allowed tags. This order is crucial to prevent injection.
+        # Example: if text is "<b>hello</b><script>alert('xss')</script>",
+        # cgi.escape makes it "&lt;b&gt;hello&lt;/b&gt;&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;"
+        # Then, we replace "&lt;b&gt;" with "<b>", etc.
         escaped_text = escaped_text.replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>')
         escaped_text = escaped_text.replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
-        escaped_text = escaped_text.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
         escaped_text = escaped_text.replace('&lt;strong&gt;', '<strong>').replace('&lt;/strong&gt;', '</strong>')
+        escaped_text = escaped_text.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
         return escaped_text
 
-    safe_user_name = cgi.escape(user_name)
-    safe_user_bio = sanitize_and_format(user_bio)
-    safe_user_location = cgi.escape(user_location)
-    safe_user_status = sanitize_and_format(user_status)
+    safe_bio = sanitize_and_format(user_bio)
+    safe_status = sanitize_and_format(user_status)
 
     return render_template('dashboard.html',
-                           name=safe_user_name,
-                           bio=safe_user_bio,
-                           location=safe_user_location,
-                           status=safe_user_status)
+                           name=user_name,
+                           bio=safe_bio,
+                           location=user_location,
+                           status=safe_status)
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -50,7 +52,7 @@ if __name__ == '__main__':
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
+            background-color: #f0f2f5;
             margin: 0;
             padding: 20px;
             display: flex;
@@ -62,9 +64,9 @@ if __name__ == '__main__':
         .dashboard-container {
             background-color: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
             padding: 40px;
-            max-width: 700px;
+            max-width: 600px;
             width: 100%;
             text-align: center;
             animation: fadeIn 0.8s ease-out;
@@ -77,79 +79,75 @@ if __name__ == '__main__':
             color: #2c3e50;
             margin-bottom: 20px;
             font-size: 2.5em;
-            font-weight: 600;
+            font-weight: 700;
         }
-        .profile-section {
+        .user-info {
             margin-top: 30px;
-            padding: 25px;
-            background-color: #e8f5e9; /* Light green */
-            border-radius: 8px;
             text-align: left;
-            border-left: 5px solid #4CAF50; /* Green accent */
+            border-top: 1px solid #eee;
+            padding-top: 30px;
         }
-        .profile-section p {
-            margin: 10px 0;
-            line-height: 1.6;
+        .info-item {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .info-item strong {
+            color: #555;
             font-size: 1.1em;
-        }
-        .profile-section strong {
-            color: #2c3e50;
             min-width: 100px;
-            display: inline-block;
+            margin-right: 15px;
+            flex-shrink: 0;
         }
-        .profile-section .label {
-            font-weight: 600;
-            color: #555;
-            margin-right: 10px;
-        }
-        .status-message {
-            margin-top: 25px;
-            padding: 15px 20px;
-            background-color: #fff3e0; /* Light orange */
-            border-radius: 8px;
-            border-left: 5px solid #FF9800; /* Orange accent */
-            font-style: italic;
-            color: #666;
+        .info-item span {
             font-size: 1.1em;
-            text-align: left;
+            color: #666;
+            line-height: 1.6;
+            flex-grow: 1;
         }
-        .status-message .label {
-            font-weight: 600;
-            color: #555;
-            margin-right: 10px;
-        }
-        .footer-note {
-            margin-top: 40px;
-            font-size: 0.9em;
-            color: #888;
-        }
-        .footer-note a {
+        .info-item span.status-message {
+            font-style: italic;
             color: #007bff;
-            text-decoration: none;
         }
-        .footer-note a:hover {
-            text-decoration: underline;
+        .info-item span.bio-text {
+            white-space: pre-wrap; /* Preserves formatting like line breaks */
+        }
+        .welcome-message {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .welcome-message span {
+            color: #007bff;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
-        <h1>Welcome, {{ name }}!</h1>
-
-        <div class="profile-section">
-            <p><span class="label">Bio:</span> <span id="user-bio">{{ bio | safe }}</span></p>
-            <p><span class="label">Location:</span> <span id="user-location">{{ location }}</span></p>
+        <div class="welcome-message">
+            Welcome, <span>{{ name }}</span>!
         </div>
+        <h1>Your Dashboard</h1>
 
-        <div class="status-message">
-            <p><span class="label">Status:</span> <span id="user-status">{{ status | safe }}</span></p>
+        <div class="user-info">
+            <div class="info-item">
+                <strong>Name:</strong>
+                <span>{{ name }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Bio:</strong>
+                <span class="bio-text">{{ bio | safe }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Location:</strong>
+                <span>{{ location }}</span>
+            </div>
+            <div class="info-item">
+                <strong>Status:</strong>
+                <span class="status-message">{{ status | safe }}</span>
+            </div>
         </div>
-
-        <p class="footer-note">
-            This is your personalized dashboard. Information is loaded from query parameters.
-            <br>Example URL:
-            <br><code>/dashboard?name=John%20Doe&bio=A%20<b>passionate</b>%20developer%20from%20<i>Earth</i>.&location=San%20Francisco&status=Currently%20<i>coding</i>%20something%20<b>awesome</b>!</code>
-        </p>
     </div>
 </body>
 </html>

@@ -11,40 +11,52 @@ import os
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
-app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get("EMAIL_USER")
-app.config['MAIL_PASSWORD'] = os.environ.get("EMAIL_PASS")
+app.config['MAIL_USERNAME'] = os.environ.get("GMAIL_USER")
+app.config['MAIL_PASSWORD'] = os.environ.get("GMAIL_PASS")
 mail = Mail(app)
 db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(30))
+    reset_token = db.Column(db.String(32))
 
 db.create_all()
 
-@app.route('/api/reset', methods=['POST'])
+@app.route('/reset_password', methods=['POST'])
 def password_reset():
-    email = request.json.get('email')
+    data = request.get_json()
+    email = data.get('email')
     user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'error': 'User not found.'}), 404
 
-    token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(30))
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=32))
     user.reset_token = token
     db.session.commit()
 
-    msg = MailMessage()
-    msg.sender = app.config['MAIL_USERNAME']
-    msg.subject = 'Password Reset'
-    msg.body = f"Your password reset token is {token}"
-    msg.recipients = [user.email]
+    msg = MailMessage('Password Reset', email)
+    msg.html = f'<a href="{url_for("reset_password", token=user.reset_token)}">Reset Password</a>'
     mail.send(msg)
 
-    return jsonify({'message': 'Reset link sent.'})
+    return jsonify({'message': 'Reset link sent'})
 
-if __name__ == "__main__":
+@app.route('/reset_password/<token>', methods=['GET'])
+def reset_password(token):
+    user = User.query.filter_by(reset_token=token).first()
+
+    if not user:
+        return jsonify({'error': 'Invalid or expired token'}), 400
+
+    # Here you would implement the password reset logic
+    user.reset_token = None
+    db.session.commit()
+
+    return jsonify({'message': 'Password successfully reset'})
+
+if __name__ == '__main__':
     app.run(debug=True)

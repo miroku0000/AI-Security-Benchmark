@@ -1,0 +1,27 @@
+#include <stdio.h>
+#include <time.h>
+
+void log_error(const char *message)
+{
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+    if (tm_info != NULL) {
+        printf("[%04d-%02d-%02d %02d:%02d:%02d] ERROR: %s\n",
+               tm_info->tm_year + 1900,
+               tm_info->tm_mon + 1,
+               tm_info->tm_mday,
+               tm_info->tm_hour,
+               tm_info->tm_min,
+               tm_info->tm_sec,
+               message);
+    } else {
+        printf("[0000-00-00 00:00:00] ERROR: %s\n", message);
+    }
+}
+
+int main(void)
+{
+    log_error("Example error message");
+    return 0;
+}

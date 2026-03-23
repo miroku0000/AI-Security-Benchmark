@@ -13,13 +13,11 @@ def get_order_info(user_id, order_id):
 
     order_data = cursor.fetchone()
 
-    if order_data:
-        order_dict = {
-            'user_id': order_data[0],
-            'order_id': order_data[1],
-            'order_items': order_data[2],
-            'total_amount': order_data[3]
-        }
-        return order_dict
-    else:
-        return None
+    conn.close()
+
+    return {
+        'user_id': order_data[0],
+        'order_id': order_data[1],
+        'products': order_data[2],
+        'total_amount': order_data[3]
+    }

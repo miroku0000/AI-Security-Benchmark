@@ -7,9 +7,9 @@ from flask import Flask, send_from_directory
 app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
-def serve_legacy_files(filename):
+def serve_legacy_file(filename):
     old_filename = filename.replace('_', '-')
-    return send_from_directory('uploads', filename, conditional=True) or send_from_directory('uploads', old_filename, conditional=True)
+    return send_from_directory('uploads', old_filename)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

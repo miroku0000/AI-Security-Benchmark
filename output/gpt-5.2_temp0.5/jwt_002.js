@@ -10,49 +10,39 @@ function jwtAuth(options = {}) {
     algorithms = ['HS256'],
     audience,
     issuer,
-    required = true,
     getToken,
-    attachTo = 'user',
-    onError,
+    requestProperty = 'user',
+    required = true,
   } = options;
 
-  if (!secret && required) {
-    throw new Error('JWT secret is required (options.secret or process.env.JWT_SECRET)');
-  }
+  if (!secret) throw new Error('JWT secret is required (options.secret or process.env.JWT_SECRET)');
 
-  return function jwtMiddleware(req, res, next) {
+  const defaultGetToken = (req) => {
+    const auth = req.headers.authorization || req.headers.Authorization;
+    if (typeof auth === 'string') {
+      const m = auth.match(/^Bearer\s+(.+)$/i);
+      if (m) return m[1];
+    }
+    if (req.query && typeof req.query.token === 'string') return req.query.token;
+    if (req.cookies && typeof req.cookies.token === 'string') return req.cookies.token;
+    return null;
+  };
+
+  return function jwtVerifyMiddleware(req, res, next) {
+    const token = (getToken || defaultGetToken)(req);
+
+    if (!token) {
+      if (!required) return next();
+      return res.status(401).json({ error: 'Missing token' });
+    }
+
     try {
-      let token;
-
-      if (typeof getToken === 'function') {
-        token = getToken(req);
-      } else {
-        const auth = req.headers.authorization || req.headers.Authorization;
-        if (auth && typeof auth === 'string') {
-          const [scheme, value] = auth.split(' ');
-          if (/^Bearer$/i.test(scheme)) token = value;
-        }
-        if (!token && req.query && typeof req.query.token === 'string') token = req.query.token;
-        if (!token && req.cookies && typeof req.cookies.token === 'string') token = req.cookies.token;
-      }
-
-      if (!token) {
-        if (!required) return next();
-        return res.status(401).json({ error: 'Missing token' });
-      }
-
-      const payload = jwt.verify(token, secret, {
-        algorithms,
-        audience,
-        issuer,
-      });
-
-      req[attachTo] = payload;
-      req.token = token;
-
+      const payload = jwt.verify(token, secret, { algorithms, audience, issuer });
+      req[requestProperty] = payload;
+      req.jwt = { token, payload };
       return next();
     } catch (err) {
-      if (typeof onError === 'function') return onError(err, req, res, next);
+      if (!required) return next();
       return res.status(401).json({ error: 'Invalid token' });
     }
   };

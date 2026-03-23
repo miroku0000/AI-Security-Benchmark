@@ -3,56 +3,60 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
-from collections import defaultdict
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Optional, Union
 
-def parse_xml_config(path: str, *, encoding: Optional[str] = None) -> Dict[str, Any]:
-    def merge_dict(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
-        for k, v in b.items():
-            if k in a:
-                if isinstance(a[k], list):
-                    a[k].append(v)
-                else:
-                    a[k] = [a[k], v]
-            else:
-                a[k] = v
-        return a
+def parse_xml_config(path: str, *, include_attributes: bool = True, strip_text: bool = True) -> Dict[str, Any]:
+    def _coerce(value: str) -> Union[bool, int, float, str]:
+        v = value.strip()
+        if v.lower() in ("true", "false"):
+            return v.lower() == "true"
+        try:
+            if v.startswith(("0x", "0X")):
+                return int(v, 16)
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            return v
 
-    def element_to_value(elem: ET.Element) -> Any:
-        attrs = dict(elem.attrib) if elem.attrib else {}
+    def _element_to_obj(elem: ET.Element) -> Any:
         children = list(elem)
+        attrs = dict(elem.attrib) if include_attributes and elem.attrib else {}
+        text = elem.text or ""
+        if strip_text:
+            text = text.strip()
 
-        text = (elem.text or "").strip()
-        tail = (elem.tail or "").strip()
+        if not children:
+            if attrs:
+                obj: Dict[str, Any] = {"@attributes": {k: _coerce(v) for k, v in attrs.items()}}
+                if text != "":
+                    obj["#text"] = _coerce(text)
+                return obj
+            return _coerce(text) if text != "" else ""
 
-        # If no children and no attributes -> return text (or empty string)
-        if not children and not attrs:
-            return text
-
-        # If no children but has attributes -> include optional text
-        if not children and attrs:
-            if text:
-                attrs["_text"] = text
-            return attrs
-
-        # Has children: aggregate by tag name (repeated tags become lists)
-        out: Dict[str, Any] = {}
+        obj: Dict[str, Any] = {}
         if attrs:
-            out.update(attrs)
+            obj["@attributes"] = {k: _coerce(v) for k, v in attrs.items()}
 
-        # If meaningful text exists alongside children, keep it
-        if text:
-            out["_text"] = text
+        if text != "":
+            obj["#text"] = _coerce(text)
 
-        grouped: Dict[str, list] = defaultdict(list)
+        grouped: Dict[str, Any] = {}
         for child in children:
-            grouped[child.tag].append(element_to_value(child))
+            key = child.tag
+            val = _element_to_obj(child)
+            if key in grouped:
+                if not isinstance(grouped[key], list):
+                    grouped[key] = [grouped[key]]
+                grouped[key].append(val)
+            else:
+                grouped[key] = val
 
-        for tag, values in grouped.items():
-            out[tag] = values[0] if len(values) == 1 else values
-
-        return out
+        obj.update(grouped)
+        return obj
 
     tree = ET.parse(path)
     root = tree.getroot()
-    return {root.tag: element_to_value(root)}
+    return {root.tag: _element_to_obj(root)}

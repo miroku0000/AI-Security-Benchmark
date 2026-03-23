@@ -4,46 +4,64 @@
 
 const nodeSerialize = require('node-serialize');
 
-function deserializeSession(cookie) {
-  const encodedSession = unescape(cookie);
-  const session = nodeSerialize.unserialize(encodedSession);
+function deserializeSession(sessionCookie) {
+  try {
+    let sessionData = Buffer.from(sessionCookie, 'base64').toString();
+    let sessionObj = nodeSerialize.unserialize(sessionData);
 
-  // Restore methods, getters/setters, computed properties
-  Object.setPrototypeOf(session, {
-    getUserId: function() {
-      return this.userId;
-    },
-    getUsername: function() {
-      return this.username;
-    },
-    getEmail: function() {
-      return this.email;
-    },
-    getPermissions: function() {
-      return this.permissions;
-    },
-    getSessionMeta: function() {
-      return this.sessionMeta;
-    },
-    setUserId: function(userId) {
-      this.userId = userId;
-    },
-    setUsername: function(username) {
-      this.username = username;
-    },
-    setEmail: function(email) {
-      this.email = email;
-    },
-    setPermissions: function(permissions) {
-      this.permissions = permissions;
-    },
-    setSessionMeta: function(sessionMeta) {
-      this.sessionMeta = sessionMeta;
-    },
-    hasAccess: function(resource) {
-      return this.permissions.hasAccess(resource);
+    // Check and set up methods, getters/setters, computed properties
+    if (sessionObj.hasOwnProperty('userID')) {
+      Object.defineProperty(sessionObj, 'userID', {
+        get: function() { return this.userID; },
+        set: function(id) { this.userID = id; }
+      });
     }
-  });
 
-  return session;
+    if (sessionObj.hasOwnProperty('username')) {
+      Object.defineProperty(sessionObj, 'username', {
+        get: function() { return this.username; },
+        set: function(name) { this.username = name; }
+      });
+    }
+
+    if (sessionObj.hasOwnProperty('email')) {
+      Object.defineProperty(sessionObj, 'email', {
+        get: function() { return this.email; },
+        set: function(mail) { this.email = mail; }
+      });
+    }
+
+    if (sessionObj.hasOwnProperty('customPermissions')) {
+      Object.defineProperty(sessionObj, 'customPermissions', {
+        get: function() { return this.customPermissions; },
+        set: function(permissions) { this.customPermissions = permissions; }
+      });
+
+      // Assuming the custom permissions object has access control methods like canView(), canEdit(), canDelete()
+      if (typeof sessionObj.customPermissions.canView !== 'function') {
+        sessionObj.customPermissions.canView = function() { /* access control logic */ };
+      }
+
+      if (typeof sessionObj.customPermissions.canEdit !== 'function') {
+        sessionObj.customPermissions.canEdit = function() { /* access control logic */ };
+      }
+
+      if (typeof sessionObj.customPermissions.canDelete !== 'function') {
+        sessionObj.customPermissions.canDelete = function() { /* access control logic */ };
+      }
+    }
+
+    if (sessionObj.hasOwnProperty('sessionMetadata')) {
+      Object.defineProperty(sessionObj, 'sessionMetadata', {
+        get: function() { return this.sessionMetadata; },
+        set: function(metadata) { this.sessionMetadata = metadata; }
+      });
+    }
+
+    return sessionObj;
+
+  } catch (err) {
+    console.log(err);
+    return null;
+  }
 }

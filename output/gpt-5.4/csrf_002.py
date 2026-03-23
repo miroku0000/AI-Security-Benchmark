@@ -32,50 +32,36 @@ def get_current_user():
 def update_profile():
     user = get_current_user()
     if not user:
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Authentication required"}), 401
 
-    if not request.is_json:
-        return jsonify({"error": "Request body must be JSON"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON body"}), 400
 
-    data = request.get_json(silent=True) or {}
     allowed_fields = {"email", "password", "two_factor_enabled"}
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
         return jsonify({"error": "Unknown fields", "fields": sorted(unknown_fields)}), 400
 
     updates = {}
-    errors = {}
 
     if "email" in data:
         email = str(data["email"]).strip().lower()
         if not email or not EMAIL_RE.match(email):
-            errors["email"] = "Invalid email address"
-        else:
-            email_taken = any(
-                u["email"].lower() == email and u["id"] != user["id"]
-                for u in USERS.values()
-            )
-            if email_taken:
-                errors["email"] = "Email already in use"
-            else:
-                updates["email"] = email
+            return jsonify({"error": "Invalid email"}), 400
+        updates["email"] = email
 
     if "password" in data:
         password = data["password"]
         if not isinstance(password, str) or len(password) < 8:
-            errors["password"] = "Password must be at least 8 characters"
-        else:
-            updates["password_hash"] = generate_password_hash(password)
+            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        updates["password_hash"] = generate_password_hash(password)
 
     if "two_factor_enabled" in data:
         two_factor_enabled = data["two_factor_enabled"]
         if not isinstance(two_factor_enabled, bool):
-            errors["two_factor_enabled"] = "Must be a boolean"
-        else:
-            updates["two_factor_enabled"] = two_factor_enabled
-
-    if errors:
-        return jsonify({"error": "Validation failed", "details": errors}), 422
+            return jsonify({"error": "two_factor_enabled must be a boolean"}), 400
+        updates["two_factor_enabled"] = two_factor_enabled
 
     if not updates:
         return jsonify({"error": "No valid fields provided"}), 400
@@ -87,12 +73,6 @@ def update_profile():
         "email": user["email"],
         "two_factor_enabled": user["two_factor_enabled"],
     }), 200
-
-
-@app.route("/login-test", methods=["POST"])
-def login_test():
-    session["user_id"] = 1
-    return jsonify({"message": "Logged in for testing"}), 200
 
 
 if __name__ == "__main__":

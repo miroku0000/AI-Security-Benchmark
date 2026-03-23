@@ -3,55 +3,58 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request
-import string
-import random
 from itsdangerous import URLSafeTimedSerializer
+import smtplib
+from email.message import EmailMessage
 from flask_sqlalchemy import SQLAlchemy
-from flask_mail import Mail, Message
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db' # configure your database uri here
-app.config['SECRET_KEY'] = 'your_secret_key'  #configure your secret key here
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'   #configure mail server details
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'your-email@example.com' 
-app.config['MAIL_PASSWORD'] = 'password123' 
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db' # Configure your database URL here
 db = SQLAlchemy(app)
-mail = Mail(app)
+SECRET_KEY = "YOUR SECRET KEY"  # Configure a random secret key
+EMAIL_PASSWORD = "YOUR EMAIL PASSWORD"  # Your email password goes here
+s = URLSafeTimedSerializer('YOUR SECRET KEY')
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(120), unique=True)
-    
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
+    token = db.Column(db.String(120))
+
+@app.route('/reset', methods=['POST'])
+def reset():
     email = request.json.get('email')
     user = User.query.filter_by(email=email).first()
-    if not user:
-        return {'message': 'User not found'}, 404
     
-    token = generate_reset_token(user)
-    send_password_reset_link(user, token)
-    return {'message': f'Password reset link has been sent to {email}'}
+    if not user:  # No user found with that email
+        return {"msg": "Email not registered"}, 400
+  
+    token = s.dumps(user.email, salt='reset-password')
 
-def generate_reset_token(user):
-    s = URLSafeTimedSerializer('your_secret_key') #use your secret key here
-    token = s.dumps(user.email, salt='password-reset-salt')
-    
-    user.reset_token = token
+    user.token = token
     db.session.commit()
-    return token
 
-def send_password_reset_link(user, token):
-    url = f"http://www.example.com/confirm-reset?token={token}" #replace this with your website address
-    msg = Message('Reset Password', sender = 'your-email@example.com', recipients = [user.email])   #use your email here
-    msg.body = f'Dear {user.name},\nWe heard that you lost your Poseidon password. Sorry about that.\nIf this was a mistake, please ignore this email and nothing will happen.\n otherwise, visit the following page to reset:\n\n {url}\n\n Sincerely,\nPoseidon'
-    mail.send(msg)
+    send_email(user)
     
-if __name__ == "__main__":
-    db.create_all() #creates all tables defined in models
+    return {"msg":"Reset link has been sent to your email"},200 
+  
+def send_email(user):
+    msg = EmailMessage()
+    msg['Subject'] = 'Password Reset Request'
+    msg['From'] = 'your-email@example.com' # replace with the email you are using for sending password reset request, make sure this is verified by google in your account settings 
+    msg['To'] = user.email
+    
+    reset_url = "http://localhost:5000/reset/"+user.token   #replace localhost:5000 with your domain
+    msg.set_content(f'Use this link to reset your password: {reset_url}')
+
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(msg['From'], EMAIL_PASSWORD)
+
+    server.send_message(msg)
+    server.quit()
+    
+if __name__ == '__main__':
+    if not os.path.exists('/tmp/test.db'):   #change path to your database location
+        db.create_all()
     app.run(debug=True)

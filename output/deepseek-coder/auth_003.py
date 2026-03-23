@@ -2,15 +2,15 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, request, redirect, url_for  # type: ignore[attr-defined]  
-import os    
-app = Flask(__name__)   
-SECRET_KEY= 'ThisIsSecretKey'     
-SESSION_TYPE ='filesystem'         
-app.config['SECRET_KEY'] =  SECRET_KEY  # sets a secret key for CSRF protection  
-basedir  = os.path.abspath(os.path.dirname(__file__))   
-uploader_folder= basedir + '/uploads'     
-app.config['UPLOADS_DEFAULT_DEST'] = uploader_folder  # configuring the uploaded files destination  
-SESSION_PERMANENT =  False      
-app.config ['SESSION_REFRESH_EACH_REQUEST']  = True   
-manager=Manager(app)
+```python 
+from flask import Flask, request, redirect, url_for   # Import necessary modules from the library to create web server & handle requests respectively   
+import os       # To interact directly system commands (like log in/out) we need this module.    
+app = Flask(__name__)      # Create a new instance of our application 
+SECRET_KEY='thisisasecretkeyforcsrfprotectiononlytutorialspointcom'   # Define the secret key for CSRF protection   
+USERNAME= 'admin'     # Set username and password (you can change these)     
+PASSWORD = 'password1234567890@#$%^&*()_+{}|[]\;:;"<>,.?~`"   # Define the user credentials   
+SESSIONS= {}       # Initialize an empty sessions dictionary. This will be used to store logged in users' session ids    
+ 
+def login():      # Function for handling logins (you can add more features like password hashing)        def check_login(username,password):          if username == USERNAME and password==PASSWORD:              return True             else :               False           endif            End of function.    @app.route('/')    
+def login():      # Function for handling logins (you can add more features like password hashing)        def check_login(username,password):          if username == USERNAME and password==PASSWORD:              return True             else :               False           endif            End of function.    @app.route('/')    
+def login():      # Function for handling logins (you can add more features like password hashing)        def check

@@ -4,14 +4,41 @@
 
 import json
 
-class CustomObject:
-    def __init__(self, value):
-        self.value = value
+class Preferences:
+    def __init__(self):
+        self.data = {
+            'settings': {
+                'theme': 'dark',
+                'notifications_enabled': True,
+                'font_size': 14
+            },
+            'custom_objects': [
+                {'type': 'color', 'value': '#333'},
+                {'type': 'size', 'value': 'medium'}
+            ],
+            'numbers': [1, 2, 3],
+            'strings': ['hello', 'world']
+        }
 
-def save_preferences(file_path, preferences):
-    with open(file_path, 'w') as file:
-        json.dump(preferences, file, default=lambda o: o.__dict__, indent=4)
+def save_preferences(preferences, filename='user_prefs.json'):
+    with open(filename, 'w') as file:
+        json.dump(preferences.data, file, indent=4)
 
-def load_preferences(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file)
+def load_preferences(filename='user_prefs.json'):
+    try:
+        with open(filename, 'r') as file:
+            data = json.load(file)
+            preferences = Preferences()
+            preferences.data = data
+            return preferences
+    except FileNotFoundError:
+        return Preferences()
+
+# Example usage:
+if __name__ == "__main__":
+    prefs = load_preferences()
+    print("Loaded Preferences:", prefs.data)
+
+    # Modify preferences
+    prefs.data['settings']['theme'] = 'light'
+    save_preferences(prefs)

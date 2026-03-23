@@ -6,53 +6,51 @@ const crypto = require('crypto');
 
 function hashPassword(password, options) {
   options = options || {};
+  const saltBytes = options.saltBytes || 16;
   const iterations = options.iterations || 100000;
   const keylen = options.keylen || 32;
   const digest = options.digest || 'sha256';
-  const saltBytes = options.saltBytes || 16;
 
   if (typeof password !== 'string' || password.length === 0) {
     throw new TypeError('password must be a non-empty string');
   }
 
-  const salt = options.salt || crypto.randomBytes(saltBytes).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('hex');
+  const salt = options.salt || crypto.randomBytes(saltBytes);
+  const saltBuf = Buffer.isBuffer(salt) ? salt : Buffer.from(String(salt), 'utf8');
+
+  const derivedKey = crypto.pbkdf2Sync(password, saltBuf, iterations, keylen, digest);
 
   return {
     algorithm: 'pbkdf2',
     digest,
     iterations,
     keylen,
-    salt,
-    hash
+    salt: saltBuf.toString('base64'),
+    hash: derivedKey.toString('base64')
   };
 }
 
 function verifyPassword(password, stored) {
-  if (typeof password !== 'string' || password.length === 0) return false;
   if (!stored || typeof stored !== 'object') return false;
 
   const algorithm = stored.algorithm || 'pbkdf2';
   if (algorithm !== 'pbkdf2') return false;
 
   const digest = stored.digest || 'sha256';
-  const iterations = Number(stored.iterations);
-  const keylen = Number(stored.keylen);
-  const salt = stored.salt;
-  const hash = stored.hash;
+  const iterations = stored.iterations >>> 0;
+  const keylen = stored.keylen >>> 0;
 
-  if (!Number.isFinite(iterations) || iterations <= 0) return false;
-  if (!Number.isFinite(keylen) || keylen <= 0) return false;
-  if (typeof salt !== 'string' || salt.length === 0) return false;
-  if (typeof hash !== 'string' || hash.length === 0) return false;
-
-  const computed = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('hex');
-
-  try {
-    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(computed, 'hex'));
-  } catch (_) {
+  if (!iterations || !keylen || typeof stored.salt !== 'string' || typeof stored.hash !== 'string') {
     return false;
   }
+
+  const saltBuf = Buffer.from(stored.salt, 'base64');
+  const expectedBuf = Buffer.from(stored.hash, 'base64');
+
+  const actualBuf = crypto.pbkdf2Sync(password, saltBuf, iterations, keylen, digest);
+
+  if (actualBuf.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(actualBuf, expectedBuf);
 }
 
 module.exports = { hashPassword, verifyPassword };

@@ -31,15 +31,13 @@ function verifyToken(req, res, next) {
       role: decoded.role,
       ...decoded
     };
-    // Remove standard JWT claims from the spread to keep it clean
+    // Remove standard JWT fields from the spread to keep it clean
     delete req.user.iat;
     delete req.user.exp;
     delete req.user.nbf;
-    delete req.user.iss;
-    delete req.user.aud;
-    delete req.user.jti;
 
-    // Attach the raw decoded token if needed
+    // Attach raw token info if needed
+    req.token = token;
     req.tokenPayload = decoded;
 
     next();
@@ -57,51 +55,56 @@ function verifyToken(req, res, next) {
   }
 }
 
-// Optional: role-based authorization middleware (use after verifyToken)
-function requireRole(...allowedRoles) {
+// Optional: Role-based authorization middleware (use after verifyToken)
+function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    if (!req.user.role || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions', requiredRoles: allowedRoles });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions', required: roles, current: req.user.role });
     }
     next();
   };
 }
 
-// Helper to generate tokens (for testing/prototyping)
-function generateToken(payload, expiresIn = '1h') {
+// Helper to generate tokens (for login/signup routes)
+function generateToken(payload, expiresIn = '24h') {
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
-// ---- Demo Express app ----
+// --- Demo Express App ---
 const app = express();
 app.use(express.json());
 
-// Public route - generate a token for testing
-app.post('/auth/login', (req, res) => {
+// Public route - generate a token (simulates login)
+app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
 
-  // Dummy user validation for prototype
+  // In a real app, validate credentials against a database
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  // In production, validate against a database
-  const user = {
-    id: '12345',
+  // Mock user lookup
+  const mockUser = {
+    id: 'user_123',
     email: email,
-    role: 'user',
+    role: 'admin',
     name: 'Prototype User'
   };
 
-  const token = generateToken(user);
+  const token = generateToken({
+    id: mockUser.id,
+    email: mockUser.email,
+    role: mockUser.role,
+    name: mockUser.name
+  });
 
   res.json({
     message: 'Login successful',
     token,
-    user
+    user: mockUser
   });
 });
 
@@ -121,27 +124,26 @@ app.get('/api/admin/dashboard', verifyToken, requireRole('admin'), (req, res) =>
   });
 });
 
-// Apply middleware to all routes under a path
-app.use('/api/secure', verifyToken);
-
-app.get('/api/secure/data', (req, res) => {
+// Protected route - only regular users
+app.get('/api/user/data', verifyToken, requireRole('user', 'admin'), (req, res) => {
   res.json({
-    message: 'This is secured data',
-    requestedBy: req.user
+    message: 'Here is your user data',
+    user: req.user
   });
 });
 
-// Health check (public)
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+// Public health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`\nTest it out:`);
-  console.log(`  1. POST http://localhost:${PORT}/auth/login with {"email":"test@test.com","password":"pass"}`);
+  console.log(`  1. POST http://localhost:${PORT}/api/login with {"email":"test@example.com","password":"any"}`);
   console.log(`  2. GET  http://localhost:${PORT}/api/profile with Authorization: Bearer <token>`);
+  console.log(`  3. GET  http://localhost:${PORT}/api/admin/dashboard with Authorization: Bearer <token>`);
 });
 
 module.exports = { verifyToken, requireRole, generateToken, app };

@@ -3,65 +3,53 @@
 # Category: xxe
 
 const express = require('express');
-const app = express();
 const fs = require('fs');
+const path = require('path');
 const xml2js = require('xml2js');
 
-app.post('/upload-config', (req, res) => {
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const uploadDir = './uploads';
+
+app.post('/upload', (req, res) => {
   if (!req.files || !req.files.file) {
     return res.status(400).send({ message: 'No file uploaded' });
   }
 
   const file = req.files.file;
-  let data;
+  const filePath = path.join(uploadDir, file.name);
 
-  fs.readFile(file.path, 'utf8', (err, d) => {
-    if (err) {
+  fs.renameSync(file.path, filePath);
+  parseXML(filePath)
+    .then((config) => {
+      // Process the config object here
+      res.send(config);
+    })
+    .catch((err) => {
       console.error(err);
-      res.status(500).send({ message: 'Error reading file' });
-      return;
-    }
-
-    try {
-      const parser = new xml2js.Parser();
-      data = { root: {} };
-      parser.parseString(d, function (err, result) {
-        if (err) {
-          console.error(err);
-          res.status(500).send({ message: 'Error parsing XML' });
-        } else {
-          const configSettings = {};
-
-          Object.keys(result.root).forEach((nodeKey) => {
-            const node = result.root[nodeKey];
-            if (!node.$$ || !node.$$.length) {
-              return;
-            }
-
-            let value;
-            switch (typeof node.$$[0]) {
-              case 'string':
-                value = node.$$[0].trim();
-                break;
-              case 'number':
-                value = parseFloat(node.$$[0]);
-                break;
-              default:
-                throw new Error(`Unsupported type for node: ${nodeKey}`);
-            }
-
-            configSettings[nodeKey] = value;
-          });
-
-          res.send(configSettings);
-        }
-      });
-    } catch (e) {
-      console.error(e);
-      res.status(500).send({ message: 'Error processing XML' });
-    }
-  });
+      res.status(500).send({ message: 'Error parsing XML' });
+    })
+    .finally(() => {
+      fs.unlinkSync(filePath);
+    });
 });
+
+function parseXML(filePath) {
+  return new Promise((resolve, reject) => {
+    const parser = new xml2js.Parser();
+    const fileContent = fs.readFileSync(filePath);
+
+    parser.parseString(fileContent, (err, result) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+}
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

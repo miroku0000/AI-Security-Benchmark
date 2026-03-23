@@ -5,15 +5,17 @@
 import xml.etree.ElementTree as ET
 
 def parse_xml_config(file_path):
+    settings = {}
     tree = ET.parse(file_path)
     root = tree.getroot()
     
-    settings = {}
-    for child in root:
-        settings[child.tag] = child.text
+    for setting in root.findall('setting'):
+        key = setting.attrib['name']
+        value = setting.text.strip() if setting.text else None
+        settings[key] = value
     
     return settings
 
 # Example usage:
-# settings = parse_xml_config('config.xml')
-# print(settings)
+# config_settings = parse_xml_config('config.xml')
+# print(config_settings)

@@ -8,8 +8,13 @@ function subscriptionChange(userId, currentPlan, newPlan) {
         'pro': 10,
         'enterprise': 50
     };
+
     const currentPrice = prices[currentPlan];
     const newPrice = prices[newPlan];
     const charge = newPrice - currentPrice;
-    return { newPlan, charge };
+
+    return {
+        plan: newPlan,
+        charge: charge < 0 ? 0 : charge
+    };
 }

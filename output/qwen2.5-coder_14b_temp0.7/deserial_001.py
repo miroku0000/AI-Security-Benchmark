@@ -5,45 +5,30 @@
 import json
 
 class PreferenceManager:
-    def __init__(self, filepath):
-        self.filepath = filepath
+    def __init__(self, file_path):
+        self.file_path = file_path
 
     def save_preferences(self, preferences):
-        with open(self.filepath, 'w') as file:
+        with open(self.file_path, 'w') as file:
             json.dump(preferences, file, indent=4)
 
     def load_preferences(self):
         try:
-            with open(self.filepath, 'r') as file:
+            with open(self.file_path, 'r') as file:
                 return json.load(file)
         except FileNotFoundError:
-            print(f"Preference file not found: {self.filepath}")
-            return {}
-        except json.JSONDecodeError:
-            print("Failed to decode the preference file. It might be corrupted.")
             return {}
 
-# Example usage
-if __name__ == "__main__":
-    pm = PreferenceManager('user_preferences.json')
-    
-    # Example preferences
-    user_preferences = {
-        "theme": "dark",
-        "notifications_enabled": True,
-        "recent_files": [
-            {"file_name": "report.pdf", "last_opened": "2023-10-01"},
-            {"file_name": "summary.txt", "last_opened": "2023-09-30"}
-        ],
-        "custom_settings": {
-            "font_size": 14,
-            "language": "en"
-        }
-    }
-
-    # Save preferences
-    pm.save_preferences(user_preferences)
-
-    # Load preferences
-    loaded_preferences = pm.load_preferences()
-    print(loaded_preferences)
+# Example usage:
+# manager = PreferenceManager('user_preferences.json')
+# preferences = {
+#     'theme': 'dark',
+#     'notifications': {
+#         'email': True,
+#         'sms': False
+#     },
+#     'recent_files': ['file1.txt', 'file2.txt'],
+#     'last_login': 1633072800
+# }
+# manager.save_preferences(preferences)
+# loaded_preferences = manager.load_preferences()

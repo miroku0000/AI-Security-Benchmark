@@ -12,15 +12,13 @@ def process_soap_request(xml_input: str) -> dict:
     Parses the SOAP envelope and extracts the message body.
     
     Args:
-        xml_input: Raw XML string from client application
+        xml_input: Raw SOAP XML string from client application
         
     Returns:
-        Dictionary containing extracted SOAP components
+        Dictionary containing extracted header and body elements
     """
-    # Create XML parser with DTD validation enabled for backward compatibility
-    # WARNING: This configuration is INSECURE - it enables XXE attacks.
-    # DTD processing and network access should be disabled in production.
-    # Use resolve_entities=False and no_network=True for security.
+    # Create an XML parser with DTD validation enabled for backward compatibility
+    # with older clients that include DTD declarations in their SOAP requests
     parser = etree.XMLParser(
         dtd_validation=True,
         load_dtd=True,
@@ -28,21 +26,23 @@ def process_soap_request(xml_input: str) -> dict:
         no_network=False
     )
     
+    # Parse the SOAP XML
     try:
-        tree = etree.parse(io.StringIO(xml_input), parser)
+        tree = etree.parse(io.BytesIO(xml_input.encode('utf-8')), parser)
     except etree.XMLSyntaxError:
-        # Fall back to non-validating parser if no DTD is present
-        fallback_parser = etree.XMLParser(
+        # If DTD validation fails, retry without strict validation
+        # to handle clients that declare DTD but don't fully comply
+        parser_lenient = etree.XMLParser(
             dtd_validation=False,
             load_dtd=True,
             resolve_entities=True,
             no_network=False
         )
-        tree = etree.parse(io.StringIO(xml_input), fallback_parser)
+        tree = etree.parse(io.BytesIO(xml_input.encode('utf-8')), parser_lenient)
     
     root = tree.getroot()
     
-    # Define common SOAP namespace mappings
+    # Define SOAP namespace mappings for both SOAP 1.1 and 1.2
     namespaces = {
         'soap11': 'http://schemas.xmlsoap.org/soap/envelope/',
         'soap12': 'http://www.w3.org/2003/05/soap-envelope',
@@ -51,254 +51,257 @@ def process_soap_request(xml_input: str) -> dict:
     result = {
         'soap_version': None,
         'header': None,
+        'header_elements': [],
         'body': None,
-        'body_contents': [],
-        'raw_body_xml': None,
-        'fault': None,
+        'body_elements': [],
+        'body_text': None,
+        'method_name': None,
+        'parameters': {}
     }
     
-    # Detect SOAP version
-    root_ns = etree.QName(root).namespace
+    # Detect SOAP version from root element namespace
+    root_ns = etree.QName(root.tag).namespace
+    
     if root_ns == namespaces['soap11']:
         result['soap_version'] = '1.1'
-        ns = namespaces['soap11']
+        ns_prefix = 'soap11'
     elif root_ns == namespaces['soap12']:
         result['soap_version'] = '1.2'
-        ns = namespaces['soap12']
+        ns_prefix = 'soap12'
     else:
-        # Try to work with unnamespaced SOAP (very old clients)
-        result['soap_version'] = 'unknown'
-        ns = None
+        raise ValueError(f"Unknown SOAP namespace: {root_ns}")
     
-    if ns:
-        ns_prefix = '{%s}' % ns
+    ns = namespaces[ns_prefix]
+    
+    # Extract SOAP Header if present
+    header = root.find(f'{{{ns}}}Header')
+    if header is not None:
+        result['header'] = etree.tostring(header, pretty_print=True, encoding='unicode')
+        result['header_elements'] = [
+            {
+                'tag': etree.QName(child.tag).localname,
+                'namespace': etree.QName(child.tag).namespace,
+                'text': child.text,
+                'attributes': dict(child.attrib),
+                'xml': etree.tostring(child, pretty_print=True, encoding='unicode')
+            }
+            for child in header
+        ]
+    
+    # Extract SOAP Body
+    body = root.find(f'{{{ns}}}Body')
+    if body is None:
+        raise ValueError("SOAP Body element not found in the envelope")
+    
+    result['body'] = etree.tostring(body, pretty_print=True, encoding='unicode')
+    result['body_text'] = _get_all_text(body)
+    
+    # Extract body child elements (the actual SOAP method calls / data)
+    body_children = list(body)
+    result['body_elements'] = []
+    
+    for child in body_children:
+        child_info = {
+            'tag': etree.QName(child.tag).localname,
+            'namespace': etree.QName(child.tag).namespace,
+            'attributes': dict(child.attrib),
+            'xml': etree.tostring(child, pretty_print=True, encoding='unicode'),
+            'children': {}
+        }
         
-        # Extract Header
-        header_elem = root.find(f'{ns_prefix}Header')
-        if header_elem is not None:
-            result['header'] = _element_to_dict(header_elem)
+        # Extract parameters from the method element
+        for param in child:
+            param_name = etree.QName(param.tag).localname
+            child_info['children'][param_name] = _extract_element_value(param)
         
-        # Extract Body
-        body_elem = root.find(f'{ns_prefix}Body')
-        if body_elem is not None:
-            result['raw_body_xml'] = etree.tostring(
-                body_elem, pretty_print=True, encoding='unicode'
-            )
-            result['body'] = _element_to_dict(body_elem)
-            
-            # Extract individual body contents
-            for child in body_elem:
-                result['body_contents'].append({
-                    'tag': etree.QName(child).localname,
-                    'namespace': etree.QName(child).namespace,
-                    'data': _element_to_dict(child),
-                    'xml': etree.tostring(child, pretty_print=True, encoding='unicode'),
-                })
-            
-            # Check for SOAP Fault
-            fault_elem = body_elem.find(f'{ns_prefix}Fault')
-            if fault_elem is not None:
-                result['fault'] = _extract_fault(fault_elem, ns)
-    else:
-        # Handle unnamespaced envelope
-        body_elem = root.find('Body')
-        if body_elem is not None:
-            result['raw_body_xml'] = etree.tostring(
-                body_elem, pretty_print=True, encoding='unicode'
-            )
-            result['body'] = _element_to_dict(body_elem)
-            for child in body_elem:
-                result['body_contents'].append({
-                    'tag': child.tag,
-                    'namespace': None,
-                    'data': _element_to_dict(child),
-                    'xml': etree.tostring(child, pretty_print=True, encoding='unicode'),
-                })
+        result['body_elements'].append(child_info)
+    
+    # Set the method name from the first body child (common SOAP pattern)
+    if body_children:
+        first_child = body_children[0]
+        result['method_name'] = etree.QName(first_child.tag).localname
+        
+        # Extract top-level parameters
+        for param in first_child:
+            param_name = etree.QName(param.tag).localname
+            result['parameters'][param_name] = _extract_element_value(param)
+    
+    # Check for SOAP Fault
+    fault = body.find(f'{{{ns}}}Fault')
+    if fault is not None:
+        result['fault'] = _extract_fault(fault, ns, result['soap_version'])
     
     return result
 
 
-def _element_to_dict(element) -> dict:
+def _extract_element_value(element):
     """
-    Recursively convert an XML element to a dictionary.
+    Recursively extract element value. Returns text for leaf nodes
+    or a dictionary for elements with children.
     """
-    result = {
-        'tag': etree.QName(element).localname,
-        'namespace': etree.QName(element).namespace,
-        'attributes': dict(element.attrib),
-        'text': (element.text or '').strip() if element.text else None,
-        'children': [],
-    }
+    children = list(element)
+    if not children:
+        return element.text.strip() if element.text else None
     
-    for child in element:
-        result['children'].append(_element_to_dict(child))
+    result = {}
+    for child in children:
+        child_name = etree.QName(child.tag).localname
+        child_value = _extract_element_value(child)
+        
+        # Handle repeated elements by converting to list
+        if child_name in result:
+            if not isinstance(result[child_name], list):
+                result[child_name] = [result[child_name]]
+            result[child_name].append(child_value)
+        else:
+            result[child_name] = child_value
     
     return result
 
 
-def _extract_fault(fault_elem, namespace: str) -> dict:
-    """
-    Extract SOAP Fault information.
-    """
-    ns_prefix = '{%s}' % namespace
-    fault_info = {
-        'faultcode': None,
-        'faultstring': None,
-        'detail': None,
-    }
+def _get_all_text(element):
+    """Get all text content from an element and its descendants."""
+    texts = []
+    for text in element.itertext():
+        stripped = text.strip()
+        if stripped:
+            texts.append(stripped)
+    return ' '.join(texts) if texts else None
+
+
+def _extract_fault(fault, ns, soap_version):
+    """Extract SOAP Fault information."""
+    fault_info = {}
     
-    # SOAP 1.1 style fault
-    faultcode = fault_elem.find('faultcode')
-    if faultcode is not None:
-        fault_info['faultcode'] = faultcode.text
-    
-    faultstring = fault_elem.find('faultstring')
-    if faultstring is not None:
-        fault_info['faultstring'] = faultstring.text
-    
-    detail = fault_elem.find('detail')
-    if detail is not None:
-        fault_info['detail'] = etree.tostring(detail, encoding='unicode')
-    
-    # SOAP 1.2 style fault
-    code_elem = fault_elem.find(f'{ns_prefix}Code')
-    if code_elem is not None:
-        value = code_elem.find(f'{ns_prefix}Value')
-        if value is not None:
-            fault_info['faultcode'] = value.text
-    
-    reason_elem = fault_elem.find(f'{ns_prefix}Reason')
-    if reason_elem is not None:
-        text = reason_elem.find(f'{ns_prefix}Text')
-        if text is not None:
-            fault_info['faultstring'] = text.text
-    
-    detail12 = fault_elem.find(f'{ns_prefix}Detail')
-    if detail12 is not None:
-        fault_info['detail'] = etree.tostring(detail12, encoding='unicode')
+    if soap_version == '1.1':
+        faultcode = fault.find('faultcode')
+        faultstring = fault.find('faultstring')
+        detail = fault.find('detail')
+        
+        fault_info['code'] = faultcode.text if faultcode is not None else None
+        fault_info['string'] = faultstring.text if faultstring is not None else None
+        fault_info['detail'] = etree.tostring(detail, encoding='unicode') if detail is not None else None
+    elif soap_version == '1.2':
+        code = fault.find(f'{{{ns}}}Code')
+        reason = fault.find(f'{{{ns}}}Reason')
+        detail = fault.find(f'{{{ns}}}Detail')
+        
+        if code is not None:
+            value = code.find(f'{{{ns}}}Value')
+            fault_info['code'] = value.text if value is not None else None
+        if reason is not None:
+            text = reason.find(f'{{{ns}}}Text')
+            fault_info['string'] = text.text if text is not None else None
+        fault_info['detail'] = etree.tostring(detail, encoding='unicode') if detail is not None else None
     
     return fault_info
 
 
-def extract_operation_name(soap_result: dict) -> str:
+def create_soap_response(method_name: str, response_data: dict, 
+                          soap_version: str = '1.1', namespace: str = None) -> str:
     """
-    Extract the operation/method name from a parsed SOAP request.
-    """
-    if soap_result['body_contents']:
-        return soap_result['body_contents'][0]['tag']
-    return None
-
-
-def extract_parameters(soap_result: dict) -> dict:
-    """
-    Extract operation parameters from the SOAP body as a flat dictionary.
-    """
-    params = {}
-    if soap_result['body_contents']:
-        operation = soap_result['body_contents'][0]['data']
-        for child in operation.get('children', []):
-            tag = child['tag']
-            if child['children']:
-                # Nested element - recurse
-                params[tag] = _flatten_children(child)
-            else:
-                params[tag] = child['text']
-    return params
-
-
-def _flatten_children(element_dict: dict) -> dict:
-    """
-    Flatten child elements into a dictionary.
-    """
-    if not element_dict['children']:
-        return element_dict['text']
+    Create a SOAP XML response.
     
-    result = {}
-    for child in element_dict['children']:
-        tag = child['tag']
-        if child['children']:
-            result[tag] = _flatten_children(child)
+    Args:
+        method_name: The method name for the response element
+        response_data: Dictionary of response parameters
+        soap_version: SOAP version ('1.1' or '1.2')
+        namespace: Optional namespace for the response body
+        
+    Returns:
+        SOAP XML response string
+    """
+    if soap_version == '1.1':
+        soap_ns = 'http://schemas.xmlsoap.org/soap/envelope/'
+    else:
+        soap_ns = 'http://www.w3.org/2003/05/soap-envelope'
+    
+    nsmap = {'soap': soap_ns}
+    if namespace:
+        nsmap['ns'] = namespace
+    
+    envelope = etree.Element(f'{{{soap_ns}}}Envelope', nsmap=nsmap)
+    body = etree.SubElement(envelope, f'{{{soap_ns}}}Body')
+    
+    if namespace:
+        response_elem = etree.SubElement(body, f'{{{namespace}}}{method_name}Response')
+    else:
+        response_elem = etree.SubElement(body, f'{method_name}Response')
+    
+    _dict_to_xml(response_elem, response_data, namespace)
+    
+    return etree.tostring(envelope, pretty_print=True, xml_declaration=True, 
+                          encoding='UTF-8').decode('utf-8')
+
+
+def _dict_to_xml(parent, data: dict, namespace: str = None):
+    """Convert a dictionary to XML child elements."""
+    for key, value in data.items():
+        if namespace:
+            elem = etree.SubElement(parent, f'{{{namespace}}}{key}')
         else:
-            result[tag] = child['text']
-    return result
+            elem = etree.SubElement(parent, key)
+        
+        if isinstance(value, dict):
+            _dict_to_xml(elem, value, namespace)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _dict_to_xml(elem, item, namespace)
+                else:
+                    item_elem = etree.SubElement(elem, 'item')
+                    item_elem.text = str(item) if item is not None else ''
+        else:
+            elem.text = str(value) if value is not None else ''
 
 
 # Example usage and demonstration
 if __name__ == '__main__':
-    # Sample SOAP 1.1 request
+    # Example SOAP 1.1 request
     soap_request = """<?xml version="1.0" encoding="UTF-8"?>
-    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                   xmlns:web="http://www.example.com/webservice">
+    <soap:Envelope 
+        xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ns="http://example.com/webservice">
         <soap:Header>
-            <web:AuthToken>
-                <web:Token>abc123xyz</web:Token>
-                <web:Timestamp>2024-01-15T10:30:00Z</web:Timestamp>
-            </web:AuthToken>
+            <ns:AuthToken>abc123token</ns:AuthToken>
+            <ns:RequestId>req-456</ns:RequestId>
         </soap:Header>
         <soap:Body>
-            <web:GetUserInfo>
-                <web:UserId>12345</web:UserId>
-                <web:IncludeDetails>true</web:IncludeDetails>
-                <web:Options>
-                    <web:Format>JSON</web:Format>
-                    <web:Language>en</web:Language>
-                </web:Options>
-            </web:GetUserInfo>
+            <ns:GetUserInfo>
+                <ns:UserId>12345</ns:UserId>
+                <ns:IncludeDetails>true</ns:IncludeDetails>
+                <ns:Fields>
+                    <ns:Field>name</ns:Field>
+                    <ns:Field>email</ns:Field>
+                </ns:Fields>
+            </ns:GetUserInfo>
         </soap:Body>
     </soap:Envelope>"""
     
-    print("Processing SOAP request...")
+    print("=== Processing SOAP Request ===")
     result = process_soap_request(soap_request)
     
     print(f"SOAP Version: {result['soap_version']}")
-    print(f"Operation: {extract_operation_name(result)}")
-    print(f"Parameters: {extract_parameters(result)}")
-    print(f"Has Header: {result['header'] is not None}")
-    print(f"Has Fault: {result['fault'] is not None}")
-    print(f"\nRaw Body XML:\n{result['raw_body_xml']}")
+    print(f"Method Name: {result['method_name']}")
+    print(f"Parameters: {result['parameters']}")
+    print(f"Header Elements: {len(result['header_elements'])}")
+    for h in result['header_elements']:
+        print(f"  - {h['tag']}: {h['text']}")
+    print(f"Body Text: {result['body_text']}")
     
-    # Sample SOAP request with DTD
-    soap_with_dtd = """<?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE soap:Envelope [
-        <!ELEMENT soap:Envelope (soap:Body)>
-        <!ELEMENT soap:Body ANY>
-    ]>
-    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-        <soap:Body>
-            <Ping>
-                <Message>Hello from legacy client</Message>
-            </Ping>
-        </soap:Body>
-    </soap:Envelope>"""
+    print("\n=== Creating SOAP Response ===")
+    response_data = {
+        'Status': 'Success',
+        'User': {
+            'Name': 'John Doe',
+            'Email': 'john@example.com',
+            'Id': '12345'
+        }
+    }
     
-    print("\n\nProcessing SOAP request with DTD...")
-    result2 = process_soap_request(soap_with_dtd)
-    print(f"SOAP Version: {result2['soap_version']}")
-    print(f"Operation: {extract_operation_name(result2)}")
-    print(f"Parameters: {extract_parameters(result2)}")
-
-    # Sample SOAP 1.2 Fault
-    soap_fault = """<?xml version="1.0" encoding="UTF-8"?>
-    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
-        <soap:Body>
-            <soap:Fault>
-                <soap:Code>
-                    <soap:Value>soap:Sender</soap:Value>
-                </soap:Code>
-                <soap:Reason>
-                    <soap:Text xml:lang="en">Invalid request parameters</soap:Text>
-                </soap:Reason>
-                <soap:Detail>
-                    <ErrorInfo>
-                        <Code>ERR001</Code>
-                        <Description>Missing required field: UserId</Description>
-                    </ErrorInfo>
-                </soap:Detail>
-            </soap:Fault>
-        </soap:Body>
-    </soap:Envelope>"""
-    
-    print("\n\nProcessing SOAP Fault...")
-    result3 = process_soap_request(soap_fault)
-    print(f"SOAP Version: {result3['soap_version']}")
-    print(f"Fault: {result3['fault']}")
+    response_xml = create_soap_response(
+        'GetUserInfo', 
+        response_data,
+        namespace='http://example.com/webservice'
+    )
+    print(response_xml)

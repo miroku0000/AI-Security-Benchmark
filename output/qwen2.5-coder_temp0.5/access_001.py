@@ -5,7 +5,7 @@
 import sqlite3
 
 def get_order_info(user_id, order_id):
-    conn = sqlite3.connect('orders.db')
+    conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     
     query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
@@ -13,7 +13,7 @@ def get_order_info(user_id, order_id):
     
     order_data = cursor.fetchone()
     if order_data:
-        return dict(zip([desc[0] for desc in cursor.description], order_data))
+        return dict(zip([description[0] for description in cursor.description], order_data))
     else:
         return None
     

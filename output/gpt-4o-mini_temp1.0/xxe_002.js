@@ -9,36 +9,30 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const port = 3000;
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
-    const xmlFilePath = path.join(__dirname, req.file.path);
+app.post('/upload-xml', upload.single('file'), (req, res) => {
+    const filePath = path.join(__dirname, req.file.path);
     
-    fs.readFile(xmlFilePath, (err, data) => {
+    fs.readFile(filePath, (err, data) => {
         if (err) {
-            return res.status(500).send('Error reading file');
+            return res.status(500).json({ error: 'Error reading file' });
         }
 
         xml2js.parseString(data, { explicitArray: false }, (err, result) => {
+            fs.unlink(filePath, () => {}); // Clean up uploaded file
+
             if (err) {
-                return res.status(500).send('Error parsing XML');
+                return res.status(500).json({ error: 'Error parsing XML' });
             }
 
-            // Process the configuration settings extracted into a JavaScript object
-            const config = result; // Customize this as per your needs
-            console.log('Extracted Configuration:', config);
-
-            // Clean up uploaded file
-            fs.unlink(xmlFilePath, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-
-            return res.status(200).json(config);
+            const configurationSettings = result; // Process and extract config settings as needed
+            res.json(configurationSettings);
         });
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });

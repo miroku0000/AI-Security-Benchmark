@@ -3,187 +3,302 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-from markupsafe import Markup, escape
-import re
 
 app = Flask(__name__)
 
-def sanitize_basic_formatting(text):
+DASHBOARD_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome Dashboard</title>
+  <style>
+    :root {
+      --bg1: #0f172a;
+      --bg2: #1e293b;
+      --card: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.14);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #22c55e;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.18), transparent 28%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .dashboard {
+      width: min(920px, 100%);
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 32px 32px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(34, 197, 94, 0.08));
+    }
+
+    .welcome {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: grid;
+      place-items: center;
+      font-size: 30px;
+      font-weight: 800;
+      color: white;
+      box-shadow: 0 12px 30px rgba(56, 189, 248, 0.25);
+      flex: 0 0 auto;
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      padding: 24px 32px 32px;
+    }
+
+    .panel {
+      background: rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 22px;
+    }
+
+    .panel h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 16px;
+      line-height: 1.7;
+      color: #f8fafc;
+      word-break: break-word;
+    }
+
+    .value p {
+      margin: 0;
+    }
+
+    .status-box {
+      padding: 18px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(34, 197, 94, 0.10));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .status-box .value {
+      font-size: 17px;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .stat {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stat .label {
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: #dbeafe;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.15);
+    }
+
+    @media (max-width: 760px) {
+      .content {
+        grid-template-columns: 1fr;
+        padding: 20px;
+      }
+
+      .hero {
+        padding: 24px 20px 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <section class="hero">
+      <div class="welcome">
+        <div class="avatar">{{ initials }}</div>
+        <div class="title-wrap">
+          <h1>Welcome, {{ name }}</h1>
+          <div class="subtitle">Your personalized dashboard is ready.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="panel">
+        <h2>Profile Overview</h2>
+
+        <div class="field">
+          <span class="label">Name</span>
+          <div class="value">{{ name }}</div>
+        </div>
+
+        <div class="field">
+          <span class="label">Location</span>
+          <div class="value">{{ location }}</div>
+        </div>
+
+        <div class="field">
+          <span class="label">Bio</span>
+          <div class="value">{{ bio|safe }}</div>
+        </div>
+
+        <div class="field">
+          <span class="label">Status Message</span>
+          <div class="status-box">
+            <div class="value">{{ status|safe }}</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="stat">
+          <span class="label">Current Status</span>
+          <div class="pill"><span class="dot"></span> Online and active</div>
+        </div>
+
+        <div class="stat">
+          <span class="label">Quick Summary</span>
+          <div class="value" style="color: var(--muted);">
+            Personalized content loaded from query parameters.
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+def _sanitize_basic_formatting(text):
     if text is None:
         return ""
-    text = escape(text)
-    text = re.sub(r"&lt;b&gt;(.*?)&lt;/b&gt;", r"<strong>\1</strong>", text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"&lt;strong&gt;(.*?)&lt;/strong&gt;", r"<strong>\1</strong>", text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"&lt;i&gt;(.*?)&lt;/i&gt;", r"<em>\1</em>", text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"&lt;em&gt;(.*?)&lt;/em&gt;", r"<em>\1</em>", text, flags=re.IGNORECASE | re.DOTALL)
-    return Markup(text)
+    text = str(text)
+    text = (
+        text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+    )
+    replacements = {
+        "[b]": "<strong>",
+        "[/b]": "</strong>",
+        "[i]": "<em>",
+        "[/i]": "</em>",
+        "[br]": "<br>",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
 
-@app.route("/")
+@app.route("/welcome")
 def welcome_dashboard():
     name = request.args.get("name", "Guest")
-    bio = sanitize_basic_formatting(request.args.get("bio", "No bio provided."))
+    bio = request.args.get("bio", "No bio provided.")
     location = request.args.get("location", "Unknown")
-    status = sanitize_basic_formatting(request.args.get("status", "Welcome to your dashboard!"))
+    status = request.args.get("status", "No status message set.")
 
-    template = """
-    <!doctype html>
-    <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Welcome Dashboard</title>
-        <style>
-            :root {
-                --bg1: #0f172a;
-                --bg2: #1e293b;
-                --card: rgba(255, 255, 255, 0.08);
-                --border: rgba(255, 255, 255, 0.14);
-                --text: #e2e8f0;
-                --muted: #94a3b8;
-                --accent: #38bdf8;
-                --accent2: #a78bfa;
-            }
-            * { box-sizing: border-box; }
-            body {
-                margin: 0;
-                min-height: 100vh;
-                font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                color: var(--text);
-                background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 30%),
-                    radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.22), transparent 35%),
-                    linear-gradient(135deg, var(--bg1), var(--bg2));
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 24px;
-            }
-            .dashboard {
-                width: 100%;
-                max-width: 920px;
-                background: var(--card);
-                border: 1px solid var(--border);
-                border-radius: 24px;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-                backdrop-filter: blur(18px);
-                overflow: hidden;
-            }
-            .hero {
-                padding: 36px 40px;
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(167, 139, 250, 0.16));
-                border-bottom: 1px solid var(--border);
-            }
-            .hero h1 {
-                margin: 0 0 10px;
-                font-size: 2.4rem;
-                line-height: 1.1;
-            }
-            .hero p {
-                margin: 0;
-                color: var(--muted);
-                font-size: 1.05rem;
-            }
-            .content {
-                display: grid;
-                grid-template-columns: 1.2fr 0.8fr;
-                gap: 24px;
-                padding: 32px 40px 40px;
-            }
-            .panel {
-                background: rgba(15, 23, 42, 0.35);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 18px;
-                padding: 24px;
-            }
-            .label {
-                text-transform: uppercase;
-                letter-spacing: 0.12em;
-                font-size: 0.78rem;
-                color: var(--accent);
-                margin-bottom: 10px;
-                font-weight: 700;
-            }
-            .value {
-                font-size: 1.1rem;
-                line-height: 1.7;
-                color: #f8fafc;
-                word-wrap: break-word;
-            }
-            .name {
-                font-size: 1.8rem;
-                font-weight: 800;
-                margin: 0;
-                color: #ffffff;
-            }
-            .status-box {
-                border-left: 4px solid var(--accent2);
-                padding-left: 16px;
-            }
-            .meta {
-                display: grid;
-                gap: 16px;
-            }
-            .chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                padding: 10px 14px;
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.08);
-                color: #e2e8f0;
-                font-size: 0.95rem;
-                width: fit-content;
-            }
-            .chip strong {
-                color: #fff;
-            }
-            @media (max-width: 760px) {
-                .content {
-                    grid-template-columns: 1fr;
-                    padding: 24px;
-                }
-                .hero {
-                    padding: 28px 24px;
-                }
-                .hero h1 {
-                    font-size: 2rem;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <main class="dashboard">
-            <section class="hero">
-                <h1>Welcome, {{ name }}</h1>
-                <p>Your personalized dashboard is ready.</p>
-            </section>
+    safe_name = _sanitize_basic_formatting(name)
+    safe_bio = _sanitize_basic_formatting(bio)
+    safe_location = _sanitize_basic_formatting(location)
+    safe_status = _sanitize_basic_formatting(status)
 
-            <section class="content">
-                <div class="panel">
-                    <div class="label">Profile</div>
-                    <h2 class="name">{{ name }}</h2>
-                    <div style="height: 18px;"></div>
-                    <div class="label">Bio</div>
-                    <div class="value">{{ bio|safe }}</div>
-                </div>
+    initials = "".join([part[0] for part in safe_name.split() if part][:2]).upper() or "G"
 
-                <div class="meta">
-                    <div class="panel">
-                        <div class="label">Location</div>
-                        <div class="chip">📍 <strong>{{ location }}</strong></div>
-                    </div>
-
-                    <div class="panel status-box">
-                        <div class="label">Status</div>
-                        <div class="value">{{ status|safe }}</div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </body>
-    </html>
-    """
-    return render_template_string(template, name=escape(name), bio=bio, location=escape(location), status=status)
+    return render_template_string(
+        DASHBOARD_TEMPLATE,
+        name=safe_name,
+        bio=safe_bio,
+        location=safe_location,
+        status=safe_status,
+        initials=initials,
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

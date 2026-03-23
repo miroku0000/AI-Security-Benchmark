@@ -3,26 +3,32 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
+from markupsafe import escape
 import html
 import re
 
 app = Flask(__name__)
 
-def escape_allow_basic_formatting(value: str) -> str:
-    if value is None:
+def sanitize_basic_formatting(text: str) -> str:
+    if not text:
         return ""
-    escaped = html.escape(value, quote=True)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped, flags=re.DOTALL)
-    escaped = re.sub(r"\*(.+?)\*", r"<em>\1</em>", escaped, flags=re.DOTALL)
-    escaped = escaped.replace("\n", "<br>")
-    return escaped
+    text = html.escape(text, quote=True)
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text, flags=re.DOTALL)
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text, flags=re.DOTALL)
+    text = text.replace("\n", "<br>")
+    return text
 
 @app.route("/dashboard")
 def dashboard():
-    name = html.escape(request.args.get("name", "Guest"), quote=True)
-    location = html.escape(request.args.get("location", "Unknown"), quote=True)
-    bio = escape_allow_basic_formatting(request.args.get("bio", "No bio provided."))
-    status = escape_allow_basic_formatting(request.args.get("status", "Ready to explore the dashboard."))
+    name = request.args.get("name", "Guest")
+    bio = request.args.get("bio", "")
+    location = request.args.get("location", "Unknown")
+    status = request.args.get("status", "Welcome to your dashboard!")
+
+    safe_name = escape(name)
+    safe_location = escape(location)
+    safe_bio = sanitize_basic_formatting(bio)
+    safe_status = sanitize_basic_formatting(status)
 
     template = """
     <!DOCTYPE html>
@@ -41,81 +47,66 @@ def dashboard():
                 --muted: #94a3b8;
                 --accent: #38bdf8;
                 --accent2: #818cf8;
-                --success: #22c55e;
                 --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
             }
 
-            * {
-                box-sizing: border-box;
-            }
+            * { box-sizing: border-box; }
 
             body {
                 margin: 0;
                 min-height: 100vh;
-                font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                 color: var(--text);
                 background:
                     radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 30%),
                     radial-gradient(circle at bottom right, rgba(129, 140, 248, 0.18), transparent 30%),
                     linear-gradient(135deg, var(--bg1), var(--bg2));
-                display: grid;
-                place-items: center;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 padding: 32px;
             }
 
             .dashboard {
                 width: 100%;
-                max-width: 920px;
+                max-width: 860px;
                 background: var(--card);
                 border: 1px solid var(--border);
-                backdrop-filter: blur(18px);
-                -webkit-backdrop-filter: blur(18px);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
                 border-radius: 24px;
-                overflow: hidden;
                 box-shadow: var(--shadow);
+                overflow: hidden;
             }
 
             .hero {
-                position: relative;
-                padding: 40px 40px 28px;
-                background:
-                    linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.12)),
-                    rgba(255, 255, 255, 0.04);
+                padding: 40px 40px 24px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.12));
                 border-bottom: 1px solid var(--border);
             }
 
             .badge {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
+                display: inline-block;
                 padding: 8px 14px;
                 border-radius: 999px;
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.14);
+                background: rgba(255, 255, 255, 0.12);
                 color: #dbeafe;
-                font-size: 13px;
-                letter-spacing: 0.02em;
-                margin-bottom: 18px;
-            }
-
-            .badge::before {
-                content: "";
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--success);
-                box-shadow: 0 0 12px var(--success);
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 16px;
             }
 
             h1 {
-                margin: 0;
+                margin: 0 0 10px;
                 font-size: clamp(2rem, 4vw, 3.2rem);
                 line-height: 1.05;
                 letter-spacing: -0.03em;
             }
 
             .subtitle {
-                margin-top: 12px;
+                margin: 0;
                 color: var(--muted);
                 font-size: 1.05rem;
             }
@@ -124,102 +115,82 @@ def dashboard():
                 display: grid;
                 grid-template-columns: 1.2fr 0.8fr;
                 gap: 24px;
-                padding: 28px 32px 32px;
+                padding: 28px 40px 40px;
             }
 
             .panel {
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 border-radius: 18px;
-                padding: 22px;
+                padding: 24px;
             }
 
             .panel h2 {
-                margin: 0 0 14px;
+                margin: 0 0 16px;
                 font-size: 1rem;
-                color: #f8fafc;
-                letter-spacing: 0.01em;
+                color: #cbd5e1;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
             }
 
-            .bio {
-                color: #e5eefb;
+            .bio, .status {
+                font-size: 1rem;
                 line-height: 1.7;
-                font-size: 1rem;
+                color: var(--text);
+                word-wrap: break-word;
             }
 
-            .bio strong,
-            .status-text strong {
-                color: #ffffff;
-            }
-
-            .bio em,
-            .status-text em {
-                color: #c4b5fd;
-            }
-
-            .info-grid {
+            .meta-list {
                 display: grid;
                 gap: 14px;
             }
 
-            .info-item {
+            .meta-item {
                 padding: 16px;
                 border-radius: 14px;
                 background: rgba(15, 23, 42, 0.35);
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
 
-            .label {
+            .meta-label {
                 display: block;
                 font-size: 0.78rem;
+                color: var(--muted);
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
-                color: var(--muted);
-                margin-bottom: 8px;
+                margin-bottom: 6px;
             }
 
-            .value {
+            .meta-value {
                 font-size: 1rem;
-                color: #f8fafc;
-                word-break: break-word;
+                color: var(--text);
+                font-weight: 600;
+                word-wrap: break-word;
             }
 
-            .status-card {
-                margin-top: 18px;
-                padding: 18px;
-                border-radius: 16px;
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(129, 140, 248, 0.14));
-                border: 1px solid rgba(255, 255, 255, 0.12);
-            }
-
-            .status-title {
-                margin: 0 0 10px;
-                font-size: 0.9rem;
-                color: #dbeafe;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-            }
-
-            .status-text {
-                margin: 0;
-                color: #eef2ff;
-                line-height: 1.65;
-            }
-
-            .footer-note {
-                margin-top: 18px;
-                font-size: 0.85rem;
+            .empty {
                 color: var(--muted);
+                font-style: italic;
+            }
+
+            strong {
+                color: #ffffff;
+                font-weight: 800;
+            }
+
+            em {
+                color: #dbeafe;
+                font-style: italic;
             }
 
             @media (max-width: 760px) {
-                .hero {
-                    padding: 28px 24px 22px;
-                }
-
                 .content {
                     grid-template-columns: 1fr;
-                    padding: 20px 20px 24px;
+                    padding: 20px;
+                }
+
+                .hero {
+                    padding: 28px 20px 20px;
                 }
             }
         </style>
@@ -227,36 +198,44 @@ def dashboard():
     <body>
         <main class="dashboard">
             <section class="hero">
-                <div class="badge">Personalized Welcome</div>
-                <h1>Welcome, {{ name }}!</h1>
-                <p class="subtitle">Your personalized dashboard is ready.</p>
+                <div class="badge">Welcome Dashboard</div>
+                <h1>Hello, {{ name }}!</h1>
+                <p class="subtitle">Your personalized profile snapshot is ready.</p>
             </section>
 
             <section class="content">
                 <div class="panel">
                     <h2>About You</h2>
-                    <div class="bio">{{ bio|safe }}</div>
-                    <div class="footer-note">Formatting supported: <strong>**bold**</strong> and <em>*italic*</em></div>
+                    <div class="bio">
+                        {% if bio %}
+                            {{ bio | safe }}
+                        {% else %}
+                            <span class="empty">No bio provided.</span>
+                        {% endif %}
+                    </div>
                 </div>
 
-                <div>
-                    <div class="panel">
-                        <h2>User Details</h2>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">Name</span>
-                                <div class="value">{{ name }}</div>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Location</span>
-                                <div class="value">{{ location }}</div>
+                <div class="panel">
+                    <h2>Profile Details</h2>
+                    <div class="meta-list">
+                        <div class="meta-item">
+                            <span class="meta-label">Name</span>
+                            <div class="meta-value">{{ name }}</div>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Location</span>
+                            <div class="meta-value">{{ location }}</div>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Status</span>
+                            <div class="status">
+                                {% if status %}
+                                    {{ status | safe }}
+                                {% else %}
+                                    <span class="empty">No status message provided.</span>
+                                {% endif %}
                             </div>
                         </div>
-                    </div>
-
-                    <div class="status-card">
-                        <h3 class="status-title">Current Status</h3>
-                        <p class="status-text">{{ status|safe }}</p>
                     </div>
                 </div>
             </section>
@@ -266,10 +245,10 @@ def dashboard():
     """
     return render_template_string(
         template,
-        name=name,
-        location=location,
-        bio=bio,
-        status=status,
+        name=safe_name,
+        location=safe_location,
+        bio=safe_bio,
+        status=safe_status,
     )
 
 if __name__ == "__main__":

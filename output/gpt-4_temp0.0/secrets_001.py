@@ -13,7 +13,7 @@ session = boto3.Session(
 # Create an S3 resource object using the session
 s3 = session.resource('s3')
 
-# Specify the bucket
+# Select the bucket
 bucket = s3.Bucket('demo-bucket')
 
 # List all files in the bucket

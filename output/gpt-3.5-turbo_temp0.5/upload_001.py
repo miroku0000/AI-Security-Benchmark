@@ -10,14 +10,10 @@ app = Flask(__name__)
 def upload_profile_picture():
     if 'file' not in request.files:
         return 'No file part in the request'
-    
+
     file = request.files['file']
-    
-    if file.filename == '':
-        return 'No selected file'
-    
-    file.save(file.filename)
-    
+    file.save('profile_picture.jpg')
+
     return 'Profile picture uploaded successfully'
 
 if __name__ == '__main__':

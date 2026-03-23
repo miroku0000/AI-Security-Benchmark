@@ -19,7 +19,7 @@ function createUploadHandler(options = {}) {
     filename: (req, file, cb) => {
       const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
       const ext = path.extname(file.originalname);
-      const base = path.basename(file.originalname, ext).replace(/[^a-z0-9-_]/gi, '_');
+      const base = path.basename(file.originalname, ext).replace(/[^\w.-]/g, '_');
       cb(null, `${base}-${uniqueSuffix}${ext}`);
     }
   });
@@ -32,4 +32,4 @@ function createUploadHandler(options = {}) {
   return upload.single('file');
 }
 
-module.exports = { createUploadHandler };
+module.exports = createUploadHandler;

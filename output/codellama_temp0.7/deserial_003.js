@@ -4,7 +4,9 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookieData) {
-  const sessionData = serialize.deserialize(cookieData);
+function deserializeSession(cookie) {
+  const sessionData = serialize.unserialize(cookie);
   return sessionData;
 }
+
+module.exports = deserializeSession;

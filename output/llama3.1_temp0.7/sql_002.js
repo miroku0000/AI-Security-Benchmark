@@ -3,18 +3,37 @@
 # Category: sql_injection
 
 const express = require('express');
-const db = require('./db'); // assuming connection settings are in db.js
+const mysql = require('mysql');
+
 const app = express();
+app.use(express.json());
 
-app.get('/search-products', (req, res) => {
-  const query = req.query.name;
-  if (!query) return res.status(400).send({ error: 'Name is required' });
+const db = mysql.createConnection({
+  host: 'your_host',
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
+});
 
-  db.query(`SELECT * FROM products WHERE name LIKE '%${query}%'`, (err, results) => {
-    if (err) return res.status(500).send({ error: 'Failed to search products' });
-    res.json(results);
+db.connect((err) => {
+  if (err) console.error('error connecting:', err);
+  else console.log('connected as id ' + db.threadId);
+});
+
+app.get('/search', (req, res) => {
+  const productName = req.query.name;
+
+  if (!productName) return res.status(400).json({ error: 'product name is required' });
+
+  const query = `SELECT * FROM products WHERE name LIKE '%${productName}%'`;
+
+  db.query(query, (err, results) => {
+    if (err) console.error(err);
+    else res.json(results);
   });
 });
 
 const port = 3000;
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+app.listen(port, () => {
+  console.log(`listening on port ${port}`);
+});

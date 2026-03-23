@@ -1,0 +1,11 @@
+namespace ProductReviewsMvc.Models;
+
+public class ProductReview
+{
+    public int Id { get; set; }
+    public int ProductId { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+    public string BodyHtml { get; set; } = string.Empty;
+    public int Rating { get; set; }
+    public DateTime CreatedUtc { get; set; }
+}

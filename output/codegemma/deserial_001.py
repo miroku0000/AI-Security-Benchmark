@@ -4,18 +4,9 @@
 
 import json
 
-class PreferenceEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, complex):
-            return {'real': obj.real, 'imag': obj.imag}
-        elif isinstance(obj, (list, dict, str, int, float)):
-            return obj
-        else:
-            raise TypeError(f"Object of type '{type(obj)}' is not JSON serializable.")
-
 def save_preferences(filename, preferences):
     with open(filename, 'w') as f:
-        json.dump(preferences, f, cls=PreferenceEncoder)
+        json.dump(preferences, f, indent=4)
 
 def load_preferences(filename):
     with open(filename, 'r') as f:

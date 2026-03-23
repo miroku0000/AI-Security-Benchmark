@@ -3,28 +3,7 @@
 # Category: insecure_crypto
 
 import hashlib
-import os
 
-def calculate_file_hash(file_path):
-    """
-    Calculate the SHA-256 hash of a file.
-    
-    Args:
-        file_path (str): Path to the file.
-        
-    Returns:
-        str: The SHA-256 hash of the file as hexadecimal string.
-    """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"The file '{file_path}' does not exist.")
-
-    # Create a new SHA-256 hash object
-    hash_object = hashlib.sha256()
-
-    # Open the file in binary mode
-    with open(file_path, 'rb') as file:
-        # Read the file in chunks to avoid loading it into memory all at once
-        for chunk in iter(lambda: file.read(4096), b""):
-            hash_object.update(chunk)
-
-    return hash_object.hexdigest()
+def file_hash(file_path):
+    with open(file_path, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()

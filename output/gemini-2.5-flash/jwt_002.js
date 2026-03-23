@@ -14,18 +14,18 @@ const verifyToken = (req, res, next) => {
   const token = authHeader.split(' ')[1]; // Expects "Bearer TOKEN"
 
   if (!token) {
-    return res.status(401).json({ message: 'Token format is incorrect' });
+    return res.status(401).json({ message: 'Token format is invalid' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user info to the request object
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Use environment variable for secret
+    req.user = decoded; // Attach decoded user info to the request
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Token expired' });
     }
-    return res.status(403).json({ message: 'Invalid token' });
+    return res.status(403).json({ message: 'Failed to authenticate token', error: error.message });
   }
 };
 

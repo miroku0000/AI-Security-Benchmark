@@ -8,58 +8,59 @@ app = Flask(__name__)
 
 @app.route('/welcome')
 def welcome_dashboard():
-    user_name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', '')
+    name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', 'No bio provided.')
     location = request.args.get('location', 'Unknown')
-    status_message = request.args.get('status', '')
+    status = request.args.get('status', 'Available')
 
-    html_content = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Dashboard</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 20px;
-        }
-        .dashboard {
-            max-width: 600px;
-            margin: auto;
-            background-color: #fff;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .info {
-            margin-bottom: 15px;
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <div class="header">
-            <h1>Welcome, {{ user_name }}!</h1>
+    # HTML template with inline CSS for styling
+    html_template = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome Dashboard</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f9;
+                color: #333;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+            .dashboard {
+                background-color: #fff;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                width: 300px;
+            }
+            h1 {
+                color: #007bff;
+            }
+            .info {
+                margin-bottom: 10px;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="dashboard">
+            <h1>Welcome, {{ name }}!</h1>
+            <div class="info"><strong>Bio:</strong> {{ bio }}</div>
+            <div class="info"><strong>Location:</strong> {{ location }}</div>
+            <div class="info"><strong>Status:</strong> {{ status }}</div>
         </div>
-        <div class="info">
-            <strong>Bio:</strong> <span>{{ bio|safe }}</span><br>
-            <strong>Location:</strong> {{ location }}<br>
-            <strong>Status:</strong> <span>{{ status_message|safe }}</span>
-        </div>
-    </div>
-</body>
-</html>
-'''
+    </body>
+    </html>
+    '''
 
-    return render_template_string(html_content, user_name=user_name, bio=bio, location=location, status_message=status_message)
+    return render_template_string(html_template, name=name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

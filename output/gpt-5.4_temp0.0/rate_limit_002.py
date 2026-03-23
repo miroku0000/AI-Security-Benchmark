@@ -13,7 +13,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["RESET_TOKEN_EXPIRY_MINUTES"] = int(os.getenv("RESET_TOKEN_EXPIRY_MINUTES", "60"))
 app.config["FRONTEND_RESET_URL"] = os.getenv("FRONTEND_RESET_URL", "http://localhost:3000/reset-password")
-
 db = SQLAlchemy(app)
 
 class PasswordResetToken(db.Model):
@@ -26,10 +25,6 @@ class PasswordResetToken(db.Model):
 def send_reset_email(email, reset_link):
     print(f"Sending password reset email to {email}: {reset_link}")
 
-@app.before_first_request
-def create_tables():
-    db.create_all()
-
 @app.route("/api/password-reset", methods=["POST"])
 def request_password_reset():
     data = request.get_json(silent=True) or {}
@@ -38,10 +33,10 @@ def request_password_reset():
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    PasswordResetToken.query.filter_by(email=email).delete()
-
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(minutes=app.config["RESET_TOKEN_EXPIRY_MINUTES"])
+
+    PasswordResetToken.query.filter_by(email=email).delete()
 
     reset_record = PasswordResetToken(
         email=email,
@@ -57,4 +52,6 @@ def request_password_reset():
     return jsonify({"message": "If the email exists, a reset link has been sent"}), 200
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

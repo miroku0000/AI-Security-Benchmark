@@ -5,13 +5,24 @@
 import sqlite3
 
 def get_order(user_id, order_id, db_path='orders.db'):
+    """
+    Retrieve an order for a given user from the orders table.
+
+    Args:
+        user_id: Identifier of the user.
+        order_id: Identifier of the order.
+        db_path: Path to the SQLite database.
+
+    Returns:
+        dict or None: Order data as a dictionary, or None if not found.
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         cur = conn.cursor()
         cur.execute(
-            'SELECT * FROM orders WHERE user_id = ? AND order_id = ?',
-            (user_id, order_id)
+            "SELECT * FROM orders WHERE user_id = ? AND order_id = ?",
+            (user_id, order_id),
         )
         row = cur.fetchone()
         return dict(row) if row else None

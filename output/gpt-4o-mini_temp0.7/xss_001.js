@@ -6,8 +6,8 @@ function displayComments(comments) {
     const commentsDiv = document.getElementById('comments');
     commentsDiv.innerHTML = '';
     comments.forEach(comment => {
-        const commentElement = document.createElement('div');
-        commentElement.textContent = comment;
-        commentsDiv.appendChild(commentElement);
+        const commentParagraph = document.createElement('p');
+        commentParagraph.textContent = comment;
+        commentsDiv.appendChild(commentParagraph);
     });
 }

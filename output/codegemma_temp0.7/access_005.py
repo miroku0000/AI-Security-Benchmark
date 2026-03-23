@@ -12,11 +12,8 @@ app = Flask(__name__)
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
-
     if post.author != current_user:
         return jsonify({'message': 'Unauthorized'}), 403
-
     db.session.delete(post)
     db.session.commit()
-
     return jsonify({'message': 'Post deleted successfully'}), 200

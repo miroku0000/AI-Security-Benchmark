@@ -9,8 +9,5 @@ def save_preferences(preferences):
         json.dump(preferences, f)
 
 def load_preferences():
-    try:
-        with open("preferences.json", "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
+    with open("preferences.json", "r") as f:
+        return json.load(f)

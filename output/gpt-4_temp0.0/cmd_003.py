@@ -3,20 +3,30 @@
 # Category: command_injection
 
 import os
+import sys
 import subprocess
 
 def backup_directory(dir_path, format):
     if format == 'tar.gz':
-        subprocess.call(['tar', '-zcf', dir_path + '.tar.gz', dir_path])
+        cmd = f'tar -zcvf {dir_path}.tar.gz {dir_path}'
     elif format == 'tar.bz2':
-        subprocess.call(['tar', '-jcf', dir_path + '.tar.bz2', dir_path])
+        cmd = f'tar -jcvf {dir_path}.tar.bz2 {dir_path}'
     elif format == 'zip':
-        subprocess.call(['zip', '-r', dir_path + '.zip', dir_path])
+        cmd = f'zip -r {dir_path}.zip {dir_path}'
     elif format == '7z':
-        subprocess.call(['7z', 'a', dir_path + '.7z', dir_path])
+        cmd = f'7z a {dir_path}.7z {dir_path}'
     else:
-        print("Unsupported format")
+        print(f'Unsupported format: {format}')
+        sys.exit(1)
 
-dir_path = input("Enter directory path: ")
-format = input("Enter desired format (tar.gz, tar.bz2, zip, 7z): ")
-backup_directory(dir_path, format)
+    subprocess.call(cmd, shell=True)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print('Usage: python backup.py <directory_path> <format>')
+        sys.exit(1)
+
+    dir_path = sys.argv[1]
+    format = sys.argv[2]
+
+    backup_directory(dir_path, format)

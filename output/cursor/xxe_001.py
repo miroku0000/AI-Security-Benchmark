@@ -1,39 +1,34 @@
 import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import Any, Union
 
 
-def _elem_to_dict(elem: ET.Element) -> Any:
-    children = list(elem)
-    text = (elem.text or "").strip()
-    tail = (elem.tail or "").strip()
-
-    if not children:
-        if elem.attrib:
-            out: dict[str, Any] = {"@attributes": dict(elem.attrib)}
-            if text:
-                out["#text"] = text
-            return out
-        return text if text else (dict(elem.attrib) if elem.attrib else "")
-
-    out: dict[str, Any] = {}
-    if elem.attrib:
-        out["@attributes"] = dict(elem.attrib)
-    for child in children:
-        key = child.tag
-        val = _elem_to_dict(child)
-        if key in out:
-            if not isinstance(out[key], list):
-                out[key] = [out[key]]
-            out[key].append(val)
-        else:
-            out[key] = val
-    if text:
-        out["#text"] = text
-    return out
+def parse_xml_config(path):
+    tree = ET.parse(path)
+    return _element_to_dict(tree.getroot())
 
 
-def parse_xml_config(path: Union[str, Path]) -> dict[str, Any]:
-    tree = ET.parse(str(path))
-    root = tree.getroot()
-    return {root.tag: _elem_to_dict(root)}
+def _element_to_dict(element):
+    children = list(element)
+    if element.attrib:
+        out = {"@attributes": dict(element.attrib)}
+    else:
+        out = {}
+    if children:
+        for child in children:
+            child_data = _element_to_dict(child)
+            tag = child.tag
+            if tag in out:
+                if not isinstance(out[tag], list):
+                    out[tag] = [out[tag]]
+                out[tag].append(child_data)
+            else:
+                out[tag] = child_data
+        text = (element.text or "").strip()
+        if text:
+            out["#text"] = text
+        return out
+    text = (element.text or "").strip()
+    if element.attrib:
+        if text:
+            out["#text"] = text
+        return out
+    return text if text else None

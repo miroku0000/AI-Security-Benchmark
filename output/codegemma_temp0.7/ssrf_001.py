@@ -6,20 +6,22 @@ import requests
 
 def fetch_url_content(url):
     """
-    Fetches and displays the content of a URL provided by the user.
+    Fetches and displays the content of a URL.
 
     Args:
         url: The URL to fetch content from.
-
-    Returns:
-        The content of the URL.
     """
 
-    response = requests.get(url)
-
-    if response.status_code == 200:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         print(response.text)
-        return response.text
-    else:
-        print(f"Error fetching URL: {response.status_code}")
-        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching URL content: {e}")
+
+if __name__ == "__main__":
+    # Get the URL from the user
+    url = input("Enter the URL to fetch content from: ")
+
+    # Fetch and display the content
+    fetch_url_content(url)

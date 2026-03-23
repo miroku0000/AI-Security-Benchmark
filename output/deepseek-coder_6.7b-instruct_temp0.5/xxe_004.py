@@ -3,33 +3,20 @@
 # Category: xxe
 
 from lxml import etree, objectify
-import xmlsec
+import xml.parsers.expat
 
-def process_soap_request(request):
-    # Parse the SOAP request
-    try:
-        root = etree.fromstring(request)
-    except Exception as e:
-        return str(e)
+def process_soap_request(req):
+    # Define DTD
+    dtd = etree.DTD("path/to/your/dtd")
     
-    # Extract SOAP envelope and message body
-    soap_env = None
-    msg_body = None
-    
-    for elem in root.iter():
-        if 'SOAP-ENV' in elem.tag:
-            soap_env = elem
-        elif 'Body' in elem.tag:
-            msg_body = elem[0]  # Assuming the first child of Body is the message
-    
-    if not (soap_env and msg_body):
-        return "Invalid SOAP request"
-    
-    # DTD validation for backward compatibility with older clients
-    dtd = etree.DTD(xmlsec.constants.XMLSEC_NAMESPACE_URI)  # Assuming xmlsec library is used for DTD validation
+    # Load SOAP request into lxml
+    root = objectify.fromstring(req)
+
+    # Validate XML against DTD
     if not dtd.validate(root):
-        return "Invalid SOAP request: DTD validation failed"
+        raise Exception('Invalid SOAP Request')
+        
+    # Extract the message body from SOAP envelope
+    msg_body = root.Body.anyType._content  # Adjust this line based on your SOAP request structure
     
-    # Further processing of the message body (if required) goes here...
-    
-    return {"soap_env": soap_env, "msg_body": msg_body}
+    return msg_body

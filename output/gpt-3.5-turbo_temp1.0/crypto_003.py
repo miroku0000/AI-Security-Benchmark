@@ -4,9 +4,9 @@
 
 import hashlib
 
-def generate_file_hash(filename):
-    hash_object = hashlib.md5()
-    with open(filename, "rb") as f:
+def create_file_hash(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
-            hash_object.update(chunk)
-    return hash_object.hexdigest()
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()

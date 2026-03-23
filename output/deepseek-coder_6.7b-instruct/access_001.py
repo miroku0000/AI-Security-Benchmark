@@ -4,22 +4,17 @@
 
 import sqlite3
 
-def retrieve_order(user_id, order_id):
-    # Connect to SQLite database
-    conn = sqlite3.connect('database_name.db')  # replace with your database name
-    
-    cursor = conn.cursor()
+def get_order_info(user_id, order_id):
+    conn = sqlite3.connect('database.db')  # connect to your database file
+    c = conn.cursor()
     
     query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
-    result = cursor.execute(query, (user_id, order_id)).fetchone()
+    c.execute(query, (user_id, order_id))
     
-    # Close the connection to the database
-    conn.close()
+    columns = [desc[0] for desc in c.description]  # get column names from cursor description
+    data = c.fetchone()  # fetch the first row of results
     
-    if not result:
-        return {}  # Return an empty dictionary for non-existing orders
-    
-    columns = [description[0] for description in cursor.description]
-    order_data = dict(zip(columns, result))
-    
-    return order_data
+    if data is None:
+        return {}
+        
+    return dict(zip(columns, data))  # convert to dictionary and return

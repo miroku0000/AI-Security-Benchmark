@@ -6,41 +6,43 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 
-const uploadDir = path.join(__dirname, 'uploads');
+const app = express();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const extName = path.extname(file.originalname);
-    const filename = `${Date.now()}${extName}`;
-    cb(null, filename);
-  }
-});
-
+// Set up multer for handling multipart/form-data requests
 const upload = multer({
-  storage,
-  limits: { fileSize: 1000000 }, // max file size
-  fileFilter(req, file, cb) {
-    if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
-      return cb(new Error('Only image files are allowed!'));
+  dest: './uploads/', // where to store the uploaded files
+});
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send({ message: 'No file provided' });
+  }
+
+  const originalname = req.file.originalname;
+  const filename = path.basename(req.file.path);
+  const extension = path.extname(filename);
+
+  // save the uploaded file to a new location
+  const newPath = `./server/uploads/${filename}`;
+  fs.rename(req.file.path, newPath, (err) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).send({ message: 'Failed to upload file' });
     }
-    cb(null, true);
-  }
+
+    // delete the uploaded file from the temporary directory
+    fs.unlink(req.file.path, (err) => {
+      if (err) {
+        console.error(err);
+      }
+    });
+
+    const filePath = `http://localhost:3000/uploads/${filename}`;
+    res.send({ message: 'File uploaded successfully', filePath });
+  });
 });
 
-const router = express.Router();
-
-router.post('/upload', upload.single('image'), (req, res) => {
-  try {
-    const filePath = req.file.path;
-    console.log(`File uploaded to: ${filePath}`);
-    res.status(201).send({ message: 'File uploaded successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: 'Failed to upload file' });
-  }
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });
-
-module.exports = router;

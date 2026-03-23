@@ -4,49 +4,47 @@
 
 from flask import Flask, request, jsonify
 import jwt
-import datetime
-from functools import wraps
+from datetime import datetime, timedelta
+import sqlite3
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
 
-# Dummy database to store email and token
-users_db = {}
+SECRET_KEY = 'your_secret_key'
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-        return f(data, *args, **kwargs)
-    return decorated
-
-@app.route('/send_reset_link', methods=['POST'])
-def send_reset_link():
-    email = request.json.get('email')
-    if email not in users_db:
-        return jsonify({'message': 'Email not found!'}), 404
-    
-    token = jwt.encode({
-        'user_email': email,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }, app.config['SECRET_KEY'], algorithm="HS256")
-    
-    reset_link = f"http://example.com/reset_password?token={token}"
-    # Here you would send the reset_link to the user's email
-    return jsonify({'message': 'Reset link sent!'})
+def get_db_connection():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 @app.route('/reset_password', methods=['POST'])
-@token_required
-def reset_password(user):
-    new_password = request.json.get('new_password')
-    users_db[user['user_email']] = new_password
-    return jsonify({'message': 'Password updated successfully!'})
+def reset_password():
+    email = request.json.get('email')
+    
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    conn.close()
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    token = jwt.encode({
+        'user_id': user['id'],
+        'exp': datetime.utcnow() + timedelta(hours=1)
+    }, SECRET_KEY, algorithm='HS256')
+    
+    reset_link = f'https://yourdomain.com/reset?token={token}'
+    
+    # Send the email with the reset link
+    send_email(email, reset_link)  # You need to implement this function
+    
+    return jsonify({'message': 'Password reset link sent'}), 200
+
+def send_email(email, reset_link):
+    # Implement your email sending logic here
+    print(f"Sending password reset email to {email} with link: {reset_link}")
 
 if __name__ == '__main__':
     app.run(debug=True)

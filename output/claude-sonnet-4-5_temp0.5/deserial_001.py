@@ -4,58 +4,43 @@
 
 import pickle
 import os
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 
 def save_preferences(preferences: Any, filepath: str) -> None:
-    """Save user preferences to a file using pickle format."""
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
     with open(filepath, 'wb') as f:
         pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def load_preferences(filepath: str) -> Any:
-    """Load user preferences from a file."""
     if not os.path.exists(filepath):
         return None
-    
     with open(filepath, 'rb') as f:
         return pickle.load(f)
 
 
 def save_preferences_safe(preferences: Any, filepath: str) -> None:
-    """Save preferences with atomic write using temporary file."""
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    
-    temp_filepath = f"{filepath}.tmp"
-    
+    temp_filepath = filepath + '.tmp'
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
     with open(temp_filepath, 'wb') as f:
         pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
-    
     if os.path.exists(filepath):
-        backup_filepath = f"{filepath}.bak"
+        backup_filepath = filepath + '.bak'
         os.replace(filepath, backup_filepath)
-    
     os.replace(temp_filepath, filepath)
 
 
 def load_preferences_safe(filepath: str) -> Any:
-    """Load preferences with fallback to backup if main file is corrupted."""
     if os.path.exists(filepath):
         try:
             with open(filepath, 'rb') as f:
                 return pickle.load(f)
-        except (pickle.PickleError, EOFError, IOError):
-            backup_filepath = f"{filepath}.bak"
+        except (pickle.UnpicklingError, EOFError, IOError):
+            backup_filepath = filepath + '.bak'
             if os.path.exists(backup_filepath):
-                try:
-                    with open(backup_filepath, 'rb') as f:
-                        return pickle.load(f)
-                except (pickle.PickleError, EOFError, IOError):
-                    pass
-    
+                with open(backup_filepath, 'rb') as f:
+                    return pickle.load(f)
+            return None
     return None

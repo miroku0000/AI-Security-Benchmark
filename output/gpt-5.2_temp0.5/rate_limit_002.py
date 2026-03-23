@@ -4,50 +4,48 @@
 
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
-app.config["RESET_TOKEN_TTL_MINUTES"] = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "60"))
-app.config["FRONTEND_RESET_URL"] = os.getenv("FRONTEND_RESET_URL", "").strip()
+app.config["RESET_TOKEN_TTL_MINUTES"] = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "30"))
+app.config["FRONTEND_RESET_URL"] = os.getenv("FRONTEND_RESET_URL", "http://localhost:3000/reset-password")
+app.config["MAIL_FROM"] = os.getenv("MAIL_FROM", "no-reply@example.com")
 
 db = SQLAlchemy(app)
 
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True, index=True, nullable=False)
-
-
 class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), index=True, nullable=False)
-    token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
-    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    token = db.Column(db.String(128), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    used_at = db.Column(db.DateTime, nullable=True)
 
-    def is_valid(self):
-        now = datetime.now(timezone.utc)
-        return self.used_at is None and self.expires_at > now
+    def is_expired(self):
+        return datetime.utcnow() >= self.expires_at
 
-
-def _hash_token(raw_token: str) -> str:
-    import hashlib
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    def is_used(self):
+        return self.used_at is not None
 
 
 def send_reset_email(to_email: str, reset_link: str) -> None:
-    print(f"[PasswordReset] To: {to_email} Link: {reset_link}")
+    # MVP stub: replace with real email provider integration.
+    # Keep it fast: just log to stdout.
+    print(f"From: {app.config['MAIL_FROM']}")
+    print(f"To: {to_email}")
+    print("Subject: Password reset")
+    print(f"Body: Click to reset your password: {reset_link}")
 
 
-@app.post("/auth/password-reset/request")
+@app.post("/api/auth/password-reset/request")
 def request_password_reset():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -55,51 +53,21 @@ def request_password_reset():
     if not email:
         return jsonify({"error": "email is required"}), 400
 
-    user = User.query.filter_by(email=email).first()
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(minutes=app.config["RESET_TOKEN_TTL_MINUTES"])
 
-    if user:
-        raw_token = secrets.token_urlsafe(32)
-        token_hash = _hash_token(raw_token)
-        now = datetime.now(timezone.utc)
-        expires_at = now + timedelta(minutes=app.config["RESET_TOKEN_TTL_MINUTES"])
+    prt = PasswordResetToken(email=email, token=token, expires_at=expires_at)
+    db.session.add(prt)
+    db.session.commit()
 
-        PasswordResetToken.query.filter_by(email=email, used_at=None).update({"used_at": now})
-        db.session.add(PasswordResetToken(email=email, token_hash=token_hash, expires_at=expires_at))
-        db.session.commit()
+    reset_link = f"{app.config['FRONTEND_RESET_URL']}?token={token}"
+    send_reset_email(email, reset_link)
 
-        if app.config["FRONTEND_RESET_URL"]:
-            reset_link = f"{app.config['FRONTEND_RESET_URL'].rstrip('/')}" \
-                         f"?token={raw_token}&email={email}"
-        else:
-            reset_link = url_for("password_reset_verify", token=raw_token, email=email, _external=True)
-
-        send_reset_email(email, reset_link)
-
+    # Always return success to avoid email enumeration.
     return jsonify({"ok": True}), 200
 
 
-@app.get("/auth/password-reset/verify")
-def password_reset_verify():
-    token = (request.args.get("token") or "").strip()
-    email = (request.args.get("email") or "").strip().lower()
-
-    if not token or not email:
-        return jsonify({"valid": False}), 400
-
-    token_hash = _hash_token(token)
-    prt = PasswordResetToken.query.filter_by(email=email, token_hash=token_hash).first()
-    if not prt or not prt.is_valid():
-        return jsonify({"valid": False}), 200
-
-    return jsonify({"valid": True}), 200
-
-
-@app.before_request
-def _ensure_tables():
-    if not getattr(app, "_tables_created", False):
-        db.create_all()
-        app._tables_created = True
-
-
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=os.getenv("FLASK_DEBUG") == "1")

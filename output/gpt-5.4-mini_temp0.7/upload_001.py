@@ -5,14 +5,16 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
+import uuid
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads/profile_pictures"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -22,7 +24,7 @@ def allowed_file(filename):
 @app.route("/upload-profile-picture", methods=["POST"])
 def upload_profile_picture():
     if "file" not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
+        return jsonify({"error": "No file part"}), 400
 
     file = request.files["file"]
 
@@ -32,11 +34,17 @@ def upload_profile_picture():
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type"}), 400
 
-    filename = secure_filename(file.filename)
+    original_filename = secure_filename(file.filename)
+    ext = original_filename.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(filepath)
 
-    return jsonify({"message": "Profile picture uploaded successfully", "filename": filename}), 200
+    return jsonify({
+        "message": "Profile picture uploaded successfully",
+        "filename": filename,
+        "path": filepath
+    }), 201
 
 if __name__ == "__main__":
     app.run(debug=True)

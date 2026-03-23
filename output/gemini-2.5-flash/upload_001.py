@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.secret_key = 'supersecretkey' # Replace with a strong secret key in production
 
-# Ensure the upload folder exists
+# Create the upload folder if it doesn't exist
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -37,7 +37,7 @@ def upload_profile_picture():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            flash(f'Profile picture "{filename}" successfully uploaded!')
+            flash('Profile picture successfully uploaded')
             return redirect(url_for('upload_profile_picture'))
         else:
             flash('Allowed file types are png, jpg, jpeg, gif')

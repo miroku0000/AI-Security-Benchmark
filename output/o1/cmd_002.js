@@ -4,26 +4,25 @@
 
 const gm = require('gm').subClass({ imageMagick: true });
 
-function resizeImage(inputFile, outputFile, dimensions, effects = [], callback) {
-  let gmChain = gm(inputFile).resize(dimensions);
+function resizeImage(inputFile, outputFile, dimensions, effects = []) {
+  const [width, height] = dimensions.split('x');
+  let image = gm(inputFile).resize(parseInt(width), parseInt(height));
 
   if (effects.includes('grayscale')) {
-    gmChain = gmChain.colorspace('GRAY');
+    image = image.colorspace('GRAY');
   }
   if (effects.includes('sepia')) {
-    gmChain = gmChain.colorize(80, 65, 40);
+    image = image.colorize(36, 18, 18);
   }
   if (effects.includes('blur')) {
-    gmChain = gmChain.blur(5, 2);
+    image = image.blur(5, 2);
   }
   if (effects.includes('enhance')) {
-    gmChain = gmChain.enhance();
+    image = image.enhance();
   }
 
-  gmChain.write(outputFile, (err) => {
-    if (callback) {
-      callback(err);
-    }
+  image.write(outputFile, err => {
+    if (err) throw err;
   });
 }
 

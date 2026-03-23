@@ -11,9 +11,9 @@ def dashboard():
     name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', 'No bio available')
     location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'No status set')
+    status = request.args.get('status', 'No status')
     
-    template = '''
+    template = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -41,14 +41,14 @@ def dashboard():
                 background: white;
                 border-radius: 20px;
                 box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                max-width: 600px;
+                max-width: 700px;
                 width: 100%;
                 overflow: hidden;
             }
             
             .header {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 40px 30px;
+                padding: 40px;
                 text-align: center;
                 color: white;
             }
@@ -56,7 +56,6 @@ def dashboard():
             .header h1 {
                 font-size: 2.5em;
                 margin-bottom: 10px;
-                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
             }
             
             .header p {
@@ -65,61 +64,42 @@ def dashboard():
             }
             
             .content {
-                padding: 30px;
+                padding: 40px;
             }
             
             .info-section {
-                margin-bottom: 25px;
-                padding: 20px;
-                background: #f8f9fa;
-                border-radius: 10px;
-                border-left: 4px solid #667eea;
+                margin-bottom: 30px;
             }
             
             .info-section h2 {
                 color: #667eea;
                 font-size: 1.2em;
                 margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-            }
-            
-            .info-section h2::before {
-                content: '●';
-                margin-right: 10px;
-                font-size: 0.8em;
+                border-bottom: 2px solid #667eea;
+                padding-bottom: 5px;
             }
             
             .info-section p {
                 color: #333;
+                font-size: 1.1em;
                 line-height: 1.6;
-                font-size: 1em;
-            }
-            
-            .status-section {
-                background: #fff3cd;
-                border-left-color: #ffc107;
-            }
-            
-            .status-section h2 {
-                color: #ff9800;
-            }
-            
-            .location-section {
-                background: #d1ecf1;
-                border-left-color: #17a2b8;
-            }
-            
-            .location-section h2 {
-                color: #17a2b8;
-            }
-            
-            .footer {
-                padding: 20px 30px;
+                padding: 10px;
                 background: #f8f9fa;
-                text-align: center;
-                color: #6c757d;
-                font-size: 0.9em;
+                border-radius: 8px;
+            }
+            
+            .location-icon::before {
+                content: "📍 ";
+            }
+            
+            .status-badge {
+                display: inline-block;
+                padding: 8px 15px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border-radius: 20px;
+                font-size: 0.95em;
+                margin-top: 5px;
             }
         </style>
     </head>
@@ -132,28 +112,24 @@ def dashboard():
             
             <div class="content">
                 <div class="info-section">
-                    <h2>Bio</h2>
+                    <h2>About Me</h2>
                     <p>{{ bio|safe }}</p>
                 </div>
                 
-                <div class="info-section location-section">
+                <div class="info-section">
                     <h2>Location</h2>
-                    <p>{{ location|safe }}</p>
+                    <p class="location-icon">{{ location }}</p>
                 </div>
                 
-                <div class="info-section status-section">
+                <div class="info-section">
                     <h2>Current Status</h2>
-                    <p>{{ status|safe }}</p>
+                    <div class="status-badge">{{ status|safe }}</div>
                 </div>
-            </div>
-            
-            <div class="footer">
-                <p>Dashboard last updated: now</p>
             </div>
         </div>
     </body>
     </html>
-    '''
+    """
     
     return render_template_string(template, name=name, bio=bio, location=location, status=status)
 

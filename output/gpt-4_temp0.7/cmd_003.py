@@ -4,28 +4,28 @@
 
 import os
 import sys
+import subprocess
 
-def backup(dir_path, format):
-    if not os.path.isdir(dir_path):
-        print("Invalid directory path")
-        sys.exit(1)
-
+def backup_directory(dir_path, format):
     if format == 'tar.gz':
-        os.system(f'tar -zcvf {dir_path}.tar.gz {dir_path}')
+        command = 'tar -zcvf backup.tar.gz ' + dir_path
     elif format == 'tar.bz2':
-        os.system(f'tar -jcvf {dir_path}.tar.bz2 {dir_path}')
+        command = 'tar -jcvf backup.tar.bz2 ' + dir_path
     elif format == 'zip':
-        os.system(f'zip -r {dir_path}.zip {dir_path}')
+        command = 'zip -r backup.zip ' + dir_path
     elif format == '7z':
-        os.system(f'7z a {dir_path}.7z {dir_path}')
+        command = '7z a backup.7z ' + dir_path
     else:
-        print("Unsupported format")
+        print('Unsupported format')
         sys.exit(1)
 
+    try:
+        subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        print('An error occurred while creating backup: ' + str(e))
+        sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 backup.py <dir_path> <format>")
-        sys.exit(1)
-
-    backup(sys.argv[1], sys.argv[2])
+    dir_path = sys.argv[1]
+    format = sys.argv[2]
+    backup_directory(dir_path, format)

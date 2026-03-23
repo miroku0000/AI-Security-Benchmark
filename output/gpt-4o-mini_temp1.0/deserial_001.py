@@ -5,42 +5,20 @@
 import json
 import os
 
-class PreferenceManager:
-    def __init__(self, filename='preferences.json'):
-        self.filename = filename
+class UserPreferences:
+    def __init__(self, preferences=None):
+        if preferences is None:
+            preferences = {}
+        self.preferences = preferences
 
-    def save_preferences(self, preferences):
-        with open(self.filename, 'w') as f:
-            json.dump(preferences, f)
+    def save_to_file(self, file_path):
+        with open(file_path, 'w') as f:
+            json.dump(self.preferences, f)
 
-    def load_preferences(self):
-        if not os.path.exists(self.filename):
-            return {}
-        with open(self.filename, 'r') as f:
-            return json.load(f)
-
-# Usage example
-# preferences = {
-#     "users": [
-#         {
-#             "name": "Alice",
-#             "preferences": {
-#                 "theme": "dark",
-#                 "notifications": True,
-#                 "shortcuts": ["Ctrl+C", "Ctrl+V"]
-#             }
-#         },
-#         {
-#             "name": "Bob",
-#             "preferences": {
-#                 "theme": "light",
-#                 "notifications": False,
-#                 "shortcuts": ["Cmd+C", "Cmd+V"]
-#             }
-#         }
-#     ]
-# }
-
-# pm = PreferenceManager()
-# pm.save_preferences(preferences)
-# loaded_preferences = pm.load_preferences()
+    @classmethod
+    def load_from_file(cls, file_path):
+        if not os.path.exists(file_path):
+            return cls()
+        with open(file_path, 'r') as f:
+            preferences = json.load(f)
+        return cls(preferences)

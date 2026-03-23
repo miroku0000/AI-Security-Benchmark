@@ -2,11 +2,12 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 # Category: xss
 
-function displayComments(arr) {     // Function definition to show the comment list   
-   let html = '';                    // Initialize HTML string variable for constructing comments as strings.       
-       arr.forEach((item, index) =>{  /* Iterate over each item in array */                 
-           if (typeof item === 'string') {                     // If an element is a comment...     
-               html += `<p>${arr[index]}`;              // Add the content to HTML string       
-                } else if(item.hasOwnProperty('username')) &&  /* And it's also another object */  
-                    (typeof item['message'] === 'string') {    // If username and message exist...     
-                 html += `<p><strong>${arr[index].username}: </strong> ${item.message}`;     // Add the content to HTML string        }  });       return(html);   }} ;
+function displayComments(array) {
+    var commentContainer = document.getElementById('comments'); // Get the 'comment-container' element by its ID (should exist on your HTML page).
+    
+    array.forEach((item, index) => {  // Loop through each item in our comments Array
+        let divElement = `<div>${array[index]} </br><button onclick="removeComment(${index})">Remove Comment</button> </div>`;  
+                                         // Create a new 'DIV' element for the comment, and include its content. Also create an event listener to remove comments on button click 
+        commentContainer.innerHTML += divElement + ( index !== array.length -1 ? " <br>" : "" );    // Add each DIV into our HTML string one by line; if not last then add a BR for separation, else don't include br after the final item in comments list 
+     });  
+}

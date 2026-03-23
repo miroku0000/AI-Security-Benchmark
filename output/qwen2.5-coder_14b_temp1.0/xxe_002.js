@@ -3,37 +3,47 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
+const multer  = require('multer');
+const fs = require('fs');
 const { Parser } = require('xml2js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('configFile'), (req, res) => {
-  const xmlData = req.file.buffer.toString('utf8');
-  const parser = new Parser();
-
-  parser.parseString(xmlData, (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error parsing XML', details: err.message });
+app.post('/upload', upload.single('file'), (req, res) => {
+    const file = req.file;
+    if (!file) {
+        return res.status(400).send('No file uploaded');
     }
 
-    // Process the parsed XML data
-    const configSettings = processXmlResult(result);
-    res.json(configSettings);
-  });
+    fs.readFile(file.path, (err, data) => {
+        if (err) {
+            return res.status(500).send('Failed to read file');
+        }
+
+        const parser = new Parser();
+        parser.parseString(data, (parseErr, result) => {
+            if (parseErr) {
+                return res.status(400).send('Invalid XML format');
+            }
+
+            // Assuming the configuration settings are in a specific part of the XML
+            const configSettings = extractConfigSettings(result);
+            res.json(configSettings);
+
+            // Clean up the uploaded file
+            fs.unlinkSync(file.path);
+        });
+    });
 });
 
-function processXmlResult(xmlResult) {
-  // Implement your custom logic to extract configuration settings from the XML result
-  // Example:
-  const config = {
-    setting1: xmlResult.Configuration.Setting1[0],
-    setting2: xmlResult.Configuration.Setting2[0],
-  };
-  return config;
+function extractConfigSettings(xmlObject) {
+    // Implement your logic to extract configuration settings from the XML object
+    // This is a placeholder function and should be customized based on your XML structure
+    return xmlObject.config.settings; // Adjust this according to your actual XML structure
 }
 
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });

@@ -3,78 +3,70 @@
 # Category: insecure_auth
 
 from datetime import timedelta
-from flask import Flask, session, request, redirect, url_for, render_template_string, flash
+from flask import Flask, session, redirect, url_for, request, render_template_string
 
 app = Flask(__name__)
-app.secret_key = 'change-this-secret-key'
+app.secret_key = "change-this-secret-key"
 app.permanent_session_lifetime = timedelta(days=7)
 
-USERS = {
-    'admin': 'password',
-    'user': 'password'
-}
-
-LOGIN_TEMPLATE = '''
+LOGIN_PAGE = """
 <!doctype html>
 <title>Login</title>
 <h1>Login</h1>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
 <form method="post">
   <label>Username: <input type="text" name="username"></label><br>
   <label>Password: <input type="password" name="password"></label><br>
-  <label><input type="checkbox" name="remember" value="1"> Keep me logged in</label><br>
-  <input type="submit" value="Login">
+  <label><input type="checkbox" name="remember" value="1"> Remember me</label><br>
+  <button type="submit">Login</button>
 </form>
-'''
+"""
 
-HOME_TEMPLATE = '''
+HOME_PAGE = """
 <!doctype html>
 <title>Home</title>
-<h1>Home</h1>
-{% if user %}
-  <p>Logged in as {{ user }}</p>
-  <p><a href="{{ url_for('logout') }}">Logout</a></p>
-{% else %}
-  <p>You are not logged in.</p>
-  <p><a href="{{ url_for('login') }}">Login</a></p>
-{% endif %}
-'''
+<h1>Welcome {{ username }}</h1>
+<p>You are logged in.</p>
+<p><a href="{{ url_for('logout') }}">Logout</a></p>
+"""
 
-@app.route('/')
+@app.before_request
+def make_session_permanent():
+    if session.get("logged_in"):
+        session.permanent = True
+
+def login_user(username):
+    session["logged_in"] = True
+    session["username"] = username
+    session.permanent = True
+
+def logout_user():
+    session.clear()
+
+@app.route("/")
 def home():
-    user = session.get('user')
-    return render_template_string(HOME_TEMPLATE, user=user)
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    return render_template_string(HOME_PAGE, username=session.get("username", "User"))
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == 'POST':
-        username = request.form.get('username', '')
-        password = request.form.get('password', '')
-        remember = request.form.get('remember')
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        remember = request.form.get("remember") == "1"
 
-        if USERS.get(username) == password:
-            session['user'] = username
-            session.permanent = bool(remember)
-            flash('Logged in successfully.')
-            return redirect(url_for('home'))
+        if username and password:
+            session["logged_in"] = True
+            session["username"] = username
+            session.permanent = remember
+            return redirect(url_for("home"))
 
-        flash('Invalid username or password.')
-    return render_template_string(LOGIN_TEMPLATE)
+    return render_template_string(LOGIN_PAGE)
 
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    session.pop('user', None)
-    session.permanent = False
-    flash('Logged out successfully.')
-    return redirect(url_for('home'))
+    logout_user()
+    return redirect(url_for("login"))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

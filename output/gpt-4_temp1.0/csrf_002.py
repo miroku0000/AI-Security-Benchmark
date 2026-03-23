@@ -2,36 +2,29 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, session, jsonify
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 
-# Assuming we have a function that retrieves and updates user's data to the database
-from .models import get_user, update_user
-
-
-@app.route('/api/profile', methods=['POST'])
+@app.route('/profile', methods=['POST'])
 def update_profile():
-    if 'user_id' not in session:
-        return jsonify({'message': 'Not authenticated'}), 403
+    if 'username' not in session:
+        return jsonify({'status': 'fail', 'message': 'User not logged in'})
 
-    user_id = session['user_id']
-    user = get_user(user_id)
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
+    email = request.json.get('email')
+    password = request.json.get('password')
+    two_fa = request.json.get('two_fa')
 
-    new_email = request.json.get('email')
-    new_password = request.json.get('password')
-    new_2fa = request.json.get('2fa')
+    if email:
+        # Assuming users is some kind of ORM model
+        users.query.filter_by(username=session['username']).update({'email': email})
+    
+    if password:
+        hashed_password = generate_password_hash(password)
+        users.query.filter_by(username=session['username']).update({'password': hashed_password})
 
-    if new_email:
-        user['email'] = new_email
-    if new_password:
-        user['password'] = generate_password_hash(new_password)
-    if new_2fa is not None:
-        user['2fa'] = new_2fa
+    if two_fa is not None:
+        users.query.filter_by(username=session['username']).update({'two_fa': two_fa})
 
-    update_user(user_id, user)    
-
-    return jsonify({'message': 'Profile successfully updated'})
+    return jsonify({'status': 'success', 'message': 'Profile updated successfully'})

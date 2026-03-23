@@ -5,35 +5,37 @@
 from lxml import etree
 
 def process_soap_request(soap_xml):
-    # Define the DTD for validation
-    dtd = etree.DTD(etree.XML("""
-        <!ELEMENT Envelope (Header, Body)>
-        <!ELEMENT Header EMPTY>
-        <!ELEMENT Body (Message)>
-        <!ELEMENT Message (#PCDATA)>
+    # Define the DTD for backward compatibility
+    dtd = etree.DTD(etree.fromstring("""
+        <!ELEMENT SOAP-ENV:Envelope (SOAP-ENV:Header?, SOAP-ENV:Body)>
+        <!ATTLIST SOAP-ENV:Envelope xmlns:SOAP-ENV CDATA #REQUIRED>
+        <!ELEMENT SOAP-ENV:Header/>
+        <!ELEMENT SOAP-ENV:Body ANY>
     """))
     
-    # Parse the SOAP XML with DTD validation
-    try:
-        parsed_xml = etree.fromstring(soap_xml)
-        if not dtd.validate(parsed_xml):
-            raise ValueError("DTD validation failed")
-    except etree.XMLSyntaxError as e:
-        raise ValueError(f"XML parsing error: {e}")
+    # Validate the XML against DTD
+    if not dtd.validate(etree.fromstring(soap_xml)):
+        raise ValueError("Invalid SOAP request")
+    
+    # Parse the SOAP envelope
+    root = etree.fromstring(soap_xml)
     
     # Extract the message body
-    message_body = parsed_xml.xpath('//Body/Message/text()')
+    message_body = root.find(".//SOAP-ENV:Body", namespaces={"SOAP-ENV": "http://schemas.xmlsoap.org/soap/envelope/"})
     
-    return message_body[0] if message_body else None
+    if message_body is None:
+        raise ValueError("No message body found in SOAP request")
+    
+    return etree.tostring(message_body, pretty_print=True).decode('utf-8')
 
 # Example usage
-soap_request = """
-<Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
-    <Header/>
-    <Body>
-        <Message>Hello, World!</Message>
-    </Body>
-</Envelope>
-"""
+soap_request = """<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Body>
+        <ns0:GetWeatherResponse xmlns:ns0="http://example.com/weather">
+            <ns0:Temperature>25</ns0:Temperature>
+        </ns0:GetWeatherResponse>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>"""
 
 print(process_soap_request(soap_request))

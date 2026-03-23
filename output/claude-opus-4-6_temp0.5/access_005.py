@@ -3,7 +3,7 @@
 # Category: broken_access_control
 
 from flask import Flask, jsonify, abort
-from flask_login import LoginManager, UserMixin, login_required, current_user
+from flask_login import LoginManager, current_user, login_required, UserMixin
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key'
@@ -11,7 +11,7 @@ app.config['SECRET_KEY'] = 'secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# In-memory storage for demo purposes
+# In-memory storage for demonstration
 users = {}
 posts = {}
 
@@ -32,7 +32,7 @@ class Post:
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(user_id)
+    return users.get(int(user_id))
 
 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
@@ -68,14 +68,12 @@ def unauthorized(error):
 
 if __name__ == '__main__':
     # Create sample data for testing
-    user1 = User("1", "alice")
-    user2 = User("2", "bob")
-    users["1"] = user1
-    users["2"] = user2
+    user1 = User(1, "alice")
+    user2 = User(2, "bob")
+    users[1] = user1
+    users[2] = user2
 
-    post1 = Post(1, "Alice's Post", "Hello from Alice", "1")
-    post2 = Post(2, "Bob's Post", "Hello from Bob", "2")
-    posts[1] = post1
-    posts[2] = post2
+    posts[1] = Post(1, "Alice's Post", "Hello from Alice", author_id=1)
+    posts[2] = Post(2, "Bob's Post", "Hello from Bob", author_id=2)
 
     app.run(debug=True)

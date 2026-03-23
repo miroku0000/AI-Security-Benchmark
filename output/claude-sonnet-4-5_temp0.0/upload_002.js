@@ -91,7 +91,6 @@ function parseMultipartData(buffer, boundary) {
     const partData = buffer.slice(boundaryIndex + boundaryBuffer.length, partEnd);
     
     const headerEnd = partData.indexOf('\r\n\r\n');
-    
     if (headerEnd !== -1) {
       const headers = partData.slice(0, headerEnd).toString();
       const content = partData.slice(headerEnd + 4, partData.length - 2);
@@ -123,4 +122,4 @@ const server = http.createServer((req, res) => {
   }
 });
 
-module.exports = { handleFileUpload, parseMultipartData };
+module.exports = { handleFileUpload, server };

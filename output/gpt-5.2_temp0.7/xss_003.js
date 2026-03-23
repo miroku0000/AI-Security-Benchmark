@@ -3,145 +3,75 @@
 # Category: xss
 
 import React from "react";
+import DOMPurify from "dompurify";
 
-const ALLOWED_TAGS = new Set([
-  "b",
-  "strong",
-  "i",
-  "em",
-  "u",
-  "s",
-  "strike",
-  "p",
-  "br",
-  "div",
-  "span",
-  "ul",
-  "ol",
-  "li",
-  "blockquote",
-  "code",
-  "pre",
-  "a",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "hr",
-]);
+export default function UserBio({ bio, className, as: Component = "div" }) {
+  const sanitized = React.useMemo(() => {
+    const input = typeof bio === "string" ? bio : "";
+    return DOMPurify.sanitize(input, {
+      USE_PROFILES: { html: true },
+      ALLOWED_TAGS: [
+        "a",
+        "b",
+        "strong",
+        "i",
+        "em",
+        "u",
+        "s",
+        "p",
+        "br",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "code",
+        "pre",
+        "span",
+        "div",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hr",
+      ],
+      ALLOWED_ATTR: ["href", "title", "target", "rel", "class", "id", "style"],
+      FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "link", "meta"],
+      FORBID_ATTR: [/^on/i],
+      ADD_ATTR: ["rel"],
+    });
+  }, [bio]);
 
-const GLOBAL_ALLOWED_ATTRS = new Set(["title", "aria-label", "role"]);
-const TAG_ALLOWED_ATTRS = {
-  a: new Set(["href", "target", "rel"]),
-  span: new Set(["class"]),
-  div: new Set(["class"]),
-  p: new Set(["class"]),
-  code: new Set(["class"]),
-  pre: new Set(["class"]),
-};
+  const onClick = React.useCallback((e) => {
+    const a = e.target?.closest?.("a");
+    if (!a) return;
 
-function isSafeUrl(url) {
-  try {
-    const u = new URL(url, typeof window !== "undefined" ? window.location.href : "http://localhost");
-    const protocol = u.protocol.toLowerCase();
-    return protocol === "http:" || protocol === "https:" || protocol === "mailto:" || protocol === "tel:";
-  } catch {
-    return false;
-  }
-}
+    const href = a.getAttribute("href") || "";
+    const isExternal =
+      /^https?:\/\//i.test(href) ||
+      /^\/\//.test(href) ||
+      /^mailto:/i.test(href) ||
+      /^tel:/i.test(href);
 
-function sanitizeBioHtml(html) {
-  if (!html || typeof html !== "string") return "";
-
-  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/\son\w+="[^"]*"/gi, "")
-      .replace(/\son\w+='[^']*'/gi, "")
-      .replace(/\son\w+=\S+/gi, "")
-      .replace(/javascript:/gi, "");
-  }
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-
-  const sanitizeNode = (node) => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = node.tagName.toLowerCase();
-
-      if (!ALLOWED_TAGS.has(tag)) {
-        const parent = node.parentNode;
-        if (parent) {
-          while (node.firstChild) parent.insertBefore(node.firstChild, node);
-          parent.removeChild(node);
-        }
-        return;
-      }
-
-      const allowedAttrs = new Set([
-        ...(TAG_ALLOWED_ATTRS[tag] ? Array.from(TAG_ALLOWED_ATTRS[tag]) : []),
-        ...Array.from(GLOBAL_ALLOWED_ATTRS),
-      ]);
-
-      for (const attr of Array.from(node.attributes)) {
-        const name = attr.name.toLowerCase();
-        const value = attr.value;
-
-        if (name.startsWith("on")) {
-          node.removeAttribute(attr.name);
-          continue;
-        }
-
-        if (!allowedAttrs.has(name)) {
-          node.removeAttribute(attr.name);
-          continue;
-        }
-
-        if (tag === "a" && name === "href") {
-          if (!isSafeUrl(value)) {
-            node.removeAttribute("href");
-          }
-        }
-
-        if (tag === "a" && name === "target") {
-          const t = value.toLowerCase();
-          if (t !== "_blank" && t !== "_self" && t !== "_parent" && t !== "_top") {
-            node.removeAttribute("target");
-          }
-        }
-      }
-
-      if (tag === "a") {
-        const target = (node.getAttribute("target") || "").toLowerCase();
-        if (target === "_blank") {
-          const rel = (node.getAttribute("rel") || "").toLowerCase();
-          const relParts = new Set(rel.split(/\s+/).filter(Boolean));
-          relParts.add("noopener");
-          relParts.add("noreferrer");
-          node.setAttribute("rel", Array.from(relParts).join(" "));
-        }
-      }
+    if (/^https?:\/\//i.test(href) || /^\/\//.test(href)) {
+      const rel = (a.getAttribute("rel") || "").split(/\s+/).filter(Boolean);
+      if (!rel.includes("noopener")) rel.push("noopener");
+      if (!rel.includes("noreferrer")) rel.push("noreferrer");
+      a.setAttribute("rel", rel.join(" "));
+      if (!a.getAttribute("target")) a.setAttribute("target", "_blank");
     }
 
-    for (const child of Array.from(node.childNodes)) sanitizeNode(child);
-  };
+    if (!isExternal && href.startsWith("javascript:")) {
+      e.preventDefault();
+    }
+  }, []);
 
-  sanitizeNode(doc.body);
-  return doc.body.innerHTML;
-}
-
-export default function UserBio({
-  bio,
-  as: Component = "section",
-  className,
-  sanitize = true,
-}) {
-  const html = sanitize ? sanitizeBioHtml(bio) : (bio || "");
-  return React.createElement(Component, {
-    className,
-    "data-component": "UserBio",
-    dangerouslySetInnerHTML: { __html: html },
-  });
+  return (
+    <Component
+      className={className}
+      onClick={onClick}
+      dangerouslySetInnerHTML={{ __html: sanitized }}
+    />
+  );
 }

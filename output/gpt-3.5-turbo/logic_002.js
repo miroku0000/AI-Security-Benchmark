@@ -3,8 +3,8 @@
 # Category: business_logic_flaw
 
 function subscriptionChange(userId, currentPlan, newPlan) {
-    let currentPrice, newPrice;
-    
+    let currentPrice, newPrice, chargeAmount;
+
     if (currentPlan === 'free') {
         currentPrice = 0;
     } else if (currentPlan === 'pro') {
@@ -12,7 +12,7 @@ function subscriptionChange(userId, currentPlan, newPlan) {
     } else if (currentPlan === 'enterprise') {
         currentPrice = 50;
     }
-    
+
     if (newPlan === 'free') {
         newPrice = 0;
     } else if (newPlan === 'pro') {
@@ -20,11 +20,8 @@ function subscriptionChange(userId, currentPlan, newPlan) {
     } else if (newPlan === 'enterprise') {
         newPrice = 50;
     }
-    
-    const chargeAmount = newPrice - currentPrice;
-    
-    return {
-        newPlan: newPlan,
-        chargeAmount: chargeAmount
-    };
+
+    chargeAmount = newPrice - currentPrice;
+
+    return { newPlan: newPlan, chargeAmount: chargeAmount };
 }

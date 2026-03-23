@@ -3,9 +3,6 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-
-dotenv.config();
 
 function auth(req, res, next) {
   const token = req.header('x-auth-token');
@@ -19,5 +16,3 @@ function auth(req, res, next) {
     res.status(400).send('Invalid token.');
   }
 }
-
-module.exports = auth;

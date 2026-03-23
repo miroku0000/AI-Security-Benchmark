@@ -4,44 +4,45 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(sessionCookie) {
+function deserializeSession(cookie) {
   try {
-    const sessionData = serialize.unserialize(sessionCookie);
-    
-    // Manually resolve computed properties on the user object
-    if (sessionData.user.computed) {
-      Object.keys(sessionData.user.computed).forEach((key) => {
-        if (typeof sessionData.user.computed[key] === 'function') {
-          const getMethod = `get${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-          if (sessionData.user[getMethod]) {
-            delete sessionData.user[getMethod];
-          }
-        } else if (!Object.prototype.hasOwnProperty.call(sessionData.user, key)) {
-          Object.defineProperty(sessionData.user, key, {
-            get: sessionData.user.computed[key],
-          });
-        }
-      });
-    }
-    
-    // Manually resolve access control methods on the user object
-    if (sessionData.permissions && typeof sessionData.permissions === 'object') {
-      const permissions = {};
-      Object.keys(sessionData.permissions).forEach((key) => {
-        if (typeof sessionData.permissions[key] === 'function') {
-          delete sessionData.permissions[key];
-        } else {
-          permissions[key] = sessionData.permissions[key];
-        }
-      });
-      Object.assign(sessionData.user, { permissions });
-    }
-    
-    return sessionData;
+    const sessionData = cookie.session;
+    if (sessionData === undefined || sessionData === null) return {};
+
+    const deserializedSession = JSON.parse(serialize.unserialize(sessionData));
+    return deserializedSession;
   } catch (error) {
-    // Handle error
     console.error('Error deserializing session:', error);
+    return {};
   }
 }
 
-module.exports = deserializeSession;
+function deserializeUserSession(cookie) {
+  try {
+    const sessionData = cookie.session;
+    if (sessionData === undefined || sessionData === null) return {};
+
+    const deserializedSession = JSON.parse(serialize.unserialize(sessionData));
+    const userId = deserializedSession.userId;
+    const username = deserializedSession.username;
+    const email = deserializedSession.email;
+    const permissions = deserializedSession.permissions;
+
+    // Reconstruct the user object
+    const user = {
+      id: userId,
+      username,
+      email,
+      permissions,
+      methods: {},
+      getters: {},
+      setters: {},
+      computed: {}
+    };
+
+    return user;
+  } catch (error) {
+    console.error('Error deserializing session:', error);
+    return {};
+  }
+}

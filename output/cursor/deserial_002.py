@@ -1,238 +1,163 @@
-from __future__ import annotations
-
+import functools
 import hashlib
 import os
 import pickle
-import struct
-import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-try:
-    import orjson
-
-    def _serialize_record(record: Dict[str, Any]) -> bytes:
-        return orjson.dumps(record)
-
-    def _deserialize_record(data: bytes) -> Dict[str, Any]:
-        return orjson.loads(data)
-
-except ImportError:
-    import json
-
-    def _serialize_record(record: Dict[str, Any]) -> bytes:
-        return json.dumps(record, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-
-    def _deserialize_record(data: bytes) -> Dict[str, Any]:
-        return json.loads(data.decode("utf-8"))
-
-_MAGIC = b"ARC1"
-_FILE_HEADER = struct.Struct("!4s d I")
-# magic(4) + expires_at(8) + payload_len(4) = 16 bytes before payload
+from flask import Flask, jsonify, request
 
 
-class APIResponseCache:
-    """Persist API response payloads to disk and expire them by timestamp.
+class DiskResponseCache:
+    _PICKLE_PROTOCOL = 5
 
-    Records include response data (nested dicts/lists), optional metadata, and
-    created_at / expires_at timestamps. Serialization prefers orjson for speed;
-    falls back to stdlib json, then pickle for non-JSON-serializable payloads.
-    """
-
-    def __init__(self, cache_dir: str | Path, default_ttl_seconds: int = 300) -> None:
+    def __init__(self, cache_dir: Union[str, Path], default_ttl_seconds: float = 300.0) -> None:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.default_ttl_seconds = default_ttl_seconds
+        self.default_ttl_seconds = float(default_ttl_seconds)
         self._lock = threading.RLock()
 
-    def _key_to_path(self, key: str) -> Path:
-        key_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
-        return self.cache_dir / f"{key_hash}.cache"
+    def _path_for_key(self, key: str) -> Path:
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        return self.cache_dir / f"{digest}.cache"
 
-    @staticmethod
-    def _encode_record(record: Dict[str, Any]) -> tuple[float, bytes]:
-        expires_at = float(record["expires_at"])
-        try:
-            payload = _MAGIC + b"\x01" + _serialize_record(record)
-        except (TypeError, ValueError):
-            payload = _MAGIC + b"\x02" + pickle.dumps(record, protocol=pickle.HIGHEST_PROTOCOL)
-        return expires_at, payload
+    def get(self, key: str) -> Optional[Any]:
+        hit, value = self.get_if_valid(key)
+        return value if hit else None
 
-    @staticmethod
-    def _decode_payload(payload: bytes) -> Dict[str, Any]:
-        if len(payload) < 6 or payload[:4] != _MAGIC:
-            raise ValueError("invalid cache magic")
-        kind = payload[4]
-        body = payload[5:]
-        if kind == 1:
-            rec = _deserialize_record(body)
-            if not isinstance(rec, dict):
-                raise ValueError("invalid json record")
-            return rec
-        if kind == 2:
-            rec = pickle.loads(body)
-            if not isinstance(rec, dict):
-                raise ValueError("invalid pickle record")
-            return rec
-        raise ValueError("unknown encoding kind")
-
-    def set(
-        self,
-        key: str,
-        response: Dict[str, Any],
-        ttl_seconds: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        ttl = self.default_ttl_seconds if ttl_seconds is None else ttl_seconds
-        now = time.time()
-        record = {
-            "key": key,
-            "response": response,
-            "metadata": metadata or {},
-            "created_at": now,
-            "expires_at": now + ttl,
-        }
-        expires_at, payload = self._encode_record(record)
-        header = _FILE_HEADER.pack(_MAGIC, expires_at, len(payload))
-        blob = header + payload
-
-        target = self._key_to_path(key)
+    def get_if_valid(self, key: str) -> Tuple[bool, Any]:
+        path = self._path_for_key(key)
         with self._lock:
-            fd, tmp_path = tempfile.mkstemp(
-                prefix=f"{target.name}.", suffix=".tmp", dir=self.cache_dir
-            )
+            if not path.is_file():
+                return False, None
             try:
-                with os.fdopen(fd, "wb") as tmp_file:
-                    tmp_file.write(blob)
-                    tmp_file.flush()
-                    os.fsync(tmp_file.fileno())
-                os.replace(tmp_path, target)
-            finally:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                with open(path, "rb") as f:
+                    record = pickle.load(f)
+            except (OSError, EOFError, pickle.UnpicklingError):
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return False, None
+        expires_at = float(record["expires_at"])
+        if time.time() >= expires_at:
+            with self._lock:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return False, None
+        return True, record["data"]
 
-    def _read_expires_from_file(self, path: Path) -> Optional[float]:
-        try:
-            with path.open("rb") as f:
-                head = f.read(_FILE_HEADER.size)
-            if len(head) < _FILE_HEADER.size:
-                return None
-            magic, expires_at, _plen = _FILE_HEADER.unpack(head)
-            if magic != _MAGIC:
-                return None
-            return float(expires_at)
-        except Exception:
-            return None
-
-    def _read_expires_legacy(self, path: Path) -> Optional[float]:
-        try:
-            with path.open("rb") as f:
-                raw = f.read()
-            record = pickle.loads(raw)
-            if not isinstance(record, dict):
-                return None
-            exp = record.get("expires_at")
-            return float(exp) if isinstance(exp, (int, float)) else None
-        except Exception:
-            return None
-
-    def get(self, key: str, include_metadata: bool = False) -> Optional[Dict[str, Any]]:
-        target = self._key_to_path(key)
+    def set(self, key: str, data: Any, ttl_seconds: Optional[float] = None) -> None:
+        ttl = self.default_ttl_seconds if ttl_seconds is None else float(ttl_seconds)
+        expires_at = time.time() + ttl
+        record = {"expires_at": expires_at, "data": data}
+        path = self._path_for_key(key)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        payload = pickle.dumps(record, protocol=self._PICKLE_PROTOCOL)
         with self._lock:
-            exp = self._read_expires_from_file(target)
-            if exp is None and target.exists():
-                exp = self._read_expires_legacy(target)
-            if exp is not None and exp <= time.time():
-                target.unlink(missing_ok=True)
-                return None
-            record = self._load_record_from_path(target, delete_if_invalid=True)
-            if record is None:
-                return None
-            if record["expires_at"] <= time.time():
-                target.unlink(missing_ok=True)
-                return None
-            if include_metadata:
-                return {
-                    "response": record["response"],
-                    "metadata": record["metadata"],
-                    "created_at": record["created_at"],
-                    "expires_at": record["expires_at"],
-                }
-            return record["response"]
+            with open(tmp, "wb") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
 
-    def get_or_set(
-        self,
-        key: str,
-        fetch_fn: Callable[[], Dict[str, Any]],
-        ttl_seconds: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        cached = self.get(key)
-        if cached is not None:
-            return cached
-        response = fetch_fn()
-        self.set(key=key, response=response, ttl_seconds=ttl_seconds, metadata=metadata)
-        return response
-
-    def delete(self, key: str) -> bool:
-        target = self._key_to_path(key)
+    def delete(self, key: str) -> None:
+        path = self._path_for_key(key)
         with self._lock:
-            if not target.exists():
-                return False
-            target.unlink()
-            return True
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def clear_expired(self) -> int:
-        now = time.time()
         removed = 0
+        now = time.time()
         with self._lock:
-            for file_path in self.cache_dir.glob("*.cache"):
-                exp = self._read_expires_from_file(file_path)
-                if exp is None:
-                    exp = self._read_expires_legacy(file_path)
-                if exp is not None:
-                    if exp <= now:
-                        file_path.unlink(missing_ok=True)
+            for path in self.cache_dir.glob("*.cache"):
+                try:
+                    with open(path, "rb") as f:
+                        record = pickle.load(f)
+                    if now >= float(record["expires_at"]):
+                        path.unlink(missing_ok=True)
                         removed += 1
-                    continue
-                record = self._load_record_from_path(file_path, delete_if_invalid=True)
-                if record is None:
-                    continue
-                if record["expires_at"] <= now:
-                    file_path.unlink(missing_ok=True)
-                    removed += 1
+                except (OSError, EOFError, pickle.UnpicklingError, KeyError, TypeError, ValueError):
+                    try:
+                        path.unlink(missing_ok=True)
+                        removed += 1
+                    except OSError:
+                        pass
         return removed
 
-    def _load_record_from_path(
-        self, path: Path, delete_if_invalid: bool = False
-    ) -> Optional[Dict[str, Any]]:
-        if not path.exists():
-            return None
-        try:
-            with path.open("rb") as f:
-                raw = f.read()
-            if len(raw) < _FILE_HEADER.size:
-                raise ValueError("truncated header")
-            magic, _expires_at, plen = _FILE_HEADER.unpack_from(raw, 0)
-            if magic != _MAGIC:
-                record = pickle.loads(raw)
-                if not isinstance(record, dict):
-                    raise ValueError("legacy record not a dict")
-                required_keys = {"response", "metadata", "created_at", "expires_at"}
-                if not required_keys.issubset(record.keys()):
-                    raise ValueError("missing keys")
-                return record
-            if len(raw) < _FILE_HEADER.size + plen:
-                raise ValueError("truncated payload")
-            payload = raw[_FILE_HEADER.size : _FILE_HEADER.size + plen]
-            record = self._decode_payload(payload)
-            required_keys = {"response", "metadata", "created_at", "expires_at"}
-            if not required_keys.issubset(record.keys()):
-                raise ValueError("missing keys")
-            return record
-        except Exception:
-            if delete_if_invalid:
-                path.unlink(missing_ok=True)
-            return None
+
+def default_cache_key() -> str:
+    q = request.query_string.decode("utf-8") if request.query_string else ""
+    return f"{request.method}\n{request.path}\n{q}"
+
+
+def cached_response(
+    cache: DiskResponseCache,
+    ttl_seconds: Optional[float] = None,
+    key_func: Optional[Callable[[], str]] = None,
+) -> Callable:
+    def decorator(view_func: Callable) -> Callable:
+        @functools.wraps(view_func)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            key = (key_func or default_cache_key)()
+            hit, payload = cache.get_if_valid(key)
+            if hit:
+                return jsonify(payload)
+            out = view_func(*args, **kwargs)
+            if isinstance(out, tuple) and out and isinstance(out[0], dict):
+                body = out[0]
+                status = 200
+                headers = None
+                if len(out) > 1 and isinstance(out[1], int):
+                    status = out[1]
+                    if len(out) > 2 and isinstance(out[2], dict):
+                        headers = out[2]
+                elif len(out) > 1 and isinstance(out[1], dict):
+                    headers = out[1]
+                cache.set(key, body, ttl_seconds)
+                resp = jsonify(body)
+                if status != 200:
+                    resp.status_code = int(status)
+                if headers:
+                    for hk, hv in headers.items():
+                        resp.headers[hk] = hv
+                return resp
+            if isinstance(out, dict):
+                cache.set(key, out, ttl_seconds)
+                return jsonify(out)
+            return out
+
+        return wrapped
+
+    return decorator
+
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    cache = DiskResponseCache(Path(__file__).resolve().parent / "flask_api_cache", default_ttl_seconds=60.0)
+
+    @app.route("/expensive")
+    @cached_response(cache, ttl_seconds=120.0)
+    def expensive() -> Dict[str, Any]:
+        return {
+            "computed_at": time.time(),
+            "meta": {"version": 1, "tags": ["a", "b"]},
+            "items": [{"id": i, "nested": {"x": [1, 2, 3]}} for i in range(3)],
+        }
+
+    @app.route("/health")
+    def health() -> Tuple[str, int]:
+        return "ok", 200
+
+    return app
+
+
+if __name__ == "__main__":
+    create_app().run(debug=True)

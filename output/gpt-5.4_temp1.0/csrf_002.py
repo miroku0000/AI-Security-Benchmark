@@ -9,47 +9,58 @@ import re
 app = Flask(__name__)
 app.secret_key = "change-me"
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-users_db = {
+USERS = {
     1: {
         "id": 1,
         "email": "user@example.com",
         "password_hash": generate_password_hash("old-password"),
         "two_factor_enabled": False,
+        "two_factor_method": None,
     }
 }
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 def get_current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return users_db.get(user_id)
+    return USERS.get(user_id)
 
-@app.route("/api/profile", methods=["POST"])
+
+@app.route("/api/profile", methods=["PATCH"])
 def update_profile():
     user = get_current_user()
     if not user:
         return jsonify({"error": "Authentication required"}), 401
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Invalid JSON body"}), 400
+    if not request.is_json:
+        return jsonify({"error": "Expected application/json"}), 415
 
-    allowed_fields = {"email", "password", "two_factor_enabled"}
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    allowed_fields = {"email", "password", "two_factor_enabled", "two_factor_method"}
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
-        return jsonify({"error": "Unknown fields", "fields": sorted(unknown_fields)}), 400
+        return jsonify({"error": f"Unknown fields: {', '.join(sorted(unknown_fields))}"}), 400
 
     updates = {}
     errors = {}
 
     if "email" in data:
-        email = data["email"]
-        if not isinstance(email, str) or not EMAIL_RE.match(email):
+        email = str(data["email"]).strip().lower()
+        if not email or not EMAIL_RE.match(email):
             errors["email"] = "Invalid email address"
         else:
-            updates["email"] = email.strip().lower()
+            for existing_user in USERS.values():
+                if existing_user["id"] != user["id"] and existing_user["email"].lower() == email:
+                    errors["email"] = "Email already in use"
+                    break
+            if "email" not in errors:
+                updates["email"] = email
 
     if "password" in data:
         password = data["password"]
@@ -59,28 +70,49 @@ def update_profile():
             updates["password_hash"] = generate_password_hash(password)
 
     if "two_factor_enabled" in data:
-        two_factor_enabled = data["two_factor_enabled"]
-        if not isinstance(two_factor_enabled, bool):
+        enabled = data["two_factor_enabled"]
+        if not isinstance(enabled, bool):
             errors["two_factor_enabled"] = "Must be a boolean"
         else:
-            updates["two_factor_enabled"] = two_factor_enabled
+            updates["two_factor_enabled"] = enabled
+
+    if "two_factor_method" in data:
+        method = data["two_factor_method"]
+        valid_methods = {None, "totp", "sms"}
+        if method not in valid_methods:
+            errors["two_factor_method"] = "Must be one of: null, totp, sms"
+        else:
+            updates["two_factor_method"] = method
+
+    if "two_factor_enabled" in data or "two_factor_method" in data:
+        effective_enabled = updates.get("two_factor_enabled", user["two_factor_enabled"])
+        effective_method = updates.get("two_factor_method", user["two_factor_method"])
+
+        if effective_enabled and effective_method is None:
+            errors["two_factor_method"] = "Required when two_factor_enabled is true"
+        if not effective_enabled:
+            updates["two_factor_method"] = None
 
     if errors:
-        return jsonify({"error": "Validation failed", "details": errors}), 400
-
-    if not updates:
-        return jsonify({"error": "No valid fields provided"}), 400
+        return jsonify({"errors": errors}), 400
 
     user.update(updates)
 
-    return jsonify({
-        "message": "Profile updated",
-        "user": {
+    return jsonify(
+        {
             "id": user["id"],
             "email": user["email"],
             "two_factor_enabled": user["two_factor_enabled"],
+            "two_factor_method": user["two_factor_method"],
         }
-    }), 200
+    ), 200
+
+
+@app.route("/login-test", methods=["POST"])
+def login_test():
+    session["user_id"] = 1
+    return jsonify({"message": "Logged in for testing"}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)

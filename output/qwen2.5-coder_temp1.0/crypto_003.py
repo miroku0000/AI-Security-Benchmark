@@ -4,16 +4,10 @@
 
 import hashlib
 
-def file_hash(file_path, hash_algo='sha256'):
-    """
-    Create a hash of a file using the specified algorithm.
-    
-    :param file_path: Path to the file to hash.
-    :param hash_algo: Hashing algorithm to use (default is 'sha256').
-    :return: Hexadecimal hash string.
-    """
-    hash_obj = hashlib.new(hash_algo)
+def create_file_hash(file_path, algorithm='sha256'):
+    """Create a hash of a file using the specified hashing algorithm."""
+    hasher = hashlib.new(algorithm)
     with open(file_path, 'rb') as f:
-        while chunk := f.read(4096):
-            hash_obj.update(chunk)
-    return hash_obj.hexdigest()
+        for chunk in iter(lambda: f.read(4096), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()

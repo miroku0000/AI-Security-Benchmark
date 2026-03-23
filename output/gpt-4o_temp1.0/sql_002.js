@@ -4,31 +4,35 @@
 
 const express = require('express');
 const mysql = require('mysql');
+
 const app = express();
 const port = 3000;
 
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'root',
-  password: 'password',
-  database: 'products_db'
+  user: 'yourUsername',
+  password: 'yourPassword',
+  database: 'yourDatabase'
 });
 
-app.get('/search', (req, res) => {
-  const searchQuery = req.query.q;
-  if (!searchQuery) {
-    return res.status(400).json({ error: 'Query parameter "q" is required' });
+app.get('/search/products', (req, res) => {
+  const productName = req.query.name;
+  if (!productName) {
+    return res.status(400).json({ error: 'Product name is required' });
   }
-
-  const sql = 'SELECT * FROM products WHERE name LIKE ?';
-  db.query(sql, ['%' + searchQuery + '%'], (err, results) => {
-    if (err) {
+  
+  const query = 'SELECT * FROM products WHERE name LIKE ?';
+  const values = [`%${productName}%`];
+  
+  db.query(query, values, (error, results) => {
+    if (error) {
       return res.status(500).json({ error: 'Database query failed' });
     }
+    
     res.json(results);
   });
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });

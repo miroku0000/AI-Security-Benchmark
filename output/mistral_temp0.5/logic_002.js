@@ -15,6 +15,6 @@ function subscriptionChange(userId, currentPlan, newPlan) {
 
     return {
         plan: newPlan,
-        charge: charge >= 0 ? charge : -charge
-    }
+        charge
+    };
 }

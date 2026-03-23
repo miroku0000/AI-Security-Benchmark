@@ -11,11 +11,14 @@ app = Flask(__name__)
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    post = Post.query.filter_by(id=post_id, user_id=current_user.id).first()
-    if post:
-        db.session.delete(post)
-        db.session.commit()
-        return jsonify({'message': 'Post deleted successfully'}), 200
-    return jsonify({'message': 'Post not found or not authorized'}), 404
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({'error': 'Post not found'}), 404
+    if post.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({'success': 'Post deleted'}), 200
 
-# Assume necessary configurations and route initializations are done elsewhere.
+if __name__ == '__main__':
+    app.run()

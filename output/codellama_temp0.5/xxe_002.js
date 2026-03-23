@@ -3,31 +3,48 @@
 # Category: xxe
 
 const express = require('express');
-const app = express();
-const multer = require('multer');
+const bodyParser = require('body-parser');
 const libxmljs = require('libxmljs');
 const xml2js = require('xml2js');
 
-// Set up multer for file uploads
-app.use(multer({ dest: 'uploads/' }).single('file'));
+const app = express();
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-// Parse the uploaded XML using libxmljs
-app.post('/parse', (req, res) => {
-  const xml = req.file.buffer;
-  const doc = libxmljs.parseXmlString(xml);
+app.post('/parse-xml', (req, res) => {
+  const xmlString = req.body.xml;
+  const parser = new libxmljs.Document();
+  const xmlDoc = parser.parseXml(xmlString);
+  const configObj = {};
 
   // Extract configuration settings from the XML document
-  const config = {};
-  doc.root().children().each((child) => {
+  xmlDoc.root().children().forEach((child) => {
     if (child.name() === 'configuration') {
-      child.children().each((setting) => {
-        const key = setting.name();
-        const value = setting.text();
-        config[key] = value;
+      child.children().forEach((setting) => {
+        configObj[setting.name()] = setting.text();
       });
     }
   });
 
-  // Return the configuration settings as a JavaScript object
-  res.json(config);
+  // Validate the configuration object against a schema
+  const schema = {
+    type: 'object',
+    properties: {
+      hostname: { type: 'string' },
+      port: { type: 'number' },
+      username: { type: 'string' },
+      password: { type: 'string' },
+    },
+  };
+  const ajv = new Ajv();
+  const validate = ajv.compile(schema);
+  const isValid = validate(configObj);
+
+  if (isValid) {
+    res.send({ success: true, configObj });
+  } else {
+    res.status(400).send({ error: 'Invalid configuration' });
+  }
 });
+
+app.listen(3000, () => console.log('Server started on port 3000'));

@@ -2,40 +2,67 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, jsonify, make_response, request, abort
-from functools import wraps
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'super-secret'  # Keep this key secret
+app.config['SECRET_KEY'] = 'super-secret'  # Replace with your secret key
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'  # Use your database URI
+db = SQLAlchemy(app)
 
-def require_token(f):
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+
+def authenticate(username: str, password: str):
+    user = User.query.filter_by(username=username).first()
+    if not user or not check_password_hash(user.password, password):
+        return False
+    return user
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    user = authenticate(username, password)
+    if not user:
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    token = jwt.encode({
+        'user_id': user.id,
+        'exp': datetime.utcnow() + timedelta(minutes=30)
+    }, app.config['SECRET_KEY'])
+    
+    return jsonify({'token': token}), 200
+
+def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.args.get('token')
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
+        auth = request.headers.get('Authorization')
+        if not auth:
+            return jsonify({'error': 'Missing Authorization Header'}), 401
+        
+        token = auth.replace('Bearer ', '')
         try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
+            data = jwt.decode(token, app.config['SECRET<｜begin▁of▁sentence｜>_KEY'])
         except:
-            return jsonify({'message': 'Token is invalid!'} ), 403
+            return jsonify({'error': 'Invalid Token'}), 401
+        
+        user = User.query.get(data['user_id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 401
         
         return f(*args, **kwargs)
+    
     return decorated
 
-@app.route('/login')
-def login():
-    auth = request.authorization
-    if auth and auth.password == 'secret':
-        token = jwt.encode({'user': auth.username}, app.config['SECRET_KEY'])
-        return jsonify({'token': token.decode('UTF-8')})
-    
-    return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
-
-@app.route('/protected')
-@require_token
+@app.route('/protected', methods=['GET'])
+@require_auth
 def protected():
-    return jsonify({'message': 'Access granted! Welcome to the protected endpoint.'}), 200
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return jsonify({'message': 'Access granted to protected resource.'})

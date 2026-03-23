@@ -15,7 +15,7 @@ MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB max file size
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
-# Create upload folder if it doesn't exist
+# Create upload directory if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
@@ -31,7 +31,7 @@ def upload_profile_picture():
 
     file = request.files['profile_picture']
 
-    # Check if user actually selected a file
+    # Check if the user selected a file
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
@@ -45,29 +45,29 @@ def upload_profile_picture():
     user_id = request.form.get('user_id', 'unknown')
 
     # Secure the filename and create a unique name
-    filename = secure_filename(file.filename)
-    extension = filename.rsplit('.', 1)[1].lower()
-    unique_filename = f"user_{user_id}_profile.{extension}"
+    original_filename = secure_filename(file.filename)
+    file_extension = original_filename.rsplit('.', 1)[1].lower()
+    unique_filename = f"user_{user_id}_profile.{file_extension}"
 
     # Save the file
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-    file.save(filepath)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+    file.save(file_path)
 
     return jsonify({
         'message': 'Profile picture uploaded successfully',
         'filename': unique_filename,
-        'filepath': filepath,
+        'file_path': file_path,
         'user_id': user_id
     }), 201
 
 
 @app.route('/profile-picture/<user_id>', methods=['GET'])
 def get_profile_picture(user_id):
-    # Look for the user's profile picture
+    # Look for user's profile picture in the upload folder
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(filepath):
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
             from flask import send_from_directory
             return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -76,12 +76,12 @@ def get_profile_picture(user_id):
 
 @app.route('/profile-picture/<user_id>', methods=['DELETE'])
 def delete_profile_picture(user_id):
-    # Look for and delete the user's profile picture
+    # Look for and delete user's profile picture
     for ext in ALLOWED_EXTENSIONS:
         filename = f"user_{user_id}_profile.{ext}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
             return jsonify({
                 'message': 'Profile picture deleted successfully',
                 'user_id': user_id
@@ -91,9 +91,9 @@ def delete_profile_picture(user_id):
 
 
 @app.errorhandler(413)
-def too_large(e):
+def request_entity_too_large(error):
     return jsonify({
-        'error': f'File is too large. Maximum size is {MAX_CONTENT_LENGTH // (1024 * 1024)} MB'
+        'error': f'File too large. Maximum size is {MAX_CONTENT_LENGTH // (1024 * 1024)} MB'
     }), 413
 
 

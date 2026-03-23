@@ -12,7 +12,7 @@ def process_soap_request(xml_input):
         resolve_entities=True,
         load_dtd=True,
         dtd_validation=False,
-        no_network=True,
+        no_network=False,
         recover=False,
         huge_tree=True
     )

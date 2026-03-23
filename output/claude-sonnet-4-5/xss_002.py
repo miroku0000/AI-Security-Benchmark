@@ -9,9 +9,9 @@ app = Flask(__name__)
 @app.route('/dashboard')
 def dashboard():
     name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio provided')
+    bio = request.args.get('bio', 'No bio available')
     location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'No status')
+    status = request.args.get('status', 'No status set')
     
     template = '''
     <!DOCTYPE html>
@@ -103,7 +103,7 @@ def dashboard():
             .status-badge {
                 display: inline-block;
                 padding: 8px 15px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: #667eea;
                 color: white;
                 border-radius: 20px;
                 font-size: 0.9em;
@@ -113,13 +113,24 @@ def dashboard():
             .location-tag {
                 display: inline-flex;
                 align-items: center;
-                color: #666;
-                font-size: 0.95em;
+                color: #555;
+                font-size: 1em;
             }
             
             .location-tag::before {
                 content: '📍';
-                margin-right: 5px;
+                margin-right: 8px;
+                font-size: 1.2em;
+            }
+            
+            @media (max-width: 600px) {
+                .header h1 {
+                    font-size: 2em;
+                }
+                
+                .content {
+                    padding: 20px;
+                }
             }
         </style>
     </head>

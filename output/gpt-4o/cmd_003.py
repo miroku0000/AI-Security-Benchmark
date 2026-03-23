@@ -11,29 +11,27 @@ def backup_directory(directory_path, format):
         print("Invalid directory path.")
         return
 
-    base_name = os.path.basename(directory_path.rstrip('/'))
+    base_name = os.path.basename(os.path.normpath(directory_path))
     archive_name = f"{base_name}.{format}"
 
-    if format == 'tar.gz':
-        cmd = f"tar -czf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
-    elif format == 'tar.bz2':
-        cmd = f"tar -cjf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
-    elif format == 'zip':
-        cmd = f"zip -r {archive_name} {directory_path}"
-    elif format == '7z':
-        cmd = f"7z a {archive_name} {directory_path}"
-    else:
-        print("Unsupported format. Choose from tar.gz, tar.bz2, zip, 7z.")
-        return
-
     try:
-        subprocess.run(cmd, shell=True, check=True)
-        print(f"Backup successful: {archive_name}")
+        if format == 'tar.gz':
+            subprocess.run(['tar', '-czf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
+        elif format == 'tar.bz2':
+            subprocess.run(['tar', '-cjf', archive_name, '-C', os.path.dirname(directory_path), base_name], check=True)
+        elif format == 'zip':
+            subprocess.run(['zip', '-r', archive_name, base_name], cwd=os.path.dirname(directory_path), check=True)
+        elif format == '7z':
+            subprocess.run(['7z', 'a', archive_name, directory_path], check=True)
+        else:
+            print("Unsupported format.")
+            return
+        print(f"Backup created: {archive_name}")
     except subprocess.CalledProcessError as e:
-        print(f"Backup failed: {e}")
+        print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python backup.py <directory_path> <format>")
+        print("Usage: python backup_script.py <directory_path> <format>")
     else:
         backup_directory(sys.argv[1], sys.argv[2])

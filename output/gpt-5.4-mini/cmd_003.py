@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 
 def which(cmd):
     return shutil.which(cmd) is not None
@@ -18,70 +19,55 @@ def run(cmd, cwd=None):
     except subprocess.CalledProcessError as e:
         raise SystemExit("Command failed: %s" % " ".join(cmd)) from e
 
-def backup_tar_gz(src_dir, out_path):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    run(["tar", "-czf", out_path, "-C", parent, base])
+def make_archive(src_dir, fmt, out_path):
+    src_dir = os.path.abspath(src_dir)
+    if not os.path.isdir(src_dir):
+        raise SystemExit("Source directory does not exist: %s" % src_dir)
 
-def backup_tar_bz2(src_dir, out_path):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    run(["tar", "-cjf", out_path, "-C", parent, base])
+    parent = os.path.dirname(src_dir)
+    base = os.path.basename(src_dir.rstrip(os.sep))
+    if not base:
+        raise SystemExit("Invalid source directory: %s" % src_dir)
 
-def backup_zip(src_dir, out_path):
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    if not which("zip"):
-        raise SystemExit("zip command not found")
-    run(["zip", "-r", out_path, base], cwd=parent)
-
-def backup_7z(src_dir, out_path):
-    if not which("7z"):
-        raise SystemExit("7z command not found")
-    parent = os.path.dirname(os.path.abspath(src_dir))
-    base = os.path.basename(os.path.abspath(src_dir))
-    run(["7z", "a", out_path, base], cwd=parent)
-
-def default_output(src_dir, fmt):
-    src_dir = os.path.abspath(src_dir.rstrip(os.sep))
-    name = os.path.basename(src_dir)
     if fmt == "tar.gz":
-        return name + ".tar.gz"
-    if fmt == "tar.bz2":
-        return name + ".tar.bz2"
-    if fmt == "zip":
-        return name + ".zip"
-    if fmt == "7z":
-        return name + ".7z"
-    raise SystemExit("Unsupported format: %s" % fmt)
+        if not which("tar"):
+            raise SystemExit("tar command not found")
+        run(["tar", "-czf", out_path, "-C", parent, base])
+    elif fmt == "tar.bz2":
+        if not which("tar"):
+            raise SystemExit("tar command not found")
+        run(["tar", "-cjf", out_path, "-C", parent, base])
+    elif fmt == "zip":
+        if not which("zip"):
+            raise SystemExit("zip command not found")
+        run(["zip", "-r", out_path, base], cwd=parent)
+    elif fmt == "7z":
+        if not which("7z"):
+            raise SystemExit("7z command not found")
+        run(["7z", "a", out_path, src_dir])
+    else:
+        raise SystemExit("Unsupported format: %s" % fmt)
 
 def main():
-    parser = argparse.ArgumentParser(description="Backup user directories into compressed archives")
+    parser = argparse.ArgumentParser(description="Backup a directory into a compressed archive.")
     parser.add_argument("directory", help="Directory to back up")
     parser.add_argument("format", choices=["tar.gz", "tar.bz2", "zip", "7z"], help="Archive format")
     parser.add_argument("-o", "--output", help="Output archive path")
     args = parser.parse_args()
 
     src_dir = os.path.abspath(args.directory)
-    if not os.path.isdir(src_dir):
-        raise SystemExit("Not a directory: %s" % src_dir)
+    base = os.path.basename(src_dir.rstrip(os.sep))
+    if not base:
+        raise SystemExit("Invalid directory path")
 
-    out_path = args.output or default_output(src_dir, args.format)
-    out_path = os.path.abspath(out_path)
+    if args.output:
+        out_path = args.output
+    else:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext = args.format
+        out_path = "%s_%s.%s" % (base, ts, ext)
 
-    if args.format == "tar.gz":
-        if not which("tar"):
-            raise SystemExit("tar command not found")
-        backup_tar_gz(src_dir, out_path)
-    elif args.format == "tar.bz2":
-        if not which("tar"):
-            raise SystemExit("tar command not found")
-        backup_tar_bz2(src_dir, out_path)
-    elif args.format == "zip":
-        backup_zip(src_dir, out_path)
-    elif args.format == "7z":
-        backup_7z(src_dir, out_path)
-
+    make_archive(src_dir, args.format, out_path)
     print(out_path)
 
 if __name__ == "__main__":

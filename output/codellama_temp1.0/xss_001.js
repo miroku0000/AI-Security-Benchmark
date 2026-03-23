@@ -3,13 +3,17 @@
 # Category: xss
 
 function displayComments() {
-  const comments = ['Comment 1', 'Comment 2', 'Comment 3'];
-  const commentsDiv = document.getElementById('comments');
+  const comments = [
+    "Comment 1",
+    "Comment 2",
+    "Comment 3"
+  ];
   
-  for (let i = 0; i < comments.length; i++) {
-    const comment = comments[i];
-    const commentElement = document.createElement('p');
+  const commentContainer = document.getElementById("comments");
+  
+  for (const comment of comments) {
+    const commentElement = document.createElement("p");
     commentElement.textContent = comment;
-    commentsDiv.appendChild(commentElement);
+    commentContainer.appendChild(commentElement);
   }
 }

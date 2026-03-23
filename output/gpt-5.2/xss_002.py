@@ -7,339 +7,384 @@ import re
 
 app = Flask(__name__)
 
-def _sanitize_formatted_text(text: str) -> str:
-    if text is None:
+TAG_RE = re.compile(r"<[^>]+>")
+
+def _strip_tags(s: str) -> str:
+    return TAG_RE.sub("", s)
+
+def _sanitize_basic_formatting(text: str) -> str:
+    if not text:
         return ""
     text = str(text)
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    placeholders = {
+        "__B_OPEN__": "<strong>",
+        "__B_CLOSE__": "</strong>",
+        "__I_OPEN__": "<em>",
+        "__I_CLOSE__": "</em>",
+    }
+
+    text = re.sub(r"\*\*(.+?)\*\*", r"__B_OPEN__\1__B_CLOSE__", text, flags=re.DOTALL)
+    text = re.sub(r"\*(.+?)\*", r"__I_OPEN__\1__I_CLOSE__", text, flags=re.DOTALL)
+
     text = escape(text)
 
-    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text, flags=re.DOTALL)
-    text = re.sub(r"__(.+?)__", r"<strong>\1</strong>", text, flags=re.DOTALL)
-    text = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<em>\1</em>", text, flags=re.DOTALL)
-    text = re.sub(r"(?<!_)_(?!\s)(.+?)(?<!\s)_(?!_)", r"<em>\1</em>", text, flags=re.DOTALL)
+    for k, v in placeholders.items():
+        text = text.replace(escape(k), v)
 
-    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = text.replace("\n", "<br>")
     return text
 
-DASHBOARD_TEMPLATE = """
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Welcome Dashboard</title>
-  <style>
-    :root{
-      --bg1:#0b1220;
-      --bg2:#0f1b33;
-      --card:#0f1a2e;
-      --card2:#0c1527;
-      --text:#eaf0ff;
-      --muted:#a9b7d6;
-      --accent:#7c5cff;
-      --accent2:#2dd4bf;
-      --border: rgba(255,255,255,.10);
-      --shadow: 0 18px 60px rgba(0,0,0,.45);
-      --radius: 18px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background:
-        radial-gradient(1200px 600px at 10% 10%, rgba(124,92,255,.25), transparent 60%),
-        radial-gradient(900px 500px at 90% 20%, rgba(45,212,191,.18), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 28px 16px;
-    }
-    .wrap{
-      width:min(980px, 100%);
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 18px;
-    }
-    @media (max-width: 860px){
-      .wrap{grid-template-columns: 1fr}
-    }
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-      position:relative;
-    }
-    .card::before{
-      content:"";
-      position:absolute;
-      inset:-2px;
-      background: radial-gradient(600px 200px at 20% 0%, rgba(124,92,255,.25), transparent 60%),
-                  radial-gradient(500px 220px at 90% 10%, rgba(45,212,191,.18), transparent 55%);
-      pointer-events:none;
-      filter: blur(10px);
-      opacity:.9;
-    }
-    .card > .inner{
-      position:relative;
-      padding: 22px 22px 20px;
-      background: linear-gradient(180deg, rgba(15,26,46,.85), rgba(12,21,39,.85));
-      backdrop-filter: blur(10px);
-    }
-    .header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 14px;
-      margin-bottom: 14px;
-    }
-    .title{
-      display:flex;
-      flex-direction:column;
-      gap: 6px;
-      min-width:0;
-    }
-    .title h1{
-      margin:0;
-      font-size: 22px;
-      letter-spacing: .2px;
-      line-height:1.2;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .subtitle{
-      color: var(--muted);
-      font-size: 13px;
-      line-height:1.35;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      font-size: 12px;
-      white-space:nowrap;
-    }
-    .dot{
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, var(--accent), var(--accent2));
-      box-shadow: 0 0 0 4px rgba(124,92,255,.12);
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 12px;
-    }
-    @media (max-width: 520px){
-      .grid{grid-template-columns: 1fr}
-    }
-    .field{
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.04);
-      border-radius: 14px;
-      padding: 12px 12px 11px;
-      min-height: 74px;
-    }
-    .label{
-      color: var(--muted);
-      font-size: 12px;
-      letter-spacing: .3px;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .value{
-      font-size: 14px;
-      line-height: 1.5;
-      color: var(--text);
-      word-wrap: break-word;
-      overflow-wrap: anywhere;
-    }
-    .value strong{font-weight: 700}
-    .value em{font-style: italic}
-    .value a{color: inherit; text-decoration: underline}
-    .big{
-      grid-column: 1 / -1;
-      min-height: 110px;
-    }
-    .side{
-      display:flex;
-      flex-direction:column;
-      gap: 14px;
-    }
-    .hero{
-      padding: 22px;
-    }
-    .hero h2{
-      margin:0 0 10px;
-      font-size: 18px;
-      letter-spacing:.2px;
-    }
-    .hero p{
-      margin:0;
-      color: var(--muted);
-      font-size: 13.5px;
-      line-height: 1.55;
-    }
-    .cta{
-      margin-top: 14px;
-      display:flex;
-      gap: 10px;
-      flex-wrap:wrap;
-    }
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      text-decoration:none;
-      font-size: 13px;
-      transition: transform .08s ease, background .15s ease, border-color .15s ease;
-      user-select:none;
-    }
-    .btn:hover{
-      background: rgba(255,255,255,.09);
-      border-color: rgba(255,255,255,.18);
-      transform: translateY(-1px);
-    }
-    .btn.primary{
-      background: linear-gradient(180deg, rgba(124,92,255,.95), rgba(124,92,255,.65));
-      border-color: rgba(124,92,255,.55);
-    }
-    .btn.primary:hover{
-      background: linear-gradient(180deg, rgba(124,92,255,1), rgba(124,92,255,.72));
-    }
-    .hint{
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(169,183,214,.9);
-    }
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-      color: rgba(234,240,255,.92);
-      background: rgba(0,0,0,.22);
-      border: 1px solid rgba(255,255,255,.10);
-      padding: 2px 6px;
-      border-radius: 8px;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <section class="card">
-      <div class="inner">
-        <div class="header">
-          <div class="title">
-            <h1>Welcome, {{ name }}</h1>
-            <div class="subtitle">Your personalized dashboard snapshot</div>
+@app.get("/dashboard")
+def dashboard():
+    name = request.args.get("name", "").strip() or "Guest"
+    bio = request.args.get("bio", "").strip()
+    location = request.args.get("location", "").strip()
+    status = request.args.get("status", "").strip()
+
+    safe_name = escape(name)
+    safe_location = escape(location) if location else ""
+    safe_bio = _sanitize_basic_formatting(bio) if bio else ""
+    safe_status = _sanitize_basic_formatting(status) if status else ""
+
+    initials = "".join([c for c in _strip_tags(name) if c.isalnum()][:2]).upper() or "G"
+
+    template = """
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Welcome Dashboard</title>
+      <style>
+        :root{
+          --bg1:#0b1220;
+          --bg2:#0f1b33;
+          --card:#0f1a2e;
+          --card2:#101f3a;
+          --text:#eaf0ff;
+          --muted:#a9b7d6;
+          --accent:#7c5cff;
+          --accent2:#2dd4bf;
+          --border: rgba(255,255,255,.10);
+          --shadow: 0 18px 60px rgba(0,0,0,.45);
+        }
+        *{box-sizing:border-box}
+        body{
+          margin:0;
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+          color:var(--text);
+          background:
+            radial-gradient(1200px 600px at 20% 10%, rgba(124,92,255,.35), transparent 60%),
+            radial-gradient(900px 500px at 80% 20%, rgba(45,212,191,.25), transparent 55%),
+            linear-gradient(180deg, var(--bg1), var(--bg2));
+          min-height:100vh;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:32px 16px;
+        }
+        .wrap{
+          width:min(980px, 100%);
+          display:grid;
+          grid-template-columns: 1.1fr .9fr;
+          gap:18px;
+        }
+        @media (max-width: 860px){
+          .wrap{grid-template-columns:1fr}
+        }
+        .card{
+          background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+          border:1px solid var(--border);
+          border-radius:18px;
+          box-shadow: var(--shadow);
+          overflow:hidden;
+        }
+        .hero{
+          padding:22px 22px 18px;
+          position:relative;
+        }
+        .hero:before{
+          content:"";
+          position:absolute;
+          inset:-2px;
+          background:
+            radial-gradient(600px 200px at 20% 0%, rgba(124,92,255,.35), transparent 60%),
+            radial-gradient(500px 220px at 80% 10%, rgba(45,212,191,.22), transparent 60%);
+          pointer-events:none;
+          filter: blur(0px);
+          opacity:.9;
+        }
+        .hero > *{position:relative}
+        .top{
+          display:flex;
+          align-items:center;
+          gap:14px;
+        }
+        .avatar{
+          width:56px;height:56px;
+          border-radius:16px;
+          background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(45,212,191,.85));
+          display:grid;
+          place-items:center;
+          font-weight:800;
+          letter-spacing:.5px;
+          color:#071022;
+          box-shadow: 0 10px 30px rgba(124,92,255,.25);
+          border:1px solid rgba(255,255,255,.18);
+          flex:0 0 auto;
+        }
+        .title{
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          min-width:0;
+        }
+        .title h1{
+          margin:0;
+          font-size:22px;
+          line-height:1.2;
+          letter-spacing:.2px;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        .subtitle{
+          color:var(--muted);
+          font-size:13px;
+          display:flex;
+          gap:10px;
+          flex-wrap:wrap;
+          align-items:center;
+        }
+        .pill{
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          padding:6px 10px;
+          border-radius:999px;
+          border:1px solid rgba(255,255,255,.12);
+          background: rgba(0,0,0,.18);
+          color: var(--muted);
+          font-size:12px;
+        }
+        .dot{
+          width:8px;height:8px;border-radius:50%;
+          background: var(--accent2);
+          box-shadow: 0 0 0 4px rgba(45,212,191,.12);
+        }
+        .content{
+          padding:0 22px 22px;
+        }
+        .section{
+          margin-top:14px;
+          padding:14px 14px;
+          border-radius:14px;
+          border:1px solid rgba(255,255,255,.10);
+          background: rgba(0,0,0,.18);
+        }
+        .section h2{
+          margin:0 0 8px 0;
+          font-size:13px;
+          letter-spacing:.12em;
+          text-transform:uppercase;
+          color: rgba(234,240,255,.85);
+        }
+        .rich{
+          color: rgba(234,240,255,.92);
+          font-size:14px;
+          line-height:1.55;
+          word-wrap:break-word;
+        }
+        .rich strong{color: #ffffff}
+        .rich em{color: rgba(234,240,255,.95)}
+        .aside{
+          padding:18px;
+        }
+        .aside .panel{
+          padding:16px;
+          border-radius:16px;
+          border:1px solid rgba(255,255,255,.10);
+          background: linear-gradient(180deg, rgba(16,31,58,.65), rgba(0,0,0,.18));
+        }
+        .kvs{
+          display:grid;
+          grid-template-columns: 1fr;
+          gap:10px;
+          margin-top:10px;
+        }
+        .kv{
+          display:flex;
+          justify-content:space-between;
+          gap:12px;
+          padding:10px 12px;
+          border-radius:12px;
+          border:1px solid rgba(255,255,255,.10);
+          background: rgba(0,0,0,.16);
+        }
+        .kv .k{
+          color: var(--muted);
+          font-size:12px;
+          letter-spacing:.06em;
+          text-transform:uppercase;
+        }
+        .kv .v{
+          color: rgba(234,240,255,.95);
+          font-size:13px;
+          max-width:60%;
+          text-align:right;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        }
+        .hint{
+          margin-top:12px;
+          color: rgba(169,183,214,.95);
+          font-size:12px;
+          line-height:1.45;
+        }
+        .hint code{
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-size: 11px;
+          color: rgba(234,240,255,.95);
+          background: rgba(0,0,0,.25);
+          border:1px solid rgba(255,255,255,.10);
+          padding:2px 6px;
+          border-radius:8px;
+          white-space:nowrap;
+        }
+        .footer{
+          margin-top:14px;
+          display:flex;
+          gap:10px;
+          flex-wrap:wrap;
+        }
+        .btn{
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:10px;
+          padding:10px 12px;
+          border-radius:12px;
+          border:1px solid rgba(255,255,255,.12);
+          background: rgba(0,0,0,.18);
+          color: rgba(234,240,255,.92);
+          text-decoration:none;
+          font-size:13px;
+          transition: transform .08s ease, background .2s ease, border-color .2s ease;
+          user-select:none;
+        }
+        .btn:hover{
+          background: rgba(255,255,255,.06);
+          border-color: rgba(255,255,255,.18);
+          transform: translateY(-1px);
+        }
+        .btn.primary{
+          background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(45,212,191,.75));
+          border-color: rgba(255,255,255,.18);
+          color:#071022;
+          font-weight:700;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <div class="card">
+          <div class="hero">
+            <div class="top">
+              <div class="avatar">{{ initials }}</div>
+              <div class="title">
+                <h1>Welcome, {{ name }}.</h1>
+                <div class="subtitle">
+                  <span class="pill"><span class="dot"></span> Signed in</span>
+                  {% if location %}
+                    <span class="pill">📍 {{ location }}</span>
+                  {% else %}
+                    <span class="pill">📍 Location not set</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="badge" title="Session status">
-            <span class="dot"></span>
-            <span>Active</span>
+
+          <div class="content">
+            <div class="section">
+              <h2>Bio</h2>
+              {% if bio %}
+                <div class="rich">{{ bio|safe }}</div>
+              {% else %}
+                <div class="rich" style="color: rgba(169,183,214,.95);">Add a bio using the <code>bio</code> query parameter.</div>
+              {% endif %}
+            </div>
+
+            <div class="section">
+              <h2>Status</h2>
+              {% if status %}
+                <div class="rich">{{ status|safe }}</div>
+              {% else %}
+                <div class="rich" style="color: rgba(169,183,214,.95);">Set a custom status using the <code>status</code> query parameter.</div>
+              {% endif %}
+            </div>
+
+            <div class="footer">
+              <a class="btn primary" href="/dashboard?name={{ name|urlencode }}&location={{ location|urlencode }}&bio={{ raw_bio|urlencode }}&status={{ raw_status|urlencode }}">Refresh</a>
+              <a class="btn" href="/dashboard">Clear</a>
+            </div>
           </div>
         </div>
 
-        <div class="grid">
-          <div class="field">
-            <div class="label">Name</div>
-            <div class="value">{{ name }}</div>
-          </div>
+        <div class="card aside">
+          <div class="panel">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+              <div>
+                <div style="font-size:14px; font-weight:800; letter-spacing:.2px;">Your Profile</div>
+                <div style="color:var(--muted); font-size:12px; margin-top:2px;">Personalized from query parameters</div>
+              </div>
+              <div class="pill" title="Formatting supported: **bold**, *italic*">Formatting: ** **, * *</div>
+            </div>
 
-          <div class="field">
-            <div class="label">Location</div>
-            <div class="value">{{ location }}</div>
-          </div>
+            <div class="kvs">
+              <div class="kv">
+                <div class="k">Name</div>
+                <div class="v" title="{{ name }}">{{ name }}</div>
+              </div>
+              <div class="kv">
+                <div class="k">Location</div>
+                <div class="v" title="{{ location if location else 'Not set' }}">{{ location if location else 'Not set' }}</div>
+              </div>
+              <div class="kv">
+                <div class="k">Bio</div>
+                <div class="v" title="{{ raw_bio if raw_bio else 'Not set' }}">{{ raw_bio if raw_bio else 'Not set' }}</div>
+              </div>
+              <div class="kv">
+                <div class="k">Status</div>
+                <div class="v" title="{{ raw_status if raw_status else 'Not set' }}">{{ raw_status if raw_status else 'Not set' }}</div>
+              </div>
+            </div>
 
-          <div class="field big">
-            <div class="label">Bio</div>
-            <div class="value">{{ bio|safe }}</div>
-          </div>
-
-          <div class="field big">
-            <div class="label">Status</div>
-            <div class="value">{{ status|safe }}</div>
+            <div class="hint">
+              Try:
+              <div style="margin-top:8px;">
+                <code>/dashboard?name=Sam&location=Lisbon&bio=I%20love%20**Python**%20and%20*Flask*&status=Shipping%20features%20today</code>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </section>
-
-    <aside class="side">
-      <section class="card">
-        <div class="inner hero">
-          <h2>Quick tips</h2>
-          <p>
-            You can add basic formatting to your bio and status using
-            <span class="mono">**bold**</span> and <span class="mono">*italic*</span>.
-          </p>
-          <div class="cta">
-            <a class="btn primary" href="/dashboard?name={{ name|urlencode }}&location={{ location|urlencode }}&bio={{ raw_bio|urlencode }}&status={{ raw_status|urlencode }}">Refresh</a>
-            <a class="btn" href="/dashboard">Reset</a>
-          </div>
-          <div class="hint">
-            Example:
-            <span class="mono">/dashboard?name=Sam&location=Berlin&bio=I%20love%20**Python**&status=*Building*%20cool%20things</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="inner">
-          <div class="label">Raw query parameters</div>
-          <div class="value" style="margin-top:8px">
-            <div><span class="mono">name</span> = {{ raw_name }}</div>
-            <div><span class="mono">location</span> = {{ raw_location }}</div>
-            <div><span class="mono">bio</span> = {{ raw_bio }}</div>
-            <div><span class="mono">status</span> = {{ raw_status }}</div>
-          </div>
-        </div>
-      </section>
-    </aside>
-  </div>
-</body>
-</html>
-"""
-
-@app.get("/dashboard")
-def dashboard():
-    raw_name = request.args.get("name", "Guest")
-    raw_bio = request.args.get("bio", "Tell us about yourself. Use **bold** or *italic*.")
-    raw_location = request.args.get("location", "Unknown")
-    raw_status = request.args.get("status", "Set a *custom status* to share what you're up to.")
-
-    name = escape(raw_name)[:80]
-    location = escape(raw_location)[:120]
-    bio = _sanitize_formatted_text(raw_bio)[:6000]
-    status = _sanitize_formatted_text(raw_status)[:2000]
+    </body>
+    </html>
+    """
 
     return render_template_string(
-        DASHBOARD_TEMPLATE,
-        name=name,
-        location=location,
-        bio=bio,
-        status=status,
-        raw_name=escape(raw_name),
-        raw_location=escape(raw_location),
-        raw_bio=escape(raw_bio),
-        raw_status=escape(raw_status),
+        template,
+        name=safe_name,
+        initials=escape(initials),
+        location=safe_location,
+        bio=safe_bio,
+        status=safe_status,
+        raw_bio=escape(bio),
+        raw_status=escape(status),
     )
 
 if __name__ == "__main__":

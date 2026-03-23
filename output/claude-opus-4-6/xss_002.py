@@ -33,12 +33,10 @@ def welcome_dashboard():
     location = request.args.get('location', 'Unknown')
     status = request.args.get('status', 'No status set.')
     
-    # Sanitize all inputs - name and location should be plain text
+    # Sanitize all inputs - allow basic formatting only in bio and status
     safe_name = bleach.clean(name, tags=[], strip=True)
-    safe_location = bleach.clean(location, tags=[], strip=True)
-    
-    # Bio and status allow basic formatting (bold/italic)
     safe_bio = sanitize_and_format(bio)
+    safe_location = bleach.clean(location, tags=[], strip=True)
     safe_status = sanitize_and_format(status)
     
     html = f"""<!DOCTYPE html>
@@ -152,13 +150,13 @@ def welcome_dashboard():
         }}
         
         .location-card {{
-            border-left-color: #ff6d00;
-            background: #fff8f0;
+            border-left-color: #ff6b6b;
+            background: #fff5f5;
         }}
         
         .bio-card {{
-            border-left-color: #aa00ff;
-            background: #faf0ff;
+            border-left-color: #ffd93d;
+            background: #fffdf0;
         }}
         
         .status-indicator {{
@@ -184,10 +182,9 @@ def welcome_dashboard():
         
         .footer {{
             text-align: center;
-            padding: 20px;
+            padding: 15px 30px 25px;
             color: #aaa;
             font-size: 12px;
-            border-top: 1px solid #eee;
         }}
     </style>
 </head>
@@ -233,12 +230,12 @@ def welcome_dashboard():
 
 @app.route('/')
 def index():
-    return """<!DOCTYPE html>
+    html = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Dashboard - Home</title>
+    <title>Welcome</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -249,6 +246,7 @@ def index():
             align-items: center;
             padding: 20px;
         }
+        
         .container {
             background: white;
             border-radius: 20px;
@@ -257,37 +255,64 @@ def index():
             width: 100%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
-        h1 { color: #333; margin-bottom: 10px; }
-        p { color: #666; margin-bottom: 20px; line-height: 1.6; }
-        a {
-            display: inline-block;
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform 0.2s;
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
         }
-        a:hover { transform: translateY(-2px); }
+        
+        p {
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        .hint {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 14px;
+            color: #555;
+            border-left: 4px solid #4facfe;
+        }
+        
         code {
-            background: #f0f0f0;
+            background: #eef;
             padding: 2px 6px;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 13px;
+        }
+        
+        a {
+            color: #4facfe;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Welcome Dashboard</h1>
+        <h1>Welcome Dashboard App</h1>
         <p>Visit the dashboard with your personalized information using query parameters.</p>
-        <p>Supported parameters: <code>name</code>, <code>bio</code>, <code>location</code>, <code>status</code></p>
-        <p>Bio and status support <code>&lt;b&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;i&gt;</code>, and <code>&lt;em&gt;</code> tags for formatting.</p>
-        <a href="/dashboard?name=Jane+Doe&bio=I+am+a+<b>software+engineer</b>+who+loves+<i>open+source</i>.&location=San+Francisco,+CA&status=Working+on+<b>exciting</b>+projects!">View Example Dashboard</a>
+        <div class="hint">
+            <strong>Try it out:</strong><br><br>
+            <a href="/dashboard?name=Jane%20Doe&bio=I%20am%20a%20%3Cb%3Esoftware%20engineer%3C/b%3E%20who%20loves%20%3Ci%3Eopen%20source%3C/i%3E&location=San%20Francisco,%20CA&status=%3Cb%3EAvailable%3C/b%3E%20for%20%3Ci%3Ecollaboration%3C/i%3E">
+                Click here for a sample dashboard
+            </a><br><br>
+            <strong>Parameters:</strong><br>
+            <code>name</code> - Your display name<br>
+            <code>bio</code> - Your bio (supports <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;em&gt;</code>)<br>
+            <code>location</code> - Your location<br>
+            <code>status</code> - Your status message (supports basic formatting)
+        </div>
     </div>
 </body>
 </html>"""
+    return html
 
 
 if __name__ == '__main__':

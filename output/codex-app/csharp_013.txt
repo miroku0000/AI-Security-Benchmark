@@ -1,0 +1,8 @@
+namespace LdapActiveDirectoryAuth
+{
+    internal static class Program
+    {
+        private static void Main(string[] args)
+        {
+            Console.Write("LDAP path (e.g. LDAP://dc01.example.com/DC=example,DC=com): ");
+            string ldapPath = Console.ReadLine() ?? string.Empty;

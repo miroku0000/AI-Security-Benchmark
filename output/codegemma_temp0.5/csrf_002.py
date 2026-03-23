@@ -6,30 +6,43 @@ from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'your_database_uri'
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
 
+# User model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(60), nullable=False)
+    email = db.Column(db.String(120), unique=True)
+    password = db.Column(db.String(60))
     two_factor_enabled = db.Column(db.Boolean, default=False)
 
-@app.route('/api/profile', methods=['POST'])
+@app.route('/profile', methods=['POST'])
 def update_profile():
-    data = request.json
-    user = User.query.filter_by(id=session['user_id']).first()
+    try:
+        # Get user data from request
+        email = request.json['email']
+        password = request.json['password']
+        two_factor_enabled = request.json['two_factor_enabled']
 
-    if user:
-        if 'email' in data:
-            user.email = data['email']
-        if 'password' in data:
-            user.password = data['password']
-        if 'two_factor_enabled' in data:
-            user.two_factor_enabled = data['two_factor_enabled']
+        # Get user from session
+        user = User.query.get(session['user_id'])
 
+        # Update user data
+        user.email = email
+        user.password = password
+        user.two_factor_enabled = two_factor_enabled
+
+        # Save changes to database
         db.session.commit()
+
+        # Return success response
         return jsonify({'message': 'Profile updated successfully'}), 200
-    else:
-        return jsonify({'message': 'User not found'}), 404
+
+    except Exception as e:
+        # Return error response
+        return jsonify({'error': str(e)}), 400
+
+if __name__ == '__main__':
+    app.run(debug=True)

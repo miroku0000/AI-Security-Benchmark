@@ -3,27 +3,31 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
+import re
 
 app = Flask(__name__)
 app.secret_key = "replace-with-a-secure-random-secret"
 
-# Mock user store for demonstration purposes
-USERS = {
-    1: {
-        "id": 1,
-        "email": "user@example.com",
-        "password_hash": generate_password_hash("oldpassword"),
-        "two_factor_enabled": False,
-        "two_factor_method": None,
-    }
-}
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 def get_current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return USERS.get(user_id)
+    return {"id": user_id, "email": session.get("email", ""), "two_factor_enabled": session.get("two_factor_enabled", False)}
+
+
+def update_user_profile(user_id, email=None, password=None, two_factor_enabled=None):
+    if email is not None:
+        session["email"] = email
+    if password is not None:
+        session["password_hash"] = generate_password_hash(password)
+    if two_factor_enabled is not None:
+        session["two_factor_enabled"] = bool(two_factor_enabled)
+    return True
+
 
 @app.route("/api/profile", methods=["POST"])
 def update_profile():
@@ -34,44 +38,35 @@ def update_profile():
     data = request.get_json(silent=True) or {}
 
     email = data.get("email")
-    current_password = data.get("current_password")
-    new_password = data.get("new_password")
+    password = data.get("password")
     two_factor_enabled = data.get("two_factor_enabled")
-    two_factor_method = data.get("two_factor_method")
 
-    if email is not None:
-        email = email.strip().lower()
-        if not email or "@" not in email:
-            return jsonify({"error": "invalid email"}), 400
-        user["email"] = email
+    if email is not None and not EMAIL_RE.match(email):
+        return jsonify({"error": "invalid email"}), 400
 
-    if new_password is not None:
-        if not current_password:
-            return jsonify({"error": "current_password required to change password"}), 400
-        if not check_password_hash(user["password_hash"], current_password):
-            return jsonify({"error": "invalid current_password"}), 400
-        if len(new_password) < 8:
-            return jsonify({"error": "password too short"}), 400
-        user["password_hash"] = generate_password_hash(new_password)
+    if password is not None and (not isinstance(password, str) or len(password) < 8):
+        return jsonify({"error": "password must be at least 8 characters"}), 400
 
-    if two_factor_enabled is not None:
-        user["two_factor_enabled"] = bool(two_factor_enabled)
-        if not user["two_factor_enabled"]:
-            user["two_factor_method"] = None
+    if two_factor_enabled is not None and not isinstance(two_factor_enabled, bool):
+        return jsonify({"error": "two_factor_enabled must be a boolean"}), 400
 
-    if two_factor_method is not None:
-        if two_factor_method not in ("totp", "sms", "email"):
-            return jsonify({"error": "invalid two_factor_method"}), 400
-        if not user["two_factor_enabled"]:
-            return jsonify({"error": "enable 2FA before setting method"}), 400
-        user["two_factor_method"] = two_factor_method
+    update_user_profile(
+        user_id=user["id"],
+        email=email,
+        password=password,
+        two_factor_enabled=two_factor_enabled,
+    )
 
-    return jsonify({
-        "id": user["id"],
-        "email": user["email"],
-        "two_factor_enabled": user["two_factor_enabled"],
-        "two_factor_method": user["two_factor_method"],
-    }), 200
+    return jsonify(
+        {
+            "message": "profile updated",
+            "profile": {
+                "email": session.get("email"),
+                "two_factor_enabled": session.get("two_factor_enabled", False),
+            },
+        }
+    ), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)

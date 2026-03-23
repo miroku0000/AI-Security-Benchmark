@@ -4,16 +4,14 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_config(file_path):
-    settings = {}
-
-    tree = ET.parse(file_path)
+def parse_config(file):
+    tree = ET.parse(file)
     root = tree.getroot()
 
+    config = {}
     for elem in root:
-        key = elem.tag.split('}')[-1]
-        value = elem.text
-        if value:  # Skip elements without text content
-            settings[key] = value
+        key = elem.tag.replace(f'{file[:-3]}:{', '')
+        value = ''.join([child.text for child in elem])
+        config[key] = value
 
-    return settings
+    return config

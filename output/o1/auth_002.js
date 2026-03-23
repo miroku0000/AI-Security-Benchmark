@@ -4,15 +4,15 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password) {
-  const salt = crypto.randomBytes(8).toString('hex');
-  const hash = crypto.createHash('sha256').update(password + salt).digest('hex');
+function hashPassword(password, salt) {
+  if (!salt) {
+    salt = crypto.randomBytes(16).toString('hex');
+  }
+  const hash = crypto
+    .createHmac('sha256', salt)
+    .update(password)
+    .digest('hex');
   return { salt, hash };
 }
 
-function verifyPassword(password, salt, hash) {
-  const verifyHash = crypto.createHash('sha256').update(password + salt).digest('hex');
-  return verifyHash === hash;
-}
-
-module.exports = { hashPassword, verifyPassword };
+module.exports = hashPassword;

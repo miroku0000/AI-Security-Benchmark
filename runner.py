@@ -45,6 +45,57 @@ from tests.test_csrf import CSRFDetector
 from tests.test_access_control import AccessControlDetector
 from tests.test_mass_assignment import MassAssignmentDetector
 from tests.test_business_logic import BusinessLogicDetector
+# C/C++ and Rust memory safety detectors
+from tests.test_buffer_overflow import BufferOverflowDetector
+from tests.test_format_string import FormatStringDetector
+from tests.test_integer_overflow import IntegerOverflowDetector
+from tests.test_use_after_free import UseAfterFreeDetector
+from tests.test_double_free import DoubleFreeDetector
+from tests.test_null_pointer import NullPointerDetector
+from tests.test_memory_leak import MemoryLeakDetector
+from tests.test_memory_safety import MemorySafetyDetector
+from tests.test_unsafe_code import UnsafeCodeDetector
+
+# Import multi-language detector extension
+from tests.test_multi_language_support import extend_detector_with_multi_language
+
+# Apply multi-language support to ALL detectors
+SQLInjectionDetector = extend_detector_with_multi_language(SQLInjectionDetector)
+XSSDetector = extend_detector_with_multi_language(XSSDetector)
+PathTraversalDetector = extend_detector_with_multi_language(PathTraversalDetector)
+CommandInjectionDetector = extend_detector_with_multi_language(CommandInjectionDetector)
+RaceConditionDetector = extend_detector_with_multi_language(RaceConditionDetector)
+CryptoDetector = extend_detector_with_multi_language(CryptoDetector)
+XXEDetector = extend_detector_with_multi_language(XXEDetector)
+DeserializationDetector = extend_detector_with_multi_language(DeserializationDetector)
+SecretsDetector = extend_detector_with_multi_language(SecretsDetector)
+SSRFDetector = extend_detector_with_multi_language(SSRFDetector)
+OpenRedirectDetector = extend_detector_with_multi_language(OpenRedirectDetector)
+FileUploadDetector = extend_detector_with_multi_language(FileUploadDetector)
+LDAPInjectionDetector = extend_detector_with_multi_language(LDAPInjectionDetector)
+NoSQLInjectionDetector = extend_detector_with_multi_language(NoSQLInjectionDetector)
+InsecureAuthDetector = extend_detector_with_multi_language(InsecureAuthDetector)
+MissingAuthDetector = extend_detector_with_multi_language(MissingAuthDetector)
+MissingAuthorizationDetector = extend_detector_with_multi_language(MissingAuthorizationDetector)
+InformationDisclosureDetector = extend_detector_with_multi_language(InformationDisclosureDetector)
+InputValidationDetector = extend_detector_with_multi_language(InputValidationDetector)
+ErrorHandlingDetector = extend_detector_with_multi_language(ErrorHandlingDetector)
+ResourceLeakDetector = extend_detector_with_multi_language(ResourceLeakDetector)
+RateLimitingDetector = extend_detector_with_multi_language(RateLimitingDetector)
+JWTDetector = extend_detector_with_multi_language(JWTDetector)
+CSRFDetector = extend_detector_with_multi_language(CSRFDetector)
+AccessControlDetector = extend_detector_with_multi_language(AccessControlDetector)
+MassAssignmentDetector = extend_detector_with_multi_language(MassAssignmentDetector)
+BusinessLogicDetector = extend_detector_with_multi_language(BusinessLogicDetector)
+BufferOverflowDetector = extend_detector_with_multi_language(BufferOverflowDetector)
+FormatStringDetector = extend_detector_with_multi_language(FormatStringDetector)
+IntegerOverflowDetector = extend_detector_with_multi_language(IntegerOverflowDetector)
+UseAfterFreeDetector = extend_detector_with_multi_language(UseAfterFreeDetector)
+DoubleFreeDetector = extend_detector_with_multi_language(DoubleFreeDetector)
+NullPointerDetector = extend_detector_with_multi_language(NullPointerDetector)
+MemoryLeakDetector = extend_detector_with_multi_language(MemoryLeakDetector)
+MemorySafetyDetector = extend_detector_with_multi_language(MemorySafetyDetector)
+UnsafeCodeDetector = extend_detector_with_multi_language(UnsafeCodeDetector)
 
 
 class SecurityBenchmark:
@@ -79,6 +130,15 @@ class SecurityBenchmark:
             'broken_access_control': AccessControlDetector,
             'mass_assignment': MassAssignmentDetector,
             'business_logic_flaw': BusinessLogicDetector,
+            'buffer_overflow': BufferOverflowDetector,
+            'format_string': FormatStringDetector,
+            'integer_overflow': IntegerOverflowDetector,
+            'use_after_free': UseAfterFreeDetector,
+            'double_free': DoubleFreeDetector,
+            'null_pointer': NullPointerDetector,
+            'memory_leak': MemoryLeakDetector,
+            'memory_safety': MemorySafetyDetector,
+            'unsafe_code': UnsafeCodeDetector,
         }
         self.results = []
         self.failed_generations = []  # Track prompts where code generation failed
@@ -212,7 +272,16 @@ class SecurityBenchmark:
             language = prompt_info.get('language', 'python')
 
             # Look for generated code file
-            extensions = {'python': '.py', 'javascript': '.js'}
+            extensions = {
+                'python': '.py',
+                'javascript': '.js',
+                'java': '.java',
+                'csharp': '.cs',
+                'cpp': '.cpp',
+                'c': '.c',
+                'go': '.go',
+                'rust': '.rs'
+            }
             ext = extensions.get(language, '.txt')
             code_file = code_path / f"{prompt_id}{ext}"
 
@@ -260,12 +329,17 @@ class SecurityBenchmark:
             # Show vulnerabilities
             if result.get('vulnerabilities'):
                 for vuln in result['vulnerabilities']:
+                    # Handle string vulnerabilities (shouldn't happen but defensive)
+                    if isinstance(vuln, str):
+                        logger.warning("    └─ [ERROR] Invalid vulnerability format: %s", vuln)
+                        continue
+
                     severity = vuln.get('severity', 'UNKNOWN')
                     desc = vuln.get('description', '')
                     line_info = vuln.get('line_number', '')
                     code_snippet = vuln.get('code_snippet', '')
 
-                    if vuln['type'] != 'SECURE':
+                    if vuln.get('type') != 'SECURE':
                         if line_info:
                             logger.info("    └─ [%s] Line %s: %s", severity, line_info, desc)
                             if code_snippet:

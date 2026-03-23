@@ -9,9 +9,9 @@ app = Flask(__name__)
 @app.route('/dashboard')
 def dashboard():
     name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio provided')
-    location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'No status')
+    bio = request.args.get('bio', '')
+    location = request.args.get('location', '')
+    status = request.args.get('status', '')
     
     template = '''
     <!DOCTYPE html>
@@ -76,7 +76,7 @@ def dashboard():
                 border-left: 4px solid #667eea;
             }
             
-            .info-section h3 {
+            .info-section h2 {
                 color: #667eea;
                 font-size: 1.2em;
                 margin-bottom: 10px;
@@ -84,7 +84,7 @@ def dashboard():
                 align-items: center;
             }
             
-            .info-section h3::before {
+            .info-section h2::before {
                 content: '●';
                 margin-right: 10px;
                 font-size: 0.8em;
@@ -106,19 +106,21 @@ def dashboard():
                 margin-top: 5px;
             }
             
-            .location-tag {
-                display: inline-flex;
-                align-items: center;
-                padding: 5px 12px;
-                background: #e9ecef;
-                border-radius: 15px;
-                color: #495057;
-                font-size: 0.95em;
+            .empty-state {
+                color: #999;
+                font-style: italic;
             }
             
-            .location-tag::before {
-                content: '📍';
-                margin-right: 5px;
+            .location-icon::before {
+                content: '📍 ';
+            }
+            
+            .bio-icon::before {
+                content: '📝 ';
+            }
+            
+            .status-icon::before {
+                content: '💬 ';
             }
         </style>
     </head>
@@ -130,20 +132,32 @@ def dashboard():
             </div>
             
             <div class="content">
+                {% if bio %}
                 <div class="info-section">
-                    <h3>Bio</h3>
+                    <h2 class="bio-icon">Bio</h2>
                     <p>{{ bio|safe }}</p>
                 </div>
+                {% endif %}
                 
+                {% if location %}
                 <div class="info-section">
-                    <h3>Location</h3>
-                    <p><span class="location-tag">{{ location }}</span></p>
+                    <h2 class="location-icon">Location</h2>
+                    <p>{{ location }}</p>
                 </div>
+                {% endif %}
                 
+                {% if status %}
                 <div class="info-section">
-                    <h3>Current Status</h3>
-                    <p><span class="status-badge">{{ status|safe }}</span></p>
+                    <h2 class="status-icon">Status</h2>
+                    <div class="status-badge">{{ status|safe }}</div>
                 </div>
+                {% endif %}
+                
+                {% if not bio and not location and not status %}
+                <div class="info-section">
+                    <p class="empty-state">No additional information available. Add query parameters to personalize your dashboard!</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </body>

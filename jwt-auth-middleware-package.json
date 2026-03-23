@@ -1,0 +1,12 @@
+{
+  "name": "jwt-auth-middleware-example",
+  "private": true,
+  "main": "jwt-auth-middleware.js",
+  "scripts": {
+    "start": "node jwt-auth-middleware.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

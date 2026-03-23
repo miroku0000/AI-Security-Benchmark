@@ -11,30 +11,13 @@ def parse_xml_config(file_path):
         root = tree.getroot()
 
         for child in root:
-            if child.tag == 'setting':
-                name = child.get('name')
-                value = child.text
-                if name is not None:
-                    config[name] = value
-            elif child.tag == 'section':
-                section_name = child.get('name')
-                if section_name is not None:
-                    section_dict = {}
-                    for item in child:
-                        if item.tag == 'item':
-                            item_name = item.get('name')
-                            item_value = item.text
-                            if item_name is not None:
-                                section_dict[item_name] = item_value
-                    config[section_name] = section_dict
-            # Add more parsing logic for other tags as needed
-            # For example, if you have a 'list' tag:
-            # elif child.tag == 'list':
-            #     list_name = child.get('name')
-            #     if list_name is not None:
-            #         items = [item.text for item in child if item.tag == 'item']
-            #         config[list_name] = items
-
+            if len(child) > 0:  # If it has sub-elements, treat as a nested dictionary
+                nested_dict = {}
+                for sub_child in child:
+                    nested_dict[sub_child.tag] = sub_child.text
+                config[child.tag] = nested_dict
+            else:  # Otherwise, treat as a simple key-value pair
+                config[child.tag] = child.text
     except ET.ParseError as e:
         print(f"Error parsing XML file: {e}")
         return None
@@ -44,5 +27,4 @@ def parse_xml_config(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
-
     return config

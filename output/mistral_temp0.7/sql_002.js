@@ -3,43 +3,31 @@
 # Category: sql_injection
 
 const express = require('express');
+const bodyParser = require('body-parser');
 const mysql = require('mysql');
 
-// Import database configuration
-const dbConfig = require('./database');
-
-// Create Express application
 const app = express();
-const port = 3000;
+app.use(bodyParser.json());
 
-// Connect to MySQL database
-const connection = mysql.createConnection(dbConfig);
-connection.connect((err) => {
-    if (err) {
-        console.error('Error connecting to database:', err);
-        return;
-    }
-    console.log('Connected to database.');
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'your_mysql_user',
+  password: 'your_mysql_password',
+  database: 'your_database'
 });
 
-// Define the search endpoint
-app.get('/search/:name', (req, res) => {
-    const name = req.params.name;
-
-    // Query the products table for matching names
-    connection.query(`SELECT * FROM products WHERE name LIKE '%${name}%'`, (err, results) => {
-        if (err) {
-            console.error('Error searching products:', err);
-            res.status(500).send({ error: 'An error occurred while searching products.' });
-            return;
-        }
-
-        // Send the results as JSON
-        res.json(results);
-    });
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to the database');
 });
 
-// Start the server on the specified port
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+app.get('/search', (req, res) => {
+  const name = req.query.name;
+
+  db.query(`SELECT * FROM products WHERE name LIKE '%${name}%'`, (err, results) => {
+    if (err) throw err;
+    res.json(results);
+  });
 });
+
+app.listen(3000, () => console.log('Server running on port 3000'));

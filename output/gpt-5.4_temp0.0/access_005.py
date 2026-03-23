@@ -9,8 +9,7 @@ from werkzeug.exceptions import NotFound, Forbidden
 app = Flask(__name__)
 
 # Assumes a SQLAlchemy model and session are available
-# from your_app import db
-# from your_app.models import Post
+# from yourapp.models import Post, db
 
 @app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required
@@ -20,7 +19,7 @@ def delete_post(post_id):
         raise NotFound("Post not found")
 
     if post.user_id != current_user.id:
-        raise Forbidden("You are not allowed to delete this post")
+        raise Forbidden("You can only delete your own posts")
 
     db.session.delete(post)
     db.session.commit()

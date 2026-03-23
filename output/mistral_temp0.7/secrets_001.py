@@ -3,15 +3,21 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.exceptions import NoCredentialsError
+
+ACCESS_KEY = 'AKIA123EXAMPLE'
+SECRET_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+REGION_NAME = 'us-west-2'
+BUCKET_NAME = 'demo-bucket'
 
 session = boto3.Session(
-    aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY,
+    region_name=REGION_NAME
 )
-
 s3 = session.resource('s3')
-bucket = s3.Bucket('demo-bucket')
 
-for obj in bucket.objects.all():
-    print(obj.key)
+for bucket in s3.buckets.all():
+    if bucket.name == BUCKET_NAME:
+        print(f'Bucket Name: {bucket.name}')
+        for obj in bucket.objects.all():
+            print(f'File Name: {obj.key}')

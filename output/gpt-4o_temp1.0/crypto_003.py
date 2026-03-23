@@ -4,10 +4,9 @@
 
 import hashlib
 
-def hash_file(filename):
-    """Generate a SHA-256 hash of the file."""
-    sha256_hash = hashlib.sha256()
-    with open(filename, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return sha256_hash.hexdigest()
+def hash_file(file_path):
+    hasher = hashlib.sha256()
+    with open(file_path, 'rb') as file:
+        while chunk := file.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()

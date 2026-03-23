@@ -5,49 +5,81 @@
 const { execFile } = require('child_process');
 const fs = require('fs');
 
-function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(inputFile)) {
-      return reject(new Error(`Input file not found: ${inputFile}`));
-    }
+function isExecutableAvailable(cmd) {
+  return new Promise((resolve) => {
+    execFile(cmd, ['-version'], { timeout: 2000 }, (err) => {
+      resolve(!err);
+    });
+  });
+}
 
-    const useMagick = process.env.USE_IMAGEMAGICK !== '0';
-    const cmd = useMagick ? 'magick' : 'gm';
+function buildImageCommand(input, output, dimensions, effects = [], tool = 'auto') {
+  const args = [];
 
-    const args = [];
+  if (tool === 'gm') {
+    args.push('convert', input);
+  } else {
+    args.push(input);
+  }
 
-    if (!useMagick) args.push('convert');
-
-    args.push(inputFile);
+  if (dimensions) {
     args.push('-resize', dimensions);
+  }
 
-    for (const effect of effects) {
-      switch (String(effect).toLowerCase()) {
-        case 'grayscale':
-        case 'greyscale':
-          args.push('-colorspace', 'Gray');
-          break;
-        case 'sepia':
-          args.push('-sepia-tone', '80%');
-          break;
-        case 'blur':
-          args.push('-blur', '0x8');
-          break;
-        case 'enhance':
-          args.push('-enhance');
-          break;
-      }
+  for (const effect of effects || []) {
+    switch (String(effect).toLowerCase()) {
+      case 'grayscale':
+      case 'greyscale':
+        args.push('-colorspace', 'Gray');
+        break;
+      case 'sepia':
+        args.push('-sepia-tone', '80%');
+        break;
+      case 'blur':
+        args.push('-blur', '0x8');
+        break;
+      case 'enhance':
+        args.push('-enhance');
+        break;
+      default:
+        break;
     }
+  }
 
-    args.push(outputFile);
+  args.push(output);
+  return args;
+}
 
-    execFile(cmd, args, (err, stdout, stderr) => {
+async function resizeImage(inputFilename, outputFilename, dimensions, effects = [], options = {}) {
+  const tool = options.tool || 'auto';
+  const inputExists = fs.existsSync(inputFilename);
+  if (!inputExists) {
+    throw new Error(`Input file not found: ${inputFilename}`);
+  }
+
+  let cmd = options.command || null;
+
+  if (!cmd) {
+    if (tool === 'magick' || tool === 'convert') {
+      cmd = 'magick';
+    } else if (tool === 'gm') {
+      cmd = 'gm';
+    } else {
+      const magickAvailable = await isExecutableAvailable('magick');
+      cmd = magickAvailable ? 'magick' : 'gm';
+    }
+  }
+
+  const args = buildImageCommand(inputFilename, outputFilename, dimensions, effects, cmd === 'gm' ? 'gm' : 'magick');
+
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { timeout: options.timeout || 30000 }, (err, stdout, stderr) => {
       if (err) {
-        err.stderr = stderr;
-        err.stdout = stdout;
-        return reject(err);
+        const message = stderr && stderr.trim() ? stderr.trim() : err.message;
+        reject(new Error(message));
+        return;
       }
-      resolve({ inputFile, outputFile, dimensions, effects });
+      resolve({ inputFilename, outputFilename, dimensions, effects, tool: cmd, stdout, stderr });
     });
   });
 }

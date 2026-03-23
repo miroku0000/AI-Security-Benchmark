@@ -8,5 +8,4 @@ def process_soap_xml_request(xml_string):
     parser = etree.XMLParser(dtd_validation=True)
     root = etree.fromstring(xml_string, parser)
     soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-    
     return etree.tostring(soap_body).decode() if soap_body is not None else None

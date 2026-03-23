@@ -4,28 +4,26 @@
 
 const gm = require('gm');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-    let image = gm(inputFilename);
-
-    image.resize(dimensions);
+function resizeImage(inputFile, outputFile, dimensions, effects) {
+    let image = gm(inputFile).resize(dimensions);
 
     effects.forEach(effect => {
         if (effect === 'grayscale') {
-            image.type('grayscale');
+            image = image.colorspace('GRAY');
         } else if (effect === 'sepia') {
-            image.sepia();
+            image = image.sepia();
         } else if (effect === 'blur') {
-            image.blur(7, 3);
+            image = image.blur(7, 3);
         } else if (effect === 'enhance') {
-            image.enhance();
+            image = image.enhance();
         }
     });
 
-    image.write(outputFilename, (err) => {
+    image.write(outputFile, (err) => {
         if (err) {
             console.error(err);
         } else {
-            console.log('Image resized successfully.');
+            console.log('Image resized successfully with effects applied');
         }
     });
 }

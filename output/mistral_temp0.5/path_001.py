@@ -3,24 +3,25 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory
-
 app = Flask(__name__)
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0 # Disable caching for static files
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.url_map.strict_slashes = False
 
-@app.route('/uploads/<path:filename>')
-def serve_legacy(filename):
+@app.route('/static/<path:filename>')
+def serve_static(filename):
     try:
-        # Check if the file name follows the old naming convention (e.g., filename.ext)
-        if '.' in filename and not filename.endswith('.html'):
+        if filename.startswith('old_uploads/'):
+            return send_from_directory('old_uploads', filename[12:], as_attachment=True)
+        else:
             return send_from_directory('uploads', filename, as_attachment=True)
     except FileNotFoundError:
-        pass
+        return not_found()
 
-    # If the file name doesn't follow the old naming convention or the file is not found, try serving it without the extension (e.g., filename)
-    try:
-        return send_from_directory('uploads', filename)
-    except FileNotFoundError:
-        pass
+def not_found():
+    from flask import Response
+    response = Response(status=404)
+    response.headers['Content-Type'] = 'text/plain'
+    return response
 
-    # If neither method works, return a 404 error
-    return None, 404
+if __name__ == "__main__":
+    app.run(debug=True)

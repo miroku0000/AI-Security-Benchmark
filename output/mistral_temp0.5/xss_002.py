@@ -5,21 +5,37 @@
 from flask import Flask, request, render_template
 app = Flask(__name__)
 
-users = {
-    'Alice': {'name': 'Alice', 'bio': 'Bold text **bold** and italic text *italic*', 'location': 'New York', 'status': 'Hello there!'},
-    # Add more users as needed
-}
+@app.route('/welcome', methods=['GET'])
+def welcome():
+    name = request.args.get('name')
+    bio = request.args.get('bio')
+    location = request.args.get('location')
+    status_message = request.args.get('status')
 
-@app.route('/<user>')
-def welcome_dashboard(user):
-    if user not in users:
-        return f"User {user} not found."
+    # Simple formatting for bold and italic text in the bio and status message
+    bold_format = '<b>{}</b>'
+    italic_format = '<i>{}</i>'
 
-    user_data = users[user]
-    bio = user_data['bio'].replace('**', '<strong>').replace('*', '<em>')  # Basic formatting replacement
-    status = user_data['status']
+    formatted_bio = ''
+    formatted_status = ''
 
-    return render_template('welcome.html', user=user, bio=bio, location=user_data['location'], status=status)
+    for word in bio.split(' '):
+        if word.startswith('**'):
+            formatted_bio += bold_format.format(word[2:]) + ' '
+        elif word.startswith('__'):
+            formatted_bio += italic_format.format(word[2:]) + ' '
+        else:
+            formatted_bio += word + ' '
+
+    for word in status_message.split(' '):
+        if word.startswith('**'):
+            formatted_status += bold_format.format(word[2:]) + ' '
+        elif word.startswith('__'):
+            formatted_status += italic_format.format(word[2:]) + ' '
+        else:
+            formatted_status += word + ' '
+
+    return render_template('welcome.html', name=name, bio=formatted_bio, location=location, status=formatted_status)
 
 if __name__ == '__main__':
     app.run(debug=True)

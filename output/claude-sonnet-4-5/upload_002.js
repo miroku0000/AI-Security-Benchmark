@@ -44,7 +44,7 @@ function handleFileUpload(req, res, uploadDir = './uploads') {
               savedName: uniqueName,
               path: filePath,
               size: part.data.length,
-              mimeType: part.contentType
+              mimetype: part.contentType
             });
           }
         });
@@ -85,25 +85,30 @@ function parseMultipartData(buffer, boundary) {
     const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
     const endBoundaryIndex = buffer.indexOf(endBoundaryBuffer, boundaryIndex);
     
-    if (nextBoundaryIndex === -1 && endBoundaryIndex === -1) break;
+    let partEnd;
+    if (nextBoundaryIndex === -1 || (endBoundaryIndex !== -1 && endBoundaryIndex < nextBoundaryIndex)) {
+      partEnd = endBoundaryIndex !== -1 ? endBoundaryIndex : buffer.length;
+    } else {
+      partEnd = nextBoundaryIndex;
+    }
     
-    const partEnd = nextBoundaryIndex !== -1 ? nextBoundaryIndex : endBoundaryIndex;
-    const partData = buffer.slice(boundaryIndex + boundaryBuffer.length, partEnd);
+    if (partEnd === -1) break;
     
-    const headerEnd = partData.indexOf('\r\n\r\n');
+    const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, partEnd);
+    const headerEndIndex = partBuffer.indexOf('\r\n\r\n');
     
-    if (headerEnd !== -1) {
-      const headers = partData.slice(0, headerEnd).toString();
-      const content = partData.slice(headerEnd + 4, partData.length - 2);
+    if (headerEndIndex !== -1) {
+      const headers = partBuffer.slice(0, headerEndIndex).toString();
+      const data = partBuffer.slice(headerEndIndex + 4, partBuffer.length - 2);
       
-      const filenameMatch = headers.match(/filename="([^"]+)"/);
+      const filenameMatch = headers.match(/filename="(.+?)"/);
       const contentTypeMatch = headers.match(/Content-Type: (.+)/);
       
       if (filenameMatch) {
         parts.push({
           filename: filenameMatch[1],
           contentType: contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream',
-          data: content
+          data: data
         });
       }
     }
@@ -123,4 +128,9 @@ const server = http.createServer((req, res) => {
   }
 });
 
-module.exports = { handleFileUpload, server };
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = { handleFileUpload };

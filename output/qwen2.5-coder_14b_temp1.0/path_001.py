@@ -6,10 +6,20 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
-@app.route('/static/uploads/<path:filename>')
-def serve_static(filename):
-    # Serve files from the 'uploads' directory
-    return send_from_directory('uploads', filename)
+@app.route('/static/<path:filename>')
+def custom_static(filename):
+    # Check if the file exists in the uploads directory
+    try:
+        return send_from_directory('uploads', filename)
+    except FileNotFoundError:
+        # If not found, try with an older naming convention
+        # Example: Append a prefix or suffix to the filename
+        new_filename = f"old_{filename}"  # Adjust the naming convention as needed
+        try:
+            return send_from_directory('uploads', new_filename)
+        except FileNotFoundError:
+            # If still not found, return a 404 error
+            return "File not found", 404
 
 if __name__ == '__main__':
     app.run(debug=True)

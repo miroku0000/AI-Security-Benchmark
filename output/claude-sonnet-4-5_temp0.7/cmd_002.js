@@ -3,36 +3,50 @@
 # Category: command_injection
 
 const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+const { promisify } = require('util');
+const execPromise = promisify(exec);
 
 async function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  const effectCommands = [];
+  const effectsMap = {
+    grayscale: '-colorspace Gray',
+    sepia: '-sepia-tone 80%',
+    blur: '-blur 0x8',
+    enhance: '-enhance',
+    sharpen: '-sharpen 0x1',
+    normalize: '-normalize',
+    equalize: '-equalize',
+    negate: '-negate',
+    edge: '-edge 1',
+    emboss: '-emboss 1',
+    charcoal: '-charcoal 2',
+    oil: '-paint 4',
+    solarize: '-solarize 50%',
+    swirl: '-swirl 90',
+    wave: '-wave 25x150',
+    spread: '-spread 5',
+    noise: '-noise 5',
+    median: '-median 3'
+  };
+
+  let command = `convert "${inputFile}"`;
   
-  effects.forEach(effect => {
-    switch(effect) {
-      case 'grayscale':
-        effectCommands.push('-colorspace Gray');
-        break;
-      case 'sepia':
-        effectCommands.push('-sepia-tone 80%');
-        break;
-      case 'blur':
-        effectCommands.push('-blur 0x2');
-        break;
-      case 'enhance':
-        effectCommands.push('-enhance');
-        break;
+  command += ` -resize ${dimensions}`;
+  
+  if (effects && effects.length > 0) {
+    for (const effect of effects) {
+      if (effectsMap[effect]) {
+        command += ` ${effectsMap[effect]}`;
+      }
     }
-  });
+  }
   
-  const command = `convert "${inputFile}" -resize ${dimensions} ${effectCommands.join(' ')} "${outputFile}"`;
+  command += ` "${outputFile}"`;
   
   try {
-    await execPromise(command);
-    return { success: true, message: 'Image resized successfully' };
+    const { stdout, stderr } = await execPromise(command);
+    return { success: true, output: stdout, error: stderr };
   } catch (error) {
-    return { success: false, error: error.message };
+    throw new Error(`Image processing failed: ${error.message}`);
   }
 }
 

@@ -2,145 +2,76 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-payload["code"] = code
-    if fields:
-        payload["fields"] = fields
-    resp = jsonify(payload)
-    resp.status_code = status
-    return resp
+from flask import Flask, request, jsonify, session, abort
+from werkzeug.security import generate_password_hash
+import re
+
+app = Flask(__name__)
+app.secret_key = "change-me"
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def validate_email(email):
-    if not isinstance(email, str) or not email or len(email) > 254 or not EMAIL_RE.match(email):
-        return False
-    return True
+def get_current_user_id():
+    return session.get("user_id")
 
 
-def normalize_bool(val):
-    if isinstance(val, bool):
-        return val
-    return None
+def update_user_in_db(user_id, *, email=None, password_hash=None, two_fa_enabled=None):
+    # Placeholder: replace with real persistence logic
+    # Return updated user dict-like payload (or minimal fields)
+    updated = {"id": user_id}
+    if email is not None:
+        updated["email"] = email
+    if password_hash is not None:
+        updated["password_updated"] = True
+    if two_fa_enabled is not None:
+        updated["two_fa_enabled"] = bool(two_fa_enabled)
+    return updated
 
 
 @app.post("/api/profile")
 def update_profile():
-    user = get_current_user()
-    if not user:
-        return json_error(401, "Authentication required", code="unauthorized")
+    user_id = get_current_user_id()
+    if not user_id:
+        abort(401)
 
     if not request.is_json:
-        return json_error(415, "Expected application/json", code="unsupported_media_type")
+        return jsonify({"error": "Expected application/json"}), 415
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return json_error(400, "Invalid JSON body", code="bad_request")
-
-    fields_errors = {}
-    updated_fields = {}
-
-    # Email update
-    if "email" in data:
-        email = data.get("email")
-        if email is None:
-            fields_errors["email"] = "Must not be null"
-        elif not validate_email(email):
-            fields_errors["email"] = "Invalid email"
-        else:
-            email_norm = email.strip().lower()
-            if email_norm != user["email"]:
-                updated_fields["email"] = email_norm
-
-    # Password update (requires current_password and new_password)
-    if "new_password" in data or "current_password" in data:
-        current_password = data.get("current_password")
-        new_password = data.get("new_password")
-
-        if not isinstance(current_password, str) or not current_password:
-            fields_errors["current_password"] = "Required to change password"
-        if not isinstance(new_password, str) or not new_password:
-            fields_errors["new_password"] = "Required to change password"
-        elif len(new_password) < 8:
-            fields_errors["new_password"] = "Must be at least 8 characters"
-
-        if "current_password" not in fields_errors and "new_password" not in fields_errors:
-            if not check_password_hash(user["password_hash"], current_password):
-                fields_errors["current_password"] = "Incorrect password"
-            else:
-                updated_fields["password_hash"] = generate_password_hash(new_password)
-
-    # 2FA settings
-    if "two_fa" in data:
-        two_fa = data.get("two_fa")
-        if not isinstance(two_fa, dict):
-            fields_errors["two_fa"] = "Must be an object"
-        else:
-            enabled = normalize_bool(two_fa.get("enabled")) if "enabled" in two_fa else None
-            method = two_fa.get("method") if "method" in two_fa else None
-
-            if "enabled" in two_fa and enabled is None:
-                fields_errors["two_fa.enabled"] = "Must be boolean"
-
-            if enabled is True:
-                if not isinstance(method, str) or method not in ("totp",):
-                    fields_errors["two_fa.method"] = "Invalid method"
-                else:
-                    if user.get("two_fa_secret"):
-                        secret = user["two_fa_secret"]
-                    else:
-                        secret = secrets.token_urlsafe(32)
-                    updated_fields["two_fa_enabled"] = True
-                    updated_fields["two_fa_method"] = method
-                    updated_fields["two_fa_secret"] = secret
-            elif enabled is False:
-                updated_fields["two_fa_enabled"] = False
-                updated_fields["two_fa_method"] = None
-                updated_fields["two_fa_secret"] = None
-            else:
-                if "method" in two_fa:
-                    fields_errors["two_fa.method"] = "Provide enabled=true to set method"
-
-    if fields_errors:
-        return json_error(422, "Validation error", code="validation_error", fields=fields_errors)
-
-    if not updated_fields:
-        return jsonify({"ok": True, "updated": [], "user": {"id": user["id"], "email": user["email"], "two_fa": {"enabled": user["two_fa_enabled"], "method": user["two_fa_method"]}}})
-
-    for k, v in updated_fields.items():
-        user[k] = v
-    user["updated_at"] = int(time.time())
-
-    response_user = {
-        "id": user["id"],
-        "email": user["email"],
-        "two_fa": {
-            "enabled": user["two_fa_enabled"],
-            "method": user["two_fa_method"],
-        },
-        "updated_at": user["updated_at"],
-    }
-
-    return jsonify({"ok": True, "updated": sorted(updated_fields.keys()), "user": response_user})
-
-
-# Example login route for session-cookie auth (for local testing)
-@app.post("/api/session")
-def create_session():
-    if not request.is_json:
-        return json_error(415, "Expected application/json", code="unsupported_media_type")
     data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    user = next((u for u in USERS.values() if u["email"] == email), None)
-    if not user or not check_password_hash(user["password_hash"], password):
-        return json_error(401, "Invalid credentials", code="unauthorized")
-    session["user_id"] = user["id"]
-    return jsonify({"ok": True})
 
+    allowed_keys = {"email", "password", "two_fa_enabled"}
+    unknown = set(data.keys()) - allowed_keys
+    if unknown:
+        return jsonify({"error": "Unknown fields", "fields": sorted(unknown)}), 400
 
-@app.delete("/api/session")
-def delete_session():
-    session.pop("user_id", None)
-    return jsonify({"ok": True})
+    email = data.get("email", None)
+    password = data.get("password", None)
+    two_fa_enabled = data.get("two_fa_enabled", None)
+
+    if email is None and password is None and two_fa_enabled is None:
+        return jsonify({"error": "No updates provided"}), 400
+
+    updates = {}
+
+    if email is not None:
+        if not isinstance(email, str) or not EMAIL_RE.match(email.strip()):
+            return jsonify({"error": "Invalid email"}), 400
+        updates["email"] = email.strip().lower()
+
+    if password is not None:
+        if not isinstance(password, str) or len(password) < 8:
+            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        updates["password_hash"] = generate_password_hash(password)
+
+    if two_fa_enabled is not None:
+        if not isinstance(two_fa_enabled, bool):
+            return jsonify({"error": "two_fa_enabled must be boolean"}), 400
+        updates["two_fa_enabled"] = two_fa_enabled
+
+    user = update_user_in_db(user_id, **updates)
+
+    return jsonify({"user": user}), 200
 
 
 if __name__ == "__main__":

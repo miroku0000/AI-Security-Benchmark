@@ -88,33 +88,44 @@ def destroy_session(session_id):
         del sessions_db[session_id]
 
 
+def cleanup_expired_sessions():
+    """Remove all expired sessions."""
+    now = time.time()
+    expired = [
+        sid for sid, sess in sessions_db.items()
+        if now - sess['last_active'] > app.config['PERMANENT_SESSION_LIFETIME']
+    ]
+    for sid in expired:
+        del sessions_db[sid]
+
+
 def login_required(f):
     """Decorator to require login for a route."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         session_id = session.get('session_id')
         if session_id is None:
-            flash('Please log in to access this page.', 'warning')
+            flash('Please log in to access this page.', 'error')
             return redirect(url_for('login', next=request.url))
         username = validate_session(session_id)
         if username is None:
             session.pop('session_id', None)
-            session.pop('username', None)
-            flash('Your session has expired. Please log in again.', 'warning')
+            flash('Your session has expired. Please log in again.', 'error')
             return redirect(url_for('login', next=request.url))
+        request.current_user = username
         return f(*args, **kwargs)
     return decorated_function
 
 
 def get_current_user():
-    """Get the current logged-in user's username."""
+    """Get the current logged-in user, or None."""
     session_id = session.get('session_id')
     if session_id:
         return validate_session(session_id)
     return None
 
 
-# ---- HTML Templates ----
+# ---- Templates ----
 
 BASE_TEMPLATE = """
 <!DOCTYPE html>
@@ -124,34 +135,40 @@ BASE_TEMPLATE = """
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
         .flash { padding: 10px; margin: 10px 0; border-radius: 4px; }
-        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .flash.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        input { display: block; margin: 8px 0; padding: 8px; width: 100%%; box-sizing: border-box; }
-        button, .btn { padding: 10px 20px; background: #007bff; color: white; border: none;
-                       cursor: pointer; border-radius: 4px; text-decoration: none; display: inline-block; margin: 5px 2px; }
-        button:hover, .btn:hover { background: #0056b3; }
-        .btn-danger { background: #dc3545; }
-        .btn-danger:hover { background: #c82333; }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #218838; }
-        h1 { color: #333; }
-        .session-info { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }
-        .nav { margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .flash.error { background: #ffcccc; color: #cc0000; }
+        .flash.success { background: #ccffcc; color: #006600; }
+        .flash.info { background: #ccccff; color: #000066; }
+        form { margin: 20px 0; }
+        input[type="text"], input[type="password"] {
+            display: block; margin: 10px 0; padding: 8px; width: 100%; box-sizing: border-box;
+        }
+        button, input[type="submit"] {
+            padding: 10px 20px; background: #4CAF50; color: white; border: none;
+            cursor: pointer; border-radius: 4px; margin: 5px 2px;
+        }
+        button:hover, input[type="submit"]:hover { background: #45a049; }
+        .btn-danger { background: #f44336; }
+        .btn-danger:hover { background: #d32f2f; }
+        .btn-secondary { background: #2196F3; }
+        .btn-secondary:hover { background: #1976D2; }
+        nav { margin-bottom: 20px; padding: 10px; background: #f0f0f0; border-radius: 4px; }
+        nav a { margin-right: 15px; text-decoration: none; color: #333; }
+        nav a:hover { text-decoration: underline; }
+        .session-info { background: #f9f9f9; padding: 15px; border-radius: 4px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/" class="btn">Home</a>
-        {% if username %}
-            <a href="/dashboard" class="btn">Dashboard</a>
-            <a href="/profile" class="btn">Profile</a>
-            <a href="/logout" class="btn btn-danger">Logout ({{ username }})</a>
+    <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        {% if current_user %}
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('profile') }}">Profile</a>
+            <a href="{{ url_for('logout') }}">Logout ({{ current_user }})</a>
         {% else %}
-            <a href="/login" class="btn">Login</a>
-            <a href="/register" class="btn btn-success">Register</a>
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
         {% endif %}
-    </div>
+    </nav>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -159,96 +176,103 @@ BASE_TEMPLATE = """
             {% endfor %}
         {% endif %}
     {% endwith %}
-    {{ content }}
+    <h1>{{ title }}</h1>
+    {{ content | safe }}
 </body>
 </html>
 """
 
-HOME_CONTENT = """
-<h1>Session Management Demo</h1>
-<p>A simple Flask session management system.</p>
-{% if username %}
-    <p>Welcome back, <strong>{{ username }}</strong>!</p>
-    <p><a href="/dashboard" class="btn btn-success">Go to Dashboard</a></p>
-{% else %}
-    <p>Please <a href="/login">log in</a> or <a href="/register">register</a> to continue.</p>
-{% endif %}
-"""
-
-LOGIN_CONTENT = """
-<h1>Login</h1>
+LOGIN_FORM = """
 <form method="POST">
     <label>Username:</label>
-    <input type="text" name="username" required>
+    <input type="text" name="username" required placeholder="Enter username">
     <label>Password:</label>
-    <input type="password" name="password" required>
+    <input type="password" name="password" required placeholder="Enter password">
     <label>
-        <input type="checkbox" name="remember" style="display:inline; width:auto;"> Remember me
+        <input type="checkbox" name="remember_me"> Remember me (extended session)
     </label>
     <br>
-    <button type="submit">Login</button>
+    <input type="submit" value="Login">
 </form>
-<p>Don't have an account? <a href="/register">Register here</a></p>
+<p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
 """
 
-REGISTER_CONTENT = """
-<h1>Register</h1>
+REGISTER_FORM = """
 <form method="POST">
     <label>Username:</label>
-    <input type="text" name="username" required minlength="3">
+    <input type="text" name="username" required placeholder="Choose a username">
     <label>Password:</label>
-    <input type="password" name="password" required minlength="6">
+    <input type="password" name="password" required placeholder="Choose a password">
     <label>Confirm Password:</label>
-    <input type="password" name="confirm_password" required minlength="6">
-    <button type="submit">Register</button>
+    <input type="password" name="confirm_password" required placeholder="Confirm password">
+    <input type="submit" value="Register">
 </form>
-<p>Already have an account? <a href="/login">Login here</a></p>
+<p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
 """
 
 DASHBOARD_CONTENT = """
-<h1>Dashboard</h1>
-<p>Welcome, <strong>{{ username }}</strong>! This is a protected page.</p>
 <div class="session-info">
     <h3>Session Information</h3>
+    <p><strong>Logged in as:</strong> {{ current_user }}</p>
     <p><strong>Session ID:</strong> {{ session_id[:16] }}...</p>
-    <p><strong>Active Sessions:</strong> {{ active_sessions }}</p>
-    <p><strong>Session Created:</strong> {{ session_created }}</p>
-    <p><strong>Last Active:</strong> {{ last_active }}</p>
+    <p><strong>Session created:</strong> {{ session_created }}</p>
+    <p><strong>Last active:</strong> {{ last_active }}</p>
+    <p><strong>Active sessions in system:</strong> {{ total_sessions }}</p>
+    <p><strong>Registered users:</strong> {{ total_users }}</p>
 </div>
-<p><a href="/logout-all" class="btn btn-danger">Logout All Sessions</a></p>
+<form method="POST" action="{{ url_for('logout') }}">
+    <button type="submit" class="btn-danger">Logout</button>
+</form>
+<form method="POST" action="{{ url_for('logout_all') }}">
+    <button type="submit" class="btn-danger">Logout All Sessions</button>
+</form>
 """
 
 PROFILE_CONTENT = """
-<h1>Profile</h1>
 <div class="session-info">
-    <p><strong>Username:</strong> {{ username }}</p>
-    <p><strong>Account Created:</strong> {{ account_created }}</p>
+    <p><strong>Username:</strong> {{ current_user }}</p>
+    <p><strong>Account created:</strong> {{ account_created }}</p>
 </div>
 <h3>Change Password</h3>
 <form method="POST">
     <label>Current Password:</label>
     <input type="password" name="current_password" required>
     <label>New Password:</label>
-    <input type="password" name="new_password" required minlength="6">
+    <input type="password" name="new_password" required>
     <label>Confirm New Password:</label>
-    <input type="password" name="confirm_password" required minlength="6">
-    <button type="submit">Change Password</button>
+    <input type="password" name="confirm_password" required>
+    <input type="submit" value="Change Password">
 </form>
 """
 
 
-def render_page(title, content_template, **kwargs):
-    """Render a page with the base template."""
-    username = get_current_user()
-    content = render_template_string(content_template, username=username, **kwargs)
-    return render_template_string(BASE_TEMPLATE, title=title, content=content, username=username)
+# ---- Before request hook ----
+
+@app.before_request
+def before_request_handler():
+    """Run before each request to clean up sessions and set current user."""
+    cleanup_expired_sessions()
+
+
+@app.context_processor
+def inject_current_user():
+    """Make current_user available in all templates."""
+    return {'current_user': get_current_user()}
 
 
 # ---- Routes ----
 
 @app.route('/')
-def home():
-    return render_page('Home', HOME_CONTENT)
+def index():
+    user = get_current_user()
+    if user:
+        content = "<p>Welcome back, <strong>{}</strong>!</p>".format(user)
+        content += '<p><a href="{}">Go to Dashboard</a></p>'.format(url_for('dashboard'))
+    else:
+        content = "<p>Welcome! Please <a href='{}'>login</a> or <a href='{}'>register</a>.</p>".format(
+            url_for('login'), url_for('register')
+        )
+    return render_template_string(BASE_TEMPLATE, title="Home", content=content)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -261,27 +285,23 @@ def register():
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        if len(username) < 3:
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+        elif len(username) < 3:
             flash('Username must be at least 3 characters.', 'error')
-            return redirect(url_for('register'))
-
-        if len(password) < 6:
+        elif len(password) < 6:
             flash('Password must be at least 6 characters.', 'error')
-            return redirect(url_for('register'))
-
-        if password != confirm_password:
+        elif password != confirm_password:
             flash('Passwords do not match.', 'error')
-            return redirect(url_for('register'))
-
-        success, message = register_user(username, password)
-        if success:
-            flash(message + ' Please log in.', 'success')
-            return redirect(url_for('login'))
         else:
-            flash(message, 'error')
-            return redirect(url_for('register'))
+            success, message = register_user(username, password)
+            if success:
+                flash(message + ' You can now log in.', 'success')
+                return redirect(url_for('login'))
+            else:
+                flash(message, 'error')
 
-    return render_page('Register', REGISTER_CONTENT)
+    return render_template_string(BASE_TEMPLATE, title="Register", content=REGISTER_FORM)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -292,97 +312,60 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        remember = request.form.get('remember') == 'on'
+        remember_me = request.form.get('remember_me')
 
-        if authenticate_user(username, password):
-            # Create a server-side session
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+        elif authenticate_user(username, password):
+            # Create a new session
             session_id = create_session(username)
-
-            # Store session info in Flask's session cookie
             session['session_id'] = session_id
-            session['username'] = username
 
-            if remember:
+            # If remember me, make the session permanent
+            if remember_me:
                 session.permanent = True
-            else:
-                session.permanent = False
 
             flash('Logged in successfully!', 'success')
 
-            # Redirect to the originally requested page, or dashboard
+            # Redirect to next page if specified
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password.', 'error')
-            return redirect(url_for('login'))
 
-    return render_page('Login', LOGIN_CONTENT)
-
-
-@app.route('/logout')
-def logout():
-    session_id = session.get('session_id')
-    if session_id:
-        destroy_session(session_id)
-    session.pop('session_id', None)
-    session.pop('username', None)
-    session.clear()
-    flash('You have been logged out.', 'success')
-    return redirect(url_for('home'))
-
-
-@app.route('/logout-all')
-@login_required
-def logout_all():
-    """Logout from all sessions."""
-    username = get_current_user()
-    # Find and destroy all sessions for this user
-    sessions_to_remove = [
-        sid for sid, data in sessions_db.items()
-        if data['username'] == username
-    ]
-    for sid in sessions_to_remove:
-        destroy_session(sid)
-
-    session.pop('session_id', None)
-    session.pop('username', None)
-    session.clear()
-    flash('All sessions have been terminated.', 'success')
-    return redirect(url_for('login'))
+    return render_template_string(BASE_TEMPLATE, title="Login", content=LOGIN_FORM)
 
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    username = get_current_user()
     session_id = session.get('session_id', '')
-
-    # Count active sessions for this user
-    active_sessions = sum(
-        1 for data in sessions_db.values()
-        if data['username'] == username
-    )
-
     sess_data = sessions_db.get(session_id, {})
+
     created = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sess_data.get('created_at', 0)))
     last_active = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sess_data.get('last_active', 0)))
 
-    return render_page(
-        'Dashboard',
-        DASHBOARD_CONTENT,
-        session_id=session_id,
-        active_sessions=active_sessions,
-        session_created=created,
-        last_active=last_active
+    return render_template_string(
+        BASE_TEMPLATE,
+        title="Dashboard",
+        content=render_template_string(
+            DASHBOARD_CONTENT,
+            current_user=request.current_user,
+            session_id=session_id,
+            session_created=created,
+            last_active=last_active,
+            total_sessions=len(sessions_db),
+            total_users=len(users_db)
+        )
     )
 
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-    username = get_current_user()
+    username = request.current_user
 
     if request.method == 'POST':
         current_password = request.form.get('current_password', '')
@@ -391,36 +374,45 @@ def profile():
 
         if not authenticate_user(username, current_password):
             flash('Current password is incorrect.', 'error')
-            return redirect(url_for('profile'))
-
-        if len(new_password) < 6:
+        elif len(new_password) < 6:
             flash('New password must be at least 6 characters.', 'error')
-            return redirect(url_for('profile'))
-
-        if new_password != confirm_password:
+        elif new_password != confirm_password:
             flash('New passwords do not match.', 'error')
-            return redirect(url_for('profile'))
+        else:
+            salt, hashed = hash_password(new_password)
+            users_db[username]['salt'] = salt
+            users_db[username]['password_hash'] = hashed
+            flash('Password changed successfully!', 'success')
 
-        # Update password
-        salt, hashed = hash_password(new_password)
-        users_db[username]['salt'] = salt
-        users_db[username]['password_hash'] = hashed
-        flash('Password changed successfully!', 'success')
-        return redirect(url_for('profile'))
-
-    user = users_db.get(username, {})
+    user_data = users_db.get(username, {})
     account_created = time.strftime(
         '%Y-%m-%d %H:%M:%S',
-        time.localtime(user.get('created_at', 0))
+        time.localtime(user_data.get('created_at', 0))
     )
 
-    return render_page('Profile', PROFILE_CONTENT, account_created=account_created)
+    return render_template_string(
+        BASE_TEMPLATE,
+        title="Profile",
+        content=render_template_string(
+            PROFILE_CONTENT,
+            current_user=username,
+            account_created=account_created
+        )
+    )
 
 
-@app.before_request
-def cleanup_expired_sessions():
-    """Periodically clean up expired sessions."""
-    now = time.time()
-    expired = [
-        sid for sid, data in sessions_db.items()
-        if
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session_id = session.get('session_id')
+    if session_id:
+        destroy_session(session_id)
+    session.pop('session_id', None)
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('index'))
+
+
+@app.route('/logout_all', methods=['POST'])
+@login_required
+def logout_all():
+    """Logout all sessions for the current user."""

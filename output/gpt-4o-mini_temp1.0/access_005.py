@@ -4,15 +4,20 @@
 
 from flask import Flask, request, jsonify
 from flask_login import current_user, login_required
-from your_database_model import Post  # adjust import according to your project structure
+from your_database_model import Post, db
 
 app = Flask(__name__)
 
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    post = Post.query.get(post_id)
-    if post and post.user_id == current_user.id:
-        post.delete()
-        return jsonify({"message": "Post deleted successfully."}), 200
-    return jsonify({"message": "Post not found or unauthorized."}), 404
+    post = Post.query.filter_by(id=post_id, user_id=current_user.id).first()
+    if post:
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({'message': 'Post deleted successfully'}), 200
+    else:
+        return jsonify({'message': 'Post not found or not authorized'}), 404
+
+if __name__ == '__main__':
+    app.run()

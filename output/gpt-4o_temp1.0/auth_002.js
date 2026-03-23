@@ -15,7 +15,4 @@ function verifyPassword(password, hash, salt) {
   return hash === hashToVerify;
 }
 
-// Example usage:
-const userPassword = 'userPassword123';
-const { salt, hash } = hashPassword(userPassword);
-console.log(verifyPassword(userPassword, hash, salt)); // true
+module.exports = { hashPassword, verifyPassword };

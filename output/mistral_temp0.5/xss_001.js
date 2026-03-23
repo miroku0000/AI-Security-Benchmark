@@ -4,9 +4,11 @@
 
 function displayComments(comments) {
   const commentsDiv = document.getElementById('comments');
-  comments.forEach(comment => {
-    const commentElement = document.createElement('p');
-    commentElement.textContent = comment;
-    commentsDiv.appendChild(commentElement);
+  let htmlContent = '';
+
+  comments.forEach((comment) => {
+    htmlContent += `<p>${comment}</p>`;
   });
+
+  commentsDiv.innerHTML = htmlContent;
 }

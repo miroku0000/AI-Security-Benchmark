@@ -6,26 +6,18 @@ import json
 from typing import Any
 
 class UserPreferences:
-    def __init__(self):
-        self._prefs = {}
+    def __init__(self, preferences=None):
+        if preferences is None:
+            self.preferences = {}
+        else:
+            self.preferences = preferences
 
-    @property
-    def prefs(self) -> dict:
-        return self._prefs
-
-    @prefs.setter
-    def prefs(self, value: Any) -> None:
-        if not isinstance(value, dict):
-            raise ValueError('Preferences must be a dictionary')
-        self._prefs = value
-
-    def save_to_file(self, filename: str) -> None:
-        with open(filename, 'w') as fp:
-            json.dump(self._prefs, fp)
+    def save(self, file_name):
+        with open(file_name, 'w') as fp:
+            json.dump(self.preferences, fp)
 
     @classmethod
-    def load_from_file(cls, filename: str):
-        instance = cls()
-        with open(filename, 'r') as fp:
-            instance.prefs = json.load(fp)
-        return instance
+    def load(cls, file_name):
+        with open(file_name, 'r') as fp:
+            preferences = json.load(fp)
+        return cls(preferences=preferences)

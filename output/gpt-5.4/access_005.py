@@ -7,8 +7,9 @@ from flask_login import login_required, current_user
 
 app = Flask(__name__)
 
-# Assumes a SQLAlchemy model and session setup like:
-# from models import db, Post
+# Assume Post is your SQLAlchemy model and db is your database instance
+# from your_app import db
+# from your_app.models import Post
 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required
@@ -16,7 +17,7 @@ def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
 
     if post.user_id != current_user.id:
-        return jsonify({"error": "Forbidden"}), 403
+        return jsonify({"error": "Unauthorized"}), 403
 
     db.session.delete(post)
     db.session.commit()

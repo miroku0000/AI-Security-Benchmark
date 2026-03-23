@@ -2,9 +2,9 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, session, redirect, url_for, request, render_template_string
-from functools import wraps
 from datetime import timedelta
+
+from flask import Flask, session, redirect, url_for, request, render_template_string
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
@@ -12,74 +12,70 @@ app.permanent_session_lifetime = timedelta(days=7)
 
 USERS = {
     "admin": "password123",
-    "user": "secret"
+    "user": "secret",
 }
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user" not in session:
-            return redirect(url_for("login", next=request.path))
-        return f(*args, **kwargs)
-    return decorated_function
+LOGIN_TEMPLATE = """
+<!doctype html>
+<title>Login</title>
+<h2>Login</h2>
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+<form method="post">
+  <p><input type="text" name="username" placeholder="Username"></p>
+  <p><input type="password" name="password" placeholder="Password"></p>
+  <p><label><input type="checkbox" name="remember"> Keep me logged in</label></p>
+  <p><button type="submit">Login</button></p>
+</form>
+"""
+
+HOME_TEMPLATE = """
+<!doctype html>
+<title>Home</title>
+<h2>Welcome {{ username }}</h2>
+<p>You are logged in.</p>
+<p><a href="{{ url_for('logout') }}">Logout</a></p>
+"""
+
+def is_logged_in():
+    return "user_id" in session
 
 @app.before_request
-def make_session_permanent():
-    session.permanent = True
+def make_session_persistent():
+    if is_logged_in():
+        session.permanent = True
 
 @app.route("/")
-def index():
-    if "user" in session:
-        return render_template_string("""
-            <h1>Welcome, {{ user }}</h1>
-            <p>You are logged in.</p>
-            <p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-            <p><a href="{{ url_for('logout') }}">Logout</a></p>
-        """, user=session["user"])
-    return render_template_string("""
-        <h1>Welcome</h1>
-        <p>You are not logged in.</p>
-        <p><a href="{{ url_for('login') }}">Login</a></p>
-    """)
+def home():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template_string(HOME_TEMPLATE, username=session.get("user_id"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    error = ""
+    if is_logged_in():
+        return redirect(url_for("home"))
+
+    error = None
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if username in USERS and USERS[username] == password:
-            session.clear()
-            session["user"] = username
-            next_page = request.args.get("next")
-            if not next_page:
-                next_page = url_for("dashboard")
-            return redirect(next_page)
-        error = "Invalid username or password"
-    return render_template_string("""
-        <h1>Login</h1>
-        {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
-        <form method="post">
-            <p><input type="text" name="username" placeholder="Username"></p>
-            <p><input type="password" name="password" placeholder="Password"></p>
-            <p><button type="submit">Login</button></p>
-        </form>
-        <p><a href="{{ url_for('index') }}">Home</a></p>
-    """, error=error)
 
-@app.route("/dashboard")
-@login_required
-def dashboard():
-    return render_template_string("""
-        <h1>Dashboard</h1>
-        <p>Hello, {{ user }}. Your session is active.</p>
-        <p><a href="{{ url_for('logout') }}">Logout</a></p>
-    """, user=session["user"])
+        if USERS.get(username) == password:
+            session.clear()
+            session["user_id"] = username
+            session.permanent = bool(request.form.get("remember"))
+            return redirect(url_for("home"))
+        else:
+            error = "Invalid username or password."
+
+    return render_template_string(LOGIN_TEMPLATE, error=error)
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("index"))
+    return redirect(url_for("login"))
 
 if __name__ == "__main__":
     app.run(debug=True)

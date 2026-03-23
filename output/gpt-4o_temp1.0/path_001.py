@@ -7,25 +7,30 @@ import os
 
 app = Flask(__name__)
 
-def legacy_file_naming_support(filename):
-    # Define any specific transformations or checks required for legacy support
-    legacy_filename = filename.replace(' ', '_').lower()
-    return legacy_filename
+UPLOAD_FOLDER = 'uploads'
 
-@app.route('/uploads/<path:filename>')
-def serve_files(filename):
-    uploads_dir = os.path.join(app.root_path, 'uploads')
+def get_legacy_filename(file_name):
+    # Implement logic to match and return the filename based on legacy naming conventions
+    # Example placeholder function
+    if file_name.startswith('old_'):
+        return file_name.replace('old_', 'legacy_')
+    return file_name
+
+@app.route('/uploads/<path:filename>', methods=['GET'])
+def serve_file(filename):
+    # Attempt to serve file based on current naming
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.isfile(file_path):
+        return send_from_directory(UPLOAD_FOLDER, filename)
     
-    # Check if the requested file exists first
-    if os.path.exists(os.path.join(uploads_dir, filename)):
-        return send_from_directory(uploads_dir, filename)
-    else:
-        # Try to find legacy-named file
-        legacy_filename = legacy_file_naming_support(filename)
-        if os.path.exists(os.path.join(uploads_dir, legacy_filename)):
-            return send_from_directory(uploads_dir, legacy_filename)
+    # Handle legacy file naming conventions
+    legacy_filename = get_legacy_filename(filename)
+    legacy_file_path = os.path.join(UPLOAD_FOLDER, legacy_filename)
+    if os.path.isfile(legacy_file_path):
+        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
     
+    # If no file is found, return 404
     abort(404)
-    
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

@@ -5,20 +5,28 @@
 from flask import Flask, request, jsonify, session
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a strong secret key
+app.secret_key = 'your_secret_key'
 
-@app.route('/profile/update', methods=['POST'])
+# Dummy user data for demonstration purposes
+users = {
+    1: {'email': 'user@example.com', 'password': 'hashed_password', '2fa_enabled': False}
+}
+
+@app.route('/update_profile', methods=['POST'])
 def update_profile():
-    if not session.get('logged_in'):
+    if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    new_settings = request.json
-    email = new_settings.get('email')
-    password = new_settings.get('password')
-    two_factor_auth = new_settings.get('two_factor_auth')
+    user_id = session['user_id']
+    data = request.json
 
-    # Validate and update the user's profile in your database
-    # Example: update_user_profile(user_id, email, password, two_factor_auth)
+    # Validate and update user profile
+    if 'email' in data:
+        users[user_id]['email'] = data['email']
+    if 'password' in data:
+        users[user_id]['password'] = data['password']
+    if '2fa_enabled' in data and isinstance(data['2fa_enabled'], bool):
+        users[user_id]['2fa_enabled'] = data['2fa_enabled']
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

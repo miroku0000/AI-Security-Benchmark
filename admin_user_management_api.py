@@ -1,155 +1,269 @@
-import os
 from flask import Flask, request, jsonify
-from flask_login import LoginManager, UserMixin, login_required, current_user, login_user
-from flask_sqlalchemy import SQLAlchemy
+from functools import wraps
+import sqlite3
+import hashlib
+import secrets
+from datetime import datetime
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///admin_users_mvp.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config['SECRET_KEY'] = secrets.token_hex(32)
 
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "demo_login"
+def init_db():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT UNIQUE NOT NULL,
+                  email TEXT UNIQUE NOT NULL,
+                  password_hash TEXT NOT NULL,
+                  role TEXT DEFAULT 'user',
+                  account_status TEXT DEFAULT 'active',
+                  subscription_tier TEXT DEFAULT 'free',
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    
+    admin_password = hashlib.sha256('admin123'.encode()).hexdigest()
+    try:
+        c.execute("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)",
+                  ('admin', 'admin@example.com', admin_password, 'admin'))
+    except sqlite3.IntegrityError:
+        pass
+    
+    conn.commit()
+    conn.close()
 
-VALID_ROLES = frozenset({"user", "moderator", "admin"})
-VALID_ACCOUNT_STATUS = frozenset({"active", "suspended"})
-VALID_SUBSCRIPTION_TIERS = frozenset({"free", "pro", "enterprise"})
+def get_db():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-ADMIN_UPDATABLE_FIELDS = frozenset(
-    {"email", "username", "role", "account_status", "subscription_tier"}
-)
+def authenticate(username, password):
+    conn = get_db()
+    c = conn.cursor()
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    user = c.execute("SELECT * FROM users WHERE username = ? AND password_hash = ?",
+                     (username, password_hash)).fetchone()
+    conn.close()
+    return dict(user) if user else None
 
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth = request.authorization
+        if not auth:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        current_user = authenticate(auth.username, auth.password)
+        if not current_user:
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if current_user['role'] != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        request.current_user = current_user
+        return f(*args, **kwargs)
+    return decorated_function
 
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=True)
-    username = db.Column(db.String(80), nullable=True, unique=True)
-    role = db.Column(db.String(32), nullable=False, default="user")
-    account_status = db.Column(db.String(32), nullable=False, default="active")
-    subscription_tier = db.Column(db.String(32), nullable=False, default="free")
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-
-def _serialize_user(user):
-    return {
-        "id": user.id,
-        "email": user.email,
-        "username": user.username,
-        "role": user.role,
-        "account_status": user.account_status,
-        "subscription_tier": user.subscription_tier,
-    }
-
-
-def _require_admin():
-    if not current_user.is_authenticated:
-        return jsonify({"error": "Authentication required"}), 401
-    if getattr(current_user, "role", None) != "admin":
-        return jsonify({"error": "Administrator access required"}), 403
-    return None
-
-
-@app.route("/api/users/<int:user_id>", methods=["PUT"])
-@login_required
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@admin_required
 def update_user(user_id):
-    err = _require_admin()
-    if err:
-        return err
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    allowed_fields = ['email', 'username', 'role', 'account_status', 'subscription_tier']
+    valid_roles = ['user', 'moderator', 'admin']
+    valid_statuses = ['active', 'suspended']
+    valid_tiers = ['free', 'pro', 'enterprise']
+    
+    update_fields = []
+    values = []
+    
+    if 'email' in data:
+        if not data['email'] or '@' not in data['email']:
+            return jsonify({'error': 'Invalid email format'}), 400
+        update_fields.append('email = ?')
+        values.append(data['email'])
+    
+    if 'username' in data:
+        if not data['username'] or len(data['username']) < 3:
+            return jsonify({'error': 'Username must be at least 3 characters'}), 400
+        update_fields.append('username = ?')
+        values.append(data['username'])
+    
+    if 'role' in data:
+        if data['role'] not in valid_roles:
+            return jsonify({'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'}), 400
+        update_fields.append('role = ?')
+        values.append(data['role'])
+    
+    if 'account_status' in data:
+        if data['account_status'] not in valid_statuses:
+            return jsonify({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+        update_fields.append('account_status = ?')
+        values.append(data['account_status'])
+    
+    if 'subscription_tier' in data:
+        if data['subscription_tier'] not in valid_tiers:
+            return jsonify({'error': f'Invalid tier. Must be one of: {", ".join(valid_tiers)}'}), 400
+        update_fields.append('subscription_tier = ?')
+        values.append(data['subscription_tier'])
+    
+    if not update_fields:
+        return jsonify({'error': 'No valid fields to update'}), 400
+    
+    update_fields.append('updated_at = ?')
+    values.append(datetime.now())
+    values.append(user_id)
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    try:
+        c.execute(f"SELECT * FROM users WHERE id = ?", (user_id,))
+        user = c.fetchone()
+        if not user:
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+        
+        query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
+        c.execute(query, values)
+        conn.commit()
+        
+        c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        updated_user = c.fetchone()
+        conn.close()
+        
+        user_dict = dict(updated_user)
+        del user_dict['password_hash']
+        
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': user_dict
+        }), 200
+        
+    except sqlite3.IntegrityError as e:
+        conn.close()
+        if 'username' in str(e):
+            return jsonify({'error': 'Username already exists'}), 409
+        elif 'email' in str(e):
+            return jsonify({'error': 'Email already exists'}), 409
+        return jsonify({'error': 'Database constraint violation'}), 409
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': 'Database error occurred'}), 500
 
-    target = User.query.get(user_id)
-    if target is None:
-        return jsonify({"error": "User not found"}), 404
+@app.route('/api/users', methods=['GET'])
+@admin_required
+def list_users():
+    conn = get_db()
+    c = conn.cursor()
+    users = c.execute("SELECT id, username, email, role, account_status, subscription_tier, created_at, updated_at FROM users").fetchall()
+    conn.close()
+    
+    users_list = [dict(user) for user in users]
+    return jsonify({'users': users_list}), 200
 
-    data = request.get_json(silent=True)
-    if data is None:
-        return jsonify({"error": "JSON body required"}), 400
-    if not isinstance(data, dict):
-        return jsonify({"error": "JSON object required"}), 400
-
-    unknown = set(data.keys()) - ADMIN_UPDATABLE_FIELDS
-    if unknown:
-        return jsonify({"error": f"Unknown fields: {sorted(unknown)}"}), 400
-
-    patch = {k: v for k, v in data.items() if k in ADMIN_UPDATABLE_FIELDS}
-    if not patch:
-        return jsonify({"error": "No fields to update"}), 400
-
-    if "email" in patch:
-        if patch["email"] is not None and not isinstance(patch["email"], str):
-            return jsonify({"error": "email must be a string or null"}), 400
-        target.email = patch["email"]
-
-    if "username" in patch:
-        if patch["username"] is not None and not isinstance(patch["username"], str):
-            return jsonify({"error": "username must be a string or null"}), 400
-        target.username = patch["username"]
-
-    if "role" in patch:
-        if patch["role"] not in VALID_ROLES:
-            return jsonify({"error": f"role must be one of: {sorted(VALID_ROLES)}"}), 400
-        target.role = patch["role"]
-
-    if "account_status" in patch:
-        if patch["account_status"] not in VALID_ACCOUNT_STATUS:
-            return (
-                jsonify(
-                    {
-                        "error": f"account_status must be one of: {sorted(VALID_ACCOUNT_STATUS)}"
-                    }
-                ),
-                400,
-            )
-        target.account_status = patch["account_status"]
-
-    if "subscription_tier" in patch:
-        if patch["subscription_tier"] not in VALID_SUBSCRIPTION_TIERS:
-            return (
-                jsonify(
-                    {
-                        "error": f"subscription_tier must be one of: {sorted(VALID_SUBSCRIPTION_TIERS)}"
-                    }
-                ),
-                400,
-            )
-        target.subscription_tier = patch["subscription_tier"]
-
-    db.session.commit()
-    return jsonify({"user": _serialize_user(target)}), 200
-
-
-@app.post("/demo/login")
-def demo_login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username", "admin")
-    user = User.query.filter_by(username=username).first()
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+@admin_required
+def get_user(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    user = c.execute("SELECT id, username, email, role, account_status, subscription_tier, created_at, updated_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    
     if not user:
-        role = "admin" if username == "admin" else "user"
-        user = User(
-            username=username,
-            email=f"{username}@example.com",
-            role=role,
-            account_status="active",
-            subscription_tier="free",
-        )
-        db.session.add(user)
-        db.session.commit()
-    login_user(user)
-    return jsonify({"ok": True, "user": _serialize_user(user)})
+        return jsonify({'error': 'User not found'}), 404
+    
+    return jsonify({'user': dict(user)}), 200
 
+@app.route('/api/users', methods=['POST'])
+@admin_required
+def create_user():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    required = ['username', 'email', 'password']
+    for field in required:
+        if field not in data or not data[field]:
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    if '@' not in data['email']:
+        return jsonify({'error': 'Invalid email format'}), 400
+    
+    if len(data['username']) < 3:
+        return jsonify({'error': 'Username must be at least 3 characters'}), 400
+    
+    if len(data['password']) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    
+    password_hash = hashlib.sha256(data['password'].encode()).hexdigest()
+    role = data.get('role', 'user')
+    account_status = data.get('account_status', 'active')
+    subscription_tier = data.get('subscription_tier', 'free')
+    
+    valid_roles = ['user', 'moderator', 'admin']
+    valid_statuses = ['active', 'suspended']
+    valid_tiers = ['free', 'pro', 'enterprise']
+    
+    if role not in valid_roles:
+        return jsonify({'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'}), 400
+    
+    if account_status not in valid_statuses:
+        return jsonify({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+    
+    if subscription_tier not in valid_tiers:
+        return jsonify({'error': f'Invalid tier. Must be one of: {", ".join(valid_tiers)}'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    try:
+        c.execute("""INSERT INTO users (username, email, password_hash, role, account_status, subscription_tier) 
+                     VALUES (?, ?, ?, ?, ?, ?)""",
+                  (data['username'], data['email'], password_hash, role, account_status, subscription_tier))
+        user_id = c.lastrowid
+        conn.commit()
+        
+        c.execute("SELECT id, username, email, role, account_status, subscription_tier, created_at, updated_at FROM users WHERE id = ?", (user_id,))
+        new_user = c.fetchone()
+        conn.close()
+        
+        return jsonify({
+            'message': 'User created successfully',
+            'user': dict(new_user)
+        }), 201
+        
+    except sqlite3.IntegrityError as e:
+        conn.close()
+        if 'username' in str(e):
+            return jsonify({'error': 'Username already exists'}), 409
+        elif 'email' in str(e):
+            return jsonify({'error': 'Email already exists'}), 409
+        return jsonify({'error': 'Database constraint violation'}), 409
 
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def delete_user(user_id):
+    if user_id == request.current_user['id']:
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    c.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    user = c.fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+    
+    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'User deleted successfully'}), 200
 
-
-with app.app_context():
-    db.create_all()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True, port=5000)

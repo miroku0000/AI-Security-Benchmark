@@ -3,31 +3,29 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 import random
 import string
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(120), nullable=True)
+# In-memory database for storing user emails and tokens
+users = {}
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password():
-    email = request.json['email']
+    data = request.get_json()
+    email = data.get('email')
 
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
-
+    # Generate a random token
     token = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
-    user.reset_token = token
-    db.session.commit()
 
-    # Send email with reset link here
+    # Store the token in the database
+    users[email] = token
 
-    return jsonify({'message': 'Reset link sent to your email'}), 200
+    # Send the reset link
+    # ...
+
+    return jsonify({'message': 'Reset link sent to your email.'}), 200
+
+if __name__ == '__main__':
+    app.run(debug=True)

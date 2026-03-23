@@ -4,37 +4,42 @@
 
 import jwt
 from flask import Flask, request, jsonify
-
 app = Flask(__name__)
 
+# Secret key for signing the tokens
 secret_key = "your_secret_key_here"
-users = {"user1": "password1", "user2": "password2"}
 
-def generate_token(user_id):
-    payload = {"user_id": user_id}
-    return jwt.encode(payload, secret_key, algorithm="HS256")
+# In-memory user database for simplicity
+users = {
+    "user1": "password1",
+    "user2": "password2"
+}
 
-@app.route("/login", methods=["POST"])
+def authenticate(username, password):
+    if username in users and users[username] == password:
+        return True
+    return False
+
+@app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    if data["username"] in users and users[data["username"]] == data["password"]:
-        token = generate_token(data["username"])
+    if authenticate(data['username'], data['password']):
+        token = jwt.encode({'user': data['username']}, secret_key, algorithm='HS256')
         return jsonify({"token": token})
-    else:
-        return jsonify({"error": "Invalid username or password"}), 401
+    return jsonify({"error": "Invalid credentials"}), 401
 
-@app.route("/protected", methods=["GET"])
+@app.route('/protected', methods=['GET'])
 def protected():
-    token = request.headers.get("Authorization")
-    if not token:
-        return jsonify({"error": "No token provided"}), 401
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "Missing Authorization header"}), 401
     try:
-        payload = jwt.decode(token, secret_key, algorithms="HS256")
-        return jsonify({"message": f"Hello {payload['user_id']}!"})
+        token = jwt.decode(auth_header, secret_key, algorithms=['HS256'])
+        return jsonify({"message": f"Hello, {token['user']}!"})
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token has expired"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid token"}), 401
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

@@ -88,12 +88,16 @@ def load_preferences(filepath: str, default: Any = None) -> Any:
     Args:
         filepath: Path to the file to load preferences from.
         default: Default value to return if file doesn't exist or loading fails.
+                 If None, returns a default UserPreferences instance.
     
     Returns:
-        The loaded preferences object, or default if loading fails.
+        The loaded preferences object, or the default if loading fails.
     """
+    if default is None:
+        default = UserPreferences()
+    
     if not os.path.exists(filepath):
-        return default if default is not None else UserPreferences()
+        return default
     
     try:
         with open(filepath, "rb") as f:
@@ -101,111 +105,178 @@ def load_preferences(filepath: str, default: Any = None) -> Any:
         return preferences
     except (OSError, pickle.UnpicklingError, EOFError, AttributeError, ImportError) as e:
         print(f"Error loading preferences: {e}")
-        return default if default is not None else UserPreferences()
+        return default
 
 
-def create_default_preferences(username: str) -> UserPreferences:
-    """Create a default UserPreferences object for a new user."""
-    prefs = UserPreferences(
-        username=username,
-        theme=Theme(),
-        notifications=NotificationSettings(),
-        custom_shortcuts={
-            "ctrl+d": "toggle_dark_mode",
-            "ctrl+s": "save",
-            "ctrl+f": "search"
-        },
-        metadata={
-            "version": "1.0",
-            "created_by": "system"
-        }
-    )
-    return prefs
-
-
-def merge_preferences(existing: UserPreferences, updates: dict) -> UserPreferences:
+def update_preferences(filepath: str, updates: dict) -> Any:
     """
-    Merge partial updates into an existing preferences object.
+    Load existing preferences, apply updates, and save back.
     
     Args:
-        existing: The current UserPreferences object.
-        updates: A dictionary of fields to update.
+        filepath: Path to the preferences file.
+        updates: Dictionary of attribute names to new values.
     
     Returns:
-        Updated UserPreferences object.
+        The updated preferences object.
     """
+    prefs = load_preferences(filepath)
+    
     for key, value in updates.items():
-        if hasattr(existing, key):
-            current = getattr(existing, key)
+        if hasattr(prefs, key):
+            current = getattr(prefs, key)
             if isinstance(current, dict) and isinstance(value, dict):
                 current.update(value)
             else:
-                setattr(existing, key, value)
-    return existing
+                setattr(prefs, key, value)
+        else:
+            # Store unknown keys in metadata
+            prefs.metadata[key] = value
+    
+    save_preferences(prefs, filepath)
+    return prefs
+
+
+def merge_preferences(base: UserPreferences, override: UserPreferences) -> UserPreferences:
+    """
+    Merge two preference objects, with override taking precedence.
+    
+    Args:
+        base: The base preferences.
+        override: The overriding preferences.
+    
+    Returns:
+        A new merged UserPreferences object.
+    """
+    import copy
+    merged = copy.deepcopy(base)
+    
+    for attr_name in vars(override):
+        override_val = getattr(override, attr_name)
+        base_val = getattr(merged, attr_name)
+        
+        if isinstance(base_val, dict) and isinstance(override_val, dict):
+            base_val.update(override_val)
+        elif isinstance(base_val, list) and isinstance(override_val, list):
+            setattr(merged, attr_name, override_val)
+        else:
+            default_prefs = UserPreferences()
+            default_val = getattr(default_prefs, attr_name, None)
+            if override_val != default_val:
+                setattr(merged, attr_name, override_val)
+    
+    return merged
 
 
 # Demo / test
 if __name__ == "__main__":
-    import time
     import tempfile
+    import time
 
-    filepath = os.path.join(tempfile.gettempdir(), "test_user_prefs.pkl")
-
-    # Create complex preferences
-    prefs = create_default_preferences("john_doe")
-    prefs.theme.dark_mode = True
-    prefs.theme.primary_color = "#e74c3c"
-    prefs.notifications.categories.append("promotions")
-    prefs.recent_searches = ["python pickle", "data serialization", "user preferences"]
-    prefs.dashboard_layout["widgets"].append("stock_ticker")
-    prefs.dashboard_layout["nested_config"] = {
-        "level1": {
-            "level2": {
-                "level3": [1, 2, 3, {"deep": True}]
+    prefs = UserPreferences(
+        username="john_doe",
+        theme=Theme(
+            name="ocean",
+            primary_color="#0077be",
+            dark_mode=True,
+            font_size=16
+        ),
+        notifications=NotificationSettings(
+            email=True,
+            push=True,
+            sms=True,
+            frequency="realtime",
+            quiet_hours=(23, 8),
+            categories=["updates", "alerts", "news", "promotions"]
+        ),
+        language="en",
+        timezone="America/New_York",
+        dashboard_layout={
+            "widgets": ["calendar", "tasks", "weather", "stocks", "news_feed"],
+            "columns": 4,
+            "compact": True,
+            "custom_widget_config": {
+                "stocks": {"symbols": ["AAPL", "GOOGL", "MSFT"], "refresh_rate": 60},
+                "weather": {"location": "New York", "units": "imperial"}
             }
+        },
+        recent_searches=["python pickle", "data serialization", "user preferences"],
+        custom_shortcuts={
+            "ctrl+shift+d": "toggle_dark_mode",
+            "ctrl+shift+n": "new_document",
+            "ctrl+shift+s": "save_all"
+        },
+        accessibility={
+            "high_contrast": False,
+            "screen_reader": False,
+            "reduced_motion": True,
+            "text_scaling": 1.25
+        },
+        metadata={
+            "last_login": "2024-01-15T10:30:00Z",
+            "login_count": 142,
+            "account_created": "2023-06-01",
+            "feature_flags": {"beta_dashboard": True, "new_editor": False}
         }
-    }
-    prefs.metadata["login_count"] = 42
-    prefs.metadata["favorite_numbers"] = [3.14, 2.718, 1.618]
-    prefs.metadata["tags"] = {"power_user", "beta_tester"}
+    )
 
-    # Save
-    print("Saving preferences...")
-    success = save_preferences(prefs, filepath)
-    print(f"Save successful: {success}")
+    with tempfile.NamedTemporaryFile(suffix=".prefs", delete=False) as tmp:
+        filepath = tmp.name
 
-    # Benchmark loading
-    print("\nBenchmarking load performance...")
-    iterations = 10000
-    start = time.perf_counter()
-    for _ in range(iterations):
-        loaded = load_preferences(filepath)
-    elapsed = time.perf_counter() - start
-    print(f"Loaded {iterations} times in {elapsed:.4f}s ({elapsed/iterations*1000:.4f}ms per load)")
+    try:
+        # Save
+        success = save_preferences(prefs, filepath)
+        print(f"Save successful: {success}")
+        file_size = os.path.getsize(filepath)
+        print(f"File size: {file_size} bytes")
 
-    # Verify loaded data
-    print(f"\nLoaded username: {loaded.username}")
-    print(f"Dark mode: {loaded.theme.dark_mode}")
-    print(f"Primary color: {loaded.theme.primary_color}")
-    print(f"Notification categories: {loaded.notifications.categories}")
-    print(f"Recent searches: {loaded.recent_searches}")
-    print(f"Dashboard widgets: {loaded.dashboard_layout['widgets']}")
-    print(f"Deep nested value: {loaded.dashboard_layout['nested_config']['level1']['level2']['level3']}")
-    print(f"Metadata tags: {loaded.metadata['tags']}")
+        # Benchmark loading
+        iterations = 10000
+        start = time.perf_counter()
+        for _ in range(iterations):
+            loaded = load_preferences(filepath)
+        elapsed = time.perf_counter() - start
+        print(f"Loaded {iterations} times in {elapsed:.4f}s ({elapsed/iterations*1000:.4f}ms per load)")
 
-    # Test merge
-    print("\nMerging updates...")
-    merge_preferences(loaded, {
-        "language": "fr",
-        "accessibility": {"high_contrast": True, "text_scaling": 1.5},
-    })
-    print(f"Language: {loaded.language}")
-    print(f"Accessibility: {loaded.accessibility}")
+        # Verify
+        assert loaded.username == prefs.username
+        assert loaded.theme.name == prefs.theme.name
+        assert loaded.theme.dark_mode == prefs.theme.dark_mode
+        assert loaded.notifications.frequency == prefs.notifications.frequency
+        assert loaded.notifications.quiet_hours == prefs.notifications.quiet_hours
+        assert loaded.dashboard_layout["custom_widget_config"]["stocks"]["symbols"] == ["AAPL", "GOOGL", "MSFT"]
+        assert loaded.custom_shortcuts["ctrl+shift+d"] == "toggle_dark_mode"
+        assert loaded.metadata["feature_flags"]["beta_dashboard"] is True
+        print("All assertions passed!")
 
-    # Test loading non-existent file returns default
-    default_prefs = load_preferences("/nonexistent/path/prefs.pkl")
-    print(f"\nDefault prefs username: '{default_prefs.username}'")
+        # Test update
+        updated = update_preferences(filepath, {
+            "language": "fr",
+            "dashboard_layout": {"columns": 2},
+            "unknown_setting": "some_value"
+        })
+        assert updated.language == "fr"
+        assert updated.dashboard_layout["columns"] == 2
+        # Existing keys should be preserved after dict merge
+        assert "widgets" in updated.dashboard_layout
+        assert updated.metadata["unknown_setting"] == "some_value"
+        print("Update test passed!")
 
-    # Cleanup
-    os.remove(filepath)
-    print("\nAll tests passed!")
+        # Test merge
+        base_prefs = UserPreferences(username="base_user", language="en")
+        override_prefs = UserPreferences(username="override_user", language="fr")
+        merged = merge_preferences(base_prefs, override_prefs)
+        assert merged.username == "override_user"
+        assert merged.language == "fr"
+        print("Merge test passed!")
+
+        # Test loading non-existent file returns default
+        default_loaded = load_preferences("/nonexistent/path/prefs.dat")
+        assert isinstance(default_loaded, UserPreferences)
+        assert default_loaded.username == ""
+        print("Default loading test passed!")
+
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+    print("\nAll tests passed successfully!")

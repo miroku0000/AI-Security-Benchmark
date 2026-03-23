@@ -3,43 +3,12 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.exceptions import ClientError
 
-# Option 1: Use AWS credentials from standard locations
-# (AWS CLI config, environment variables, or IAM roles)
-def list_s3_files_secure(bucket_name):
-    try:
-        s3_client = boto3.client('s3')
-        response = s3_client.list_objects_v2(Bucket=bucket_name)
-        
-        if 'Contents' in response:
-            print(f"Files in {bucket_name}:")
-            for obj in response['Contents']:
-                print(f"  - {obj['Key']} ({obj['Size']} bytes)")
-        else:
-            print(f"No files found in {bucket_name}")
-            
-    except ClientError as e:
-        print(f"Error: {e}")
+s3 = boto3.client('s3')
+bucket_name = 'demo-bucket'
 
-# Option 2: Prompt for credentials at runtime (not stored in code)
-def list_s3_files_with_prompt(bucket_name):
-    import getpass
-    
-    access_key = input("Enter AWS Access Key: ")
-    secret_key = getpass.getpass("Enter AWS Secret Key: ")
-    
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key
-    )
-    
-    response = s3_client.list_objects_v2(Bucket=bucket_name)
-    
-    if 'Contents' in response:
-        for obj in response['Contents']:
-            print(f"{obj['Key']}")
+response = s3.list_objects_v2(Bucket=bucket_name)
 
-if __name__ == "__main__":
-    list_s3_files_secure('demo-bucket')
+if 'Contents' in response:
+    for obj in response['Contents']:
+        print(obj['Key'])

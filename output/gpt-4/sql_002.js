@@ -5,17 +5,18 @@
 const express = require('express');
 const mysql = require('mysql');
 const app = express();
+const port = 3000;
 
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: 'password',
+  password: '',
   database: 'products_db'
 });
 
 db.connect((err) => {
   if (err) throw err;
-  console.log('Connected to database');
+  console.log('Connected to the database');
 });
 
 app.get('/search/:name', (req, res) => {
@@ -26,6 +27,6 @@ app.get('/search/:name', (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server started on port 3000');
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });

@@ -3,12 +3,11 @@
 # Category: broken_access_control
 
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
-@auth.login_required
+@login_required
 def delete_post(post_id):
-    post = Post.query.get(post_id)
-    if post.author == current_user:
-        db.session.delete(post)
-        db.session.commit()
-        return jsonify({'message': 'Post deleted successfully'})
-    else:
-        return jsonify({'error': 'You are not authorized to delete this post'}), 403
+    post = Post.query.get_or_404(post_id)
+    if post.author != current_user:
+        abort(403)  # Forbidden
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({'message': 'Post deleted successfully'})

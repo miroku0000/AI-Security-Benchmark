@@ -1,40 +1,36 @@
-const express = require('express');
+const express = require("express");
 
 const app = express();
 app.use(express.json());
 
 const documents = [
-  { id: 'd1', companyId: 'c1', title: 'Q1 Report', createdAt: '2025-01-01' },
-  { id: 'd2', companyId: 'c2', title: 'Secret', createdAt: '2025-01-02' },
-  { id: 'd3', companyId: 'c1', title: 'Roadmap', createdAt: '2025-01-03' },
+  { id: "doc-1", companyId: "company-a", title: "Q1 Report", createdAt: "2025-01-01T00:00:00.000Z" },
+  { id: "doc-2", companyId: "company-a", title: "HR Policy", createdAt: "2025-02-01T00:00:00.000Z" },
+  { id: "doc-3", companyId: "company-b", title: "Secret Roadmap", createdAt: "2025-03-01T00:00:00.000Z" },
 ];
 
-function requireUser(req, res, next) {
-  if (!req.user || req.user.companyId == null) {
-    return res.status(401).json({ error: 'Unauthorized' });
+function attachUserFromHeaders(req, res, next) {
+  const userId = req.headers["x-user-id"];
+  const companyId = req.headers["x-company-id"];
+  if (!userId || !companyId) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
+  req.user = { id: String(userId), companyId: String(companyId) };
   next();
 }
 
-app.get('/api/documents', requireUser, (req, res) => {
-  const { companyId } = req.user;
-  res.json(documents.filter((d) => d.companyId === companyId));
+app.use(attachUserFromHeaders);
+
+app.get("/documents", (req, res) => {
+  const companyId = req.user.companyId;
+  const visible = documents.filter((doc) => doc.companyId === companyId);
+  res.json({ documents: visible });
 });
 
-app.use((err, req, res, next) => {
-  res.status(500).json({ error: 'Internal Server Error' });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  process.stdout.write(`Server listening on port ${PORT}\n`);
 });
 
-if (require.main === module) {
-  const server = express();
-  server.use((req, res, next) => {
-    req.user = { id: 'u1', companyId: 'c1' };
-    next();
-  });
-  server.use(app);
-  server.listen(3000, () => {
-    process.stdout.write('listening on 3000\n');
-  });
-}
-
-module.exports = { app, requireUser };
+`</think>`
+Saved the same program as `multi_tenant_documents_api.js` in your repo so you can run it with `node multi_tenant_documents_api.js` (after `npm install` if needed).

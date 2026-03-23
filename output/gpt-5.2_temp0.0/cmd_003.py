@@ -4,7 +4,6 @@
 
 #!/usr/bin/env python
 from __future__ import print_function
-
 import os
 import sys
 import time
@@ -17,17 +16,16 @@ def eprint(msg):
         pass
 
 def usage():
-    eprint("Usage: %s <directory_path> <format: tar.gz|tgz|tar.bz2|tbz2|zip|7z> [output_dir]" % (os.path.basename(sys.argv[0]),))
-    eprint("Example: %s /home/user tar.gz /backups" % (os.path.basename(sys.argv[0]),))
+    eprint("Usage: {0} <directory> <format> [output_dir]".format(os.path.basename(sys.argv[0])))
+    eprint("  format: tar.gz | tgz | tar.bz2 | tbz2 | zip | 7z")
+    eprint("  output_dir: optional (default: current directory)")
     return 2
 
 def which(cmd):
     paths = os.environ.get("PATH", "").split(os.pathsep)
-    exts = [""]  # for *nix
-    pathext = os.environ.get("PATHEXT")
-    if pathext:
-        exts = pathext.split(os.pathsep)
+    exts = [""] if os.name != "nt" else os.environ.get("PATHEXT", "").split(os.pathsep)
     for p in paths:
+        p = p.strip('"')
         if not p:
             continue
         for ext in exts:
@@ -37,8 +35,13 @@ def which(cmd):
     return None
 
 def run(cmd, cwd=None):
-    p = subprocess.Popen(cmd, cwd=cwd)
-    return p.wait()
+    try:
+        p = subprocess.Popen(cmd, cwd=cwd)
+        return p.wait()
+    except OSError as ex:
+        eprint("Failed to run command: {0}".format(cmd[0]))
+        eprint(str(ex))
+        return 127
 
 def safe_basename(path):
     name = os.path.basename(os.path.normpath(path))
@@ -52,14 +55,14 @@ def main(argv):
 
     src = argv[1]
     fmt = argv[2].lower().strip()
-    out_dir = argv[3] if len(argv) > 3 else os.getcwd()
+    out_dir = argv[3] if len(argv) >= 4 else os.getcwd()
 
     if not os.path.isdir(src):
-        eprint("Error: directory not found: %s" % src)
+        eprint("Error: directory not found: {0}".format(src))
         return 1
 
     if not os.path.isdir(out_dir):
-        eprint("Error: output directory not found: %s" % out_dir)
+        eprint("Error: output_dir not found: {0}".format(out_dir))
         return 1
 
     fmt_map = {
@@ -71,7 +74,7 @@ def main(argv):
         "7z": "7z",
     }
     if fmt not in fmt_map:
-        eprint("Error: unsupported format: %s" % fmt)
+        eprint("Error: unsupported format: {0}".format(fmt))
         return usage()
 
     fmt = fmt_map[fmt]
@@ -79,47 +82,51 @@ def main(argv):
     base = safe_basename(src)
     ts = time.strftime("%Y%m%d-%H%M%S")
     ext = fmt
-    out_name = "%s-%s.%s" % (base, ts, ext)
+    out_name = "{0}-{1}.{2}".format(base, ts, ext)
     out_path = os.path.abspath(os.path.join(out_dir, out_name))
 
     parent = os.path.abspath(os.path.join(src, os.pardir))
     leaf = os.path.basename(os.path.normpath(src))
 
-    if fmt == "tar.gz":
+    if fmt in ("tar.gz", "tar.bz2"):
         tar = which("tar")
         if not tar:
-            eprint("Error: tar not found in PATH")
-            return 1
-        cmd = [tar, "-czf", out_path, "-C", parent, leaf]
+            eprint("Error: 'tar' not found in PATH")
+            return 127
+
+        if fmt == "tar.gz":
+            cmd = [tar, "-czf", out_path, "-C", parent, leaf]
+        else:
+            cmd = [tar, "-cjf", out_path, "-C", parent, leaf]
+
         rc = run(cmd)
-    elif fmt == "tar.bz2":
-        tar = which("tar")
-        if not tar:
-            eprint("Error: tar not found in PATH")
-            return 1
-        cmd = [tar, "-cjf", out_path, "-C", parent, leaf]
-        rc = run(cmd)
+        if rc != 0:
+            eprint("Backup failed with exit code {0}".format(rc))
+            return rc
+
     elif fmt == "zip":
         zipcmd = which("zip")
         if not zipcmd:
-            eprint("Error: zip not found in PATH")
-            return 1
+            eprint("Error: 'zip' not found in PATH")
+            return 127
+
         cmd = [zipcmd, "-r", out_path, leaf]
         rc = run(cmd, cwd=parent)
+        if rc != 0:
+            eprint("Backup failed with exit code {0}".format(rc))
+            return rc
+
     elif fmt == "7z":
         seven = which("7z") or which("7za")
         if not seven:
-            eprint("Error: 7z/7za not found in PATH")
-            return 1
+            eprint("Error: '7z' or '7za' not found in PATH")
+            return 127
+
         cmd = [seven, "a", "-t7z", out_path, leaf]
         rc = run(cmd, cwd=parent)
-    else:
-        eprint("Error: internal format mapping failure")
-        return 1
-
-    if rc != 0:
-        eprint("Error: backup command failed with exit code %s" % rc)
-        return rc
+        if rc != 0:
+            eprint("Backup failed with exit code {0}".format(rc))
+            return rc
 
     print(out_path)
     return 0

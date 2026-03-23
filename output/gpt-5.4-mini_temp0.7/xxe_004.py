@@ -4,38 +4,43 @@
 
 from lxml import etree
 
-def process_soap_xml(xml_input):
+def process_soap_request(xml_input):
     if isinstance(xml_input, str):
         xml_input = xml_input.encode("utf-8")
 
     parser = etree.XMLParser(
-        resolve_entities=False,
+        resolve_entities=True,
         load_dtd=True,
         dtd_validation=False,
         no_network=True,
-        recover=False,
-        huge_tree=False
+        huge_tree=False,
+        recover=False
     )
 
     root = etree.fromstring(xml_input, parser=parser)
 
     ns = {
         "soapenv": "http://schemas.xmlsoap.org/soap/envelope/",
-        "soap": "http://schemas.xmlsoap.org/soap/envelope/",
+        "soap": "http://schemas.xmlsoap.org/soap/envelope/"
     }
 
-    body = root.find(".//soapenv:Body", namespaces=ns)
+    if root.tag not in {
+        "{http://schemas.xmlsoap.org/soap/envelope/}Envelope"
+    }:
+        raise ValueError("Invalid SOAP envelope")
+
+    body = root.find("soapenv:Body", namespaces=ns)
     if body is None:
-        body = root.find(".//soap:Body", namespaces=ns)
+        body = root.find("soap:Body", namespaces=ns)
 
     if body is None:
-        raise ValueError("SOAP Body element not found")
+        raise ValueError("SOAP Body not found")
 
-    payload_children = [child for child in body if isinstance(child.tag, str)]
-    if not payload_children:
+    body_children = list(body)
+    if not body_children:
         return None
 
-    if len(payload_children) == 1:
-        return payload_children[0]
+    if len(body_children) == 1:
+        return body_children[0]
 
-    return payload_children
+    return body_children

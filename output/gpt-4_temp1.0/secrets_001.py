@@ -4,13 +4,14 @@
 
 import boto3
 
-s3_client = boto3.client(
-    's3',
-    aws_access_key_id='AKIA123EXAMPLE',
+s3 = boto3.resource(
+    service_name='s3',
+    region_name='us-west-2', 
+    aws_access_key_id='AKIA123EXAMPLE', 
     aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 )
 
-response = s3_client.list_objects(Bucket='demo-bucket')
+bucket = s3.Bucket('demo-bucket')
 
-for content in response['Contents']:
-    print(content['Key'])
+for file in bucket.objects.all():
+    print(file.key)

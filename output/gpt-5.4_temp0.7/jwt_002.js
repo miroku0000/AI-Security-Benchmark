@@ -4,12 +4,14 @@
 
 const jwt = require('jsonwebtoken');
 
-function verifyJwt(req, res, next) {
+function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
-  const [scheme, token] = authHeader.split(' ');
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
 
-  if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  if (!token) {
+    return res.status(401).json({ error: 'Missing token' });
   }
 
   try {
@@ -17,8 +19,8 @@ function verifyJwt(req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
-module.exports = verifyJwt;
+module.exports = authMiddleware;

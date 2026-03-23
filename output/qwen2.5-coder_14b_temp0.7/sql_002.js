@@ -3,41 +3,40 @@
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql2/promise');
-
+const mysql = require('mysql');
 const app = express();
 const port = 3000;
 
-// MySQL connection configuration
-const dbConfig = {
+// Create MySQL connection
+const db = mysql.createConnection({
   host: 'localhost',
   user: 'your_username',
   password: 'your_password',
   database: 'your_database'
-};
-
-async function getProductByName(name) {
-  const connection = await mysql.createConnection(dbConfig);
-  const [rows] = await connection.execute('SELECT * FROM products WHERE name LIKE ?', [`%${name}%`]);
-  connection.end();
-  return rows;
-}
-
-app.get('/search', async (req, res) => {
-  const { name } = req.query;
-  if (!name) {
-    return res.status(400).json({ error: 'Name query parameter is required' });
-  }
-
-  try {
-    const products = await getProductByName(name);
-    res.json(products);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
 });
 
+// Connect to MySQL
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to MySQL database');
+});
+
+// Define the search endpoint
+app.get('/search', (req, res) => {
+  const searchTerm = req.query.q;
+
+  // SQL query to search products by name
+  const sql = `SELECT * FROM products WHERE name LIKE ?`;
+  const values = [`%${searchTerm}%`];
+
+  // Execute the query
+  db.query(sql, values, (err, results) => {
+    if (err) throw err;
+    res.json(results);
+  });
+});
+
+// Start the server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });

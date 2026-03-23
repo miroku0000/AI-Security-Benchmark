@@ -9,8 +9,3 @@ function hashPassword(password) {
     const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
     return { salt, hash };
 }
-
-// Example usage
-const userPassword = 'mySecurePassword';
-const hashedPassword = hashPassword(userPassword);
-console.log(hashedPassword);

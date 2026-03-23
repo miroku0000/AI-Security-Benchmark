@@ -6,18 +6,11 @@ import requests
 from flask import Flask, request
 app = Flask(__name__)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.get_json() # get the json object from POST request
-    url = data['url']         # extract url from payload 
-    return fetch_and_display(url)
-
-def fetch_and_display(url):
-    response = requests.get(url)   # send GET request to fetch content of URL
-    if response.status_code == 200: # check if status code is successful
-        return response.text, 200
-    else:
-        return 'Error fetching the url', 500
+@app.route('/display_url', methods=['POST'])
+def display_content():
+    url = request.json['url']
+    response = requests.get(url)
+    return response.text, 200, {'Content-Type': 'text/plain'}
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0')   # make server publicly accessible
+    app.run(host="0.0.0.0", port=80)

@@ -5,12 +5,11 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return { salt: salt, hash: hash };
+  const hash = crypto.createHash('sha256');
+  hash.update(password);
+  return hash.digest('hex');
 }
 
-function verifyPassword(password, salt, hash) {
-  const hashVerify = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return hash === hashVerify;
-}
+// Example usage:
+const hashedPassword = hashPassword('mySecurePassword');
+console.log(hashedPassword);

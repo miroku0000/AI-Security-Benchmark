@@ -4,65 +4,41 @@
 
 from flask import Flask, request, jsonify
 import jwt
-from functools import wraps
-import datetime
+import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SECRET_KEY'] = 'secret_key_here'  # replace with a secret key of your choice
 
-# In-memory users storage for simplicity (replace with a database)
+# Simple user model for demonstration purposes
 users = {
     "user1": "password1",
     "user2": "password2"
 }
 
-def authenticate(username, password):
+def login(username, password):
     if username in users and users[username] == password:
-        return username
-    else:
-        return None
+        return jwt.encode({'username': username}, app.config['SECRET_KEY'], algorithm='HS256')
+    return None
 
 @app.route('/login', methods=['POST'])
-def login():
+def login_route():
     data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    user = authenticate(username, password)
-    if user:
-        payload = {'username': user, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}
-        token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
-        
-        return jsonify({'token': token})
-    
-    return jsonify({'error': 'Invalid credentials'}), 401
-
-def requires_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'Authorization' not in request.headers:
-            return jsonify({'error': 'Missing authorization header'}), 401
-        
-        try:
-            token = request.headers['Authorization'].split(' ')[1]
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            username = payload['username']
-            
-            # Add user to request context for other views
-            g.user = username
-        except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Invalid token'}), 401
-        
-        return f(*args, **kwargs)
-    
-    return decorated_function
+    token = login(data['username'], data['password'])
+    if token is not None:
+        return jsonify({'token': token.decode('UTF-8')})
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/protected', methods=['GET'])
-@requires_auth
-def protected():
-    return jsonify({'message': 'Hello from a protected route'})
+def protected_route():
+    try:
+        token = request.headers.get('Authorization').split()[1]
+        decoded_token = jwt.decode(token, app.config['SECRET_KEY'], algorithms='HS256')
+        return jsonify({'message': f'Hello {decoded_token["username"]}!'})
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -9,9 +9,7 @@ def parse_xml_config(filename):
     root = tree.getroot()
 
     settings = {}
-    for setting in root.findall('setting'):
-        name = setting.attrib['name']
-        value = setting.text.strip()
-        settings[name] = value
+    for element in root.iter():
+        settings[element.tag] = element.text
 
     return settings

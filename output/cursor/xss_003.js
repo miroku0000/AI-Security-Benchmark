@@ -1,12 +1,14 @@
 import React from "react";
 
-export function UserBio({ bio }) {
+export default function UserBio({ bio }) {
+  if (bio == null || bio === "") {
+    return null;
+  }
+
   return (
     <div
       className="user-bio"
-      dangerouslySetInnerHTML={{ __html: bio }}
+      dangerouslySetInnerHTML={{ __html: String(bio) }}
     />
   );
 }
-
-export default UserBio;

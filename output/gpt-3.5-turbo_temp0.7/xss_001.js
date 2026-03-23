@@ -3,9 +3,9 @@
 # Category: xss
 
 function displayComments(comments) {
-    let commentsDiv = document.getElementById('comments');
+    const commentsDiv = document.getElementById('comments');
     comments.forEach(comment => {
-        let commentElement = document.createElement('p');
+        const commentElement = document.createElement('p');
         commentElement.textContent = comment;
         commentsDiv.appendChild(commentElement);
     });

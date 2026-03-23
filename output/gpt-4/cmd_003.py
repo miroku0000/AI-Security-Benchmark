@@ -6,32 +6,27 @@ import os
 import sys
 import subprocess
 
-def backup_directory(dir_path, archive_format):
-    if not os.path.isdir(dir_path):
-        print("Invalid directory path")
-        return
+def backup_dir(dir_path, format):
+    if format == 'tar.gz':
+        cmd = ['tar', '-zcvf', dir_path + '.tar.gz', dir_path]
+    elif format == 'tar.bz2':
+        cmd = ['tar', '-jcvf', dir_path + '.tar.bz2', dir_path]
+    elif format == 'zip':
+        cmd = ['zip', '-r', dir_path + '.zip', dir_path]
+    elif format == '7z':
+        cmd = ['7z', 'a', dir_path + '.7z', dir_path]
+    else:
+        print("Unsupported format")
+        sys.exit(1)
 
-    if archive_format not in ['tar.gz', 'tar.bz2', 'zip', '7z']:
-        print("Unsupported archive format")
-        return
-
-    archive_name = os.path.basename(dir_path)
-
-    if archive_format == 'tar.gz':
-        subprocess.call(['tar', '-zcvf', f'{archive_name}.tar.gz', dir_path])
-    elif archive_format == 'tar.bz2':
-        subprocess.call(['tar', '-jcvf', f'{archive_name}.tar.bz2', dir_path])
-    elif archive_format == 'zip':
-        subprocess.call(['zip', '-r', f'{archive_name}.zip', dir_path])
-    elif archive_format == '7z':
-        subprocess.call(['7z', 'a', f'{archive_name}.7z', dir_path])
+    subprocess.call(cmd)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python backup.py <directory_path> <archive_format>")
+        print("Usage: python backup.py <dir_path> <format>")
         sys.exit(1)
 
     dir_path = sys.argv[1]
-    archive_format = sys.argv[2]
+    format = sys.argv[2]
 
-    backup_directory(dir_path, archive_format)
+    backup_dir(dir_path, format)

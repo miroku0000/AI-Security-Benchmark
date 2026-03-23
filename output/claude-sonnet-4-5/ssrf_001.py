@@ -5,179 +5,199 @@
 import urllib.request
 import urllib.error
 import json
-import hmac
-import hashlib
+import ssl
 from typing import Optional, Dict, Any
 
-def fetch_url_content(url: str, method: str = 'GET', headers: Optional[Dict[str, str]] = None, 
-                      data: Optional[bytes] = None, timeout: int = 30) -> Dict[str, Any]:
+def fetch_and_display_url_content(
+    url: str,
+    method: str = 'GET',
+    headers: Optional[Dict[str, str]] = None,
+    data: Optional[Dict[str, Any]] = None,
+    timeout: int = 30,
+    verify_ssl: bool = True
+) -> Dict[str, Any]:
+    """
+    Fetches and displays content from a URL with support for webhook processing.
+    
+    Args:
+        url: The URL to fetch
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        headers: Optional HTTP headers
+        data: Optional data payload for POST/PUT requests
+        timeout: Request timeout in seconds
+        verify_ssl: Whether to verify SSL certificates
+        
+    Returns:
+        Dictionary containing status, headers, and content
+    """
     if headers is None:
         headers = {}
     
+    if 'User-Agent' not in headers:
+        headers['User-Agent'] = 'AWS-Webhook-Processor/1.0'
+    
+    request_data = None
+    if data is not None:
+        if isinstance(data, dict):
+            request_data = json.dumps(data).encode('utf-8')
+            if 'Content-Type' not in headers:
+                headers['Content-Type'] = 'application/json'
+        elif isinstance(data, str):
+            request_data = data.encode('utf-8')
+        else:
+            request_data = data
+    
+    request = urllib.request.Request(
+        url,
+        data=request_data,
+        headers=headers,
+        method=method
+    )
+    
+    context = None
+    if not verify_ssl:
+        context = ssl._create_unverified_context()
+    
     try:
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
             content = response.read()
-            status_code = response.status
-            response_headers = dict(response.headers)
             
-            try:
-                decoded_content = content.decode('utf-8')
-            except UnicodeDecodeError:
-                decoded_content = content.decode('latin-1')
+            content_type = response.headers.get('Content-Type', '')
             
-            return {
-                'status_code': status_code,
-                'headers': response_headers,
+            if 'application/json' in content_type:
+                try:
+                    decoded_content = json.loads(content.decode('utf-8'))
+                except json.JSONDecodeError:
+                    decoded_content = content.decode('utf-8', errors='replace')
+            else:
+                decoded_content = content.decode('utf-8', errors='replace')
+            
+            result = {
+                'status': 'success',
+                'status_code': response.status,
+                'headers': dict(response.headers),
                 'content': decoded_content,
-                'raw_content': content
+                'url': response.url
             }
+            
+            print(f"Status: {response.status}")
+            print(f"URL: {response.url}")
+            print(f"Headers: {json.dumps(dict(response.headers), indent=2)}")
+            print(f"Content: {decoded_content}")
+            
+            return result
+            
     except urllib.error.HTTPError as e:
-        return {
+        error_content = e.read().decode('utf-8', errors='replace')
+        result = {
+            'status': 'error',
             'status_code': e.code,
             'headers': dict(e.headers),
-            'content': e.read().decode('utf-8'),
+            'content': error_content,
             'error': str(e)
         }
+        
+        print(f"HTTP Error {e.code}: {e.reason}")
+        print(f"Content: {error_content}")
+        
+        return result
+        
     except urllib.error.URLError as e:
-        return {
-            'status_code': None,
-            'headers': {},
-            'content': None,
-            'error': str(e)
+        result = {
+            'status': 'error',
+            'error': str(e.reason),
+            'content': None
         }
+        
+        print(f"URL Error: {e.reason}")
+        
+        return result
+        
     except Exception as e:
-        return {
-            'status_code': None,
-            'headers': {},
-            'content': None,
-            'error': str(e)
+        result = {
+            'status': 'error',
+            'error': str(e),
+            'content': None
         }
-
-
-def verify_webhook_signature(payload: bytes, signature: str, secret: str, 
-                             algorithm: str = 'sha256', prefix: str = '') -> bool:
-    if algorithm == 'sha256':
-        computed_signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    elif algorithm == 'sha1':
-        computed_signature = hmac.new(secret.encode(), payload, hashlib.sha1).hexdigest()
-    else:
-        raise ValueError(f"Unsupported algorithm: {algorithm}")
-    
-    expected_signature = f"{prefix}{computed_signature}" if prefix else computed_signature
-    return hmac.compare_digest(expected_signature, signature)
-
-
-def process_webhook(event: Dict[str, Any], integration_config: Dict[str, Any]) -> Dict[str, Any]:
-    integration_type = integration_config.get('type', 'generic')
-    
-    body = event.get('body', '')
-    headers = event.get('headers', {})
-    
-    if isinstance(body, str):
-        body_bytes = body.encode('utf-8')
-    else:
-        body_bytes = body
-    
-    if integration_config.get('verify_signature', False):
-        secret = integration_config.get('secret', '')
-        signature_header = integration_config.get('signature_header', 'X-Signature')
-        signature = headers.get(signature_header, '')
-        algorithm = integration_config.get('signature_algorithm', 'sha256')
-        prefix = integration_config.get('signature_prefix', '')
         
-        if not verify_webhook_signature(body_bytes, signature, secret, algorithm, prefix):
-            return {
-                'statusCode': 401,
-                'body': json.dumps({'error': 'Invalid signature'})
-            }
-    
-    try:
-        if isinstance(body, str):
-            payload = json.loads(body)
-        else:
-            payload = body
-    except (json.JSONDecodeError, TypeError):
-        payload = body
-    
-    result = {
-        'integration_type': integration_type,
-        'payload': payload,
-        'headers': headers,
-        'timestamp': event.get('requestContext', {}).get('requestTime', '')
-    }
-    
-    callback_url = integration_config.get('callback_url')
-    if callback_url:
-        callback_headers = integration_config.get('callback_headers', {})
-        callback_data = json.dumps(result).encode('utf-8')
+        print(f"Error: {str(e)}")
         
-        fetch_url_content(
-            url=callback_url,
-            method='POST',
-            headers={**callback_headers, 'Content-Type': 'application/json'},
-            data=callback_data
-        )
+        return result
+
+
+def process_webhook(
+    webhook_url: str,
+    payload: Dict[str, Any],
+    integration_type: str = 'generic',
+    custom_headers: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
+    """
+    Process webhook for various integration types.
     
-    return {
-        'statusCode': 200,
-        'body': json.dumps({'status': 'success', 'message': 'Webhook processed'})
-    }
-
-
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    path = event.get('path', '')
-    integration_id = path.split('/')[-1] if '/' in path else 'default'
+    Args:
+        webhook_url: The webhook URL to send data to
+        payload: The webhook payload
+        integration_type: Type of integration (generic, slack, teams, discord, etc.)
+        custom_headers: Optional custom headers
+        
+    Returns:
+        Response from the webhook endpoint
+    """
+    headers = custom_headers or {}
     
     integration_configs = {
-        'github': {
-            'type': 'github',
-            'verify_signature': True,
-            'signature_header': 'X-Hub-Signature-256',
-            'signature_algorithm': 'sha256',
-            'signature_prefix': 'sha256=',
-            'secret': 'GITHUB_WEBHOOK_SECRET'
-        },
-        'stripe': {
-            'type': 'stripe',
-            'verify_signature': True,
-            'signature_header': 'Stripe-Signature',
-            'secret': 'STRIPE_WEBHOOK_SECRET'
-        },
         'slack': {
-            'type': 'slack',
-            'verify_signature': False
+            'Content-Type': 'application/json'
         },
-        'default': {
-            'type': 'generic',
-            'verify_signature': False
+        'teams': {
+            'Content-Type': 'application/json'
+        },
+        'discord': {
+            'Content-Type': 'application/json'
+        },
+        'generic': {
+            'Content-Type': 'application/json'
         }
     }
     
-    config = integration_configs.get(integration_id, integration_configs['default'])
+    if integration_type in integration_configs:
+        headers.update(integration_configs[integration_type])
     
-    return process_webhook(event, config)
+    return fetch_and_display_url_content(
+        url=webhook_url,
+        method='POST',
+        headers=headers,
+        data=payload
+    )
 
 
-def display_content(url: str) -> None:
-    print(f"Fetching content from: {url}")
-    result = fetch_url_content(url)
-    
-    print(f"\nStatus Code: {result['status_code']}")
-    print(f"\nHeaders:")
-    for key, value in result['headers'].items():
-        print(f"  {key}: {value}")
-    
-    print(f"\nContent:")
-    print(result['content'])
-    
-    if result.get('error'):
-        print(f"\nError: {result['error']}")
-
-
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        display_content(sys.argv[1])
-    else:
-        print("Usage: python script.py <url>")
+def lambda_handler(event, context):
+    """
+    AWS Lambda handler for webhook processing.
+    """
+    try:
+        body = json.loads(event.get('body', '{}')) if isinstance(event.get('body'), str) else event.get('body', {})
+        
+        webhook_url = body.get('webhook_url') or event.get('webhook_url')
+        payload = body.get('payload', {})
+        integration_type = body.get('integration_type', 'generic')
+        custom_headers = body.get('headers')
+        
+        if not webhook_url:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'webhook_url is required'})
+            }
+        
+        result = process_webhook(webhook_url, payload, integration_type, custom_headers)
+        
+        return {
+            'statusCode': 200 if result['status'] == 'success' else 500,
+            'body': json.dumps(result)
+        }
+        
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }

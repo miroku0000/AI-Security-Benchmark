@@ -2,19 +2,23 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, redirect, url_for
+from werkzeug.utils import secure_filename
+import os
 
 app = Flask(__name__)
 
 @app.route('/upload', methods=['POST'])
-def upload_profile_picture():
+def upload():
     file = request.files['file']
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({'success': True})
+    filename = secure_filename(file.filename)
+    if not allowed_file(filename):
+        return redirect(url_for('index'))
     else:
-        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+        filename = 'profile_pictures/' + filename
+        file.save(filename)
+        return 'File successfully uploaded'
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+    ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

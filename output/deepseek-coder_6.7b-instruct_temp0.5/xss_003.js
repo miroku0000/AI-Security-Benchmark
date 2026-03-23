@@ -8,7 +8,9 @@ import React from 'react';
 class UserBio extends React.Component {
   render() {
     return (
-      <div dangerouslySetInnerHTML={{__html: this.props.bio}} />
+      <div>
+        <p dangerouslySetInnerHTML={{__html: this.props.bio}}></p>
+      </div>
     );
   }
 }

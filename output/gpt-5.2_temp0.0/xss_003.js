@@ -16,12 +16,12 @@ const ALLOWED_TAGS = new Set([
   "p",
   "div",
   "span",
-  "ul",
-  "ol",
-  "li",
   "blockquote",
   "code",
   "pre",
+  "ul",
+  "ol",
+  "li",
   "a",
   "h1",
   "h2",
@@ -31,125 +31,135 @@ const ALLOWED_TAGS = new Set([
   "h6",
 ]);
 
-const GLOBAL_ALLOWED_ATTRS = new Set(["title", "aria-label", "role"]);
-const TAG_ALLOWED_ATTRS = {
-  a: new Set(["href", "target", "rel"]),
-  span: new Set(["class"]),
-  div: new Set(["class"]),
-  p: new Set(["class"]),
-  code: new Set(["class"]),
-  pre: new Set(["class"]),
+const ALLOWED_ATTRS = {
+  a: new Set(["href", "title", "target", "rel"]),
+  "*": new Set(["class", "style"]),
 };
 
-function isSafeUrl(url) {
-  if (!url) return false;
-  const trimmed = String(url).trim();
-  if (trimmed.startsWith("#")) return true;
-  if (trimmed.startsWith("/")) return true;
-  try {
-    const u = new URL(trimmed, "https://example.com");
-    const protocol = u.protocol.toLowerCase();
-    return protocol === "http:" || protocol === "https:" || protocol === "mailto:" || protocol === "tel:";
-  } catch {
-    return false;
-  }
-}
-
 function sanitizeHtml(input) {
-  const html = typeof input === "string" ? input : "";
-  if (!html) return "";
+  if (typeof input !== "string" || !input) return "";
 
-  if (typeof window === "undefined" || !window.DOMParser) {
-    return html
-      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-      .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, "")
-      .replace(/javascript:/gi, "");
+  // If DOM isn't available (SSR), fall back to plain text.
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return input
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/\n/g, "<br/>");
   }
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const template = document.createElement("template");
+  template.innerHTML = input;
 
-  const sanitizeNode = (node) => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = node.tagName.toLowerCase();
+  const isSafeUrl = (url) => {
+    try {
+      const u = new URL(url, window.location.origin);
+      const protocol = u.protocol.toLowerCase();
+      return protocol === "http:" || protocol === "https:" || protocol === "mailto:" || protocol === "tel:";
+    } catch {
+      return false;
+    }
+  };
 
-      if (!ALLOWED_TAGS.has(tag)) {
-        const parent = node.parentNode;
-        if (parent) {
-          while (node.firstChild) parent.insertBefore(node.firstChild, node);
-          parent.removeChild(node);
-        }
+  const cleanNode = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) return;
+
+    if (node.nodeType === Node.COMMENT_NODE) {
+      node.remove();
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      node.remove();
+      return;
+    }
+
+    const tag = node.tagName.toLowerCase();
+
+    if (!ALLOWED_TAGS.has(tag)) {
+      const parent = node.parentNode;
+      if (!parent) {
+        node.remove();
         return;
       }
+      while (node.firstChild) parent.insertBefore(node.firstChild, node);
+      node.remove();
+      return;
+    }
 
-      const allowedAttrs = new Set([
-        ...GLOBAL_ALLOWED_ATTRS,
-        ...(TAG_ALLOWED_ATTRS[tag] ? Array.from(TAG_ALLOWED_ATTRS[tag]) : []),
-      ]);
+    // Remove disallowed attributes and dangerous values
+    const allowedForTag = ALLOWED_ATTRS[tag] || new Set();
+    const allowedGlobal = ALLOWED_ATTRS["*"] || new Set();
 
-      for (const attr of Array.from(node.attributes)) {
-        const name = attr.name.toLowerCase();
-        const value = attr.value;
+    for (const attr of Array.from(node.attributes)) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
 
-        if (name.startsWith("on")) {
-          node.removeAttribute(attr.name);
-          continue;
-        }
+      const isAllowed = allowedForTag.has(name) || allowedGlobal.has(name);
+      if (!isAllowed) {
+        node.removeAttribute(attr.name);
+        continue;
+      }
 
-        if (!allowedAttrs.has(name)) {
-          node.removeAttribute(attr.name);
-          continue;
-        }
+      // Strip event handlers and javascript: URLs even if somehow allowed
+      if (name.startsWith("on")) {
+        node.removeAttribute(attr.name);
+        continue;
+      }
 
-        if (tag === "a" && name === "href") {
-          if (!isSafeUrl(value)) node.removeAttribute("href");
-        }
-
-        if (tag === "a" && name === "target") {
-          const t = String(value).toLowerCase();
-          if (t !== "_blank" && t !== "_self" && t !== "_parent" && t !== "_top") {
-            node.removeAttribute("target");
-          }
-        }
-
-        if (tag === "a" && name === "rel") {
-          // keep; will be normalized below
-        }
-
-        if (name === "class") {
-          // basic class allow; strip suspicious characters
-          const safe = String(value).replace(/[^\w\- ]+/g, "").trim();
-          if (safe) node.setAttribute("class", safe);
-          else node.removeAttribute("class");
+      if (name === "href") {
+        if (!isSafeUrl(value)) {
+          node.removeAttribute("href");
         }
       }
 
-      if (tag === "a") {
-        const target = (node.getAttribute("target") || "").toLowerCase();
-        if (target === "_blank") {
-          const rel = (node.getAttribute("rel") || "").toLowerCase().split(/\s+/).filter(Boolean);
-          const relSet = new Set(rel);
-          relSet.add("noopener");
-          relSet.add("noreferrer");
-          node.setAttribute("rel", Array.from(relSet).join(" "));
+      if (name === "target") {
+        const t = value.toLowerCase();
+        if (t !== "_blank" && t !== "_self" && t !== "_parent" && t !== "_top") {
+          node.removeAttribute("target");
+        }
+      }
+
+      if (name === "rel") {
+        // normalize rel; will be enforced for _blank below
+        node.setAttribute("rel", value);
+      }
+
+      if (name === "style") {
+        // Basic hardening: remove url() and expression()
+        const v = value.toLowerCase();
+        if (v.includes("url(") || v.includes("expression(")) {
+          node.removeAttribute("style");
         }
       }
     }
 
-    for (const child of Array.from(node.childNodes)) sanitizeNode(child);
+    if (tag === "a") {
+      const target = (node.getAttribute("target") || "").toLowerCase();
+      if (target === "_blank") {
+        const rel = (node.getAttribute("rel") || "").toLowerCase();
+        const parts = new Set(rel.split(/\s+/).filter(Boolean));
+        parts.add("noopener");
+        parts.add("noreferrer");
+        node.setAttribute("rel", Array.from(parts).join(" "));
+      }
+    }
+
+    for (const child of Array.from(node.childNodes)) cleanNode(child);
   };
 
-  sanitizeNode(doc.body);
-  return doc.body.innerHTML;
+  for (const child of Array.from(template.content.childNodes)) cleanNode(child);
+
+  return template.innerHTML;
 }
 
 export default function UserBio({ bio, className, as: As = "div" }) {
-  const sanitized = React.useMemo(() => sanitizeHtml(bio), [bio]);
+  const safeHtml = React.useMemo(() => sanitizeHtml(bio), [bio]);
 
-  return (
-    <As
-      className={className}
-      dangerouslySetInnerHTML={{ __html: sanitized }}
-    />
-  );
+  return React.createElement(As, {
+    className,
+    dangerouslySetInnerHTML: { __html: safeHtml },
+  });
 }

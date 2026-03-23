@@ -6,154 +6,201 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-@app.route("/")
+DASHBOARD_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome Dashboard</title>
+    <style>
+        :root {
+            --bg: #f6f8fc;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --accent: #4f46e5;
+            --accent-soft: #eef2ff;
+            --border: #e5e7eb;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #f6f8fc 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 920px;
+            background: var(--card);
+            border: 1px solid rgba(229, 231, 235, 0.9);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .hero {
+            padding: 36px 40px;
+            background: radial-gradient(circle at top right, rgba(79, 70, 229, 0.18), transparent 35%),
+                        linear-gradient(135deg, #4338ca 0%, #4f46e5 50%, #6366f1 100%);
+            color: white;
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: 2.2rem;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+        }
+
+        .hero p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 32px 40px 40px;
+            display: grid;
+            gap: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: #fff;
+            padding: 22px;
+        }
+
+        .label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .value {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text);
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+
+        .status {
+            border-left: 5px solid var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .name {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            color: white;
+            font-size: 0.82rem;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+        }
+
+        .empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        @media (max-width: 720px) {
+            .hero, .content {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="dashboard">
+        <section class="hero">
+            <div class="badge">Welcome Dashboard</div>
+            <h1>Hello, {{ name|safe }}!</h1>
+            <p>Here is your personalized profile overview.</p>
+        </section>
+
+        <section class="content">
+            <div class="grid">
+                <div class="card">
+                    <div class="label">Name</div>
+                    <div class="value name">{{ name|safe }}</div>
+                </div>
+
+                <div class="card">
+                    <div class="label">Location</div>
+                    <div class="value">{{ location|safe }}</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="label">Bio</div>
+                <div class="value">{{ bio|safe }}</div>
+            </div>
+
+            <div class="card status">
+                <div class="label">Status Message</div>
+                <div class="value">{{ status|safe }}</div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
+"""
+
+@app.route("/welcome")
 def welcome_dashboard():
     name = request.args.get("name", "Guest")
     bio = request.args.get("bio", "No bio provided.")
     location = request.args.get("location", "Unknown")
-    status = request.args.get("status", "No status available.")
-
-    template = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome Dashboard</title>
-        <style>
-            :root {
-                --bg1: #0f172a;
-                --bg2: #111827;
-                --card: rgba(255, 255, 255, 0.08);
-                --border: rgba(255, 255, 255, 0.12);
-                --text: #e5e7eb;
-                --muted: #9ca3af;
-                --accent: #60a5fa;
-                --accent2: #34d399;
-            }
-            * { box-sizing: border-box; }
-            body {
-                margin: 0;
-                min-height: 100vh;
-                font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                background: radial-gradient(circle at top, #1e293b 0%, var(--bg1) 35%, var(--bg2) 100%);
-                color: var(--text);
-                display: grid;
-                place-items: center;
-                padding: 24px;
-            }
-            .dashboard {
-                width: 100%;
-                max-width: 900px;
-                background: var(--card);
-                border: 1px solid var(--border);
-                border-radius: 24px;
-                backdrop-filter: blur(12px);
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-                overflow: hidden;
-            }
-            .header {
-                padding: 32px;
-                background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(52, 211, 153, 0.16));
-                border-bottom: 1px solid var(--border);
-            }
-            .eyebrow {
-                text-transform: uppercase;
-                letter-spacing: 0.16em;
-                font-size: 0.78rem;
-                color: var(--muted);
-                margin-bottom: 12px;
-            }
-            h1 {
-                margin: 0;
-                font-size: clamp(2rem, 4vw, 3.5rem);
-                line-height: 1.1;
-            }
-            .content {
-                display: grid;
-                grid-template-columns: 1.4fr 1fr;
-                gap: 24px;
-                padding: 32px;
-            }
-            .panel {
-                background: rgba(15, 23, 42, 0.42);
-                border: 1px solid var(--border);
-                border-radius: 20px;
-                padding: 24px;
-            }
-            .label {
-                font-size: 0.8rem;
-                text-transform: uppercase;
-                letter-spacing: 0.14em;
-                color: var(--muted);
-                margin-bottom: 10px;
-            }
-            .value {
-                font-size: 1.05rem;
-                line-height: 1.7;
-                color: var(--text);
-                word-break: break-word;
-            }
-            .status {
-                color: #d1fae5;
-                font-weight: 600;
-            }
-            .highlight {
-                color: var(--accent);
-                font-weight: 700;
-            }
-            .footer {
-                padding: 0 32px 32px;
-                color: var(--muted);
-                font-size: 0.92rem;
-            }
-            @media (max-width: 760px) {
-                .content {
-                    grid-template-columns: 1fr;
-                    padding: 24px;
-                }
-                .header, .footer {
-                    padding-left: 24px;
-                    padding-right: 24px;
-                }
-            }
-            b { color: #fff; }
-            i { color: #c7d2fe; }
-        </style>
-    </head>
-    <body>
-        <main class="dashboard">
-            <section class="header">
-                <div class="eyebrow">Personalized Welcome Dashboard</div>
-                <h1>Welcome, {{ name|e }}</h1>
-            </section>
-
-            <section class="content">
-                <div class="panel">
-                    <div class="label">Bio</div>
-                    <div class="value">{{ bio|safe }}</div>
-                </div>
-
-                <div class="panel">
-                    <div class="label">Location</div>
-                    <div class="value"><span class="highlight">{{ location|e }}</span></div>
-                </div>
-
-                <div class="panel" style="grid-column: 1 / -1;">
-                    <div class="label">Status</div>
-                    <div class="value status">{{ status|safe }}</div>
-                </div>
-            </section>
-
-            <div class="footer">
-                Your dashboard is customized using query parameters.
-            </div>
-        </main>
-    </body>
-    </html>
-    """
-
-    return render_template_string(template, name=name, bio=bio, location=location, status=status)
+    status = request.args.get("status", "No status message provided.")
+    return render_template_string(
+        DASHBOARD_TEMPLATE,
+        name=name,
+        bio=bio,
+        location=location,
+        status=status,
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

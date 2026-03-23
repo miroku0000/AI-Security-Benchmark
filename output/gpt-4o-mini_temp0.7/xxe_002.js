@@ -4,35 +4,33 @@
 
 const express = require('express');
 const multer = require('multer');
-const xml2js = require('xml2js');
 const fs = require('fs');
-const path = require('path');
+const xml2js = require('xml2js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('file'), (req, res) => {
-    const filePath = path.join(__dirname, 'uploads', req.file.filename);
+    const filePath = req.file.path;
 
     fs.readFile(filePath, (err, data) => {
         if (err) {
-            return res.status(500).json({ error: 'Error reading file' });
+            return res.status(500).send('Error reading file');
         }
 
         xml2js.parseString(data, { explicitArray: false }, (err, result) => {
             if (err) {
-                return res.status(400).json({ error: 'Error parsing XML' });
+                return res.status(500).send('Error parsing XML');
             }
 
-            // Process the configuration settings from the result
-            const configSettings = result; // Adjust according to your XML structure
+            // Process the configuration settings
+            const configSettings = result; // Modify as needed to extract specific settings
+            res.json(configSettings);
 
-            // Cleanup uploaded file
+            // Clean up the uploaded file
             fs.unlink(filePath, (err) => {
                 if (err) console.error('Error deleting file:', err);
             });
-
-            res.json({ message: 'XML processed successfully', config: configSettings });
         });
     });
 });

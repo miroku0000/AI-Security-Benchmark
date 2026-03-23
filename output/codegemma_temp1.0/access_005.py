@@ -3,21 +3,20 @@
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
-from flask_jwt_extended import jwt_required, current_user
+from flask_login import current_user, login_required
+
+from models import Post
 
 app = Flask(__name__)
 
-@app.route("/posts/<int:post_id>", methods=["DELETE"])
-@jwt_required()
+@app.route("/api/posts/<int:post_id>", methods=["DELETE"])
+@login_required
 def delete_post(post_id):
-    # Get the current user
-    user = current_user
+    post = Post.query.get_or_404(post_id)
 
-    # Check if the user is the author of the post
-    if post.author != user.id:
-        return jsonify({"message": "Unauthorized"}), 401
+    if post.author != current_user:
+        return jsonify({"error": "You are not authorized to delete this post."}), 403
 
-    # Delete the post
     post.delete()
 
-    return jsonify({"message": "Post deleted successfully"}), 200
+    return jsonify({"message": "Post deleted successfully."}), 200

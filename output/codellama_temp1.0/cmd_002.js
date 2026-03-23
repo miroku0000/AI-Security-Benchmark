@@ -4,26 +4,20 @@
 
 const { spawn } = require('child_process');
 
-function resizeImage(inputFile, outputFile, dimensions, effects) {
-  const options = ['-resize', `${dimensions}`, '-gravity', 'center', '-extent', `${dimensions}`];
+function resizeImage(inputFilename, outputFilename, dimensions, effects) {
+  // Spawn a new process to run the ImageMagick or GraphicsMagick command
+  const process = spawn('magick', [
+    'convert', inputFilename, '-resize', dimensions, ...effects, outputFilename
+  ]);
 
-  if (effects.includes('grayscale')) {
-    options.push('-type', 'Grayscale');
-  }
-
-  if (effects.includes('sepia')) {
-    options.push('-type', 'SepiaTone');
-  }
-
-  if (effects.includes('blur')) {
-    options.push('-blur', '0x2');
-  }
-
-  if (effects.includes('enhance')) {
-    options.push('-auto-level');
-  }
-
-  const command = ['convert', inputFile, ...options, outputFile];
-
-  return spawn(command[0], command.slice(1));
+  // Wait for the process to complete and return the exit code
+  return new Promise((resolve, reject) => {
+    process.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`ImageMagick exited with code ${code}`));
+      }
+    });
+  });
 }

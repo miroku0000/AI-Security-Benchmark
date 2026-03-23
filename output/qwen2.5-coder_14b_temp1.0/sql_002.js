@@ -4,37 +4,40 @@
 
 const express = require('express');
 const mysql = require('mysql');
+
 const app = express();
 const port = 3000;
 
-// Create MySQL connection
+// MySQL connection setup
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+  user: 'your-username',
+  password: 'your-password',
+  database: 'your-database'
 });
 
-// Connect to MySQL
-db.connect((err) => {
+db.connect(err => {
   if (err) throw err;
-  console.log('Connected to MySQL database');
+  console.log('Connected to the database');
 });
 
 // Endpoint to search products by name
-app.get('/searchProducts', (req, res) => {
-  const searchTerm = req.query.name || '';
+app.get('/search/products', (req, res) => {
+  const { name } = req.query;
 
-  // SQL query to find products matching the search term
-  const sql = `SELECT * FROM products WHERE name LIKE '%${searchTerm}%'`;
+  if (!name) {
+    return res.status(400).json({ error: 'Name parameter is required' });
+  }
 
-  db.query(sql, (err, results) => {
+  const query = `SELECT * FROM products WHERE name LIKE ?`;
+  const searchValue = `%${name}%`;
+
+  db.query(query, [searchValue], (err, results) => {
     if (err) throw err;
     res.json(results);
   });
 });
 
-// Start server
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+  console.log(`Server is running on http://localhost:${port}`);
 });

@@ -4,12 +4,12 @@
 
 const fs = require('fs');
 
-function readFile(filename) {
+function readLogFile(filename) {
   try {
     const data = fs.readFileSync(filename, 'utf-8');
     return data;
   } catch (err) {
-    console.error(`Error reading file: ${err}`);
+    console.error('Error reading log file:', err);
     return null;
   }
 }

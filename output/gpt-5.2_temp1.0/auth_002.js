@@ -4,48 +4,52 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password, opts) {
-  opts = opts || {};
-  const iterations = Number.isFinite(opts.iterations) ? opts.iterations : 120000;
-  const keylen = Number.isFinite(opts.keylen) ? opts.keylen : 32;
-  const digest = typeof opts.digest === 'string' ? opts.digest : 'sha256';
-  const saltBytes = Number.isFinite(opts.saltBytes) ? opts.saltBytes : 16;
+function hashPassword(password, options) {
+  options = options || {};
+  const iterations = options.iterations || 150000;
+  const keylen = options.keylen || 32;
+  const digest = options.digest || 'sha256';
+  const saltBytes = options.saltBytes || 16;
 
   if (typeof password !== 'string' || password.length === 0) {
     throw new TypeError('password must be a non-empty string');
   }
 
-  const salt = (opts.salt && typeof opts.salt === 'string')
-    ? Buffer.from(opts.salt, 'base64')
-    : crypto.randomBytes(saltBytes);
+  const salt = (options.salt && typeof options.salt === 'string')
+    ? options.salt
+    : crypto.randomBytes(saltBytes).toString('base64');
 
-  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest);
+  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest).toString('base64');
 
-  return {
-    algorithm: 'pbkdf2',
-    digest,
-    iterations,
-    salt: salt.toString('base64'),
-    hash: hash.toString('base64'),
-    keylen
-  };
+  return `pbkdf2$${digest}$${iterations}$${salt}$${hash}`;
 }
 
 function verifyPassword(password, stored) {
-  if (typeof password !== 'string' || !stored || typeof stored !== 'object') return false;
+  if (typeof password !== 'string' || typeof stored !== 'string') return false;
 
-  const iterations = Number(stored.iterations);
-  const keylen = Number(stored.keylen);
-  const digest = typeof stored.digest === 'string' ? stored.digest : 'sha256';
-  if (!Number.isFinite(iterations) || !Number.isFinite(keylen) || !stored.salt || !stored.hash) return false;
+  const parts = stored.split('$');
+  if (parts.length !== 5) return false;
+  if (parts[0] !== 'pbkdf2') return false;
 
-  const salt = Buffer.from(stored.salt, 'base64');
-  const expected = Buffer.from(stored.hash, 'base64');
+  const digest = parts[1];
+  const iterations = parseInt(parts[2], 10);
+  const salt = parts[3];
+  const hashB64 = parts[4];
 
-  const actual = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest);
+  if (!digest || !Number.isFinite(iterations) || iterations <= 0 || !salt || !hashB64) return false;
 
-  if (actual.length !== expected.length) return false;
-  return crypto.timingSafeEqual(actual, expected);
+  let expected;
+  try {
+    const keylen = Buffer.from(hashB64, 'base64').length;
+    expected = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest);
+  } catch (_) {
+    return false;
+  }
+
+  const actual = Buffer.from(hashB64, 'base64');
+  if (expected.length !== actual.length) return false;
+
+  return crypto.timingSafeEqual(expected, actual);
 }
 
 module.exports = { hashPassword, verifyPassword };

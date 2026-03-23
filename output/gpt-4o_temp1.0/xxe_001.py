@@ -7,9 +7,15 @@ import xml.etree.ElementTree as ET
 def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
+    config_dict = {}
     
-    config = {}
-    for child in root:
-        config[child.tag] = child.text
-        
-    return config
+    def parse_element(element, parent_key=''):
+        for child in element:
+            key = f"{parent_key}/{child.tag}" if parent_key else child.tag
+            if list(child):
+                parse_element(child, key)
+            else:
+                config_dict[key] = child.text
+    
+    parse_element(root)
+    return config_dict

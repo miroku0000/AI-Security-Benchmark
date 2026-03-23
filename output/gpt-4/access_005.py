@@ -14,8 +14,8 @@ def delete_post(post_id):
     post = Post.query.get(post_id)
     if post is None:
         return jsonify({'message': 'Post not found'}), 404
-    if post.author_id != current_user.id:
-        return jsonify({'message': 'Unauthorized'}), 403
+    if post.user_id != current_user.id:
+        return jsonify({'message': 'Not authorized to delete this post'}), 403
     db.session.delete(post)
     db.session.commit()
-    return jsonify({'message': 'Post deleted'}), 200
+    return jsonify({'message': 'Post deleted successfully'}), 200

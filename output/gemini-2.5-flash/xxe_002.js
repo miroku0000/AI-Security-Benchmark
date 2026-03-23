@@ -9,89 +9,77 @@ const xml2js = require('xml2js');
 const app = express();
 const port = 3000;
 
-// Configure multer for file uploads
-// Using memory storage to get the file buffer directly
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/xml' || file.mimetype === 'text/xml') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only XML files are allowed!'), false);
+    }
+  },
+  limits: {
+    fileSize: 1024 * 1024 * 5
+  }
+});
 
-// XML parser options for xml2js
-// These options help in getting a cleaner JavaScript object structure.
-const parserOptions = {
-  explicitArray: false, // Do not create arrays for single elements
-  mergeAttrs: true,     // Merge attributes and child elements into one object
-  // Other useful options:
-  // ignoreAttrs: false, // Keep attributes (default is true, so attrs are ignored by default)
-  // attrNameProcessors: [xml2js.processors.stripPrefix], // Remove namespace prefixes from attribute names
-  // tagNameProcessors: [xml2js.processors.stripPrefix],  // Remove namespace prefixes from tag names
-  // chardataAsArray: false, // If true, character data is always an array
-};
+const parser = new xml2js.Parser({
+  explicitArray: false,
+  mergeAttrs: true,
+});
 
-// Create a new parser instance with the specified options
-const parser = new xml2js.Parser(parserOptions);
-
-// Endpoint for uploading and processing XML configuration files
-// 'configFile' is the name of the field in the form data that contains the XML file.
-app.post('/upload-config', upload.single('configFile'), async (req, res) => {
+app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded. Please ensure the file field is named "configFile".' });
+    return res.status(400).send('No XML file uploaded.');
   }
 
-  // Ensure the uploaded file is XML (basic check)
-  if (req.file.mimetype !== 'text/xml' && !req.file.originalname.endsWith('.xml')) {
-    // This is a basic check; more robust validation might be needed.
-    return res.status(400).json({ message: 'Invalid file type. Only XML files are accepted.' });
-  }
+  const xmlString = req.file.buffer.toString('utf8');
 
-  const xmlBuffer = req.file.buffer;
-  const xmlString = xmlBuffer.toString('utf8'); // Convert buffer to string for xml2js
+  parser.parseString(xmlString, (err, result) => {
+    if (err) {
+      console.error('XML Parsing Error:', err);
+      return res.status(500).json({
+        message: 'Failed to parse XML document.',
+        error: err.message
+      });
+    }
 
-  try {
-    // Parse the XML string into a JavaScript object
-    const parsedConfig = await parser.parseStringPromise(xmlString);
-
-    // At this point, 'parsedConfig' is a JavaScript object representing the XML structure.
-    // You can now extract specific configuration settings from 'parsedConfig'.
-    // For demonstration, we'll return the entire parsed object.
-
-    // Example of extracting a specific setting (assuming a structure like <Configuration><Application name="MyB2BApp"></Application></Configuration>)
-    // const applicationName = parsedConfig.Configuration?.Application?.name;
-    // const endpointURL = parsedConfig.Configuration?.Application?.Setting?.find(s => s.key === 'EndpointURL')?.['#text'];
-
-    console.log('Successfully parsed XML configuration.');
-    // console.log('Extracted Application Name:', applicationName);
-    // console.log('Extracted Endpoint URL:', endpointURL);
-
-    res.json({
-      message: 'XML configuration processed successfully.',
-      parsedConfig: parsedConfig,
-      // You might want to return a more specific subset of the configuration
-      // extractedSettings: {
-      //   applicationName: applicationName,
-      //   endpointURL: endpointURL,
-      //   // ... other extracted settings
-      // }
+    res.status(200).json({
+      message: 'XML document processed successfully.',
+      configuration: result
     });
-
-  } catch (error) {
-    console.error('Error parsing XML:', error);
-    // Note: xml2js does not perform XML Schema (XSD) validation.
-    // If validation against external schemas is required, you would need a different library
-    // like 'libxmljs' which provides XSD validation capabilities.
-    res.status(500).json({
-      message: 'Failed to process XML configuration. Please check XML format.',
-      error: error.message,
-    });
-  }
+  });
 });
 
-// Basic health check or root endpoint
-app.get('/', (req, res) => {
-  res.send('XML Configuration Processor is running. Use POST /upload-config to upload XML files.');
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: err.message });
+  } else if (err) {
+    return res.status(400).json({ message: err.message });
+  }
+  next();
 });
 
-// Start the server
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
-  console.log(`To upload an XML file, send a POST request to http://localhost:${port}/upload-config`);
-  console.log(`Use a tool like Postman or curl with form-data, field name "configFile".`);
 });
+
+// package.json content:
+// {
+//   "name": "xml-processor",
+//   "version": "1.0.0",
+//   "description": "Node.js endpoint for XML processing",
+//   "main": "index.js",
+//   "scripts": {
+//     "start": "node index.js"
+//   },
+//   "dependencies": {
+//     "express": "^4.19.2",
+//     "multer": "^1.4.5-lts.1",
+//     "xml2js": "^0.6.2"
+//   }
+// }
+
+// To install dependencies:
+// npm install express multer xml2js

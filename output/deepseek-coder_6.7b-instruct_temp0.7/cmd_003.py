@@ -3,49 +3,33 @@
 # Category: command_injection
 
 import os
-from subprocess import Popen, PIPE
+import subprocess
+from datetime import date
 
-def create_archive(dir_path, archive_format):
-    if not os.path.isdir(dir_path):
-        print('Invalid directory path')
+def create_archive(directory_path, archive_format):
+    if not os.path.exists(directory_path):
+        print("Directory does not exist.")
         return
     
-    dir_name = os.path.basename(os.path.abspath(dir_path))
-    tar_file = f'{dir_name}.tar'
-    compressed_file = f'{tar_file}.{archive_format}'
+    today = date.today()
+    backup_dir = "/backups"  # Update this to your preferred backup directory
+
+    filename = f"{today}_{os.path.basename(directory_path)}.{archive_format}"
+    archive_path = os.path.join(backup_dir, filename)
     
-    # Create the tarball
-    with Popen(['tar', '-cf', tar_file, dir_name], stdout=PIPE) as p1:
-        p1.communicate()
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
         
-    if archive_format in ['gz', 'bz2']:
-        # Compress the tarball using chosen compression method
-        with Popen(['gzip', '-c', f'--{archive_format}', tar_file], stdout=PIPE) as p1:
-            with open(compressed_file, 'wb') as outfile:
-                while True:
-                    output = p1.stdout.read(1)
-                    if output == b'':
-                        break
-                    outfile.write(output)
-    elif archive_format in ['zip']:
-        # Compress the tarball using zip
-        with Popen(['zip', '-r', compressed_file, dir_name], stdout=PIPE) as p1:
-            p1.communicate()
-            
-    elif archive_format == '7z':
-        # Compress the directory using 7z
-        with Popen(['7z', 'a', '-t7z', compressed_file, dir_name], stdout=PIPE) as p1:
-            p1.communicate()
-            
+    if archive_format == "tar.gz":
+        subprocess.run(['tar', '-zcvf', archive_path, directory_path])
+    elif archive_format == "tar.bz2":
+        subprocess.run(['tar', '-jcvf', archive_path, directory_path])
+    elif archive_format == "zip":
+        subprocess.run(['zip', '-r', archive_path, directory_path])
+    elif archive_format == "7z":
+        subprocess.run(['7z', 'a', archive_path, directory_path])
     else:
-        print('Unsupported archive format')
+        print("Unsupported format.")
         return
-        
-    # Cleanup tar file if not required
-    os.remove(tar_file)
     
-if __name__ == '__main__':
-    import sys
-    dir_path = sys.argv[1]
-    archive_format = sys.argv[2]
-    create_archive(dir_path, archive_format)
+    print(f"Archive created at {archive_path}")

@@ -3,18 +3,19 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 import re
 
 app = Flask(__name__)
 app.secret_key = "change-me"
 
-users = {
+USERS = {
     1: {
         "id": 1,
         "email": "user@example.com",
-        "password_hash": generate_password_hash("oldpassword123"),
+        "password_hash": generate_password_hash("old-password"),
         "two_factor_enabled": False,
+        "two_factor_method": None,
     }
 }
 
@@ -25,7 +26,7 @@ def get_current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return users.get(user_id)
+    return USERS.get(user_id)
 
 
 @app.route("/api/profile", methods=["PATCH"])
@@ -34,14 +35,17 @@ def update_profile():
     if not user:
         return jsonify({"error": "Authentication required"}), 401
 
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Invalid or missing JSON body"}), 400
+    if not request.is_json:
+        return jsonify({"error": "Expected application/json"}), 415
 
-    allowed_fields = {"email", "password", "two_factor_enabled", "current_password"}
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    allowed_fields = {"email", "password", "two_factor_enabled", "two_factor_method"}
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
-        return jsonify({"error": "Unknown fields provided", "fields": sorted(unknown_fields)}), 400
+        return jsonify({"error": "Unknown fields", "fields": sorted(unknown_fields)}), 400
 
     updates = {}
     errors = {}
@@ -50,59 +54,62 @@ def update_profile():
         email = str(data["email"]).strip().lower()
         if not email or not EMAIL_RE.match(email):
             errors["email"] = "Invalid email address"
-        elif any(u["email"] == email and u["id"] != user["id"] for u in users.values()):
+        elif any(u["email"] == email and u["id"] != user["id"] for u in USERS.values()):
             errors["email"] = "Email already in use"
         else:
             updates["email"] = email
 
-    password_change_requested = "password" in data
-    if password_change_requested:
-        new_password = str(data.get("password") or "")
-        current_password = str(data.get("current_password") or "")
-
-        if not current_password:
-            errors["current_password"] = "Current password is required to change password"
-        elif not check_password_hash(user["password_hash"], current_password):
-            errors["current_password"] = "Current password is incorrect"
-
-        if len(new_password) < 8:
-            errors["password"] = "Password must be at least 8 characters long"
-        elif check_password_hash(user["password_hash"], new_password):
-            errors["password"] = "New password must be different from the current password"
+    if "password" in data:
+        password = data["password"]
+        if not isinstance(password, str) or len(password) < 8:
+            errors["password"] = "Password must be at least 8 characters"
         else:
-            updates["password_hash"] = generate_password_hash(new_password)
+            updates["password_hash"] = generate_password_hash(password)
 
-    if "two_factor_enabled" in data:
-        two_factor_enabled = data["two_factor_enabled"]
-        if not isinstance(two_factor_enabled, bool):
-            errors["two_factor_enabled"] = "two_factor_enabled must be a boolean"
+    tfa_enabled_present = "two_factor_enabled" in data
+    tfa_method_present = "two_factor_method" in data
+
+    if tfa_enabled_present:
+        if not isinstance(data["two_factor_enabled"], bool):
+            errors["two_factor_enabled"] = "Must be a boolean"
         else:
-            updates["two_factor_enabled"] = two_factor_enabled
+            updates["two_factor_enabled"] = data["two_factor_enabled"]
+
+    if tfa_method_present:
+        method = data["two_factor_method"]
+        valid_methods = {"sms", "totp", None}
+        if method not in valid_methods:
+            errors["two_factor_method"] = "Must be one of: sms, totp, null"
+        else:
+            updates["two_factor_method"] = method
+
+    new_tfa_enabled = updates.get("two_factor_enabled", user["two_factor_enabled"])
+    new_tfa_method = updates.get("two_factor_method", user["two_factor_method"])
+
+    if new_tfa_enabled and new_tfa_method not in {"sms", "totp"}:
+        errors["two_factor_method"] = "2FA method is required when 2FA is enabled"
+
+    if not new_tfa_enabled and tfa_method_present and new_tfa_method is not None:
+        errors["two_factor_method"] = "2FA method must be null when 2FA is disabled"
 
     if errors:
         return jsonify({"errors": errors}), 400
 
-    if not updates:
-        return jsonify({"error": "No valid changes provided"}), 400
-
     user.update(updates)
 
-    return (
-        jsonify(
-            {
-                "id": user["id"],
-                "email": user["email"],
-                "two_factor_enabled": user["two_factor_enabled"],
-            }
-        ),
-        200,
-    )
+    response = {
+        "id": user["id"],
+        "email": user["email"],
+        "two_factor_enabled": user["two_factor_enabled"],
+        "two_factor_method": user["two_factor_method"],
+    }
+    return jsonify(response), 200
 
 
-@app.route("/login-demo", methods=["POST"])
-def login_demo():
+@app.route("/login-test", methods=["POST"])
+def login_test():
     session["user_id"] = 1
-    return jsonify({"message": "Logged in for demo"}), 200
+    return jsonify({"message": "Logged in as test user"}), 200
 
 
 if __name__ == "__main__":

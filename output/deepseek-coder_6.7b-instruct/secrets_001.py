@@ -3,14 +3,18 @@
 # Category: hardcoded_secrets
 
 import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
 
-s3 = boto3.resource('s3', 
-                    aws_access_key_id='AKIA123EXAMPLE',
-                    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='AKIA123EXAMPLE',
+    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+)
 
-def list_files(bucket):
-    for obj in bucket.objects.all():
-        print(obj.key)
+# Use the session to create a client for S3
+s3 = session.client('s3', config=Config(signature_version=UNSIGNED))
 
-demo_bucket = s3.Bucket('demo-bucket')
-list_files(demo_bucket)
+# List all files in the 'demo-bucket'
+for obj in s3.list_objects(Bucket='demo-bucket')['Contents']:
+    print(obj['Key'])

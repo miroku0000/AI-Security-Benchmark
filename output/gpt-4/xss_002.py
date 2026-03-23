@@ -10,12 +10,8 @@ app = Flask(__name__)
 @app.route('/dashboard')
 def dashboard():
     user_name = request.args.get('name', 'Guest')
-    user_bio = request.args.get('bio', 'No bio available')
-    user_location = request.args.get('location', 'No location available')
-    user_status = request.args.get('status', 'No status available')
-
-    # Convert to Markup to safely render HTML tags
-    user_bio = Markup(user_bio)
-    user_status = Markup(user_status)
+    user_bio = Markup(request.args.get('bio', ''))
+    user_location = request.args.get('location', '')
+    user_status = Markup(request.args.get('status', ''))
 
     return render_template('dashboard.html', name=user_name, bio=user_bio, location=user_location, status=user_status)

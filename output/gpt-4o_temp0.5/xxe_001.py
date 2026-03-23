@@ -7,14 +7,14 @@ import xml.etree.ElementTree as ET
 def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
-
+    
     def parse_element(element):
-        config_dict = {}
+        settings = {}
         for child in element:
             if len(child) > 0:
-                config_dict[child.tag] = parse_element(child)
+                settings[child.tag] = parse_element(child)
             else:
-                config_dict[child.tag] = child.text
-        return config_dict
-
+                settings[child.tag] = child.text
+        return settings
+    
     return parse_element(root)

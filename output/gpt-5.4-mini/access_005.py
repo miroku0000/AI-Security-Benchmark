@@ -4,33 +4,24 @@
 
 from flask import Flask, jsonify, request
 from flask_login import login_required, current_user
-from functools import wraps
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+db = SQLAlchemy(app)
 
-class Post:
-    def __init__(self, post_id, user_id):
-        self.id = post_id
-        self.user_id = user_id
-
-    def delete(self):
-        pass
-
-POSTS = {}
-
-def get_post_by_id(post_id):
-    return POSTS.get(post_id)
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
 
 @app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required
 def delete_post(post_id):
-    post = get_post_by_id(post_id)
-    if post is None:
-        return jsonify({"error": "Post not found"}), 404
+    post = Post.query.get_or_404(post_id)
 
     if post.user_id != current_user.id:
         return jsonify({"error": "Forbidden"}), 403
 
-    post.delete()
-    POSTS.pop(post_id, None)
+    db.session.delete(post)
+    db.session.commit()
+
     return jsonify({"message": "Post deleted"}), 200

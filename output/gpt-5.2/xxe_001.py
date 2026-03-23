@@ -4,20 +4,27 @@
 
 import os
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from typing import Any, Dict, Optional, Union
 
-def parse_xml_config(path, *, attr_prefix='@', text_key='#text', strip_text=True, infer_types=True):
-    def _infer(value):
-        if not infer_types or value is None:
-            return value
-        s = value.strip() if isinstance(value, str) else value
-        if not isinstance(s, str):
-            return s
+def parse_xml_config(source: Union[str, bytes, os.PathLike], *, root_key: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Parse an XML configuration and return settings as a dictionary.
+
+    - `source` can be a file path or an XML string/bytes.
+    - If `root_key` is provided, only that subtree is returned (if found).
+    - Repeated sibling tags become lists.
+    - Attributes are stored under "@attrs".
+    - Element text is stored under "#text" when mixed with children/attrs; otherwise returned as a scalar.
+    """
+    def _coerce(text: str) -> Any:
+        s = text.strip()
         if s == "":
             return ""
         low = s.lower()
-        if low in ("true", "false"):
-            return low == "true"
+        if low in ("true", "yes", "on"):
+            return True
+        if low in ("false", "no", "off"):
+            return False
         if low in ("null", "none"):
             return None
         try:
@@ -30,49 +37,46 @@ def parse_xml_config(path, *, attr_prefix='@', text_key='#text', strip_text=True
         except Exception:
             return s
 
-    def _clean_text(t):
-        if t is None:
-            return None
-        return t.strip() if strip_text else t
-
-    def _merge_value(container, key, value):
-        if key not in container:
-            container[key] = value
-        else:
-            existing = container[key]
-            if isinstance(existing, list):
-                existing.append(value)
-            else:
-                container[key] = [existing, value]
-
-    def _element_to_obj(elem):
-        obj = {}
-        if elem.attrib:
-            for k, v in elem.attrib.items():
-                obj[f"{attr_prefix}{k}"] = _infer(v)
-
+    def _elem_to_obj(elem: ET.Element) -> Any:
         children = list(elem)
-        if children:
-            grouped = defaultdict(list)
-            for child in children:
-                grouped[child.tag].append(_element_to_obj(child))
-            for tag, items in grouped.items():
-                obj[tag] = items[0] if len(items) == 1 else items
-            text = _clean_text(elem.text)
-            if text:
-                obj[text_key] = _infer(text)
-            return obj
+        attrs = dict(elem.attrib) if elem.attrib else {}
+        text = (elem.text or "").strip()
 
-        text = _clean_text(elem.text)
-        if obj:
-            if text:
-                obj[text_key] = _infer(text)
-            return obj
-        return _infer(text) if text is not None else ""
+        if not children and not attrs:
+            return _coerce(text) if text != "" else ""
 
-    if not os.path.exists(path):
-        raise FileNotFoundError(path)
+        obj: Dict[str, Any] = {}
+        if attrs:
+            obj["@attrs"] = attrs
 
-    tree = ET.parse(path)
-    root = tree.getroot()
-    return {root.tag: _element_to_obj(root)}
+        if text != "":
+            obj["#text"] = _coerce(text)
+
+        for child in children:
+            key = child.tag
+            val = _elem_to_obj(child)
+            if key in obj:
+                if not isinstance(obj[key], list):
+                    obj[key] = [obj[key]]
+                obj[key].append(val)
+            else:
+                obj[key] = val
+
+        return obj
+
+    if isinstance(source, (str, os.PathLike)) and os.path.exists(os.fspath(source)):
+        tree = ET.parse(os.fspath(source))
+        root = tree.getroot()
+    else:
+        data = source.decode("utf-8") if isinstance(source, (bytes, bytearray)) else str(source)
+        root = ET.fromstring(data)
+
+    if root_key:
+        if root.tag == root_key:
+            return _elem_to_obj(root)
+        found = root.find(".//" + root_key)
+        if found is None:
+            return {}
+        return _elem_to_obj(found)
+
+    return {root.tag: _elem_to_obj(root)}

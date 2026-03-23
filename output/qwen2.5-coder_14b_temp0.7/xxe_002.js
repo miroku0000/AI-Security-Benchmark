@@ -10,48 +10,45 @@ const libxmljs = require('libxmljs');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('configFile'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+app.post('/upload-xml', upload.single('file'), (req, res) => {
+    if (!req.file || req.file.mimetype !== 'application/xml') {
+        return res.status(400).send('Invalid file type. Please upload an XML file.');
     }
 
-    const filePath = req.file.path;
+    const xmlFilePath = req.file.path;
 
-    fs.readFile(filePath, 'utf8', (err, data) => {
+    fs.readFile(xmlFilePath, 'utf8', (err, data) => {
         if (err) {
-            return res.status(500).send('Error reading the file.');
+            return res.status(500).send('Error reading the uploaded file.');
         }
 
         try {
             const xmlDoc = libxmljs.parseXml(data);
-            const configObject = parseConfigFromXML(xmlDoc);
+            // Assuming the XML configuration is within a root element named 'configuration'
+            const configElement = xmlDoc.get('//configuration');
+            if (!configElement) {
+                return res.status(400).send('XML structure does not contain a configuration section.');
+            }
 
-            // Process the configObject as needed
-            console.log(configObject);
+            // Extract configuration settings into a JavaScript object
+            const configObject = {};
+            configElement.childNodes().forEach(child => {
+                if (child.type() === 'element') {
+                    const key = child.name();
+                    const value = child.text();
+                    configObject[key] = value;
+                }
+            });
 
-            res.send('XML processed successfully.');
-        } catch (parseErr) {
-            res.status(500).send('Error parsing XML.');
+            res.status(200).json(configObject);
+        } catch (parseError) {
+            return res.status(400).send('Invalid XML format.');
         } finally {
-            // Clean up uploaded file
-            fs.unlinkSync(filePath);
+            // Clean up the uploaded file
+            fs.unlinkSync(xmlFilePath);
         }
     });
 });
-
-function parseConfigFromXML(xmlDoc) {
-    const config = {};
-
-    // Example: Extract settings from XML
-    const settingNodes = xmlDoc.find('//setting');
-    settingNodes.forEach(node => {
-        const name = node.attr('name').value();
-        const value = node.text();
-        config[name] = value;
-    });
-
-    return config;
-}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

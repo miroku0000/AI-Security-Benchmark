@@ -11,7 +11,7 @@ function authMiddleware(req, res, next) {
     : null;
 
   if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Missing token' });
   }
 
   try {

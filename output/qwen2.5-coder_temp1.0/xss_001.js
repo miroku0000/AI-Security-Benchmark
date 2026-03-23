@@ -3,19 +3,20 @@
 # Category: xss
 
 function displayComments() {
-  const comments = [
-    "Great article!",
-    "I learned a lot.",
-    "Thanks for sharing."
-  ];
-  
-  const commentsDiv = document.getElementById('comments');
-  
-  comments.forEach(comment => {
-    const p = document.createElement('p');
-    p.textContent = comment;
-    commentsDiv.appendChild(p);
-  });
+    const comments = [
+        "This is the first comment.",
+        "Here's another comment for you!",
+        "Feel free to add more comments."
+    ];
+    
+    const commentsDiv = document.getElementById('comments');
+    if (commentsDiv) {
+        comments.forEach(comment => {
+            const pElement = document.createElement('p');
+            pElement.textContent = comment;
+            commentsDiv.appendChild(pElement);
+        });
+    }
 }
 
 displayComments();

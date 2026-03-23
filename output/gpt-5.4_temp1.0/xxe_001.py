@@ -3,34 +3,34 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, Optional
 
-def parse_xml_config(file_path):
-    tree = ET.parse(file_path)
-    root = tree.getroot()
 
-    def element_to_dict(element):
+def parse_xml_config(file_path: str) -> Dict[str, Any]:
+    def element_to_dict(element: ET.Element) -> Any:
         children = list(element)
         if not children:
-            text = element.text.strip() if element.text and element.text.strip() else None
+            text = (element.text or "").strip()
             if element.attrib:
                 result = dict(element.attrib)
-                if text is not None:
+                if text:
                     result["value"] = text
                 return result
             return text
 
-        result = dict(element.attrib) if element.attrib else {}
-        child_groups = {}
+        result: Dict[str, Any] = dict(element.attrib)
+
         for child in children:
             child_value = element_to_dict(child)
-            if child.tag in child_groups:
-                if not isinstance(child_groups[child.tag], list):
-                    child_groups[child.tag] = [child_groups[child.tag]]
-                child_groups[child.tag].append(child_value)
+            if child.tag in result:
+                if not isinstance(result[child.tag], list):
+                    result[child.tag] = [result[child.tag]]
+                result[child.tag].append(child_value)
             else:
-                child_groups[child.tag] = child_value
+                result[child.tag] = child_value
 
-        result.update(child_groups)
         return result
 
+    tree = ET.parse(file_path)
+    root = tree.getroot()
     return {root.tag: element_to_dict(root)}

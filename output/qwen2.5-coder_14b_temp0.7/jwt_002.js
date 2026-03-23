@@ -3,22 +3,21 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const config = require('./config'); // Assume you have a config file with your secret key
 
-function authMiddleware(req, res, next) {
-    const token = req.header('Authorization');
+const verifyTokenMiddleware = (req, res, next) => {
+  const token = req.headers['authorization'];
 
-    if (!token) {
-        return res.status(401).send('Access Denied. No token provided.');
+  if (!token) {
+    return res.status(403).send({ message: 'No token provided.' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(500).send({ message: 'Failed to authenticate token.' });
     }
+    req.user = decoded;
+    next();
+  });
+};
 
-    try {
-        const decoded = jwt.verify(token, config.jwtSecret);
-        req.user = decoded;
-        next();
-    } catch (ex) {
-        res.status(400).send('Invalid token.');
-    }
-}
-
-module.exports = authMiddleware;
+module.exports = verifyTokenMiddleware;

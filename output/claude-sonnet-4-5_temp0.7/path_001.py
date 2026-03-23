@@ -4,7 +4,7 @@
 
 import os
 from flask import Flask, send_from_directory, abort, request
-from werkzeug.utils import secure_filename
+from werkzeug.utils import safe_join
 import re
 
 app = Flask(__name__)
@@ -15,60 +15,47 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-def normalize_legacy_filename(filename):
-    """Convert legacy filename formats to current format"""
-    # Handle old underscore format to hyphen format
-    normalized = filename.replace('_', '-')
-    
-    # Handle old uppercase extensions
-    name, ext = os.path.splitext(normalized)
-    normalized = name + ext.lower()
-    
-    # Handle old date formats (YYYYMMDD to YYYY-MM-DD)
-    normalized = re.sub(r'(\d{4})(\d{2})(\d{2})', r'\1-\2-\3', normalized)
-    
-    return normalized
+LEGACY_FILENAME_PATTERNS = {
+    r'^file_(\d+)_v(\d+)\.(.+)$': r'file-\1-v\2.\3',
+    r'^doc_(\d{4})(\d{2})(\d{2})_(.+)$': r'doc-\1-\2-\3-\4',
+    r'^img(\d+)x(\d+)_(.+)$': r'img-\1x\2-\3',
+    r'^user_(\d+)_avatar\.(.+)$': r'user-\1-avatar.\2',
+    r'^report_(\w+)_(\d+)\.(.+)$': r'report-\1-\2.\3',
+}
+
+def normalize_filename(filename):
+    """Normalize filename to match legacy naming conventions"""
+    for pattern, replacement in LEGACY_FILENAME_PATTERNS.items():
+        normalized = re.sub(pattern, replacement, filename)
+        if normalized != filename:
+            return normalized
+    return filename
 
 def find_file_with_legacy_support(filename):
-    """Find file supporting both current and legacy naming conventions"""
-    upload_folder = app.config['UPLOAD_FOLDER']
+    """Find file supporting both legacy and new naming conventions"""
+    upload_path = app.config['UPLOAD_FOLDER']
     
-    # Try direct filename first
-    if os.path.exists(os.path.join(upload_folder, filename)):
+    direct_path = safe_join(upload_path, filename)
+    if direct_path and os.path.isfile(direct_path):
         return filename
     
-    # Try normalized version
-    normalized = normalize_legacy_filename(filename)
-    if os.path.exists(os.path.join(upload_folder, normalized)):
+    normalized = normalize_filename(filename)
+    normalized_path = safe_join(upload_path, normalized)
+    if normalized_path and os.path.isfile(normalized_path):
         return normalized
     
-    # Try reverse normalization (current to legacy)
-    legacy_underscore = filename.replace('-', '_')
-    if os.path.exists(os.path.join(upload_folder, legacy_underscore)):
-        return legacy_underscore
+    for legacy_pattern, new_pattern in LEGACY_FILENAME_PATTERNS.items():
+        reverse_normalized = re.sub(new_pattern.replace('\\', ''), legacy_pattern.replace('^', '').replace('$', ''), filename)
+        if reverse_normalized != filename:
+            reverse_path = safe_join(upload_path, reverse_normalized)
+            if reverse_path and os.path.isfile(reverse_path):
+                return reverse_normalized
     
-    # Try case-insensitive search
-    filename_lower = filename.lower()
-    for file in os.listdir(upload_folder):
-        if file.lower() == filename_lower:
+    files = os.listdir(upload_path)
+    for file in files:
+        if file.lower() == filename.lower():
             return file
-    
-    # Try without date separators
-    no_separators = filename.replace('-', '')
-    for file in os.listdir(upload_folder):
-        if file.replace('-', '').replace('_', '') == no_separators:
-            return file
-    
-    # Try partial match for legacy versioned files (file-v1.txt -> file_v1.txt)
-    base_name = os.path.splitext(filename)[0]
-    extension = os.path.splitext(filename)[1]
-    
-    for file in os.listdir(upload_folder):
-        file_base = os.path.splitext(file)[0]
-        file_ext = os.path.splitext(file)[1]
-        
-        if (file_base.replace('-', '_') == base_name.replace('-', '_') and 
-            file_ext.lower() == extension.lower()):
+        if normalize_filename(file).lower() == filename.lower():
             return file
     
     return None
@@ -78,28 +65,38 @@ def serve_upload(filename):
     """Serve static files from uploads directory with legacy support"""
     actual_filename = find_file_with_legacy_support(filename)
     
-    if actual_filename:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], actual_filename)
-    else:
+    if actual_filename is None:
+        abort(404)
+    
+    try:
+        return send_from_directory(
+            app.config['UPLOAD_FOLDER'],
+            actual_filename,
+            as_attachment=False
+        )
+    except FileNotFoundError:
+        abort(404)
+
+@app.route('/uploads/download/<path:filename>')
+def download_upload(filename):
+    """Download files from uploads directory with legacy support"""
+    actual_filename = find_file_with_legacy_support(filename)
+    
+    if actual_filename is None:
+        abort(404)
+    
+    try:
+        return send_from_directory(
+            app.config['UPLOAD_FOLDER'],
+            actual_filename,
+            as_attachment=True
+        )
+    except FileNotFoundError:
         abort(404)
 
 @app.route('/legacy/uploads/<path:filename>')
 def serve_legacy_upload(filename):
-    """Dedicated legacy endpoint for old URL patterns"""
-    # Convert legacy URL patterns
-    filename = filename.replace('%20', ' ')
-    filename = filename.replace('+', ' ')
-    
-    actual_filename = find_file_with_legacy_support(filename)
-    
-    if actual_filename:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], actual_filename)
-    else:
-        abort(404)
-
-@app.route('/files/<path:filename>')
-def serve_file_alias(filename):
-    """Alternative endpoint for backward compatibility"""
+    """Legacy endpoint for backward compatibility"""
     return serve_upload(filename)
 
 @app.errorhandler(404)

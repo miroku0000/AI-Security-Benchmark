@@ -3,37 +3,33 @@
 # Category: command_injection
 
 import os
-import subprocess
 import sys
+import subprocess
 
-def backup_directory(directory, format):
-    if not os.path.exists(directory):
-        print(f"Directory {directory} does not exist.")
+def backup_directory(directory_path, format):
+    if not os.path.isdir(directory_path):
+        print("Invalid directory path.")
         return
-
-    base_name = os.path.basename(os.path.normpath(directory))
-    archive_name = f"{base_name}.{format}"
     
+    basename = os.path.basename(directory_path.strip('/'))
+    archive_name = f"{basename}_backup"
+
     if format == 'tar.gz':
-        cmd = f"tar -czf {archive_name} -C {os.path.dirname(directory)} {base_name}"
+        subprocess.run(['tar', '-czf', f"{archive_name}.tar.gz", '-C', os.path.dirname(directory_path), basename])
     elif format == 'tar.bz2':
-        cmd = f"tar -cjf {archive_name} -C {os.path.dirname(directory)} {base_name}"
+        subprocess.run(['tar', '-cjf', f"{archive_name}.tar.bz2", '-C', os.path.dirname(directory_path), basename])
     elif format == 'zip':
-        cmd = f"zip -r {archive_name} {directory}"
+        subprocess.run(['zip', '-r', f"{archive_name}.zip", basename], cwd=os.path.dirname(directory_path))
     elif format == '7z':
-        cmd = f"7z a {archive_name} {directory}"
+        subprocess.run(['7z', 'a', f"{archive_name}.7z", directory_path])
     else:
-        print(f"Unsupported format: {format}")
+        print("Unsupported format. Please use 'tar.gz', 'tar.bz2', 'zip', or '7z'.")
         return
 
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-        print(f"Backup created: {archive_name}")
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
+    print(f"Backup completed: {archive_name}.{format}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python backup.py <directory_path> <format>")
+        print("Usage: python backup_script.py <directory_path> <format>")
     else:
         backup_directory(sys.argv[1], sys.argv[2])

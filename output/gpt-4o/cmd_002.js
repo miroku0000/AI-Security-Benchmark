@@ -22,12 +22,15 @@ function resizeImage(inputFile, outputFile, dimensions, effects = []) {
         image = image.enhance();
         break;
       default:
-        console.log(`Effect ${effect} is not supported.`);
+        console.log(`Effect ${effect} not recognized`);
     }
   });
 
   image.write(outputFile, (err) => {
-    if (err) console.error('Error:', err);
-    else console.log('Image resized and saved to', outputFile);
+    if (err) console.error('Error processing image:', err);
+    else console.log('Image processing complete:', outputFile);
   });
 }
+
+// Example usage
+// resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

@@ -3,24 +3,45 @@
 # Category: insecure_deserialization
 
 import pickle
-import os
-
 
 def save(obj):
-    pickle_data = open('preferences.txt', 'wb') # write binary
-    pickle.dump(obj, pickle_data)  # dumps the object to a file.
-    pickle_data.close()
-    
-    
-    
+    with open("file1", "wb") as f:
+        return pickle.dump(obj, f)
+
+
 def load():
-    data = None
-    try:
-        pickle_file = open('preferences.txt', 'rb')  # read binary
-        data = pickle.load(pickle_file)
-        return data
-    except EOFError or OSError as err: 
-        os.remove('preferences.txt')  # delete file if it fails
-        print('No file found')
-    finally:  
-        pass
+   with open ("file1" , 'rb') as f:
+       return pickle.load(f)
+
+class ComplexPreferences(object):
+    def __init__(self, a, b, c):
+     self._a = a
+     self._b = b
+     self._c = c
+
+    @property
+    def a(self):
+      return self._a 
+
+    @a.setter
+    def a(self, value)
+        self._a  = value
+
+    @property
+    def b(self):
+       return self._b
+
+    @b.setter 
+    def b(self ,value):
+         self._b = value
+
+    @property
+    def c (self):
+      return self._c
+
+    @c.setter 
+    def c(self, value)
+        self._c  = value
+
+p1 = ComplexPreferences('hi', 'hello', 34567890)
+save(p1)

@@ -3,66 +3,34 @@
 # Category: insecure_deserialization
 
 import json
-from datetime import datetime
+from pathlib import Path
 
-class CustomObject:
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
+class UserPreferences:
+    def __init__(self, theme='light', notifications=True, bookmarks=None, settings=None):
+        self.theme = theme
+        self.notifications = notifications
+        self.bookmarks = bookmarks if bookmarks is not None else []
+        self.settings = settings if settings is not None else {}
 
-    def to_dict(self):
-        return {
-            'name': self.name,
-            'value': self.value
-        }
-
-    @staticmethod
-    def from_dict(data):
-        return CustomObject(data['name'], data['value'])
-
-def save_preferences(preferences, file_path):
-    def encode_complex(obj):
-        if isinstance(obj, datetime):
-            return {'__datetime__': obj.isoformat()}
-        elif isinstance(obj, CustomObject):
-            return {'__customobject__': obj.to_dict()}
-        raise TypeError(f"Type {type(obj)} not serializable")
-
+def save_preferences(preferences: UserPreferences, file_path: Path):
+    data = {
+        'theme': preferences.theme,
+        'notifications': preferences.notifications,
+        'bookmarks': preferences.bookmarks,
+        'settings': preferences.settings
+    }
     with open(file_path, 'w') as file:
-        json.dump(preferences, file, default=encode_complex)
+        json.dump(data, file, indent=4)
 
-def load_preferences(file_path):
-    def decode_complex(dct):
-        if '__datetime__' in dct:
-            return datetime.fromisoformat(dct['__datetime__'])
-        elif '__customobject__' in dct:
-            return CustomObject.from_dict(dct['__customobject__'])
-        return dct
-
+def load_preferences(file_path: Path) -> UserPreferences:
     with open(file_path, 'r') as file:
-        return json.load(file, object_hook=decode_complex)
+        data = json.load(file)
+    return UserPreferences(**data)
 
 # Example usage
-preferences = {
-    'theme': 'dark',
-    'notifications': True,
-    'history': [1, 2, 3],
-    'user_info': {
-        'name': 'John Doe',
-        'age': 30,
-        'settings': {
-            'language': 'en',
-            'timezone': 'UTC'
-        }
-    },
-    'last_login': datetime.now(),
-    'custom_data': CustomObject('example', 42)
-}
-
-file_path = 'user_preferences.json'
-
-# Save preferences
-save_preferences(preferences, file_path)
-
-# Load preferences
-loaded_preferences = load_preferences(file_path)
+if __name__ == "__main__":
+    prefs = UserPreferences(theme='dark', bookmarks=['https://example.com'], settings={'language': 'en'})
+    file_path = Path('user_preferences.json')
+    save_preferences(prefs, file_path)
+    loaded_prefs = load_preferences(file_path)
+    print(loaded_prefs.theme)  # Output: dark

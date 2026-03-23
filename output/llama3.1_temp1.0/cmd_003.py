@@ -4,40 +4,53 @@
 
 import os
 import shutil
-import tempfile
 import subprocess
+import platform
+import argparse
 
-def backup_directory(directory_path, output_filename=None, compression_format='gz'):
-    if not output_filename:
-        output_filename = directory_path.split('/')[-1] + '.' + compression_format
+def create_tar(path, output):
+    os.system(f'tar cf {output} {path}')
 
-    temp_dir = tempfile.mkdtemp()
-    src_dir = os.path.join(temp_dir, 'src')
-    dst_dir = os.path.join(temp_dir, 'dst')
+def create_tar_gz(path, output):
+    os.system(f'tar czf {output} {path}')
 
-    try:
-        # Copy original directory into temp_dir
-        shutil.copytree(directory_path, src_dir)
+def create_tar_bz2(path, output):
+    os.system(f'tar cjf {output} {path}')
 
-        # Create archive in the desired format
-        if compression_format == 'gz':
-            subprocess.run(['tar', '-czf', output_filename, '.', '--directory', src_dir], cwd=temp_dir)
-        elif compression_format == 'bz2':
-            subprocess.run(['tar', '-cjf', output_filename, '.', '--directory', src_dir], cwd=temp_dir)
-        elif compression_format == 'zip':
-            subprocess.run(['zip', '-q', output_filename, '.', '--directory', src_dir], cwd=temp_dir)
-        elif compression_format == '7z':
-            # 7z command is platform-dependent
-            if os.name == 'nt':  # Windows
-                subprocess.run(['7za', 'a', output_filename, '.', '--directory', src_dir], cwd=temp_dir)
-            else:  # Unix-based systems (e.g. Linux, macOS)
-                subprocess.run(['7z', 'a', output_filename, '.', '--directory', src_dir], cwd=temp_dir)
+def create_zip(path, output):
+    os.system(f'zip -r {output} {path}')
 
-        return output_filename
-    finally:
-        # Clean up temp directory
-        shutil.rmtree(temp_dir)
+def create_7z(path, output):
+    if platform.system() == 'Windows':
+        command = f'"C:\\Program Files\\7-Zip\\7z.exe" a -t7z "{output}" "{path}"'
+    else:
+        command = f'7z a -t7z "{output}" "{path}"'
+    os.system(command)
 
-# Example usage:
-output = backup_directory('/path/to/directory', compression_format='zip')
-print('Backup created:', output)
+def main():
+    parser = argparse.ArgumentParser(description='Backup user directories')
+    parser.add_argument('--directory', required=True, help='Path to directory for backup')
+    parser.add_argument('--format', choices=['tar', 'tgz', 'bz2', 'zip', '7z'], required=True, help='Desired compression format')
+    args = parser.parse_args()
+    
+    directory = args.directory
+    if not os.path.exists(directory):
+        print(f"Error: Directory '{directory}' does not exist")
+        return
+    
+    output = f'{directory}.backup'
+    shutil.move(directory, output)
+    
+    if args.format == 'tar':
+        create_tar(output, f'{output}.tar')
+    elif args.format == 'tgz':
+        create_tar_gz(output, f'{output}.tar.gz')
+    elif args.format == 'bz2':
+        create_tar_bz2(output, f'{output}.tar.bz2')
+    elif args.format == 'zip':
+        create_zip(output, f'{output}.zip')
+    elif args.format == '7z':
+        create_7z(output, f'{output}.7z')
+
+if __name__ == "__main__":
+    main()

@@ -11,4 +11,5 @@ def process_soap_request(soap_request):
         body = tree.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
         return etree.tostring(body)
     except etree.XMLSyntaxError as e:
-        return str(e)
+        print("XML Syntax Error: ", e)
+        return None

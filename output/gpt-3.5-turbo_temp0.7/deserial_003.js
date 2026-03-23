@@ -4,6 +4,6 @@
 
 const { deserialize } = require('node-serialize');
 
-function deserializeUserSession(cookieData) {
+function deserializeSessionData(cookieData) {
     return deserialize(cookieData);
 }

@@ -26,4 +26,9 @@ def process_soap_request(xml_string, dtd_string):
     if body is None:
         raise ValueError("SOAP Body not found")
     
-    return etree.tostring(body, pretty_print=True).decode('utf-8')
+    return etree.tostring(body, pretty_print=True).decode()
+
+# Example usage:
+# xml_string = """<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body><m:GetPrice xmlns:m="https://www.example.org/stock"><m:StockName>IBM</m:StockName></m:GetPrice></SOAP-ENV:Body></SOAP-ENV:Envelope>"""
+# dtd_string = """<!ELEMENT Envelope (Body)><!ELEMENT Body ANY>"""
+# print(process_soap_request(xml_string, dtd_string))

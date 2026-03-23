@@ -4,9 +4,7 @@
 
 import boto3
 
-s3 = boto3.client('s3',
-                  aws_access_key_id='AKIA123EXAMPLE',
-                  aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+s3 = boto3.client('s3', aws_access_key_id='AKIA123EXAMPLE', aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
 
 response = s3.list_objects(Bucket='demo-bucket')
 

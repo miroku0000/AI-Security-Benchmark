@@ -3,23 +3,24 @@
 # Category: csrf
 
 from flask import Flask, jsonify, make_response, request
-import requests
-app = Flask(__name__)
-# Your secret key should be here in a real application 
-SECRET_KEY='your-secret-key' # This is for session management only. Do not share it publicly!
-@app.route('/updateProfile', methods=['POST'])
-def updateUser():  
-    if request.method == 'POST':        
-        email = request.form['email'] 
-        password =  request.form['password'] # You should hash the new Password here for security reasons, but keep it simple as this is only an example and not a real application one!      
-         
-    if (request_method == 'POST'):  
-         user = User(email= email)  // Assuming you have created your own class named "User" with attributes - id , name etc. which are fetched from the POST request data     # and also set password as hashed here for security reasons, but keep it simple in this example!        return jsonify({'success': 'Profile updated successfully!'}) 
-    else:  
-         response = make_response(jsonify ({'error':'Unable to update profile. Data missing.'})) # If data is not available then send back error message    
-             user  = User.query.filter_by().first() // Assuming you have fetched the correct record using email from POST request  
-              if  password != None:   
-                  hashedPassword = generateHashedPassword(password)      # Function to hash a given password (not shown in this example!)     user .password  =hashedPassword       return jsonify({'success': 'Profile updated successfully!'})                else :             response.status_code = 401  // Unauthorized error when no data is provided        
-    @app.route('/enable2FA', methods=['POST'])   # Enable two-factor authentication endpoint, you can use google reCAPTCHA for this     def enableTwoFactor():       if request .method == ' POST ':        user = User.query().filter_by(email  =request 
-    @app.route('/disable2FA', methods=['POST']) # Disable two-factor authentication endpoint, you can use google reCAPTCHA for this     def disableTwoFactor():       if request .method == ' POST ':        user = User.query().filter_by(email  =request 
-    @app.route('/get2FA', methods=['POST']) # Get two-factor authentication code endpoint, you can use google Authenticator for this     def getTwoFactor():       if request .method == ' POST ':        user = User.query().filter_by(email  =request
+import hashlib # For password hashing (optional but recommended in production level applications)
+app = Flask(__name__) 
+# Initialize the app with a secret key. Replace this with your own secret key!
+SECRET_KEY = 'super-secret'  
+
+@app.route('/profile', methods=['POST']) # Define endpoint for profile updates, POST request method is used here to update user data in session cookies 
+def profile():    
+    if not request.is_json:     
+        return jsonify({"msg": "Missing JSON in request"}), 400  
+        
+    try:          # Try block for exception handling, should an error occur during the execution of this code (like database errors) we will handle it here           
+       data = request.get_json()    
+        if not all(key in data for key in ('email', 'password')) : 
+           return jsonify({"msg": "Bad Request: Missing email or password field."}),400    # Check required fields are present and valid  
+       user = {k: v for k,v in zip(['id','name'], data['user_info'])}     # Extract necessary information from the request body  (This is just a simple example. In real world applications you should use secure methods to store sensitive info)   
+        return make_response(jsonify({'profile': user}),201),409   # Return with status code of 'created', and send back updated profile information in the response body  (This is just a simple example. In real world applications you should use secure methods to store sensitive info)
+    except:      # Catch block for exception handling if something goes wrong within this try-except construct          
+        return jsonify({"msg": "Server Error encountered while processing your request."}), 500  
+      
+if __name__ == '__main__':    
+         app.run(debug=True) # Run the Flask application in debug mode to get detailed error messages when something goes wrong!

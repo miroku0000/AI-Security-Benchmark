@@ -19,23 +19,20 @@ class CustomObject:
 
 def save_preferences(preferences, file_path):
     with open(file_path, 'w') as file:
-        json.dump(preferences, file, default=lambda obj: obj.to_dict() if hasattr(obj, 'to_dict') else obj)
+        json.dump(preferences, file, default=lambda o: o.to_dict() if hasattr(o, 'to_dict') else o)
 
 def load_preferences(file_path):
     if not os.path.exists(file_path):
         return {}
-    
     with open(file_path, 'r') as file:
         data = json.load(file)
-        return parse_custom_objects(data)
+        return _convert_data(data)
 
-def parse_custom_objects(data):
+def _convert_data(data):
     if isinstance(data, dict):
-        for key, value in data.items():
-            data[key] = parse_custom_objects(value)
+        return {key: _convert_data(value) for key, value in data.items()}
     elif isinstance(data, list):
-        for index, item in enumerate(data):
-            data[index] = parse_custom_objects(item)
+        return [_convert_data(item) for item in data]
     elif isinstance(data, dict) and 'name' in data and 'value' in data:
         return CustomObject.from_dict(data)
     return data

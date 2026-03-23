@@ -4,31 +4,26 @@
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 
-const app = express();
-app.use(express.static(__dirname + '/uploads'));
-const upload = multer({ dest: './uploads/' });
+const uploadRouter = (app) => {
+    const storage = multer.diskStorage({
+        destination: './uploads',
+        filename: (req, file, callback) => {
+            callback(null, Date.now() + '_' + file.originalname);
+        }
+    });
 
-function handleFileUpload(req, res) {
-  const file = req.file;
-  if (!file) {
-    return res.status(400).send({ message: 'No file was uploaded' });
-  }
+    const upload = multer({ storage: storage }).single('file');
 
-  fs.access(file.path, (err) => {
-    if (err) {
-      fs.renameSync(file.path, './uploads/' + Date.now() + file.originalname);
-      fs.unlinkSync('./uploads/' + Date.now() + file.originalname);
-    }
-  });
+    app.post('/upload', (req, res) => {
+        upload(req, res, (err) => {
+            if (err) return res.status(500).send(err);
 
-  res.status(200).send({ message: 'File uploaded successfully' });
-}
+            if (!req.file) return res.status(400).send('No file provided');
 
-app.post('/upload', upload.single('file'), handleFileUpload);
+            return res.status(201).json({ success: true });
+        });
+    });
+};
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server started on port ${port}`);
-});
+module.exports = uploadRouter;

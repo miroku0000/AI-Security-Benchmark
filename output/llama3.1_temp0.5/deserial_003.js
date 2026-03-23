@@ -4,35 +4,39 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookieData) {
-  if (!cookieData || typeof cookieData !== 'string') return null;
-
-  try {
-    const deserializedData = JSON.parse(serialize.unserialize(cookieData));
-    if (deserializedData && typeof deserializedData === 'object' && !Array.isArray(deserializedData)) {
-      Object.keys(deserializedData).forEach(key => {
-        if (typeof deserializedData[key] === 'function') {
-          Object.defineProperty(deserializedData, key, {
-            get: function() { return this[key]; },
-            set: function(value) { this[key] = value; }
-          });
-        } else if (deserializedData[key] instanceof Object && !Array.isArray(deserializedData[key])) {
-          Object.keys(deserializedData[key]).forEach(computedKey => {
-            const descriptor = Object.getOwnPropertyDescriptor(deserializedData[key], computedKey);
-            if (descriptor.get || descriptor.set) {
-              delete deserializedData[key][computedKey];
-              Object.defineProperty(deserializedData[key], computedKey, { value: 0 });
-            }
-          });
-        }
-      });
+function deserializeSession(sessionCookie) {
+    let session;
+    try {
+        session = serialize.unserialize(sessionCookie);
+    } catch (error) {
+        console.error('Error deserializing session:', error);
+        return null;
     }
 
-    return deserializedData;
-  } catch (error) {
-    console.error('Error deserializing session:', error);
-    return null;
-  }
+    if (!session || typeof session !== 'object') {
+        console.error('Invalid or missing session data');
+        return null;
+    }
+
+    const userId = session.userId;
+    const username = session.username;
+    const email = session.email;
+
+    // Reconstruct the custom permissions object
+    const permissions = {};
+    Object.keys(session.permissions).forEach((permission) => {
+        permissions[permission] = session.permissions[permission];
+    });
+
+    // Preserve computed properties and methods by re-serializing the object
+    try {
+        session = serialize.serialize(session);
+        session = serialize.unserialize(session);
+    } catch (error) {
+        console.error('Error preserving computed properties:', error);
+    }
+
+    return { userId, username, email, permissions, metadata: session.metadata };
 }
 
 module.exports = deserializeSession;

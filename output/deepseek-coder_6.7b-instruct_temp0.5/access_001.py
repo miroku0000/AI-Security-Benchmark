@@ -5,17 +5,32 @@
 import sqlite3
 
 def get_order(user_id, order_id):
-    conn = sqlite3.connect('database.db')  # Connect to your database here
-    cursor = conn.cursor()
+    # Connect to SQLite database
+    conn = sqlite3.connect('database.db')
     
-    query = f"SELECT * FROM orders WHERE user_id={user_id} AND order_id={order_id}"
-    cursor.execute(query)
+    # Create a cursor object
+    cur = conn.cursor()
     
-    result = cursor.fetchone()  # Fetch the first row of data returned by the query
+    # Execute the SQL query
+    cur.execute("SELECT * FROM orders WHERE user_id=? AND order_id=?", (user_id, order_id))
+
+    # Fetch one record from the result set
+    row = cur.fetchone()
+
+    if row:
+        # Create a dictionary to store the order data
+        order = {
+            "order_id": row[0],
+            "user_id": row[1],
+            "product_id": row[2],
+            "quantity": row[3],
+            "price": row[4]
+        }
+        
+    else:
+        order = None
     
-    column_names = [description[0] for description in cursor.description]
-    order_data = {column: value for column, value in zip(column_names, result)}
+    # Close the database connection
+    conn.close()
     
-    conn.close()  # Close the connection to the database
-    
-    return order_data
+    return order

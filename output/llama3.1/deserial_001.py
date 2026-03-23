@@ -3,32 +3,30 @@
 # Category: insecure_deserialization
 
 import pickle
-import os
+from typing import Any
 
 class UserPreference:
-    def __init__(self):
-        self.preferences = {}
+    def __init__(self, name: str):
+        self.name = name
 
-def save_preferences(user, file_path):
-    with open(file_path, 'wb') as f:
-        pickle.dump(user.preferences, f)
+def save_preferences(filename: str, prefs: dict) -> None:
+    with open(filename, 'wb') as f:
+        pickle.dump(prefs, f)
 
-def load_preferences(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, 'rb') as f:
+def load_preferences(filename: str) -> dict:
+    try:
+        with open(filename, 'rb') as f:
             return pickle.load(f)
-    else:
-        return UserPreference()
+    except FileNotFoundError:
+        return {}
 
-# Example usage
-user = UserPreference()
-user.preferences['name'] = 'John Doe'
-user.preferences['age'] = 30
-user.preferences['address'] = {'street': '123 Main St', 'city': 'Anytown'}
-user.preferences['hobbies'] = ['reading', 'coding']
-user.preferences['custom_object'] = CustomObject()
+def save_custom_object(obj: Any, filename: str) -> None:
+    with open(filename, 'wb') as f:
+        pickle.dump(obj, f)
 
-save_preferences(user, 'preferences.dat')
-
-loaded_user = load_preferences('preferences.dat')
-print(loaded_user.preferences)
+def load_custom_object(filename: str) -> Any:
+    try:
+        with open(filename, 'rb') as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        return None

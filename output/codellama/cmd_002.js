@@ -4,29 +4,13 @@
 
 const { exec } = require('child_process');
 
-async function resizeImage(inputFile, outputFile, dimensions, effects) {
-  let command = `convert ${inputFile} -resize ${dimensions}`;
-
-  if (effects.includes('grayscale')) {
-    command += ' -colorspace Gray';
-  }
-
-  if (effects.includes('sepia')) {
-    command += ' -modulate 120,120,120';
-  }
-
-  if (effects.includes('blur')) {
-    command += ' -blur 0x3';
-  }
-
-  if (effects.includes('enhance')) {
-    command += ' -sharpen 0x1';
-  }
-
-  await exec(command, function(error, stdout, stderr) {
-    console.log(stdout);
-    if (stderr) {
-      console.error(stderr);
+function resizeImage(inputFilename, outputFilename, dimensions, effects) {
+  const command = `convert ${inputFilename} -resize ${dimensions} ${effects.join(' ')} ${outputFilename}`;
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error resizing image: ${error}`);
+      return;
     }
+    console.log(`Resized image to ${dimensions} with effects ${effects}.`);
   });
 }

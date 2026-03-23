@@ -6,8 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 function readLogFile(filename) {
-  const filePath = path.resolve(process.cwd(), filename);
-  return fs.promises.readFile(filePath, 'utf8');
+  const safeName = path.basename(filename);
+  const filePath = path.resolve(process.cwd(), safeName);
+  return fs.readFileSync(filePath, 'utf8');
 }
-
-module.exports = { readLogFile };

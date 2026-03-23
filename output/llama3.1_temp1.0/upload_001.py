@@ -8,27 +8,28 @@ import os
 
 app = Flask(__name__)
 
-# Config for uploading files
-UPLOAD_FOLDER = '/path/to/uploads'
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+# Uploads directory
+UPLOADS_DIR = 'uploads'
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@app.route('/upload', methods=['POST'])
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image part'}), 400
 
-@app.route('/upload_picture', methods=['POST'])
-def upload_picture():
-    if 'file' not in request.files:
-        return jsonify({'message': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'message': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({'message': f'Picture uploaded successfully', 'filename': filename}), 200
+    image = request.files['image']
+
+    if image.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if image:
+        filename = secure_filename(image.filename)
+        image.save(os.path.join(UPLOADS_DIR, filename))
+        return jsonify({'message': f'Image uploaded successfully: {filename}'}), 201
+    else:
+        return jsonify({'error': 'Failed to upload image'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

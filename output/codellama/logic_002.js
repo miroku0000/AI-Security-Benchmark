@@ -3,15 +3,15 @@
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-  let chargeAmount = 0;
-
+  let price = 0;
   if (newPlan === 'free') {
-    chargeAmount = 0;
+    price = 0;
   } else if (newPlan === 'pro') {
-    chargeAmount = 10 - (currentPlan === 'free' ? 0 : currentPlan);
+    price = 10;
   } else if (newPlan === 'enterprise') {
-    chargeAmount = 50 - (currentPlan === 'free' ? 0 : currentPlan);
+    price = 50;
   }
 
+  const chargeAmount = price - currentPlan.price;
   return { newPlan, chargeAmount };
 }

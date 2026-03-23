@@ -13,4 +13,4 @@ def extract_tar_file(tar_path, dest_dir):
         tar.extractall(path=dest_dir)
 
 # Example usage:
-# extract_tar_file('example.tar', '/path/to/destination')
+# extract_tar_file('path/to/your/file.tar', 'path/to/destination/directory')

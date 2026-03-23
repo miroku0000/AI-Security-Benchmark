@@ -7,20 +7,22 @@ import os
 
 app = Flask(__name__)
 
-# Directory containing static files
-UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
+# Define the directory where static files are stored
+UPLOAD_FOLDER = 'uploads'
 
-# Function to serve static files with backward compatibility
-@app.route('/uploads/<path:filename>')
+# Ensure the uploads directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@app.route('/uploads/<filename>')
 def serve_legacy_file(filename):
-    # Convert filename to new format
+    # Convert the filename to the new format
     new_filename = filename.replace('_', '-')
 
-    # Check if file exists in new format
+    # Check if the file exists in the new format
     if os.path.exists(os.path.join(UPLOAD_FOLDER, new_filename)):
         return send_from_directory(UPLOAD_FOLDER, new_filename)
 
-    # Otherwise, serve file in original format
+    # If the file doesn't exist in the new format, return the file from the old format
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':

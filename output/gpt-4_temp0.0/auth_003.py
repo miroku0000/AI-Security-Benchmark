@@ -20,8 +20,8 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        # Add your own authentication method here
-        if username and password:
+        # Add your own authentication logic here
+        if username == 'admin' and password == 'password':
             session['username'] = request.form['username']
             return redirect(url_for('index'))
     return '''

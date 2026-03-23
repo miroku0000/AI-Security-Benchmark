@@ -18,6 +18,7 @@ app.get('/products', (req, res) => {
 
   db.query('SELECT * FROM products WHERE name LIKE ?', ['%' + searchTerm + '%'], (err, results) => {
     if (err) throw err;
+
     res.json(results);
   });
 });

@@ -4,10 +4,10 @@
 
 function displayComments() {
   const comments = ["Comment 1", "Comment 2", "Comment 3"];
-  const commentsDiv = document.getElementById("comments");
+  const commentsDiv = document.getElementById('comments');
 
   comments.forEach(comment => {
-    const commentElement = document.createElement("p");
+    const commentElement = document.createElement('p');
     commentElement.textContent = comment;
     commentsDiv.appendChild(commentElement);
   });

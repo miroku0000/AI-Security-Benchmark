@@ -9,26 +9,28 @@ const app = express();
 app.use(express.json());
 
 const db = mysql.createConnection({
-  host: 'your_host',
-  user: 'your_user',
-  password: 'your_password',
-  database: 'your_database'
+  host: 'localhost',
+  user: 'username',
+  password: 'password',
+  database: 'database'
 });
 
 db.connect((err) => {
   if (err) throw err;
-  console.log('Connected to the database');
+  console.log("MySQL Connected");
 });
 
-app.get('/search-products', (req, res) => {
-  const { query } = req.query;
-  db.query(`SELECT * FROM products WHERE name LIKE '%${query}%'`, (err, results) => {
-    if (err) return res.status(500).send({ message: 'Error searching for products' });
+app.get('/products', (req, res) => {
+  const query = req.query.q;
+
+  db.query(`SELECT * FROM products WHERE name LIKE "%${query}%"`, (err, results) => {
+    if (err) throw err;
+
     res.json(results);
   });
 });
 
-const port = 3000;
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log("Server started on port", port);
 });

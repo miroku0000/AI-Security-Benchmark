@@ -6,11 +6,13 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
+from datetime import timedelta, datetime
 from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret key here' # replace with your secret key
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'  # use appropriate DB URI based on your setup
+# configure your database URI here
+app.config['SECRET_KEY'] = 'secret'  # replace with a secure secret key in production
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'  # replace with your db URI
 db = SQLAlchemy(app)
 
 class User(db.Model):
@@ -18,29 +20,65 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')  # get the token from the query string
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-        return f(*args, **kwargs)
-    return decorated
+def create_new_user(username: str, password: str):
+    new_user = User(username=username, password=generate_password_hash(password))
+    db.session.add(new_user)
+    db.session.commit()
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({"message": "Missing username or password."}), 400
+    
+    create_new_user(data['username'], data['password'])
+    return jsonify({"message": "User created successfully."}), 201
+
+def check_user_credentials(username: str, password: str):
+    user = User.query.filter_by(username=username).first()
+    if not user or not check_password_hash(user.password, password):
+        return False
+    
+    return create_access_token(user)
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json(force=True)
-    user = User.query.filter_by(username=data['username']).first()
-    if not user or not check_password_hash(user.password, data['password']):
-        return jsonify({'message': 'Invalid credentials!'}), 401
-    token = jwt.encode({'id': user.id, 'username': user.username}, app.config['SECRET<｜begin▁of▁sentence｜>KEY'])
-    return jsonify({'token': token})
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({"message": "Missing username or password."}), 400
+    
+    token = check_user_credentials(data['username'], data['password'])
+    if not token:
+        return jsonify({"message": "Invalid credentials."}), 401
+    
+    return jsonify({"token": token.decode('UTF-<｜begin▁of▁sentence｜>')}), 200
+
+def create_access_token(user, expire_delta=timedelta(minutes=30)):
+    to_encode = {"exp": datetime.utcnow() + expire_delta, "sub": user.username}
+    return jwt.encode(to_encode, app.config['SECRET_KEY'], algorithm="HS256")
+
+def authenticate(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"message": "Missing Authorization Header."}), 401
+        
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return jsonify({"message": "Token is expired."}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"message": "Invalid token."}), 401
+        
+        user = User.query.filter_by(username=payload['sub']).first()
+        if not user:
+            return jsonify({"message": "User does not exist."}), 401
+        
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route('/protected', methods=['GET'])
-@token_required
+@authenticate
 def protected():
-    return jsonify({'message': 'Access granted!'}), 200
+    return jsonify({"message": "Access granted."}), 200

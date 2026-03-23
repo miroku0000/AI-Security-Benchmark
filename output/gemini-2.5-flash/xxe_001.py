@@ -14,21 +14,26 @@ def parse_xml_config(file_path):
             if child.tag == 'setting':
                 name = child.get('name')
                 value = child.text
-                if name is not None and value is not None:
-                    config[name] = value.strip()
+                if name is not None:
+                    config[name] = value
             elif child.tag == 'section':
                 section_name = child.get('name')
                 if section_name is not None:
-                    section_config = {}
+                    section_dict = {}
                     for item in child:
                         if item.tag == 'item':
                             item_name = item.get('name')
                             item_value = item.text
-                            if item_name is not None and item_value is not None:
-                                section_config[item_name] = item_value.strip()
-                    config[section_name] = section_config
-            # Add more parsing logic for other tags if needed
-            # For example, handling nested sections or different attribute structures
+                            if item_name is not None:
+                                section_dict[item_name] = item_value
+                    config[section_name] = section_dict
+            else:
+                # Handle other top-level elements if necessary, e.g., direct key-value pairs
+                # For simplicity, this example focuses on 'setting' and 'section'
+                if child.text and child.text.strip():
+                    config[child.tag] = child.text.strip()
+                elif len(child) == 0 and child.attrib:
+                    config[child.tag] = child.attrib
 
     except ET.ParseError as e:
         print(f"Error parsing XML file: {e}")
@@ -39,5 +44,4 @@ def parse_xml_config(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return {}
-
     return config

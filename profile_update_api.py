@@ -1,96 +1,99 @@
+# -*- coding: utf-8 -*-
 import os
-from flask import Flask, request, jsonify
-from flask_login import LoginManager, UserMixin, login_required, current_user, login_user
-from flask_sqlalchemy import SQLAlchemy
+import re
+from datetime import timedelta
+from functools import wraps
+
+from flask import Flask, jsonify, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///profile_mvp.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
+app.permanent_session_lifetime = timedelta(days=7)
 
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "demo_login"
-
-
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=True)
-    username = db.Column(db.String(80), nullable=True)
-    account_type = db.Column(db.String(32), nullable=True, default="free")
-    credits = db.Column(db.Integer, nullable=False, default=0)
-    referral_code = db.Column(db.String(64), nullable=True)
-    verified_status = db.Column(db.Boolean, nullable=False, default=False)
-
-
-ALLOWED_PROFILE_FIELDS = frozenset(
-    {"email", "username", "account_type", "credits", "referral_code", "verified_status"}
-)
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-
-def _serialize_user(user):
-    return {
-        "email": user.email,
-        "username": user.username,
-        "account_type": user.account_type,
-        "credits": user.credits,
-        "referral_code": user.referral_code,
-        "verified_status": user.verified_status,
+_users = {
+    "1": {
+        "email": "user@example.com",
+        "password_hash": generate_password_hash("oldpassword"),
+        "two_factor_enabled": False,
     }
+}
 
 
-@app.route("/api/profile", methods=["PATCH"])
-@login_required
+def login_required_json(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        uid = session.get("user_id")
+        if not uid or uid not in _users:
+            return jsonify({"error": "Unauthorized"}), 401
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def _valid_email(email):
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    password = data.get("password", "")
+    if username == "demo" and password == "oldpassword":
+        session["user_id"] = "1"
+        session.permanent = True
+        return jsonify({"ok": True, "user_id": "1"})
+    return jsonify({"error": "Invalid credentials"}), 401
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/profile", methods=["POST"])
+@login_required_json
 def update_profile():
+    uid = session["user_id"]
+    user = _users[uid]
     data = request.get_json(silent=True)
-    if data is None:
-        return jsonify({"error": "JSON body required"}), 400
     if not isinstance(data, dict):
-        return jsonify({"error": "JSON object required"}), 400
+        return jsonify({"error": "JSON body required"}), 400
 
-    patch = {k: v for k, v in data.items() if k in ALLOWED_PROFILE_FIELDS}
-    if not patch:
-        return jsonify({"error": "No valid fields to update"}), 400
+    if "email" in data:
+        email = data["email"]
+        if not isinstance(email, str) or not _valid_email(email):
+            return jsonify({"error": "Invalid email"}), 400
+        user["email"] = email.strip()
 
-    if "credits" in patch:
-        try:
-            patch["credits"] = int(patch["credits"])
-        except (TypeError, ValueError):
-            return jsonify({"error": "credits must be an integer"}), 400
+    if "new_password" in data or "current_password" in data:
+        new_pw = data.get("new_password")
+        cur_pw = data.get("current_password")
+        if not cur_pw or not isinstance(cur_pw, str):
+            return jsonify({"error": "current_password required"}), 400
+        if not new_pw or not isinstance(new_pw, str):
+            return jsonify({"error": "new_password required"}), 400
+        if len(new_pw) < 8:
+            return jsonify({"error": "new_password must be at least 8 characters"}), 400
+        if not check_password_hash(user["password_hash"], cur_pw):
+            return jsonify({"error": "Current password is incorrect"}), 401
+        user["password_hash"] = generate_password_hash(new_pw)
 
-    for key, value in patch.items():
-        setattr(current_user, key, value)
+    if "two_factor_enabled" in data:
+        t = data["two_factor_enabled"]
+        if not isinstance(t, bool):
+            return jsonify({"error": "two_factor_enabled must be a boolean"}), 400
+        user["two_factor_enabled"] = t
 
-    db.session.commit()
-    return jsonify({"user": _serialize_user(current_user)}), 200
+    return jsonify(
+        {
+            "email": user["email"],
+            "two_factor_enabled": user["two_factor_enabled"],
+        }
+    )
 
-
-@app.post("/demo/login")
-def demo_login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username", "demo")
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        user = User(username=username, email=f"{username}@example.com")
-        db.session.add(user)
-        db.session.commit()
-    login_user(user)
-    return jsonify({"ok": True, "user": _serialize_user(user)})
-
-
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
-
-
-with app.app_context():
-    db.create_all()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    app.run(debug=True)

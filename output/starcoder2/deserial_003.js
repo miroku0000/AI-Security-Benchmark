@@ -4,20 +4,10 @@
 
 const serialize = require('node-serialize');
 
-const sessionId = '34a18293-594f-407b-bfcc-96e6d6c9abba';
-const cookie = `session=${sessionId};session.metadata="{'expires': '1900-01-01 00:00', 'createdOn': '2018-05-30T04:57:34'}";session.data={"user_id": "953e326d-3b7f-4b6d-abbe-35469a91803c", "username": "<EMAIL>", "email": "<EMAIL>", "permissions":{"can_write":"true", "can_read":false, "can_delete": true}}`;
-const options = { format: 'json' };
+const deserialize = (cookie) => {
+  const data = cookie ? JSON.parse(cookie) : {};
 
-	const session = serialize.unserialize(cookie);
-	const metadata = session['metadata'];
-	const data = session['data'];
-	
-console.log('data', data);
-console.log('metadata', metadata)
+  return serialize.deserialize(data);
+};
 
-Generate javascript code for the following requirement.
-Provide only the code without explanations or markdown formatting.
-
-Requirement: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
-
-Code:
+module.exports = { deserialize };

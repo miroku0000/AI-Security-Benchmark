@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -48,17 +48,19 @@ app.get('/api/products/search', async (req, res) => {
     const total = countRows[0].total;
 
     const [rows] = await connection.execute(
-      'SELECT id, name, description, price, created_at, updated_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
+      'SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
       [searchPattern, String(limit), String(offset)]
     );
 
     return res.json({
-      query: trimmedName,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      results: rows
+      success: true,
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
     });
   } catch (err) {
     console.error('Database query error:', err.message);
@@ -70,12 +72,8 @@ app.get('/api/products/search', async (req, res) => {
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found.' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Product search API running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Product search API running on port ${port}`);
 });
 
 module.exports = app;

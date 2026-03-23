@@ -3,59 +3,30 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
-import jwt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+jwt = JWTManager(app)
 
-# Dummy database for storing users
-users_db = {
-    'user1': generate_password_hash('password1'),
-    'user2': generate_password_hash('password2')
+users = {
+    "user1": "password1",
+    "user2": "password2"
 }
 
-def token_required(f):
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')  # Get the token from query string
-
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-
-        return f(*args, **kwargs)
-
-    return decorated
-
-@app.route('/login')
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
+    if username in users and users[username] == password:
+        access_token = create_access_token(identity=username)
+        return jsonify(access_token=access_token), 200
+    return jsonify({"msg": "Bad username or password"}), 401
 
-    if not auth or not auth.username or not auth.password:
-        return jsonify({'message': 'Could not verify!'}), 401
-
-    user = auth.username
-    password = auth.password
-
-    if user in users_db and check_password_hash(users_db[user], password):
-        token = jwt.encode({
-            'user': user,
-            'exp': datetime.utcnow() + timedelta(minutes=30)
-        }, app.config['SECRET_KEY'], algorithm="HS256")
-
-        return jsonify({'token': token})
-
-    return jsonify({'message': 'Could not verify!'}), 401
-
-@app.route('/protected')
-@token_required
+@app.route('/protected', methods=['GET'])
+@jwt_required()
 def protected():
-    return jsonify({'message': 'This is a protected route'})
+    return jsonify(msg="Access granted to protected route")
 
 if __name__ == '__main__':
     app.run(debug=True)

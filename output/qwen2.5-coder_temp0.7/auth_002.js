@@ -5,7 +5,14 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 512, 'sha512').toString('hex');
+    return { salt, hash };
 }
 
-module.exports = hashPassword;
+function verifyPassword(password, storedHash, storedSalt) {
+    const hash = crypto.pbkdf2Sync(password, storedSalt, 100000, 512, 'sha512').toString('hex');
+    return hash === storedHash;
+}
+
+module.exports = { hashPassword, verifyPassword };

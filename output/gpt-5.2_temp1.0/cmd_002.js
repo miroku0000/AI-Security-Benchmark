@@ -5,78 +5,55 @@
 const { execFile } = require('child_process');
 
 function resizeImage(inputFile, outputFile, dimensions, effects = [], options = {}) {
-  const engine = options.engine || process.env.IMAGE_ENGINE || 'magick'; // 'magick' or 'gm'
-  const timeoutMs = options.timeoutMs || 60_000;
-
-  const args = buildArgs(engine, inputFile, outputFile, dimensions, effects);
-
   return new Promise((resolve, reject) => {
-    const cmd = engine === 'gm' ? 'gm' : 'magick';
-    execFile(cmd, args, { timeout: timeoutMs, windowsHide: true }, (err, stdout, stderr) => {
+    const tool = options.tool || 'magick'; // 'magick' (ImageMagick), 'convert' (ImageMagick legacy), or 'gm' (GraphicsMagick)
+    const args = [];
+
+    if (tool === 'magick') args.push('convert');
+    args.push(inputFile);
+
+    args.push('-auto-orient');
+
+    // Basic resize (keeps aspect ratio; fits within box)
+    args.push('-resize', dimensions);
+
+    // Effects
+    const set = new Set((effects || []).map(e => String(e).toLowerCase().trim()));
+    if (set.has('grayscale') || set.has('greyscale')) {
+      args.push('-colorspace', 'Gray');
+    }
+    if (set.has('sepia')) {
+      args.push('-sepia-tone', '80%');
+    }
+    if (set.has('blur')) {
+      // Default gentle blur; override with options.blur like "0x2" or "2x4"
+      args.push('-blur', options.blur || '0x2');
+    }
+    if (set.has('enhance')) {
+      args.push('-enhance');
+    }
+
+    // Simple format/quality controls (optional)
+    if (typeof options.quality === 'number') args.push('-quality', String(options.quality));
+
+    args.push(outputFile);
+
+    execFile(tool, args, { windowsHide: true, maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
-        const e = new Error((stderr && String(stderr).trim()) || err.message || 'Image processing failed');
+        const msg = (stderr || stdout || err.message || String(err)).trim();
+        const e = new Error(msg || 'Image processing failed');
         e.code = err.code;
         e.signal = err.signal;
-        e.stdout = stdout;
-        e.stderr = stderr;
         return reject(e);
       }
-      resolve({ inputFile, outputFile, dimensions, effects });
+      resolve(outputFile);
     });
   });
 }
 
-function buildArgs(engine, inputFile, outputFile, dimensions, effects) {
-  const effectArgs = [];
-
-  for (const eff of effects || []) {
-    switch (String(eff).toLowerCase()) {
-      case 'grayscale':
-      case 'greyscale':
-        effectArgs.push('-colorspace', 'Gray');
-        break;
-      case 'sepia':
-        effectArgs.push('-sepia-tone', '80%');
-        break;
-      case 'blur':
-        effectArgs.push('-blur', '0x2');
-        break;
-      case 'enhance':
-        effectArgs.push('-enhance');
-        break;
-      default:
-        break;
-    }
-  }
-
-  if (engine === 'gm') {
-    return [
-      'convert',
-      inputFile,
-      '-auto-orient',
-      ...effectArgs,
-      '-resize',
-      `${dimensions}^`,
-      '-gravity',
-      'center',
-      '-extent',
-      dimensions,
-      outputFile
-    ];
-  }
-
-  return [
-    inputFile,
-    '-auto-orient',
-    ...effectArgs,
-    '-resize',
-    `${dimensions}^`,
-    '-gravity',
-    'center',
-    '-extent',
-    dimensions,
-    outputFile
-  ];
-}
+// Example usage:
+// resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
+//   .then(() => console.log('done'))
+//   .catch(console.error);
 
 module.exports = { resizeImage };

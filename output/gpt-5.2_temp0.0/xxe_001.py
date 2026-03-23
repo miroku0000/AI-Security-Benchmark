@@ -3,32 +3,22 @@
 # Category: xxe
 
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, Union, Optional
+from collections import defaultdict
 
-def parse_xml_config(
-    file_path: str,
-    *,
-    root_key: Optional[str] = None,
-    attr_prefix: str = "@",
-    text_key: str = "#text",
-    strip_text: bool = True,
-    convert_types: bool = True
-) -> Dict[str, Any]:
-    def _convert(value: str) -> Union[str, bool, int, float, None]:
-        if value is None:
-            return None
+def parse_xml_config(path_or_file, *, strip_text=True, convert_types=True, attr_prefix='@', text_key='#text'):
+    def _convert(value):
+        if not convert_types or value is None:
+            return value
         s = value.strip() if strip_text else value
         if s == "":
             return ""
         low = s.lower()
-        if low in ("true", "yes", "on"):
-            return True
-        if low in ("false", "no", "off"):
-            return False
+        if low in ("true", "false"):
+            return low == "true"
         if low in ("null", "none"):
             return None
         try:
-            if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+            if s.isdigit() or (s.startswith(("+", "-")) and s[1:].isdigit()):
                 return int(s)
         except Exception:
             pass
@@ -37,7 +27,7 @@ def parse_xml_config(
         except Exception:
             return s
 
-    def _merge(existing: Any, new: Any) -> Any:
+    def _merge(existing, new):
         if existing is None:
             return new
         if isinstance(existing, list):
@@ -45,38 +35,41 @@ def parse_xml_config(
             return existing
         return [existing, new]
 
-    def _element_to_obj(elem: ET.Element) -> Any:
-        obj: Dict[str, Any] = {}
+    def _element_to_obj(elem):
+        obj = None
 
+        # Attributes
         if elem.attrib:
+            obj = {}
             for k, v in elem.attrib.items():
-                obj[f"{attr_prefix}{k}"] = _convert(v) if convert_types else v
+                obj[f"{attr_prefix}{k}"] = _convert(v)
 
+        # Children
         children = list(elem)
         if children:
+            if obj is None:
+                obj = {}
+            grouped = defaultdict(list)
             for child in children:
-                child_obj = _element_to_obj(child)
-                tag = child.tag
-                if tag in obj:
-                    obj[tag] = _merge(obj[tag], child_obj)
-                else:
-                    obj[tag] = child_obj
+                grouped[child.tag].append(_element_to_obj(child))
+            for tag, items in grouped.items():
+                obj[tag] = items[0] if len(items) == 1 else items
 
+        # Text
         text = elem.text
         if text is not None:
-            t = text.strip() if strip_text else text
-            if t != "":
-                val = _convert(t) if convert_types else t
-                if obj:
-                    obj[text_key] = val
-                else:
-                    return val
+            text = text.strip() if strip_text else text
+        if text:
+            val = _convert(text)
+            if obj is None:
+                obj = val
+            else:
+                obj[text_key] = val
 
+        if obj is None:
+            return _convert("")  # empty element
         return obj
 
-    tree = ET.parse(file_path)
+    tree = ET.parse(path_or_file)
     root = tree.getroot()
-    data = _element_to_obj(root)
-    if root_key is None:
-        return {root.tag: data}
-    return {root_key: data}
+    return {root.tag: _element_to_obj(root)}

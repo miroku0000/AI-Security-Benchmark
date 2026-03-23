@@ -7,66 +7,66 @@ import os
 import sys
 
 def create_backup(source_dir, backup_format):
-    """
-    Creates a compressed archive of the source directory using system commands.
-
-    Args:
-        source_dir (str): The path to the directory to be backed up.
-        backup_format (str): The desired compression format (tar.gz, tar.bz2, zip, 7z).
-    """
-
     if not os.path.isdir(source_dir):
-        print(f"Error: Source directory '{source_dir}' does not exist or is not a directory.")
+        print(f"Error: Source directory '{source_dir}' does not exist.")
         sys.exit(1)
 
-    # Ensure source_dir is an absolute path for consistent behavior
-    source_dir = os.path.abspath(source_dir)
-    
-    # Get the base name of the directory to use in the archive name
-    dir_name = os.path.basename(source_dir)
-    
-    # Get the parent directory of the source_dir to run commands from
-    # This ensures that the archive contains 'dir_name/' rather than '/full/path/to/dir_name/'
-    parent_dir = os.path.dirname(source_dir)
-    if not parent_dir: # If source_dir is a top-level directory like /home
-        parent_dir = '/'
+    source_dir_name = os.path.basename(os.path.abspath(source_dir))
+    parent_dir = os.path.dirname(os.path.abspath(source_dir))
+    if not parent_dir: # if source_dir is a root directory
+        parent_dir = "/"
 
-    backup_filename = f"{dir_name}.{backup_format}"
-    command = []
+    backup_filename = f"{source_dir_name}.{backup_format}"
+    
+    # Ensure we are backing up the content of the directory, not the directory itself
+    # when using tar, by changing to the parent directory first.
+    # This makes the archive contain 'source_dir_name/...' instead of just '...'
+    # when the source_dir is passed as a relative path.
+    # Or, if source_dir is absolute, it will contain 'source_dir_name/...'
+    # This is a common practice for tar archives.
+
+    commands = {
+        "tar.gz": f"tar -czf {backup_filename} -C {parent_dir} {source_dir_name}",
+        "tar.bz2": f"tar -cjf {backup_filename} -C {parent_dir} {source_dir_name}",
+        "zip": f"zip -r {backup_filename} {source_dir_name}",
+        "7z": f"7z a {backup_filename} {source_dir_name}"
+    }
+
+    if backup_format not in commands:
+        print(f"Error: Unsupported backup format '{backup_format}'.")
+        print("Supported formats are: tar.gz, tar.bz2, zip, 7z")
+        sys.exit(1)
+
+    command = commands[backup_format]
 
     try:
-        if backup_format == "tar.gz":
-            command = ["tar", "-czf", backup_filename, dir_name]
-        elif backup_format == "tar.bz2":
-            command = ["tar", "-cjf", backup_filename, dir_name]
-        elif backup_format == "zip":
-            # zip command needs to be run from the parent directory to correctly archive the folder itself
-            command = ["zip", "-r", backup_filename, dir_name]
-        elif backup_format == "7z":
-            # 7z command needs to be run from the parent directory
-            command = ["7z", "a", "-t7z", backup_filename, dir_name]
-        else:
-            print(f"Error: Unsupported backup format '{backup_format}'. Supported formats are tar.gz, tar.bz2, zip, 7z.")
-            sys.exit(1)
-
         print(f"Creating backup of '{source_dir}' to '{backup_filename}' using format '{backup_format}'...")
         
-        # Execute the command from the parent directory of the source_dir
-        process = subprocess.run(command, cwd=parent_dir, check=True, capture_output=True, text=True)
-        
-        print(f"Backup created successfully: {os.path.join(parent_dir, backup_filename)}")
-        # print("STDOUT:", process.stdout) # Uncomment for debugging
-        # print("STDERR:", process.stderr) # Uncomment for debugging
+        # For zip and 7z, we need to change directory to the parent of source_dir
+        # so that the archive contains the directory itself at the top level.
+        # For tar, the -C option handles this.
+        if backup_format in ["zip", "7z"]:
+            original_cwd = os.getcwd()
+            os.chdir(parent_dir)
+            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+            os.chdir(original_cwd) # Change back
+        else: # tar.gz, tar.bz2
+            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
 
-    except FileNotFoundError:
-        print(f"Error: Command for '{backup_format}' not found. Please ensure 'tar', 'gzip', 'bzip2', 'zip', or '7z' is installed and in your PATH.")
-        sys.exit(1)
+        print("Backup created successfully.")
+        print(f"Output: {result.stdout}")
+        if result.stderr:
+            print(f"Warnings/Errors from command: {result.stderr}")
+
     except subprocess.CalledProcessError as e:
-        print(f"Error during backup creation for '{backup_format}':")
-        print(f"Command: {' '.join(e.cmd)}")
-        print(f"Return Code: {e.returncode}")
-        print(f"STDOUT: {e.stdout}")
-        print(f"STDERR: {e.stderr}")
+        print(f"Error creating backup: Command failed with exit code {e.returncode}")
+        print(f"Command: {e.cmd}")
+        print(f"Stdout: {e.stdout}")
+        print(f"Stderr: {e.stderr}")
+        sys.exit(1)
+    except FileNotFoundError:
+        print(f"Error: Command '{command.split(' ')[0]}' not found.")
+        print("Please ensure the necessary compression tools (tar, gzip, bzip2, zip, 7z) are installed and in your PATH.")
         sys.exit(1)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -74,12 +74,12 @@ def create_backup(source_dir, backup_format):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python backup_script.py <directory_path> <format>")
+        print("Usage: python backup_script.py <source_directory> <backup_format>")
         print("Example: python backup_script.py /home/user/documents tar.gz")
         print("Supported formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
 
     source_directory = sys.argv[1]
-    backup_format = sys.argv[2].lower() # Convert to lowercase for consistent matching
+    backup_format = sys.argv[2]
 
     create_backup(source_directory, backup_format)

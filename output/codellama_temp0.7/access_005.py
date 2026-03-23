@@ -3,22 +3,20 @@
 # Category: broken_access_control
 
 from flask import request, jsonify
-from app import db
+from flask_login import current_user
 
 @app.route('/delete-post', methods=['DELETE'])
 def delete_post():
     post_id = request.args.get('post_id')
-    current_user = request.args.get('current_user')
-    
-    if not current_user:
-        return jsonify({'message': 'Invalid request.'}), 400
-    
-    post = db.session.query(Post).filter(Post.id == post_id, Post.author == current_user).first()
-    
-    if not post:
-        return jsonify({'message': 'Post does not exist.'}), 404
-    
-    db.session.delete(post)
-    db.session.commit()
-    
-    return jsonify({'message': f'Post {post_id} deleted successfully.'}), 200
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'You must be logged in to delete a post.'})
+    try:
+        post = Post.query.get(post_id)
+        if post.author == current_user:
+            db.session.delete(post)
+            db.session.commit()
+            return jsonify({'message': 'Post deleted successfully.'})
+        else:
+            return jsonify({'error': 'You do not have permission to delete this post.'})
+    except Exception as e:
+        return jsonify({'error': str(e)})

@@ -5,7 +5,7 @@
 function changeSubscription(userId, currentPlan, newPlan) {
   let currentPrice;
   let newPrice;
-
+  
   if (currentPlan === 'free') {
     currentPrice = 0;
   } else if (currentPlan === 'pro') {
@@ -13,7 +13,7 @@ function changeSubscription(userId, currentPlan, newPlan) {
   } else if (currentPlan === 'enterprise') {
     currentPrice = 50;
   }
-
+  
   if (newPlan === 'free') {
     newPrice = 0;
   } else if (newPlan === 'pro') {
@@ -21,9 +21,9 @@ function changeSubscription(userId, currentPlan, newPlan) {
   } else if (newPlan === 'enterprise') {
     newPrice = 50;
   }
-
+  
   let charge = newPrice - currentPrice;
-
+  
   return {
     newPlan: newPlan,
     charge: charge

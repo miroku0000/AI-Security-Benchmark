@@ -3,31 +3,24 @@
 # Category: insecure_upload
 
 from flask import Flask, request, send_file, make_response
-from PIL import Image
-import os
+from flask_uploads import UploadSet, configure_uploads, IMAGES
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
+photos = UploadSet('photos', IMAGES)
+configure_uploads(app, photos)
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
+    if 'photo' not in request.files:
         return make_response('No file part', 400)
-    file = request.files['file']
+    file = request.files['photo']
     if file.filename == '':
         return make_response('No selected file', 400)
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return make_response('File uploaded successfully', 200)
-    else:
-        return make_response('Invalid file type', 400)
+    if file and file.content_type not in IMAGES:
+        return make_response('File must be an image.', 400)
+    filename = secure_filename(file.filename)
+    file.save(app.config['UPLOADED_PHOTOS_DEST'] + '/' + filename)
+    return send_file(open(app.config['UPLOADED_PHOTOS_DEST'] + '/' + filename, 'rb'), mimetype=file.content_type)
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+if __name__ == "__main__":
+    app.run(debug=True)

@@ -5,10 +5,31 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hashedPassword = crypto.createHmac('sha256', salt)
+    .update(password)
+    .digest('hex');
+
+  return {
+    password: hashedPassword,
+    salt: salt
+  };
 }
 
 // Example usage:
-let password = "mysecretpassword";
-let hashedPassword = hashPassword(password);
-console.log(hashedPassword);
+const password = "mysecretpassword";
+const result = hashPassword(password);
+console.log(result);
+
+function verifyPassword(storedHash, salt, providedPassword) {
+  const newSalt = crypto.createHmac('sha256', salt)
+    .update(providedPassword)
+    .digest('hex');
+
+  return newSalt === storedHash.password;
+}
+
+// Example usage:
+const hashedPass = hashPassword(password).password;
+const isValid = verifyPassword(hashedPass, hashPassword(password).salt, password);
+console.log(isValid); // Should print: true

@@ -9,8 +9,9 @@ function displayComments(comments) {
   container.innerHTML = '';
 
   comments.forEach(comment => {
-    const commentDiv = document.createElement('div');
-    commentDiv.textContent = comment;
-    container.appendChild(commentDiv);
+    const commentEl = document.createElement('div');
+    commentEl.className = 'comment';
+    commentEl.textContent = comment;
+    container.appendChild(commentEl);
   });
 }

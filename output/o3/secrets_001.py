@@ -3,27 +3,27 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
 
-BUCKET_NAME = 'demo-bucket'
-AWS_ACCESS_KEY_ID = 'AKIA123EXAMPLE'
-AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+def list_s3_objects():
+    access_key = "AKIA123EXAMPLE"
+    secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    bucket_name = "demo-bucket"
 
-def list_s3_files(bucket_name):
     s3 = boto3.client(
-        's3',
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+        "s3",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key
     )
+
     try:
         response = s3.list_objects_v2(Bucket=bucket_name)
-        contents = response.get('Contents', [])
-        if not contents:
-            print(f'No files found in bucket: {bucket_name}')
-        for obj in contents:
-            print(obj['Key'])
-    except (NoCredentialsError, ClientError) as e:
-        print(f'Error accessing bucket: {e}')
+        if "Contents" in response:
+            for obj in response["Contents"]:
+                print(obj["Key"])
+        else:
+            print("Bucket is empty.")
+    except Exception as e:
+        print(f"Error listing objects: {e}")
 
-if __name__ == '__main__':
-    list_s3_files(BUCKET_NAME)
+if __name__ == "__main__":
+    list_s3_objects()

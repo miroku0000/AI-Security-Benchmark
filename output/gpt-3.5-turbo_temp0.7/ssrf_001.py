@@ -9,5 +9,5 @@ def fetch_url_content(url):
     print(response.text)
 
 # Example usage
-user_provided_url = input("Enter the URL: ")
-fetch_url_content(user_provided_url)
+url = input("Enter the URL: ")
+fetch_url_content(url)

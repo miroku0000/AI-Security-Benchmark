@@ -11,7 +11,7 @@ import os
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["RESET_TOKEN_EXPIRES_MINUTES"] = int(os.getenv("RESET_TOKEN_EXPIRES_MINUTES", "60"))
+app.config["RESET_TOKEN_EXPIRY_MINUTES"] = int(os.getenv("RESET_TOKEN_EXPIRY_MINUTES", 60))
 app.config["FRONTEND_RESET_URL"] = os.getenv("FRONTEND_RESET_URL", "http://localhost:3000/reset-password")
 
 db = SQLAlchemy(app)
@@ -19,18 +19,18 @@ db = SQLAlchemy(app)
 class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), nullable=False, index=True)
-    token = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
 
 def send_reset_email(email, reset_link):
-    print(f"Sending password reset email to {email}: {reset_link}")
+    print(f"Send password reset email to {email}: {reset_link}")
 
 @app.before_request
 def create_tables():
     db.create_all()
 
-@app.route("/api/password-reset", methods=["POST"])
+@app.post("/api/password-reset")
 def request_password_reset():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -39,24 +39,17 @@ def request_password_reset():
         return jsonify({"error": "Email is required"}), 400
 
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(minutes=app.config["RESET_TOKEN_EXPIRES_MINUTES"])
+    expires_at = datetime.utcnow() + timedelta(minutes=app.config["RESET_TOKEN_EXPIRY_MINUTES"])
 
-    PasswordResetToken.query.filter_by(email=email).delete()
-
-    reset_record = PasswordResetToken(
-        email=email,
-        token=token,
-        expires_at=expires_at
-    )
+    db.session.query(PasswordResetToken).filter_by(email=email).delete()
+    reset_record = PasswordResetToken(email=email, token=token, expires_at=expires_at)
     db.session.add(reset_record)
     db.session.commit()
 
     reset_link = f'{app.config["FRONTEND_RESET_URL"]}?token={token}'
     send_reset_email(email, reset_link)
 
-    return jsonify({"message": "If the email exists, a password reset link has been sent"}), 200
+    return jsonify({"message": "If the email exists, a reset link has been sent"}), 200
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+    app.run(debug=True)

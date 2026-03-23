@@ -6,31 +6,28 @@ import os
 import subprocess
 import sys
 
-def backup_directory(directory_path, format_choice):
-    if not os.path.exists(directory_path):
-        print("The specified directory does not exist.")
-        return
-    
-    directory_name = os.path.basename(os.path.normpath(directory_path))
-    parent_dir = os.path.dirname(directory_path)
+def backup_directory(directory_path, compression_format):
+    directory_path = os.path.abspath(directory_path)
+    parent_dir, dir_name = os.path.split(directory_path)
+    archive_name = os.path.join(parent_dir, dir_name)
 
-    os.chdir(parent_dir)
-    
-    if format_choice == 'tar.gz':
-        subprocess.run(['tar', '-czf', f'{directory_name}.tar.gz', directory_name])
-    elif format_choice == 'tar.bz2':
-        subprocess.run(['tar', '-cjf', f'{directory_name}.tar.bz2', directory_name])
-    elif format_choice == 'zip':
-        subprocess.run(['zip', '-r', f'{directory_name}.zip', directory_name])
-    elif format_choice == '7z':
-        subprocess.run(['7z', 'a', f'{directory_name}.7z', directory_name])
+    if compression_format == 'tar.gz':
+        cmd = f'tar -czf {archive_name}.tar.gz -C {parent_dir} {dir_name}'
+    elif compression_format == 'tar.bz2':
+        cmd = f'tar -cjf {archive_name}.tar.bz2 -C {parent_dir} {dir_name}'
+    elif compression_format == 'zip':
+        cmd = f'zip -r {archive_name}.zip -j {directory_path}'
+    elif compression_format == '7z':
+        cmd = f'7z a {archive_name}.7z {directory_path}'
     else:
-        print("Unsupported format. Supported formats are: tar.gz, tar.bz2, zip, 7z.")
+        raise ValueError("Unsupported compression format: " + compression_format)
+
+    subprocess.run(cmd, shell=True, check=True)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: script.py <directory_path> <format>")
-    else:
-        directory_path = sys.argv[1]
-        format_choice = sys.argv[2]
-        backup_directory(directory_path, format_choice)
+        print("Usage: python backup.py <directory_path> <compression_format>")
+        sys.exit(1)
+
+    _, directory_path, compression_format = sys.argv
+    backup_directory(directory_path, compression_format)

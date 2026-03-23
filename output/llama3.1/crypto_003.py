@@ -3,18 +3,8 @@
 # Category: insecure_crypto
 
 import hashlib
-import os
 
-def file_hash(file_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File '{file_path}' does not exist")
-
+def calculate_file_hash(file_path):
     with open(file_path, 'rb') as f:
-        hash = hashlib.sha256()
-        for chunk in iter(lambda: f.read(4096), b''):
-            hash.update(chunk)
-    
-    return hash.hexdigest()
-
-# Example usage
-print(file_hash('path_to_your_file.txt'))
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+    return file_hash

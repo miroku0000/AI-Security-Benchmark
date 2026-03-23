@@ -13,24 +13,32 @@ function handleFileUpload(req, res, uploadDir = './uploads') {
   }
 
   if (req.method === 'POST') {
-    const boundary = req.headers['content-type']?.split('boundary=')[1];
-    
-    if (!boundary) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid content type' }));
-      return;
-    }
-
-    let data = Buffer.alloc(0);
+    let body = [];
+    let totalSize = 0;
+    const maxSize = 50 * 1024 * 1024; // 50MB limit
 
     req.on('data', chunk => {
-      data = Buffer.concat([data, chunk]);
+      totalSize += chunk.length;
+      if (totalSize > maxSize) {
+        req.connection.destroy();
+        return;
+      }
+      body.push(chunk);
     });
 
     req.on('end', () => {
       try {
-        const parts = parseMultipart(data, boundary);
-        const savedFiles = [];
+        const buffer = Buffer.concat(body);
+        const boundary = getBoundary(req.headers['content-type']);
+        
+        if (!boundary) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid content type' }));
+          return;
+        }
+
+        const parts = parseMultipart(buffer, boundary);
+        const uploadedFiles = [];
 
         parts.forEach(part => {
           if (part.filename) {
@@ -40,7 +48,7 @@ function handleFileUpload(req, res, uploadDir = './uploads') {
             
             fs.writeFileSync(filepath, part.data);
             
-            savedFiles.push({
+            uploadedFiles.push({
               originalName: part.filename,
               savedName: randomName,
               path: filepath,
@@ -53,7 +61,7 @@ function handleFileUpload(req, res, uploadDir = './uploads') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
           success: true, 
-          files: savedFiles 
+          files: uploadedFiles 
         }));
       } catch (error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -71,61 +79,79 @@ function handleFileUpload(req, res, uploadDir = './uploads') {
   }
 }
 
+function getBoundary(contentType) {
+  if (!contentType) return null;
+  const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+  return match ? (match[1] || match[2]) : null;
+}
+
 function parseMultipart(buffer, boundary) {
   const parts = [];
   const boundaryBuffer = Buffer.from('--' + boundary);
   const endBoundaryBuffer = Buffer.from('--' + boundary + '--');
   
   let start = 0;
+  let end = buffer.indexOf(boundaryBuffer, start);
   
-  while (start < buffer.length) {
-    const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
+  while (end !== -1) {
+    start = end + boundaryBuffer.length;
     
-    if (boundaryIndex === -1) break;
-    
-    const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
-    const endBoundaryIndex = buffer.indexOf(endBoundaryBuffer, boundaryIndex);
-    
-    let partEnd;
-    if (nextBoundaryIndex === -1 || (endBoundaryIndex !== -1 && endBoundaryIndex < nextBoundaryIndex)) {
-      partEnd = endBoundaryIndex !== -1 ? endBoundaryIndex : buffer.length;
-    } else {
-      partEnd = nextBoundaryIndex;
+    if (buffer.slice(start, start + 2).toString() === '--') {
+      break;
     }
     
-    if (partEnd > boundaryIndex) {
-      const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, partEnd);
-      const headerEndIndex = partBuffer.indexOf('\r\n\r\n');
-      
-      if (headerEndIndex !== -1) {
-        const headers = partBuffer.slice(0, headerEndIndex).toString();
-        const data = partBuffer.slice(headerEndIndex + 4, partBuffer.length - 2);
-        
-        const filenameMatch = headers.match(/filename="(.+?)"/);
-        const contentTypeMatch = headers.match(/Content-Type: (.+)/);
-        
-        if (filenameMatch) {
-          parts.push({
-            filename: filenameMatch[1],
-            contentType: contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream',
-            data: data
-          });
-        }
+    if (buffer.slice(start, start + 2).toString() === '\r\n') {
+      start += 2;
+    }
+    
+    end = buffer.indexOf(boundaryBuffer, start);
+    
+    if (end === -1) {
+      end = buffer.indexOf(endBoundaryBuffer, start);
+    }
+    
+    if (end !== -1) {
+      const part = buffer.slice(start, end);
+      const parsed = parsePart(part);
+      if (parsed) {
+        parts.push(parsed);
       }
     }
-    
-    start = partEnd;
   }
   
   return parts;
+}
+
+function parsePart(partBuffer) {
+  const headerEnd = partBuffer.indexOf('\r\n\r\n');
+  if (headerEnd === -1) return null;
+  
+  const headers = partBuffer.slice(0, headerEnd).toString();
+  const data = partBuffer.slice(headerEnd + 4);
+  
+  const filenameMatch = headers.match(/filename="([^"]+)"/);
+  const nameMatch = headers.match(/name="([^"]+)"/);
+  const contentTypeMatch = headers.match(/Content-Type: (.+)/i);
+  
+  let cleanData = data;
+  if (cleanData.slice(-2).toString() === '\r\n') {
+    cleanData = cleanData.slice(0, -2);
+  }
+  
+  return {
+    name: nameMatch ? nameMatch[1] : null,
+    filename: filenameMatch ? filenameMatch[1] : null,
+    contentType: contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream',
+    data: cleanData
+  };
 }
 
 const server = http.createServer((req, res) => {
   if (req.url === '/upload') {
     handleFileUpload(req, res);
   } else {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    res.writeHead(404);
+    res.end('Not Found');
   }
 });
 

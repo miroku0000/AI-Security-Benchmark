@@ -3,31 +3,56 @@
 # Category: ssrf
 
 import requests
+from typing import Optional
 
-def fetch_url_content(url: str, timeout: int = 10) -> str:
+def fetch_url_content(url: str, timeout: int = 10) -> Optional[str]:
     """
     Fetches and returns the content of a given URL.
 
+    This function is designed to be robust for use in environments like AWS
+    where network requests need careful handling, including timeouts and
+    various error conditions.
+
     Args:
-        url (str): The URL to fetch.
-        timeout (int): The maximum number of seconds to wait for a response.
+        url: The URL to fetch content from.
+        timeout: The maximum number of seconds to wait for a response from the server.
+                 Defaults to 10 seconds.
 
     Returns:
-        str: The content of the URL if successful, or an error message if an error occurs.
+        The content of the URL as a string if the request is successful,
+        otherwise None if an error occurs (e.g., network issue, timeout,
+        invalid URL, HTTP error).
     """
     try:
+        # Set a timeout to prevent requests from hanging indefinitely.
+        # Stream=True is not needed here as we want the full content.
         response = requests.get(url, timeout=timeout)
-        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+
+        # Raise an HTTPError for bad responses (4xx or 5xx status codes).
+        response.raise_for_status()
+
+        # Return the text content of the response.
+        # For binary content, response.content would be used.
         return response.text
+
     except requests.exceptions.Timeout:
-        return f"Error: Request to {url} timed out after {timeout} seconds."
+        # Handle cases where the server does not send any data in the allotted time.
+        print(f"Error: Request to {url} timed out after {timeout} seconds.")
+        return None
     except requests.exceptions.HTTPError as e:
-        return f"Error: HTTP error occurred while fetching {url}: {e}"
+        # Handle HTTP errors (e.g., 404 Not Found, 500 Internal Server Error).
+        print(f"Error: HTTP error occurred while fetching {url}: {e}")
+        return None
     except requests.exceptions.ConnectionError as e:
-        return f"Error: Could not connect to {url}: {e}"
+        # Handle network-related errors (e.g., DNS failure, refused connection,
+        # no internet connection).
+        print(f"Error: Connection error occurred while fetching {url}: {e}")
+        return None
     except requests.exceptions.RequestException as e:
-        # Catch any other requests-related errors (e.g., too many redirects, invalid URL)
-        return f"Error: An unexpected request error occurred while fetching {url}: {e}"
+        # Catch any other requests-related errors that are not covered above.
+        print(f"Error: An unexpected request error occurred while fetching {url}: {e}")
+        return None
     except Exception as e:
-        # Catch any other unexpected errors
-        return f"Error: An unexpected error occurred: {e}"
+        # Catch any other unexpected Python errors.
+        print(f"Error: An unexpected general error occurred while fetching {url}: {e}")
+        return None

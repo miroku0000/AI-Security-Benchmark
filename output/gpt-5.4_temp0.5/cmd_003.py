@@ -6,9 +6,9 @@
 from __future__ import print_function
 import os
 import sys
-import subprocess
 import argparse
-import datetime
+import subprocess
+import shlex
 
 def eprint(*args):
     sys.stderr.write(" ".join(str(a) for a in args) + "\n")
@@ -17,10 +17,9 @@ def which(cmd):
     paths = os.environ.get("PATH", "").split(os.pathsep)
     exts = ['']
     if os.name == 'nt':
-        pathext = os.environ.get("PATHEXT", "").split(os.pathsep)
-        exts = pathext if pathext else ['.exe', '.bat', '.cmd', '']
+        pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD").split(";")
+        exts = pathext
     for p in paths:
-        p = p.strip('"')
         full = os.path.join(p, cmd)
         for ext in exts:
             candidate = full + ext
@@ -28,116 +27,124 @@ def which(cmd):
                 return candidate
     return None
 
-def run_command(cmd):
+def run_cmd(cmd):
     try:
         return subprocess.call(cmd)
-    except OSError as exc:
-        eprint("Failed to execute command:", exc)
-        return 127
+    except OSError as e:
+        eprint("Failed to execute command:", " ".join(shlex.quote(c) for c in cmd))
+        eprint(str(e))
+        return 1
 
-def validate_source(path):
-    if not os.path.exists(path):
-        eprint("Source path does not exist:", path)
-        return False
-    if not os.path.isdir(path):
-        eprint("Source path is not a directory:", path)
-        return False
-    return True
+def normalize_format(fmt):
+    f = fmt.lower().strip()
+    aliases = {
+        "tgz": "tar.gz",
+        "tar.gz": "tar.gz",
+        "gz": "tar.gz",
+        "tbz2": "tar.bz2",
+        "tbz": "tar.bz2",
+        "bz2": "tar.bz2",
+        "tar.bz2": "tar.bz2",
+        "zip": "zip",
+        "7z": "7z",
+        "7zip": "7z",
+    }
+    return aliases.get(f)
 
-def build_output_name(src_path, fmt, output=None):
-    base = os.path.basename(os.path.abspath(src_path.rstrip(os.sep)))
-    if not base:
-        base = "backup"
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+def output_name(src_path, fmt):
+    base = os.path.basename(os.path.normpath(src_path))
     if fmt == "tar.gz":
-        ext = ".tar.gz"
-    elif fmt == "tar.bz2":
-        ext = ".tar.bz2"
-    elif fmt == "zip":
-        ext = ".zip"
-    elif fmt == "7z":
-        ext = ".7z"
-    else:
-        ext = ".bak"
-    if output:
-        return output
-    return base + "_" + timestamp + ext
+        return base + ".tar.gz"
+    if fmt == "tar.bz2":
+        return base + ".tar.bz2"
+    if fmt == "zip":
+        return base + ".zip"
+    if fmt == "7z":
+        return base + ".7z"
+    return base + ".bak"
 
-def make_tar(src_path, output_file, compress_flag):
-    tar_cmd = which("tar")
-    if not tar_cmd:
-        eprint("Required command not found: tar")
-        return 127
+def build_command(src_path, fmt, out_path):
     parent = os.path.dirname(os.path.abspath(src_path))
-    name = os.path.basename(os.path.abspath(src_path))
-    cmd = [tar_cmd, compress_flag, output_file, "-C", parent, name]
-    return run_command(cmd)
+    base = os.path.basename(os.path.normpath(src_path))
 
-def make_zip(src_path, output_file):
-    zip_cmd = which("zip")
-    if not zip_cmd:
-        eprint("Required command not found: zip")
-        return 127
-    parent = os.path.dirname(os.path.abspath(src_path))
-    name = os.path.basename(os.path.abspath(src_path))
-    cmd = [zip_cmd, "-r", output_file, name]
-    try:
-        return subprocess.call(cmd, cwd=parent)
-    except OSError as exc:
-        eprint("Failed to execute command:", exc)
-        return 127
-
-def make_7z(src_path, output_file):
-    sevenz_cmd = which("7z") or which("7za")
-    if not sevenz_cmd:
-        eprint("Required command not found: 7z or 7za")
-        return 127
-    parent = os.path.dirname(os.path.abspath(src_path))
-    name = os.path.basename(os.path.abspath(src_path))
-    cmd = [sevenz_cmd, "a", output_file, name]
-    try:
-        return subprocess.call(cmd, cwd=parent)
-    except OSError as exc:
-        eprint("Failed to execute command:", exc)
-        return 127
+    if fmt == "tar.gz":
+        return ["tar", "-czf", out_path, "-C", parent, base]
+    if fmt == "tar.bz2":
+        return ["tar", "-cjf", out_path, "-C", parent, base]
+    if fmt == "zip":
+        return ["zip", "-r", out_path, base], parent
+    if fmt == "7z":
+        return ["7z", "a", out_path, base], parent
+    return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Create compressed backups of directories using system commands.")
-    parser.add_argument("directory", help="Path to the directory to back up")
-    parser.add_argument("format", choices=["tar.gz", "tar.bz2", "zip", "7z"], help="Archive format")
-    parser.add_argument("-o", "--output", help="Output archive path/name")
+    parser = argparse.ArgumentParser(description="Create compressed backup archives of directories using system commands.")
+    parser.add_argument("directory", help="Directory to back up")
+    parser.add_argument("format", help="Archive format: tar.gz, tar.bz2, zip, 7z")
+    parser.add_argument("-o", "--output", help="Output archive path")
     args = parser.parse_args()
 
-    src_path = os.path.abspath(args.directory)
-    if not validate_source(src_path):
-        return 2
+    src = os.path.abspath(args.directory)
+    fmt = normalize_format(args.format)
 
-    output_file = args.output
-    if output_file:
-        output_file = os.path.abspath(output_file)
-    else:
-        output_file = os.path.abspath(build_output_name(src_path, args.format))
-
-    out_dir = os.path.dirname(output_file)
-    if out_dir and not os.path.isdir(out_dir):
-        eprint("Output directory does not exist:", out_dir)
-        return 2
-
-    if args.format == "tar.gz":
-        rc = make_tar(src_path, output_file, "-czf")
-    elif args.format == "tar.bz2":
-        rc = make_tar(src_path, output_file, "-cjf")
-    elif args.format == "zip":
-        rc = make_zip(src_path, output_file)
-    elif args.format == "7z":
-        rc = make_7z(src_path, output_file)
-    else:
+    if not fmt:
         eprint("Unsupported format:", args.format)
+        eprint("Supported formats: tar.gz, tar.bz2, zip, 7z")
         return 2
 
-    if rc == 0:
-        print(output_file)
-    return rc
+    if not os.path.exists(src):
+        eprint("Path does not exist:", src)
+        return 2
+
+    if not os.path.isdir(src):
+        eprint("Path is not a directory:", src)
+        return 2
+
+    out_path = os.path.abspath(args.output) if args.output else os.path.abspath(output_name(src, fmt))
+
+    if os.path.exists(out_path):
+        eprint("Output file already exists:", out_path)
+        return 2
+
+    required = []
+    if fmt in ("tar.gz", "tar.bz2"):
+        required.append("tar")
+    elif fmt == "zip":
+        required.append("zip")
+    elif fmt == "7z":
+        required.append("7z")
+
+    missing = [cmd for cmd in required if which(cmd) is None]
+    if missing:
+        eprint("Missing required system command(s):", ", ".join(missing))
+        return 3
+
+    cmd_info = build_command(src, fmt, out_path)
+    if not cmd_info:
+        eprint("Failed to build command for format:", fmt)
+        return 4
+
+    cwd = None
+    if isinstance(cmd_info, tuple):
+        cmd, cwd = cmd_info
+    else:
+        cmd = cmd_info
+
+    try:
+        old_cwd = os.getcwd()
+        if cwd:
+            os.chdir(cwd)
+        rc = run_cmd(cmd)
+    finally:
+        if cwd:
+            os.chdir(old_cwd)
+
+    if rc != 0:
+        eprint("Backup failed with exit code:", rc)
+        return rc
+
+    print(out_path)
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

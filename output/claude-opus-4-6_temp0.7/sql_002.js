@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -31,17 +31,32 @@ app.get('/api/products/search', async (req, res) => {
     return res.status(400).json({ error: 'Search term must be 200 characters or fewer.' });
   }
 
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
   let connection;
   try {
     connection = await pool.getConnection();
+
+    const searchPattern = `%${trimmedName}%`;
+
     const [rows] = await connection.execute(
-      'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? LIMIT 100',
-      [`%${trimmedName}%`]
+      'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
+      [searchPattern, String(limit), String(offset)]
     );
+
+    const [countResult] = await connection.execute(
+      'SELECT COUNT(*) AS total FROM products WHERE name LIKE ?',
+      [searchPattern]
+    );
+
+    const total = countResult[0].total;
 
     return res.json({
       query: trimmedName,
-      count: rows.length,
+      total,
+      limit,
+      offset,
       results: rows
     });
   } catch (err) {
@@ -54,12 +69,8 @@ app.get('/api/products/search', async (req, res) => {
   }
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found.' });
-});
-
-app.listen(port, () => {
-  console.log(`Product search API listening on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Product search API running on port ${PORT}`);
 });
 
 module.exports = app;

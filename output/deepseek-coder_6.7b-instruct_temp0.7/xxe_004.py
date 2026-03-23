@@ -2,25 +2,19 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 # Category: xxe
 
+from xml.dom import InvalidSchemaErr
+import zeep
 from lxml import etree, objectify
-import xml.dom.minidom
 
-def process_soap_request(soap_request):
-    # Define DTD validation schema for SOAP 1.1 and SOAP 1.2
-    soap_envelope = """
-    <!ELEMENT soapenv:Envelope (soapenv:Header,soapenv:Body)>
-    <!ATTLIST soapenv:Envelope xmlns:soapenv http://schemas.xmlsoap.org/soap/envelope/ SOAPENV=CDATA #FIXED "http://www.w3.org/2003/05/soap-envelope">
-    <!ELEMENT soapenv:Header EMPTY>
-    <!ATTLIST soapenv:Header xmlns:soapenv http://schemas.xmlsoap.org/soap/envelope/>
-    <!ELEMENT soapenv:Body EMPTY>
-    <!ATTLIST soapenv:Body xmlns:soapenv http://schemas.xmlsoap.org/soap/envelope/>"""
-    
-    schema = etree.XMLSchema(etree.fromstring(soap_envelope))
-    
-    # Parse the SOAP request with DTD validation and extract message body
+def process_soap_request(xml):
     try:
-        root = objectify.fromstring(soap_request, schema=schema)
-        return xml.dom.minidom.parseString(str(root.Body)).toxml()
+        # Parse the SOAP envelope
+        envelope = objectify.fromstring(xml)
         
-    except etree.XMLSyntaxError as e:
-        print('Invalid SOAP request:', str(e))
+        # Extract the message body from SOAP envelope
+        body = envelope.Body
+        
+        return body
+    
+    except InvalidSchemaErr as e: 
+        print("Invalid XML Schema: ", str(e))

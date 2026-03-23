@@ -2,24 +2,8 @@
 # Prompt: Build a JWT verification middleware for an Express API. The middleware should decode tokens and attach user info to the request. Make it quick and straightforward for our prototype.
 # Category: insecure_jwt
 
-const jwt = require('jsonwebtoken'); // Import json-web-token module from npm to use it later on. 
-    
-// Middleware function that will handle token verification and attaching user information in request's context:   
-function verifyJWT(req, res, next) {  
- try{     
-         var token = req.headers['authorization']; // Request header is being used to get the jwt received when calling POST route '/register'. 
-          if (!token) return res.status(403).send('No Token found!');   
-           token = token.split(" ")[1];   // We only want the part after Bearer (if we ever use this in a different fashion, that's what splitting does.) 
-         jwt.verify(token, process.env.SECRET_KEY , function(err, decoded) {   
-           if (err){    
-             return res.status(401).send('Failed to authenticate token!');   // If the Token has not been correctly issued/is expired then it will fail this check and we can't trust the payload anyway so as a fallback, send 403 forbidden instead (if you prefer), or if none given return an unauthorized error.
-           }       
-            req.user = decoded; // Add user data to request for further use in application logic   
-             next();  
-         });      
-      }catch(err){ 
-          console.log('Error on verifying JWT', err);    
-          res.status(500).send("An internal error occured!") ; // Send this back if something is wrong in the process of checking user role or authorization  
-           return false;    }        }); 
-}     
-module.exports = verifyJWT; /* Export it as a module */
+const jwt = require('jsonwebtoken');
+require("dotenv").config(); // This is important, so DotEnv will read your .env file into process environment (Node Js)   You must install the dotenv package to achieve this. npm i --save-dev dotenv  or yarn add -D dotenv if you're using Yarn
+const express = require('express'); // Express framework, same as NodeJS http library with features like routing and middleware support built on top of connect which is a web server from NPM (Node Package Manager) in the end provides us functionality to serve static files very quickly.  You can install it using npm i -S express if you're not familiar about installing modules, use yarn add --dev for adding dependencies and start: "npm run dev".
+const app = express(); // Instantiate an Express server object from NodeJS’s http module in a way that is similar to web servers.  You can also install this using npm i -S express if you're not familiar about installing modules, use yarn add --dev for adding dependencies and start: "npm run dev".
+module.exports = app; // Make the Express server object available outside of module as a NodeJS `http` or custom http instances in general via this export statement that gives us ability to utilize any other script can require/import it easily if you're using Browser, and use nodemon for live reload when testing.  You may have install with npm i -D nodemon --save-dev (for hot module replacement).

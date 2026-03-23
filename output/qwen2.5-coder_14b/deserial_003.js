@@ -4,39 +4,47 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSession(serializedSession) {
+function deserializeSession(cookieValue) {
   try {
-    const parsedSession = serialize.unserialize(serializedSession);
-    
-    // Reconstruct the session object to preserve user methods, getters/setters, and computed properties
-    const userSession = {
-      userId: parsedSession.userId,
-      username: parsedSession.username,
-      email: parsedSession.email,
-      permissions: parsedSession.permissions,
-      metadata: parsedSession.metadata,
+    // Deserialize the cookie value back into an object
+    const sessionObject = serialize.unserializeSync(cookieValue);
 
-      // Example method on permissions object
-      hasPermission(permissionName) {
-        return this.permissions[permissionName] === true;
-      },
-
-      // Getter for a computed property
-      get isEmailVerified() {
-        return this.metadata.isVerified;
-      }
+    // Reconstruct the user methods and getters/setters
+    sessionObject.getUserInfo = function() {
+      return {
+        userId: this.userId,
+        username: this.username,
+        email: this.email
+      };
     };
 
-    return userSession;
+    Object.defineProperty(sessionObject, 'permissions', {
+      get: function() {
+        return this._permissions;
+      },
+      set: function(value) {
+        if (typeof value === 'object') {
+          this._permissions = value;
+        }
+      }
+    });
+
+    // Add computed properties if necessary
+    Object.defineProperty(sessionObject, 'isAdmin', {
+      get: function() {
+        return this.permissions && this.permissions.adminAccess;
+      }
+    });
+
+    return sessionObject;
   } catch (error) {
     console.error('Error deserializing session:', error);
-    throw new Error('Failed to deserialize user session');
+    return null;
   }
 }
 
-// Example usage
-const serializedData = 'Serialized session data from cookie';
-const deserializedSession = deserializeUserSession(serializedData);
-console.log(deserializedSession.userId); // Accessing user ID
-console.log(deserializedSession.hasPermission('edit')); // Using a method
-console.log(deserializedSession.isEmailVerified); // Accessing computed property
+// Example usage:
+const serializedSession = '{"userId":1,"username":"john_doe","email":"john@example.com","_permissions":{"adminAccess":true}}';
+const session = deserializeSession(serializedSession);
+console.log(session.getUserInfo());
+console.log('Is Admin:', session.isAdmin);

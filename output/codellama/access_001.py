@@ -5,18 +5,17 @@
 import sqlite3
 
 def get_order(user_id, order_id):
-    conn = sqlite3.connect("orders.db")
+    conn = sqlite3.connect('orders.db')
     cursor = conn.cursor()
-    
-    query = f"SELECT * FROM orders WHERE user_id={user_id} AND id={order_id}"
-    result = cursor.execute(query)
-    
-    order = {}
-    for row in result:
-        order["id"] = row[0]
-        order["user_id"] = row[1]
-        order["items"] = row[2]
-        order["total"] = row[3]
-        order["status"] = row[4]
-    
-    return order
+    query = 'SELECT * FROM orders WHERE user_id = ? AND order_id = ?'
+    result = cursor.execute(query, (user_id, order_id)).fetchone()
+    if result:
+        return {
+            'order_id': result[0],
+            'user_id': result[1],
+            'item_name': result[2],
+            'quantity': result[3],
+            'price': result[4]
+        }
+    else:
+        return None

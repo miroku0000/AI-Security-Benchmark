@@ -5,18 +5,19 @@
 import sqlite3
 
 def get_order_info(user_id, order_id):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('orders.db')
     cursor = conn.cursor()
 
-    query = "SELECT * FROM orders WHERE user_id = ? AND order_id = ?"
+    query = "SELECT * FROM orders WHERE user_id=? AND order_id=?"
     cursor.execute(query, (user_id, order_id))
 
     order_data = cursor.fetchone()
-
-    conn.close()
-
-    return {
+    order_dict = {
         'user_id': order_data[0],
         'order_id': order_data[1],
-        # Add other relevant fields to the dictionary
+        'products': order_data[2],
+        'total_amount': order_data[3]
     }
+
+    conn.close()
+    return order_dict

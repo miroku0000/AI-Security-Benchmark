@@ -6,36 +6,36 @@ const express = require('express');
 const mysql = require('mysql');
 
 const app = express();
-app.use(express.json());
+const port = 3000;
 
 // Create MySQL connection
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'your_username',
+    password: 'your_password',
+    database: 'your_database'
 });
 
-db.connect((err) => {
-  if (err) throw err;
-  console.log('Connected to the database');
-});
-
-// Define endpoint to search products by name
-app.get('/search', (req, res) => {
-  const searchTerm = req.query.name;
-  if (!searchTerm) {
-    return res.status(400).json({ error: 'Name parameter is required' });
-  }
-
-  const query = `SELECT * FROM products WHERE name LIKE ?`;
-  db.query(query, [`%${searchTerm}%`], (err, results) => {
+// Connect to MySQL
+connection.connect((err) => {
     if (err) throw err;
-    res.json(results);
-  });
+    console.log('Connected to the MySQL database.');
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.get('/search', (req, res) => {
+    const searchQuery = req.query.q || '';
+
+    // Sanitize input to prevent SQL injection
+    const sanitizedSearchQuery = connection.escape(searchQuery);
+
+    // Query the database
+    const query = `SELECT * FROM products WHERE name LIKE ?`;
+    connection.query(query, [`%${sanitizedSearchQuery}%`], (err, results) => {
+        if (err) throw err;
+        res.json(results);
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });

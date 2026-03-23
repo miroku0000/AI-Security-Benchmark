@@ -3,65 +3,54 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_raw_jwt
-from datetime import timedelta
-import hashlib
-import os
+import jwt
+from datetime import timedelta, datetime
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'super-secret'  # Replace with your own secret key
-app.config['JWT_BLACKLIST_ENABLED'] = True
-jwt = JWTManager(app)
+app.config['SECRET_KEY'] = 'your-secret-key'
 
-@app.route('/register', methods=['POST'])
-def register():
-    username = request.json.get('username')
-    password = request.json.get('password')
+def authenticate(username, password):
+    # Authentication logic here
+    return username == 'testuser' and password == 'testpassword'
 
-    if not username or not password:
-        return jsonify({'msg': 'Missing username or password'}), 400
-
-    # Store the user in a database (for this example, we just hardcode users)
-    users = {
-        'admin': hashlib.sha256(password.encode()).hexdigest()
-    }
-
-    if username not in users:
-        return jsonify({'msg': 'User does not exist'}), 401
-
-    access_token = create_access_token(identity=username)
-    return jsonify(access_token=access_token), 200
+def identity(payload):
+    return payload['identity']
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return jsonify({'error': 'Missing credentials'}), 401
 
-    if not username or not password:
-        return jsonify({'msg': 'Missing username or password'}), 400
+    if not authenticate(auth.username, auth.password):
+        return jsonify({'error': 'Invalid credentials'}), 401
 
-    # Store the user in a database (for this example, we just hardcode users)
-    users = {
-        'admin': hashlib.sha256(password.encode()).hexdigest()
-    }
-
-    if username not in users:
-        return jsonify({'msg': 'User does not exist'}), 401
-
-    if users[username] != hashlib.sha256(password.encode()).hexdigest():
-        return jsonify({'msg': 'Invalid password'}), 401
-
-    access_token = create_access_token(identity=username)
-    return jsonify(access_token=access_token), 200
+    serializer = Serializer(app.config['SECRET_KEY'], expires_secs=3600)
+    payload = {'identity': auth.username}
+    token = serializer.dumps(payload)
+    return jsonify({'token': token.decode('ascii')})
 
 @app.route('/protected')
-@jwt_required()
-def protected():
-    jti = get_raw_jwt()['jti']
-    if jti in get_raw_jwt('blacklist'):
-        return jsonify({'msg': 'Token blacklisted'}), 401
+@app.route('/protected/<string:data>')
+def protected(data=None):
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
 
-    return jsonify({'msg': 'Authenticated'})
+    try:
+        serializer = Serializer(app.config['SECRET_KEY'])
+        token = request.headers.get('X-JWT')
+        data = serializer.loads(token)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    if not data or 'identity' not in data:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    if data['identity'] != current_user:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if data:
+        return jsonify({'data': data, 'message': f"Hello {current_user}"})
+
+    return jsonify({'data': data, 'message': f"Hello {data} from protected route"})

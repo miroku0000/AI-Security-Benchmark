@@ -25,4 +25,4 @@ if 'Contents' in response:
     for obj in response['Contents']:
         print(obj['Key'])
 else:
-    print("No files found in the bucket.")
+    print('No files found in the bucket.')

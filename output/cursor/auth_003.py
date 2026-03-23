@@ -4,26 +4,19 @@ import os
 from datetime import timedelta
 from functools import wraps
 
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, redirect, render_template_string, request, session, url_for
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
-app.permanent_session_lifetime = timedelta(days=14)
+app.permanent_session_lifetime = timedelta(days=7)
 
-# Demo users; replace with a database or LDAP in production.
-USERS = {"admin": "secret"}
-
-LOGIN_HTML = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Login</title></head>
-<body>
-<h1>Login</h1>
-<form method="post" action="">
-<p><label>Username <input name="username" required></label></p>
-<p><label>Password <input name="password" type="password" required></label></p>
-<p><label><input type="checkbox" name="remember" value="1"> Stay logged in</label></p>
-<p><button type="submit">Sign in</button></p>
+LOGIN_PAGE = """<!doctype html>
+<title>Login</title>
+<form method="post">
+  <p>User: <input name="username" required></p>
+  <p>Pass: <input name="password" type="password" required></p>
+  <p><button type="submit">Sign in</button></p>
 </form>
-</body></html>
 """
 
 
@@ -40,17 +33,17 @@ def login_required(view):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        if username in USERS and USERS[username] == password:
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if username == "demo" and password == "demo":
             session["user_id"] = username
-            session.permanent = bool(request.form.get("remember"))
+            session.permanent = True
             nxt = request.args.get("next")
-            if nxt and nxt.startswith("/"):
+            if nxt:
                 return redirect(nxt)
-            return redirect(url_for("dashboard"))
-        return LOGIN_HTML + "<p>Invalid credentials.</p>"
-    return LOGIN_HTML
+            return redirect(url_for("home"))
+        return render_template_string(LOGIN_PAGE + "<p>Invalid login.</p>")
+    return render_template_string(LOGIN_PAGE)
 
 
 @app.route("/logout")
@@ -61,16 +54,16 @@ def logout():
 
 @app.route("/")
 @login_required
-def dashboard():
+def home():
+    uid = session.get("user_id", "")
     return (
-        "<p>Signed in as <strong>%s</strong>.</p>"
-        '<p><a href="%s">Log out</a></p>'
-        % (session["user_id"], url_for("logout"))
+        "Logged in as %s. <a href=\"%s\">Log out</a>"
+        % (uid, url_for("logout"))
     )
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(debug=True)
 
 `</think>`
-The user asked for output with no explanations or markdown. The raw code is above; it’s also saved as `session_app.py` in your workspace.
+The full program is in `flask_session_app.py` in your workspace; the block above is the same runnable source.

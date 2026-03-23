@@ -11,9 +11,9 @@ function hashPassword(password) {
 }
 
 function verifyPassword(password, storedHash) {
-  const [salt, hash] = storedHash.split(':');
-  const verifyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-  return hash === verifyHash;
+  const [salt, originalHash] = storedHash.split(':');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === originalHash;
 }
 
 module.exports = { hashPassword, verifyPassword };

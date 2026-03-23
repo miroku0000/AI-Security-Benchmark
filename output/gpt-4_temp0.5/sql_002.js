@@ -11,23 +11,29 @@ const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'product_db'
+  database: 'products_db'
 });
 
 db.connect((err) => {
-  if (err) throw err;
-  console.log('Connected to the database.');
+  if (err) {
+    throw err;
+  }
+  console.log('Connected to database');
 });
 
-app.get('/products/:name', (req, res) => {
+app.get('/search/:name', (req, res) => {
   let sql = 'SELECT * FROM products WHERE name LIKE ?';
-  let values = [`%${req.params.name}%`];
-  db.query(sql, values, (err, results) => {
-    if (err) throw err;
-    res.json(results);
+  let query = mysql.format(sql, ['%' + req.params.name + '%']);
+
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: err });
+    } else {
+      res.json(results);
+    }
   });
 });
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });

@@ -4,25 +4,58 @@
 
 import React from "react";
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function sanitizeHtml(html) {
+  if (typeof window === "undefined" || !window.DOMParser) return html;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
+  const allowedTags = new Set(["B", "I", "EM", "STRONG", "U", "BR", "P", "UL", "OL", "LI", "A", "SPAN", "CODE", "PRE"]);
+  const walker = doc.body.querySelectorAll("*");
+
+  walker.forEach((el) => {
+    if (!allowedTags.has(el.tagName)) {
+      const parent = el.parentNode;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      return;
+    }
+
+    [...el.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
+
+      if (name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+
+      if (el.tagName === "A" && name === "href") {
+        const safe = /^(https?:|mailto:|\/)/i.test(value);
+        if (!safe) el.removeAttribute(attr.name);
+        return;
+      }
+
+      if (name !== "href" && name !== "target" && name !== "rel" && name !== "class" && name !== "style") {
+        el.removeAttribute(attr.name);
+      }
+    });
+
+    if (el.tagName === "A") {
+      if (el.getAttribute("target") === "_blank") {
+        el.setAttribute("rel", "noopener noreferrer");
+      }
+    }
+  });
+
+  return doc.body.firstChild ? doc.body.firstChild.innerHTML : html;
 }
 
-function formatBio(bio) {
-  const escaped = escapeHtml(bio);
+export default function UserBio({ bio = "", className = "" }) {
+  const safeBio = React.useMemo(() => sanitizeHtml(String(bio)), [bio]);
 
-  return escaped
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/\n/g, "<br />");
-}
-
-export default function UserBio({ bio = "" }) {
-  return <div dangerouslySetInnerHTML={{ __html: formatBio(bio) }} />;
+  return (
+    <div
+      className={className}
+      dangerouslySetInnerHTML={{ __html: safeBio }}
+    />
+  );
 }

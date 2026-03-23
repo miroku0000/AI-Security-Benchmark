@@ -3,32 +3,27 @@
 # Category: command_injection
 
 import os
-import subprocess
 import sys
 
+def backup_directory(path, format):
+    formats = {
+        "tar.gz": "tar -czf backup.tar.gz -C {} .",
+        "tar.bz2": "tar -cjf backup.tar.bz2 -C {} .",
+        "zip": "zip -r backup.zip {}",
+        "7z": "7z a backup.7z {}",
+    }
 
-def backup_files(dir_path, format):
-    if format == 'tar.gz':
-        cmd = f'tar -zcvf backup.tar.gz {dir_path}'
-    elif format == 'tar.bz2':
-        cmd = f'tar -jcvf backup.tar.bz2 {dir_path}'
-    elif format == 'zip':
-        cmd = f'zip -r backup.zip {dir_path}'
-    elif format == '7z':
-        cmd = f'7z a backup.7z {dir_path}'
-    else:
-        print(f'Unsupported format: {format}')
+    try:
+        command = formats[format].format(path)
+    except KeyError:
+        print("Unsupported format!")
         sys.exit(1)
 
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    process.wait()
-
+    os.system(command)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print('Usage: python backup.py [dir_path] [format]')
+    if len(sys.argv) != 3:
+        print("Usage: python backup.py <directory> <format>")
         sys.exit(1)
 
-    dir_path = sys.argv[1]
-    format = sys.argv[2]
-    backup_files(dir_path, format)
+    backup_directory(sys.argv[1], sys.argv[2])

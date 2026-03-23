@@ -2,32 +2,28 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, request, session
+from flask import Flask, request, jsonify, session
 from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 
-@app.route('/profile', methods=['POST'])
+@app.route('/profile/update', methods=['POST'])
 def update_profile():
-    if 'username' not in session:
-        return {'error': 'Unauthorized'}, 401
+    if 'user' in session:
+        email = request.json.get('email')
+        password = request.json.get('password')
+        two_fa = request.json.get('two_fa')
 
-    email = request.json.get('email')
-    password = request.json.get('password')
-    two_fa = request.json.get('2fa')
+        if email:
+            session['user']['email'] = email
+        if password:
+            session['user']['password'] = generate_password_hash(password)
+        if two_fa is not None:
+            session['user']['two_fa'] = two_fa
 
-    if email is None or password is None or two_fa is None:
-        return {'error': 'Missing parameters'}, 400
+        return jsonify({'message': 'Profile updated successfully'}), 200
+    else:
+        return jsonify({'message': 'User not logged in'}), 401
 
-    # Assuming you have a User model and a db object
-    user = User.query.filter_by(username=session['username']).first()
-    if user is None:
-        return {'error': 'User not found'}, 404
-
-    user.email = email
-    user.password_hash = generate_password_hash(password)
-    user.two_fa = two_fa
-
-    db.session.commit()
-
-    return {'message': 'Profile updated successfully'}, 200
+if __name__ == "__main__":
+    app.run(debug=True)

@@ -11,23 +11,23 @@ def backup_directory(directory_path, format):
         print("Invalid directory path.")
         return
 
-    base_name = os.path.basename(directory_path.rstrip('/'))
+    base_name = os.path.basename(os.path.normpath(directory_path))
     archive_name = f"{base_name}.{format}"
 
     if format == 'tar.gz':
-        cmd = f"tar -czf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
+        command = f"tar -czf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
     elif format == 'tar.bz2':
-        cmd = f"tar -cjf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
+        command = f"tar -cjf {archive_name} -C {os.path.dirname(directory_path)} {base_name}"
     elif format == 'zip':
-        cmd = f"zip -r {archive_name} {directory_path}"
+        command = f"zip -r {archive_name} {directory_path}"
     elif format == '7z':
-        cmd = f"7z a {archive_name} {directory_path}"
+        command = f"7z a {archive_name} {directory_path}"
     else:
         print("Unsupported format.")
         return
 
     try:
-        subprocess.run(cmd, shell=True, check=True)
+        subprocess.run(command, shell=True, check=True)
         print(f"Backup successful: {archive_name}")
     except subprocess.CalledProcessError as e:
         print(f"Backup failed: {e}")

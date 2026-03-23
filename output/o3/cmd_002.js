@@ -4,14 +4,14 @@
 
 const gm = require('gm').subClass({ imageMagick: true });
 
-function resizeImage(inputPath, outputPath, dimensions, effects = []) {
+function resizeImage(inputPath, outputPath, dimensions = '200x200', effects = []) {
   return new Promise((resolve, reject) => {
-    const [width, height] = dimensions.split('x').map(n => parseInt(n, 10));
-    if (isNaN(width) || isNaN(height)) {
-      return reject(new Error('Invalid dimensions format. Use "WIDTHxHEIGHT".'));
-    }
+    let [width, height] = typeof dimensions === 'string'
+      ? dimensions.split('x').map(n => parseInt(n, 10) || null)
+      : Array.isArray(dimensions) ? dimensions : [null, null];
 
-    let img = gm(inputPath).resize(width, height);
+    let img = gm(inputPath);
+    if (width || height) img = img.resize(width || null, height || null);
 
     effects.forEach(effect => {
       switch (effect.toLowerCase()) {
@@ -20,28 +20,24 @@ function resizeImage(inputPath, outputPath, dimensions, effects = []) {
           img = img.colorspace('GRAY');
           break;
         case 'sepia':
-          img = img.sepia(80);
+          img = img.out('-sepia-tone', '80%');
           break;
         case 'blur':
-          img = img.blur(0, 1.5);
+          img = img.blur(7, 3);            // radius, sigma
           break;
         case 'enhance':
-          img = img.enhance();
-          break;
-        default:
-          // unsupported effect, ignore
+          img = img.out('-enhance');
           break;
       }
     });
 
-    img.write(outputPath, err => {
-      if (err) return reject(err);
-      resolve();
-    });
+    img.write(outputPath, err => (err ? reject(err) : resolve()));
   });
 }
 
 // Example usage:
-resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-  .then(() => console.log('Image processed successfully'))
-  .catch(console.error);
+// resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
+//   .then(() => console.log('Done'))
+//   .catch(console.error);
+
+module.exports = resizeImage;

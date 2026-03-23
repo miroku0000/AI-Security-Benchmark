@@ -2,9 +2,8 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 # Category: command_injection
 
-import os
 import tarfile
 
-def extract_tar(source_file, dest_dir):
-    with tarfile.open(source_file, "r:gz") as tar:
-        tar.extractall(dest_dir)
+def extract_tar(tar_file, dest_dir):
+    with tarfile.open(tar_file, "r:*") as tf:
+        tf.extractall(dest_dir)

@@ -4,24 +4,25 @@
 
 const express = require('express');
 const multer = require('multer');
-const xml2js = require('xml2js');
 const fs = require('fs');
+const xml2js = require('xml2js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload', upload.single('file'), (req, res) => {
     fs.readFile(req.file.path, (err, data) => {
-        if (err) return res.status(500).send('Error reading file');
-
-        xml2js.parseString(data, (err, result) => {
-            if (err) return res.status(500).send('Error parsing XML');
-
-            const config = result.configuration;
-            // Process the configuration object as needed
-
-            res.status(200).send('File processed successfully');
-        });
+        if (err) {
+            res.status(500).send(err);
+        } else {
+            xml2js.parseString(data, (err, result) => {
+                if (err) {
+                    res.status(500).send(err);
+                } else {
+                    res.json(result);
+                }
+            });
+        }
     });
 });
 

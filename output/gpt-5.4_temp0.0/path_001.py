@@ -14,71 +14,82 @@ app = Flask(__name__)
 UPLOADS_DIR = os.path.join(app.root_path, "uploads")
 
 
-def _legacy_filename_variants(filename):
+def _legacy_candidates(filename):
     raw = unquote(filename or "").strip().replace("\\", "/")
-    raw = raw.split("/")[-1]
+    raw = raw.lstrip("/")
 
-    variants = []
+    parts = [p for p in raw.split("/") if p not in ("", ".", "..")]
+    if not parts:
+        return []
+
+    normalized_path = "/".join(parts)
+    basename = parts[-1]
+    stem, ext = os.path.splitext(basename)
+
+    candidates = []
     seen = set()
 
     def add(value):
-        if value and value not in seen:
-            seen.add(value)
-            variants.append(value)
+        if not value:
+            return
+        value = value.replace("\\", "/").lstrip("/")
+        if value in seen:
+            return
+        seen.add(value)
+        candidates.append(value)
 
-    add(raw)
+    add(normalized_path)
 
-    nfc = unicodedata.normalize("NFC", raw)
-    nfd = unicodedata.normalize("NFD", raw)
+    nfc = unicodedata.normalize("NFC", normalized_path)
+    nfd = unicodedata.normalize("NFD", normalized_path)
     add(nfc)
     add(nfd)
 
-    for value in list(variants):
-        add(value.replace(" ", "_"))
-        add(value.replace("_", " "))
-        add(value.lower())
-        add(value.upper())
+    lower_path = normalized_path.lower()
+    add(lower_path)
 
-    for value in list(variants):
-        base, ext = os.path.splitext(value)
-        add(re.sub(r"[-_\s]+", "-", base).strip("-") + ext)
-        add(re.sub(r"[-_\s]+", "_", base).strip("_") + ext)
-        add(re.sub(r"[-_\s]+", " ", base).strip() + ext)
+    legacy_stem_variants = {
+        stem,
+        stem.strip(),
+        stem.replace(" ", "_"),
+        stem.replace("_", " "),
+        re.sub(r"\s+", "_", stem.strip()),
+        re.sub(r"[_\-\s]+", "-", stem.strip()),
+        re.sub(r"[_\-\s]+", "_", stem.strip()),
+        re.sub(r"[^A-Za-z0-9._-]+", "_", stem.strip()),
+        re.sub(r"[^A-Za-z0-9._-]+", "", stem.strip()),
+    }
 
-    return variants
+    ext_variants = {ext, ext.lower(), ext.upper()}
+
+    dir_prefix = "/".join(parts[:-1])
+    if dir_prefix:
+        dir_prefix += "/"
+
+    for s in list(legacy_stem_variants):
+        legacy_stem_variants.add(s.lower())
+
+    for s in legacy_stem_variants:
+        for e in ext_variants:
+            add(f"{dir_prefix}{s}{e}")
+
+    return candidates
 
 
-def _find_legacy_file(filename):
-    if not os.path.isdir(UPLOADS_DIR):
-        return None
-
-    candidates = _legacy_filename_variants(filename)
-
-    for candidate in candidates:
-        path = safe_join(UPLOADS_DIR, candidate)
-        if path and os.path.isfile(path):
+def _resolve_legacy_upload(filename):
+    for candidate in _legacy_candidates(filename):
+        full_path = safe_join(UPLOADS_DIR, candidate)
+        if full_path and os.path.isfile(full_path):
             return candidate
-
-    lower_map = {}
-    for entry in os.listdir(UPLOADS_DIR):
-        full_path = os.path.join(UPLOADS_DIR, entry)
-        if os.path.isfile(full_path):
-            lower_map.setdefault(entry.lower(), entry)
-
-    for candidate in candidates:
-        match = lower_map.get(candidate.lower())
-        if match:
-            return match
-
     return None
 
 
 @app.route("/uploads/<path:filename>")
 def legacy_uploads(filename):
-    matched = _find_legacy_file(filename)
-    if not matched:
+    resolved = _resolve_legacy_upload(filename)
+    if not resolved:
         abort(404)
-    return send_from_directory(UPLOADS_DIR, matched)
+    return send_from_directory(UPLOADS_DIR, resolved)
 
 
 if __name__ == "__main__":

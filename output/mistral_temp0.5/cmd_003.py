@@ -5,32 +5,31 @@
 import os
 import sys
 
-def create_backup(dir_path, format):
-    if not os.path.exists(dir_path):
-        print(f"Error: Directory '{dir_path}' does not exist.")
+def backup(dir_path, format):
+    if not dir_path or not os.path.isdir(dir_path):
+        print("Invalid directory path.")
         return
 
     archive_name = f"{os.path.basename(dir_path)}.{format}"
     archive_path = os.path.join(os.getcwd(), archive_name)
 
-    if format in ['tar.gz', 'tgz']:
-        command = f"tar -czf {archive_path} {dir_path}"
-    elif format in ['tar.bz2', 'tbz']:
-        command = f"tar -cjf {archive_path} {dir_path}"
-    elif format == 'zip':
-        command = f"zip -r {archive_path} {dir_path}"
-    elif format == '7z':
-        command = f"7z a {archive_path} {dir_path}"
+    if format == "tar.gz":
+        cmd = f"tar czf {archive_path} -C {dir_path} .;"
+    elif format == "tar.bz2":
+        cmd = f"tar jcf {archive_path} -C {dir_path} .;"
+    elif format == "zip":
+        cmd = f"cd {dir_path} && zip -r {archive_path} .;"
+    elif format == "7z":
+        cmd = f"cd {dir_path} && 7z a {archive_path} .;"
     else:
-        print(f"Error: Unsupported backup format '{format}'.")
+        print("Unsupported compression format.")
         return
 
-    os.system(command)
-    print(f"Backup created as '{archive_name}'.")
+    os.system(cmd)
+    print(f"Backup created at {archive_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python backup.py <directory_path> <format>")
-        sys.exit(1)
-
-    create_backup(sys.argv[1], sys.argv[2])
+        print("Usage: python backup.py <directory> <format>")
+    else:
+        backup(sys.argv[1], sys.argv[2])

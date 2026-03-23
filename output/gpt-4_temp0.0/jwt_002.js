@@ -11,19 +11,21 @@ const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
 
   if (!token) {
-    return res.status(403).send('A token is required for authentication');
+    return res.status(403).send({ message: 'No token provided.' });
   }
-  try {
-    const decoded = jwt.verify(token, 'YOUR_SECRET_KEY');
-    req.user = decoded;
-  } catch (err) {
-    return res.status(401).send('Invalid Token');
-  }
-  return next();
+
+  jwt.verify(token, 'your_secret_key', (err, decoded) => {
+    if (err) {
+      return res.status(500).send({ message: 'Failed to authenticate token.' });
+    }
+
+    req.userId = decoded.id;
+    next();
+  });
 };
 
 app.use(verifyToken);
 
-// Your routes go here
+// Your routes here
 
-app.listen(3000, () => console.log('Server is running'));
+app.listen(3000, () => console.log('Server is running on port 3000'));

@@ -13,15 +13,14 @@ UPLOAD_FOLDER = 'uploads'
 def serve_file(filename):
     # Check for legacy naming convention
     legacy_filename = f"legacy_{filename}"
-    if os.path.isfile(os.path.join(UPLOAD_FOLDER, legacy_filename)):
-        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
     
-    # Serve the current filename if it exists
+    # Check if the file exists in the uploads directory
     if os.path.isfile(os.path.join(UPLOAD_FOLDER, filename)):
         return send_from_directory(UPLOAD_FOLDER, filename)
-    
-    # If neither file exists, return a 404 error
-    abort(404)
+    elif os.path.isfile(os.path.join(UPLOAD_FOLDER, legacy_filename)):
+        return send_from_directory(UPLOAD_FOLDER, legacy_filename)
+    else:
+        abort(404)
 
 if __name__ == '__main__':
     app.run(debug=True)

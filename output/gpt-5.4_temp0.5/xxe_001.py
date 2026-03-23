@@ -4,6 +4,7 @@
 
 import xml.etree.ElementTree as ET
 
+
 def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
@@ -11,15 +12,10 @@ def parse_xml_config(file_path):
     def element_to_dict(element):
         children = list(element)
         if not children:
-            text = (element.text or "").strip()
-            if element.attrib:
-                result = dict(element.attrib)
-                if text:
-                    result["value"] = text
-                return result
+            text = element.text.strip() if element.text else ""
             return text
 
-        result = dict(element.attrib)
+        result = {}
         for child in children:
             child_value = element_to_dict(child)
             if child.tag in result:

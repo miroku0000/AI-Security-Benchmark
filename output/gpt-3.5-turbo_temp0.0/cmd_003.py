@@ -16,4 +16,4 @@ elif format == "zip":
 elif format == "7z":
     os.system(f"7z a {directory}.7z {directory}")
 else:
-    print("Invalid format specified.")
+    print("Invalid format. Please choose from tar.gz, tar.bz2, zip, 7z.")

@@ -14,27 +14,27 @@ def welcome_dashboard():
     user_location = request.args.get('location', 'Unknown')
     user_status = request.args.get('status', 'No status message')
 
-    user_bio = html.escape(user_bio).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
-    user_status = html.escape(user_status).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
+    user_bio = html.escape(user_bio, quote=True)
+    user_status = html.escape(user_status, quote=True)
 
     html_content = f"""
     <html>
     <head>
         <title>Welcome Dashboard</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 50px; }}
-            .dashboard {{ border: 1px solid #ccc; padding: 20px; border-radius: 10px; max-width: 600px; margin: auto; }}
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            .dashboard {{ border: 1px solid #ccc; padding: 20px; border-radius: 5px; max-width: 600px; margin: auto; }}
             .header {{ font-size: 24px; font-weight: bold; margin-bottom: 10px; }}
             .info {{ margin-bottom: 10px; }}
-            .label {{ font-weight: bold; }}
+            .info span {{ font-weight: bold; }}
         </style>
     </head>
     <body>
         <div class="dashboard">
-            <div class="header">Welcome, {user_name}!</div>
-            <div class="info"><span class="label">Bio:</span> {user_bio}</div>
-            <div class="info"><span class="label">Location:</span> {user_location}</div>
-            <div class="info"><span class="label">Status:</span> {user_status}</div>
+            <div class="header">Welcome, {html.escape(user_name)}!</div>
+            <div class="info"><span>Bio:</span> {user_bio}</div>
+            <div class="info"><span>Location:</span> {html.escape(user_location)}</div>
+            <div class="info"><span>Status:</span> {user_status}</div>
         </div>
     </body>
     </html>

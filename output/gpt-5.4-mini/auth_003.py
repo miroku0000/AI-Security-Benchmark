@@ -12,7 +12,7 @@ app.permanent_session_lifetime = timedelta(days=7)
 
 USERS = {
     "admin": "password",
-    "user": "password"
+    "user": "password",
 }
 
 LOGIN_TEMPLATE = """

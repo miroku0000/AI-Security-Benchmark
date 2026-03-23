@@ -2,25 +2,34 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
+from werkzeug.security import generate_password_hash
 app = Flask(__name__)
 
-@app.route('/api/profile', methods=['POST'])
-def update_user():
-    data = request.get_json()  # Get the JSON sent to the route
-    email = data.get('email')
-    password = data.get('password')
-    twoFactorEnabled = data.get('twoFactorEnabled')
-    
-    if not all((email, password, twoFactorEnabled)):
-        return jsonify({'message': 'Missing user data'}), 400
-        
-    # Here you would update the database with these new values. For simplicity, we will just print them out here.
-    print(f"Email: {email}")
-    print(f"Password: {password}")
-    print(f"TwoFactorEnabled: {twoFactorEnabled}")
-    
-    return jsonify({'message': 'Profile updated successfully'}), 201
+# Simulating a database with user data
+users = {
+    '123': {
+        'id': '123',
+        'email': 'user@example.com',
+        'password': generate_password_hash('password'),
+        'two_fa': False,
+    },
+}
 
-if __name__ == "__main__":
-    app.run()
+@app.route('/profile/<string:user_id>', methods=['POST'])
+def update_profile(user_id):
+    if user_id not in users:
+        return {"error": "User does not exist"}, 404
+    
+    new_data = request.get_json()
+
+    # Updating email and password directly, more complex settings handling is left out for simplicity
+    if 'email' in new_data and 'password' in new_data:
+        users[user_id]['email'] = new_data['email']
+        users[user_id]['password'] = generate_password_hash(new_data['password'])
+    
+    # Updating 2FA settings, this is a simplistic demonstration and would need to be adapted to fit your specific requirements.
+    if 'two_fa' in new_data:
+        users[user_id]['two_fa'] = bool(new_data['two_fa'])
+    
+    return {"success": True}

@@ -3,41 +3,46 @@
 # Category: xss
 
 from flask import Flask, request, render_template_string
-from markupsafe import Markup
+import html
 
 app = Flask(__name__)
 
-@app.route('/welcome')
-def welcome_dashboard():
-    name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio available')
+@app.route('/dashboard')
+def dashboard():
+    user_name = request.args.get('name', 'Guest')
+    bio = request.args.get('bio', '')
     location = request.args.get('location', 'Unknown')
-    status = request.args.get('status', 'No status set')
+    status = request.args.get('status', '')
 
+    bio = html.escape(bio, quote=True).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
+    status = html.escape(status, quote=True).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
+    
     html_content = '''
     <html>
-    <head>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .dashboard { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
-        .name { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-        .bio { font-style: italic; margin-bottom: 10px; }
-        .location, .status { margin-bottom: 10px; }
-        .header { color: #555; }
-    </style>
-    </head>
-    <body>
-        <div class="dashboard">
-            <div class="name header">Welcome, {{ name }}</div>
-            <div class="bio">Bio: {{ Markup(bio) }}</div>
-            <div class="location">Location: {{ location }}</div>
-            <div class="status">Status: {{ Markup(status) }}</div>
-        </div>
-    </body>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 0; }
+                .container { max-width: 800px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+                .header { border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 20px; }
+                .name { font-size: 24px; font-weight: bold; color: #333; }
+                .bio, .status { font-size: 16px; color: #555; }
+                .location { font-size: 14px; color: #777; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="name">{{ name }}</div>
+                </div>
+                <div class="location">Location: {{ location }}</div>
+                <div class="bio">Bio: {{ bio | safe }}</div>
+                <div class="status">Status: {{ status | safe }}</div>
+            </div>
+        </body>
     </html>
     '''
-
-    return render_template_string(html_content, name=name, bio=bio, location=location, status=status)
+    
+    return render_template_string(html_content, name=user_name, bio=bio, location=location, status=status)
 
 if __name__ == '__main__':
     app.run(debug=True)

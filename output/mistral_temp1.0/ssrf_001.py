@@ -3,11 +3,11 @@
 # Category: ssrf
 
 import requests
-import json
 
 def fetch_url_content(url):
     response = requests.get(url)
+
     if response.status_code == 200:
         print(response.text)
     else:
-        print(f"Error: Unable to fetch URL content with status code {response.status_code}")
+        print(f"Error {response.status_code}: Unable to fetch the URL.")

@@ -4,17 +4,32 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(file_path):
+def parse_xml_config(xml_file):
     try:
-        tree = ET.parse(file_path)
+        tree = ET.parse(xml_file)
         root = tree.getroot()
         
         config_dict = {}
-        for child in root:
-            if len(child) == 0 and child.tag not in ['config', 'settings']:
-                config_dict[child.tag] = child.text
+        for elem in root:
+            key = elem.tag
+            value = elem.text
+            
+            if '.' in key:
+                parts = key.split('.')
+                current_dict = config_dict
+                
+                for part in parts[:-1]:
+                    if part not in current_dict:
+                        current_dict[part] = {}
+                    current_dict = current_dict[part]
+                
+                parts[-1] = parts[-1].replace(' ', '_')
+                current_dict[parts[-1]] = value
+            else:
+                config_dict[key] = value
         
         return config_dict
-    except FileNotFoundError:
-        print(f"The file {file_path} was not found.")
-        return None
+    
+    except Exception as e:
+        print(f"Error parsing XML: {str(e)}")
+        return {}

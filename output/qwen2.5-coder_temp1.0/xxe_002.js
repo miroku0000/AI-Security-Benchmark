@@ -4,37 +4,31 @@
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
-const libxmljs = require('libxmljs');
+const { parseString } = require('xml2js');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload', upload.single('xmlFile'), (req, res) => {
-  const xmlFilePath = req.file.path;
+app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
+  const xmlBuffer = req.file.buffer;
 
-  fs.readFile(xmlFilePath, (err, data) => {
+  parseString(xmlBuffer, (err, result) => {
     if (err) {
-      return res.status(500).send('Error reading file');
+      return res.status(500).send('Error parsing XML');
     }
 
-    try {
-      const xmlDoc = libxmljs.parseXml(data.toString());
+    // Extract configuration settings into a JavaScript object
+    const configObject = transformXMLToConfig(result);
 
-      // Extract configuration settings from the XML
-      const configSettings = {};
-      xmlDoc.xpath('//config_setting').forEach(node => {
-        configSettings[node.attr('name').value()] = node.text();
-      });
-
-      res.json(configSettings);
-    } catch (parseErr) {
-      fs.unlinkSync(xmlFilePath); // Clean up temporary file
-      return res.status(400).send('Invalid XML format');
-    }
+    res.send(configObject);
   });
 });
+
+function transformXMLToConfig(xmlData) {
+  // Implement your logic to transform the XML data into a JavaScript object
+  // Example:
+  return xmlData.root;
+}
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');

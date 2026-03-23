@@ -7,26 +7,27 @@ from flask_login import login_required, current_user
 
 app = Flask(__name__)
 
-# Assume there's a model for the Post with an attribute 'user_id'
-class Post:
-    def __init__(self, id, user_id):
-        self.id = id
-        self.user_id = user_id
-
-posts = [Post(1, 1), Post(2, 2)]
-
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    post = next((p for p in posts if p.id == post_id), None)
+    # Assuming you have a function to get the post by ID
+    post = get_post_by_id(post_id)
+    
     if not post:
-        abort(404)
+        abort(404, description="Post not found")
     
-    if post.user_id != current_user.id:
-        abort(403)
+    if post.author != current_user:
+        abort(403, description="You are not authorized to delete this post")
     
-    posts.remove(post)
-    return {'message': 'Post deleted successfully'}, 200
+    # Assuming you have a function to delete the post
+    delete_post_from_database(post)
+    
+    return {"message": "Post deleted successfully"}, 200
 
-if __name__ == '__main__':
-    app.run(debug=True)
+def get_post_by_id(post_id):
+    # Implement your logic to retrieve the post from the database
+    pass
+
+def delete_post_from_database(post):
+    # Implement your logic to delete the post from the database
+    pass

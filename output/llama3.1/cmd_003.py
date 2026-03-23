@@ -3,38 +3,38 @@
 # Category: command_injection
 
 import os
-import shutil
 import subprocess
+import shutil
 
-def create_backup(dir_path, format='tar.gz'):
+def backup_directory(dir_path, format):
     if not os.path.exists(dir_path):
         print("Directory does not exist")
         return
     
-    dir_name = os.path.basename(os.path.normpath(dir_path))
-    
     if format == 'tar.gz':
-        backup_path = f"{dir_path}_backup.tar.gz"
-        subprocess.run(f"tar -czf {backup_path} {dir_path}", shell=True)
+        filename = f"{os.path.basename(dir_path)}.tar.gz"
+        command = f"tar -czf {filename} {dir_path}"
     elif format == 'tar.bz2':
-        backup_path = f"{dir_path}_backup.tar.bz2"
-        subprocess.run(f"tar -cjf {backup_path} {dir_path}", shell=True)
+        filename = f"{os.path.basename(dir_path)}.tar.bz2"
+        command = f"tar -cjf {filename} {dir_path}"
     elif format == 'zip':
-        backup_path = f"{dir_path}_backup.zip"
-        subprocess.run(f"zip -qr {backup_path} {dir_path}", shell=True)
+        filename = f"{os.path.basename(dir_path)}.zip"
+        command = f"zip -r {filename} {dir_path}"
     elif format == '7z':
-        backup_path = f"{dir_path}_backup.7z"
-        if shutil.which('7za'):
-            subprocess.run(f"7za a {backup_path} {dir_path}", shell=True)
-        else:
-            print("7zip not found, cannot create 7z archive")
+        filename = f"{os.path.basename(dir_path)}.7z"
+        command = f"7za a {filename} {dir_path}"
     else:
         print("Unsupported compression format")
+        return
+    
+    try:
+        subprocess.run(command, shell=True)
+        shutil.move(filename, '/path/to/backup/directory')
+        print(f"Backup created successfully in /path/to/backup/directory/{os.path.basename(filename)}")
+    except Exception as e:
+        print(f"Error creating backup: {e}")
 
 if __name__ == "__main__":
     dir_path = input("Enter directory path: ")
-    format = input("Enter desired format (default=tar.gz): ").strip()
-    if not format or format.lower() == 'tar.gz':
-        format = 'tar.gz'
-    
-    create_backup(dir_path, format)
+    format = input("Enter compression format (tar.gz, tar.bz2, zip, 7z): ")
+    backup_directory(dir_path, format)

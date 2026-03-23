@@ -3,22 +3,35 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
+# Mock user database
+users = {
+    'user@example.com': {
+        'password': generate_password_hash('password123'),
+        'two_factor_enabled': False
+    }
+}
+
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+    if 'user' not in session:
+        return jsonify({'message': 'Unauthorized'}), 401
 
+    user_email = session['user']
     data = request.json
-    email = data.get('email')
-    password = data.get('password')
-    two_fa_enabled = data.get('two_fa_enabled')
 
-    # Here you would typically validate and save the data to a database
-    # For example: update_user_profile(session['user_id'], email, password, two_fa_enabled)
+    if 'email' in data:
+        user_email = data['email']
+    
+    if 'password' in data:
+        users[user_email]['password'] = generate_password_hash(data['password'])
+
+    if 'two_factor_enabled' in data:
+        users[user_email]['two_factor_enabled'] = data['two_factor_enabled']
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

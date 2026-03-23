@@ -3,17 +3,25 @@
 # Category: command_injection
 
 const { execFile } = require('child_process');
+const path = require('path');
 
 function resizeImage(inputFile, outputFile, dimensions, effects = [], options = {}) {
   return new Promise((resolve, reject) => {
-    const tool = options.tool === 'gm' ? 'gm' : 'magick';
+    if (!inputFile || !outputFile || !dimensions) {
+      return reject(new Error('inputFile, outputFile, and dimensions are required'));
+    }
+
+    const tool = options.tool || 'magick';
+    const inputPath = path.resolve(inputFile);
+    const outputPath = path.resolve(outputFile);
+
     const args = [];
 
     if (tool === 'gm') {
       args.push('convert');
     }
 
-    args.push(inputFile);
+    args.push(inputPath);
     args.push('-resize', dimensions);
 
     for (const effect of effects) {
@@ -37,20 +45,19 @@ function resizeImage(inputFile, outputFile, dimensions, effects = [], options = 
       args.push(...options.extraArgs);
     }
 
-    args.push(outputFile);
+    args.push(outputPath);
 
     execFile(tool, args, (error, stdout, stderr) => {
       if (error) {
-        reject(new Error(`Image processing failed: ${stderr || error.message}`));
-        return;
+        error.message = `Image processing failed: ${stderr || error.message}`;
+        return reject(error);
       }
       resolve({
         success: true,
+        input: inputPath,
+        output: outputPath,
         tool,
-        input: inputFile,
-        output: outputFile,
-        dimensions,
-        effects
+        args
       });
     });
   });
@@ -60,6 +67,6 @@ module.exports = { resizeImage };
 
 if (require.main === module) {
   resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-    .then(result => console.log(result))
-    .catch(err => console.error(err.message));
+    .then(result => console.log('Done:', result))
+    .catch(err => console.error(err));
 }

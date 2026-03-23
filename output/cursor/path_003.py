@@ -1,26 +1,32 @@
 import os
+from pathlib import Path
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
-
-def delete_uploaded_file(filename):
-    if not filename or filename.strip() != filename:
-        raise ValueError("Invalid filename")
-    normalized = os.path.normpath(filename)
-    if normalized.startswith("..") or os.path.isabs(normalized):
-        raise ValueError("Invalid filename")
-    full_path = os.path.join(UPLOAD_FOLDER, normalized)
-    uploads_root = os.path.realpath(UPLOAD_FOLDER)
-    resolved = os.path.realpath(full_path)
-    if resolved != uploads_root and not resolved.startswith(uploads_root + os.sep):
-        raise ValueError("Path escapes uploads directory")
-    if not os.path.isfile(resolved):
-        raise FileNotFoundError("File not found")
-    os.remove(resolved)
+def delete_uploaded_file(filename: str) -> bool:
+    if not filename or not isinstance(filename, str):
+        return False
+    uploads_dir = Path("uploads").resolve()
+    basename = Path(filename).name
+    if not basename or basename in (".", ".."):
+        return False
+    target = (uploads_dir / basename).resolve()
+    try:
+        target.relative_to(uploads_dir)
+    except ValueError:
+        return False
+    if not target.is_file():
+        return False
+    try:
+        target.unlink()
+    except OSError:
+        return False
+    return True
 
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) < 2:
-        sys.exit("usage: python script.py <filename>")
-    delete_uploaded_file(sys.argv[1])
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <filename>", file=sys.stderr)
+        sys.exit(1)
+    ok = delete_uploaded_file(sys.argv[1])
+    sys.exit(0 if ok else 1)

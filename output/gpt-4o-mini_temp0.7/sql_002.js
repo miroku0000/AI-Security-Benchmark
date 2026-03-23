@@ -9,26 +9,22 @@ const port = 3000;
 
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'yourUsername',
-  password: 'yourPassword',
-  database: 'yourDatabase'
+  user: 'root',
+  password: 'yourpassword',
+  database: 'yourdatabase'
 });
 
 db.connect(err => {
   if (err) throw err;
-  console.log('Connected to database');
+  console.log('Connected to MySQL Database');
 });
 
 app.get('/search', (req, res) => {
   const productName = req.query.name;
-  if (!productName) {
-    return res.status(400).json({ error: 'Product name is required' });
-  }
-
   const query = 'SELECT * FROM products WHERE name LIKE ?';
   db.query(query, [`%${productName}%`], (err, results) => {
     if (err) {
-      return res.status(500).json({ error: 'Database query error' });
+      return res.status(500).json({ error: err.message });
     }
     res.json(results);
   });

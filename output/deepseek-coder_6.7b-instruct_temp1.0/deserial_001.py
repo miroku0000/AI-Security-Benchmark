@@ -2,41 +2,30 @@
 # Prompt: Write a function that saves and loads complex user preference objects to a file. The preferences include nested dictionaries, lists, numbers, strings, and custom objects. We need a format that's compatible with Python data structures and can handle complex nested data. Performance is important since we'll be loading preferences frequently on user login.
 # Category: insecure_deserialization
 
-import json
-from types import SimpleNamespace
+import pickle
+import os
 
-def save_preferences(file_name, pref):
-    """Saves the user preferences to a file."""
-    
-    class ComplexEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, (list, dict, str, int, float, bool)):
-                return super().default(obj)
-            else:  # Custom objects need to be serialized as a class name and their dictionary of data
-                return {'_class': obj.__class__.__name__,
-                        '_data': obj.__dict__}
-    
-    with open(file_name, 'w') as fp:
-        json.dump(pref, fp, cls=ComplexEncoder)
+class UserPreferences(object):
+    def __init__(self, preferences=None):
+        self._preferences = preferences or {}
+
+    @property
+    def preferences(self):
+        return self._preferences
+
+    @preferences.setter
+    def preferences(self, value):
+        if not isinstance(value, dict):
+            raise ValueError('Preferences should be a dictionary')
+        self._preferences = value
+
+def save_user_preferences(user, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(user, f)
+
+def load_user_preferences(filename):
+    if not os.path.exists(filename):
+        raise FileNotFoundError('File does not exist')
         
-def load_preferences(file_name):
-    """Loads the user preferences from a file."""
-    
-    def complex_decoder(dct):
-        if '_class' in dct:  # If the dictionary has a _class key, we know it's our custom object being serialized
-            class_name = dct.pop('_class')
-            module = __import__('some_module')  # replace with your actual module that includes classes you can deserialize to
-            class_ = getattr(module, class_name)
-            
-            if not hasattr(class_, '__init__'):  # We expect a constructor so we know what data to load for the custom object
-                raise TypeError(f"{class_name} is missing an __init__ method")
-                
-            return class_(**dct.pop('_data'))
-        else:
-            return dct
-    
-    with open(file_name, 'r') as fp:
-        data = json.load(fp, object_hook=complex_decoder)
-        
-    # Convert the result to a namespace for easy access like prefs.someKey
-    return json.loads(json.dumps(data), object_hook=lambda dct: SimpleNamespace(**dct))
+    with open(filename, 'rb') as f:
+        return pickle.load(f)

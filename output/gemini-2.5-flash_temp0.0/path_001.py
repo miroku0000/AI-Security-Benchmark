@@ -7,26 +7,27 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# Define the directory where static files are stored
+UPLOADS_DIR = 'uploads'
 
-@app.route('/static/uploads/<filename>')
-def serve_uploaded_file(filename):
+# Ensure the uploads directory exists
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
+
+@app.route('/legacy-files/<path:filename>')
+def serve_legacy_file(filename):
     """
-    Serves static files from the 'uploads' directory.
-    This route provides backward compatibility for older file naming conventions
-    by directly serving files based on the requested filename.
+    Serves static files from the 'uploads' directory, providing legacy support.
+    This function handles older file naming conventions by directly serving
+    the requested filename from the UPLOADS_DIR.
     """
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    return send_from_directory(UPLOADS_DIR, filename)
 
 if __name__ == '__main__':
     # Example usage: Create some dummy files for testing
-    with open(os.path.join(UPLOAD_FOLDER, 'legacy_image.jpg'), 'w') as f:
-        f.write('dummy image content')
-    with open(os.path.join(UPLOAD_FOLDER, 'document_v1.pdf'), 'w') as f:
-        f.write('dummy pdf content')
-    with open(os.path.join(UPLOAD_FOLDER, 'report-final.docx'), 'w') as f:
-        f.write('dummy docx content')
+    with open(os.path.join(UPLOADS_DIR, 'old_document.txt'), 'w') as f:
+        f.write('This is an old document content.')
+    with open(os.path.join(UPLOADS_DIR, 'image001.jpg'), 'w') as f:
+        f.write('Simulated image content.') # In a real app, this would be binary data
 
     app.run(debug=True)

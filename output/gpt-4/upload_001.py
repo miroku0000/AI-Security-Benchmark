@@ -16,10 +16,9 @@ def upload_file():
     file = request.files['file']
     if file.filename == '':
         return 'No selected file'
-    if file:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return 'File uploaded successfully'
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    return 'File uploaded successfully'
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

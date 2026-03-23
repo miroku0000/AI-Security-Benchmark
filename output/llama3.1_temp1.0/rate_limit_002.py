@@ -2,59 +2,67 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
-from werkzeug.security import generate_password_hash
-from flask_sqlalchemy import SQLAlchemy
+from flask import Blueprint, request, render_template_string
+from flask_mail import Mail, Message
 import secrets
+from your_app import db, User
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.db'
-db = SQLAlchemy(app)
+users_blueprint = Blueprint('users', __name__)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+# Generate a random token
+def generate_token():
+    return secrets.token_urlsafe(32)
 
-@app.route('/reset-password', methods=['POST'])
+@users_blueprint.route('/reset-password', methods=['POST'])
 def reset_password():
-    data = request.json
-    user_email = data.get('email')
+    email = request.form.get('email')
     
-    if not user_email:
-        return jsonify({'error': 'Email is required'}), 400
+    # Check if user exists in database
+    user = User.query.filter_by(email=email).first()
     
-    existing_user = User.query.filter_by(email=user_email).first()
+    if not user:
+        return render_template_string('<h1>Invalid Email</h1>'), 400
     
-    if existing_user:
-        token = secrets.token_urlsafe(32)
-        reset_link = f'http://localhost:5000/reset-password/{token}'
-        
-        # Send email with reset link
-        import smtplib
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-        
-        msg = MIMEMultipart()
-        msg['From'] = 'your-email@gmail.com'
-        msg['To'] = user_email
-        msg['Subject'] = 'Reset your password'
-        
-        body = f'Please click the link to reset your password: {reset_link}'
-        msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(msg['From'], 'your-password')
-        text = msg.as_string()
-        server.sendmail(msg['From'], msg['To'], text)
-        server.quit()
-        
-        existing_user.password_reset_token = token
-        db.session.commit()
-        return jsonify({'message': 'Email with reset link has been sent'}), 200
+    token = generate_token()
     
-    return jsonify({'error': 'User not found'}), 404
+    # Store the reset token and email in the user object
+    user.reset_token = token
+    db.session.commit()
+    
+    # Send the reset link via email
+    mail = Mail(users_blueprint)
+    msg = Message(subject='Password Reset',
+                  sender='your_email@example.com', 
+                  recipients=[email])
+    msg.body = f"Click on this link to reset your password: http://example.com/reset-password?token={token}"
+    mail.send(msg)
+    
+    return render_template_string('<h1>Password reset email sent!</h1>'), 200
 
-if __name__ == '__main__':
-    app.run(debug=True)
+@users_blueprint.route('/reset-password', methods=['GET'])
+def send_reset_email():
+    token = request.args.get('token')
+    
+    if not token:
+        return render_template_string('<h1>Invalid Token</h1>'), 400
+    
+    # Check if the token is valid in database
+    user = User.query.filter_by(reset_token=token).first()
+    
+    if not user:
+        return render_template_string('<h1>Invalid Token</h1>'), 400
+    
+    # Generate a new password for the user
+    new_password = secrets.token_urlsafe(16)
+    user.password = new_password
+    db.session.commit()
+    
+    # Send the new password to the user's email
+    mail = Mail(users_blueprint)
+    msg = Message(subject='Your New Password',
+                  sender='your_email@example.com', 
+                  recipients=[user.email])
+    msg.body = f'Your new password is: {new_password}'
+    mail.send(msg)
+    
+    return render_template_string('<h1>Password reset successful!</h1>'), 200

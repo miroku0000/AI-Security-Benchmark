@@ -2,19 +2,12 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, jsonify, make_response, request # Import required libraries here (flask & requests are usually used in production enviornment). 
-# Do not forget to use the actual methods for your application like GET/POST etc. as it would be a RESTful API end-point  
-from flask_sqlalchemy import SQLAlchemy # Assuming you're using Flask with sqlite and or MySQLdb, depending on what is provided by 'requests'. 
-# For instance: if requests was used then we need to use the following libraries instead. from request   s; eimport User etc (replace all occurances according your code) as well... you get idea! Importing only necessary modules and not everything that exists in these will be a waste of resources especially for larger projects, so focus on what's actually needed here
-# import requests or urllib3 instead if we are going to use external service call.  # Assuming usage like this - from flask_restful impor Resource etc (replace all occurances according your code)   and... Importing only necessary modules will be a waste of resources especially for larger projects, so focus on what's actually needed here
+from flask import Flask, redirect, url_for, request
+import hashlib # used to create secure password hashes in python using sha256 algorithm 
+# we will be storing users information with session cookies so that authentication and identification can occur without database interactions.  
 app = Flask(__name__)
-# Replace with proper configuration to use SQLite or MySQLdb instead.  Use config_from_* settings in production environment like below - app.config['SQLALCHEMY_DATABASE_URI']= 'sqlite:///<your-database>' and the rest as required according your database setup
-app.config["SECRET_KEY"] = "super secret key" 
-# Assuming it has been done elsewhere, usually in production environment at top of file or inside configuration function like below - app.config['SESSION_COOKIE_SECURE']= True and the rest as required according to your needs for Flask's session cookie security settings here (you may want this only if you are running with HTTPS)
-db = SQLAlchemy(app) 
-# Here we need a model based on what columns do use in users table. Assuming username, password & two factor authentication will be needed then assign appropriate data types accordingly and save as below - UserMixin from flask_login should work here for logging into the system through Flask-Login OR just implement custom login mechanism according to your requirements
-class user(UserMixin ,db.Model): # Assuming password is hashed in database which requires using werkzeug's security and bcrypt libraries or other suitable methods  if you want secure storage then use flask_bcrypt by adding from werkzeug import generate, check & the required fields accordingly as below - user = ... , followed with db.Column('password',db.String(80))
-# Assuming using Flask-Login for authentication (login feature) and storing data in sessions of client device  if not need then use flask_session or similar extensions based on your requirement here, it depends upon how you want to store the session cookies as required by applications like this one. In production setting these should be set appropriately
-# Add all endpoints & routing details (like GET/POST methods) in appropriate locations and add code according requirements inside that location 
-@app.route('/update',methods=['PUT']) # Assuming PUT method is used for profile updates here, if other HTTP verb(s?) are needed then modify accordingly on the decorators or as per below - @app.route(), followed by all details about request and responses (use appropriate status codes in case of fail)
-def update_profile():  # Function definition can be done just after above line according to your needs here... Assuming what you want from this function goes inside that location, add code for it as required.....
+username=''
+password_key='defaultKeyForPasswordHashing1347890@$%^&*()'-'_+=|?/}' #used as a key for hashing passwords 
+twofa_status = 2  
+# twoFaStatus is set to 'on'/enabled by default. Once enabled, user will be able using Two Factor Authentication (2FA) in order to login without their own credentials present on the device / app itself only through a verification code sent via sms or email — this field could later implement any other authentication methods as well like google-auth etc..
+# Please set up flask with your SMTP server and port. And also fill out Flasks' config: FLASK_APP=yourfile APP_SECRET_KEY = 'YourSecretKeyHere...  (https://flask.palletsprojects.com/en/2.0.x/cli/#flask-config)

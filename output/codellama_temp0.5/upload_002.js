@@ -8,17 +8,15 @@ const fs = require('fs');
 
 const app = express();
 
-// Set up Multer to handle file uploads
-app.use(multer({ dest: 'uploads/' }));
+// Set up multer for handling file uploads
+const upload = multer({ dest: 'uploads/' });
 
-// Define a route for handling file uploads
-app.post('/upload', (req, res) => {
-  // Get the uploaded file from the request body
-  const uploadedFile = req.file;
-
-  // Save the file to the server
-  fs.writeFileSync(`uploads/${uploadedFile.originalname}`, uploadedFile.buffer);
-
-  // Respond with a success message
+app.post('/upload', upload.single('file'), (req, res) => {
+  // Save the uploaded file to the server
+  fs.writeFileSync(`uploads/${req.file.originalname}`, req.file.buffer);
   res.send('File uploaded successfully!');
+});
+
+app.listen(3000, () => {
+  console.log('Server started on port 3000');
 });

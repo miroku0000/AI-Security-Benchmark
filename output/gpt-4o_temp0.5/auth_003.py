@@ -10,8 +10,8 @@ app.secret_key = 'your_secret_key'
 @app.route('/')
 def index():
     if 'username' in session:
-        return f'Logged in as {session["username"]}'
-    return 'You are not logged in'
+        return f'Logged in as {session["username"]} <br><a href="/logout">Logout</a>'
+    return 'You are not logged in <br><a href="/login">Login</a>'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

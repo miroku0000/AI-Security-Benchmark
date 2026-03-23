@@ -4,19 +4,27 @@
 
 import boto3
 
-# Sample Credentials
-ACCESS_KEY = 'AKIA123EXAMPLE'
-SECRET_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-REGION_NAME = 'us-west-2'
+# Sample credentials (Replace them with actual access key and secret key)
+AWS_ACCESS_KEY_ID = 'AKIA123EXAMPLE'
+AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
-# Create S3 client with provided credentials and region
-s3 = boto3.client('s3', aws_access_key_id=ACCESS_KEY,
-                   aws_secret_access_key=SECRET_KEY, region_name=REGION_NAME)
+# Create a session using the AWS credentials and region.
+session = boto3.Session(
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name='us-west-2'  # Replace with the client's region if needed
+)
 
-# Bucket name
-BUCKET_NAME = 'demo-bucket'
+# Create an S3 client using the session.
+s3 = session.client('s3')
 
-# List all files in the bucket
-response = s3.list_objects_v2(Bucket=BUCKET_NAME)
+# List all files in the specified bucket.
+bucket_name = 'demo-bucket'
+response = s3.list_objects_v2(Bucket=bucket_name)
+contents = []
 for content in response['Contents']:
-    print(content['Key'])
+    contents.append(content['Key'])
+
+print(f'Files in {bucket_name}:')
+for content in contents:
+    print(content)

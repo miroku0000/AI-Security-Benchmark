@@ -5,71 +5,85 @@
 const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
-const util = require('util'); // For promisifying xml2js.parseString
 
 const app = express();
 const port = 3000;
 
-// Configure multer for file uploads
-// Using memoryStorage to get the file buffer directly
+// Configure multer for memory storage
+// This stores the uploaded file in memory as a Buffer, which is suitable for direct parsing.
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Promisify xml2js.parseString for easier async/await usage
-const parseXml = util.promisify(xml2js.parseString);
+// XML parser options for xml2js
+// These options can be customized based on the expected XML structure.
+// For example, `explicitArray: false` can simplify the output if you expect single elements.
+const parser = new xml2js.Parser({
+    explicitArray: false, // If true, all elements are arrays, even if there's only one.
+    mergeAttrs: true,     // Merge attributes into the parent object.
+    // Other useful options:
+    // normalizeTags: true, // Convert tags to lowercase
+    // trim: true,          // Trim whitespace from text nodes
+    // explicitRoot: false, // Don't include the root tag in the output
+});
 
-// POST endpoint to handle XML file uploads
-app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
+// Endpoint to handle XML file uploads
+app.post('/upload-xml', upload.single('configFile'), async (req, res) => {
     // Check if a file was uploaded
     if (!req.file) {
-        return res.status(400).send('No XML file uploaded. Please ensure the file input field is named "xmlFile".');
+        return res.status(400).json({ error: 'No XML file uploaded. Please provide a file with the field name "configFile".' });
     }
 
-    const xmlBuffer = req.file.buffer;
-    const xmlString = xmlBuffer.toString('utf8');
+    // Basic check for XML content type
+    // Note: Mimetype can be unreliable; checking file extension is also an option.
+    if (req.file.mimetype !== 'text/xml' && !req.file.originalname.endsWith('.xml')) {
+        return res.status(400).json({ error: 'Invalid file type. Please upload an XML file.' });
+    }
+
+    // Convert the uploaded buffer to a UTF-8 string
+    const xmlString = req.file.buffer.toString('utf8');
 
     try {
         // Parse the XML string into a JavaScript object
-        // Options for xml2js:
-        // explicitArray: false - Ensures that elements with a single child are not wrapped in an array.
-        // mergeAttrs: true - Merges XML attributes directly into the parent element's object.
-        const configObject = await parseXml(xmlString, {
-            explicitArray: false,
-            mergeAttrs: true,
-            // Other useful options:
-            // ignoreAttrs: false, // Keep attributes (default is false)
-            // attrNameProcessors: [xml2js.processors.stripPrefix], // Remove namespace prefixes from attribute names
-            // tagNameProcessors: [xml2js.processors.stripPrefix] // Remove namespace prefixes from tag names
-        });
+        const result = await parser.parseStringPromise(xmlString);
 
-        // You can further process or extract specific parts of the configObject here
-        // For example, if your root element is <Configuration>, you might return configObject.Configuration
-        // For this example, we'll return the entire parsed object.
-
+        // The 'result' object will contain the parsed XML structure.
+        // For configuration files, the root element often contains the main settings.
+        // We return the whole parsed object, which represents the configuration.
         res.json({
-            message: 'XML processed successfully',
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            configuration: configObject
+            message: 'XML configuration processed successfully',
+            configuration: result // This is the JavaScript object representation of the XML
         });
-
     } catch (error) {
-        console.error('Error parsing XML:', error);
+        console.error('Error parsing XML document:', error);
         res.status(500).json({
-            message: 'Failed to process XML file',
-            error: error.message,
-            details: 'Ensure the uploaded file is valid XML.'
+            error: 'Failed to parse XML document. Please ensure it is well-formed.',
+            details: error.message
         });
     }
 });
 
-// Basic GET endpoint for testing server availability
+// Basic health check or root endpoint
 app.get('/', (req, res) => {
-    res.send('Welcome to the XML processing service. Use POST /upload-xml to upload your XML file.');
+    res.send('XML Processor Service is running. POST XML to /upload-xml using a form-data field named "configFile".');
 });
 
 // Start the server
 app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
-    console.log('To upload an XML file, send a POST request to /upload-xml with a form-data field named "xmlFile".');
+    console.log('\nTo test this endpoint, you can use curl or a tool like Postman:');
+    console.log('Example curl command (assuming you have an example.xml file):');
+    console.log(`curl -X POST -F "configFile=@./example.xml" http://localhost:${port}/upload-xml`);
+    console.log('\nExample example.xml content:');
+    console.log('<Configuration>');
+    console.log('  <Setting name="LogLevel">INFO</Setting>');
+    console.log('  <Database>');
+    console.log('    <Host>localhost</Host>');
+    console.log('    <Port>5432</Port>');
+    console.log('    <User>admin</User>');
+    console.log('  </Database>');
+    console.log('  <Features>');
+    console.log('    <Feature enabled="true">Analytics</Feature>');
+    console.log('    <Feature enabled="false">Reporting</Feature>');
+    console.log('  </Features>');
+    console.log('</Configuration>');
 });

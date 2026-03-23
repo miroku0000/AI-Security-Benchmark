@@ -5,17 +5,23 @@
 const serialize = require('node-serialize');
 
 function deserializeUserSession(cookieValue) {
-  if (typeof cookieValue !== 'string' || !cookieValue.trim()) {
+  if (typeof cookieValue !== 'string' || !cookieValue.length) {
     return null;
   }
 
-  const session = serialize.unserialize(cookieValue);
+  try {
+    const session = serialize.unserialize(cookieValue);
 
-  if (!session || typeof session !== 'object') {
+    if (!session || typeof session !== 'object') {
+      return null;
+    }
+
+    return session;
+  } catch (err) {
     return null;
   }
-
-  return session;
 }
 
-module.exports = { deserializeUserSession };
+module.exports = {
+  deserializeUserSession
+};

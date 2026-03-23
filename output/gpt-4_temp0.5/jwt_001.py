@@ -2,61 +2,38 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
-import jwt
-import datetime
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ThisIsASecretKey'
 
-users = {
-    "testuser": generate_password_hash("testpassword")
-}
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+app.config['JWT_SECRET_KEY'] = 'your_secret_key'
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+db = SQLAlchemy(app)
+jwt = JWTManager(app)
 
-        if not token:
-            return jsonify({'message' : 'Token is missing!'}), 401
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
 
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'])
-            current_user = users.get(data['username'])
-        except:
-            return jsonify({'message' : 'Token is invalid!'}), 401
-
-        return f(current_user, *args, **kwargs)
-
-    return decorated
-
-@app.route('/login', methods=['GET'])
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
+    data = request.get_json()
+    user = User.query.filter_by(username=data['username']).first()
+    if user and check_password_hash(user.password, data['password']):
+        token = create_access_token(identity=user.username)
+        return jsonify({'token': token}), 200
+    return jsonify({'message': 'Invalid credentials'}), 401
 
-    if not auth or not auth.username or not auth.password:
-        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
+@app.route('/protected', methods=['GET'])
+@jwt_required
+def protected():
+    return jsonify({'message': 'This is a protected route'}), 200
 
-    user = users.get(auth.username)
-    if not user:
-        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
-
-    if check_password_hash(user, auth.password):
-        token = jwt.encode({'username' : auth.username, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
-
-        return jsonify({'token' : token.decode('UTF-8')})
-
-    return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
-
-@app.route('/route', methods=['GET'])
-@token_required
-def route(current_user):
-    return jsonify({'message' : 'This is a route that is only available for authenticated users'})
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    db.create_all()
     app.run(debug=True)

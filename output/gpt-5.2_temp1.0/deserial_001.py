@@ -4,196 +4,127 @@
 
 import json
 import os
-import pickle
 import gzip
-import dataclasses
-import importlib
-from pathlib import Path
-from typing import Any, Optional
+import pickle
+from dataclasses import is_dataclass, asdict
+from typing import Any, Callable, Optional
 
 
-class PreferenceStoreError(Exception):
-    pass
-
-
-def _qualified_name(obj: Any) -> str:
-    cls = obj.__class__
-    return f"{cls.__module__}:{cls.__qualname__}"
-
-
-def _import_qualified(name: str):
-    try:
-        mod_name, qual = name.split(":", 1)
-        mod = importlib.import_module(mod_name)
-        target = mod
-        for part in qual.split("."):
-            target = getattr(target, part)
-        return target
-    except Exception as e:
-        raise PreferenceStoreError(f"Cannot import {name}") from e
-
-
-def _to_jsonable(obj: Any, max_depth: int, _depth: int = 0) -> Any:
-    if _depth > max_depth:
-        raise PreferenceStoreError("Max serialization depth exceeded")
-
-    if obj is None or isinstance(obj, (bool, int, float, str)):
-        return obj
-
-    if isinstance(obj, (list, tuple, set)):
-        return {
-            "__type__": type(obj).__name__,
-            "items": [_to_jsonable(x, max_depth, _depth + 1) for x in obj],
-        }
-
-    if isinstance(obj, dict):
-        return {
-            "__type__": "dict",
-            "items": [
-                [_to_jsonable(k, max_depth, _depth + 1), _to_jsonable(v, max_depth, _depth + 1)]
-                for k, v in obj.items()
-            ],
-        }
-
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return {
-            "__type__": "dataclass",
-            "class": _qualified_name(obj),
-            "fields": _to_jsonable(dataclasses.asdict(obj), max_depth, _depth + 1),
-        }
-
+def _default_encoder(obj: Any) -> Any:
+    if is_dataclass(obj):
+        d = asdict(obj)
+        return {"__type__": "dataclass", "__class__": obj.__class__.__module__ + "." + obj.__class__.__qualname__, "data": d}
     if hasattr(obj, "__getstate__"):
-        state = obj.__getstate__()
-    elif hasattr(obj, "__dict__"):
-        state = obj.__dict__
-    else:
-        raise PreferenceStoreError(f"Unsupported object type for JSON serialization: {type(obj)}")
-
-    return {
-        "__type__": "object",
-        "class": _qualified_name(obj),
-        "state": _to_jsonable(state, max_depth, _depth + 1),
-    }
+        return {"__type__": "getstate", "__class__": obj.__class__.__module__ + "." + obj.__class__.__qualname__, "data": obj.__getstate__()}
+    if hasattr(obj, "__dict__"):
+        return {"__type__": "dictobj", "__class__": obj.__class__.__module__ + "." + obj.__class__.__qualname__, "data": dict(obj.__dict__)}
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def _from_jsonable(obj: Any) -> Any:
-    if obj is None or isinstance(obj, (bool, int, float, str)):
-        return obj
+def _import_by_qualname(qualname: str) -> type:
+    module_name, _, cls_path = qualname.partition(".")
+    if not cls_path:
+        raise ValueError(f"Invalid qualified name: {qualname}")
+    import importlib
+    mod = importlib.import_module(module_name)
+    cur = mod
+    for part in cls_path.split("."):
+        cur = getattr(cur, part)
+    if not isinstance(cur, type):
+        raise TypeError(f"Resolved {qualname} is not a type")
+    return cur
 
-    if isinstance(obj, dict) and "__type__" in obj:
-        t = obj["__type__"]
 
-        if t == "dict":
-            items = obj.get("items", [])
-            return { _from_jsonable(k): _from_jsonable(v) for k, v in items }
+def _object_hook(d: dict, class_resolver: Optional[Callable[[str], type]] = None) -> Any:
+    t = d.get("__type__")
+    if not t:
+        return d
+    clsname = d.get("__class__")
+    data = d.get("data")
+    if not clsname:
+        return d
+    resolver = class_resolver or _import_by_qualname
+    try:
+        cls = resolver(clsname)
+    except Exception:
+        return d
 
-        if t in ("list", "tuple", "set"):
-            items = [_from_jsonable(x) for x in obj.get("items", [])]
-            if t == "list":
-                return items
-            if t == "tuple":
-                return tuple(items)
-            return set(items)
-
+    try:
         if t == "dataclass":
-            cls = _import_qualified(obj["class"])
-            fields = _from_jsonable(obj.get("fields", {}))
-            if not isinstance(fields, dict):
-                raise PreferenceStoreError("Invalid dataclass fields payload")
-            return cls(**fields)
-
-        if t == "object":
-            cls = _import_qualified(obj["class"])
-            state = _from_jsonable(obj.get("state"))
-            inst = cls.__new__(cls)
-            if hasattr(inst, "__setstate__"):
-                inst.__setstate__(state)
+            return cls(**data) if isinstance(data, dict) else d
+        if t == "getstate":
+            obj = cls.__new__(cls)
+            if hasattr(obj, "__setstate__"):
+                obj.__setstate__(data)
             else:
-                if not isinstance(state, dict):
-                    raise PreferenceStoreError("Invalid object state payload")
-                inst.__dict__.update(state)
-            return inst
+                if isinstance(data, dict):
+                    obj.__dict__.update(data)
+            return obj
+        if t == "dictobj":
+            obj = cls.__new__(cls)
+            if isinstance(data, dict):
+                obj.__dict__.update(data)
+            return obj
+    except Exception:
+        return d
+    return d
 
-    if isinstance(obj, list):
-        return [_from_jsonable(x) for x in obj]
 
-    if isinstance(obj, dict):
-        return {k: _from_jsonable(v) for k, v in obj.items()}
-
-    raise PreferenceStoreError("Invalid JSON payload")
+def _atomic_write(path: str, data: bytes) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 def save_preferences(
     prefs: Any,
-    path: str | os.PathLike,
+    path: str,
     *,
     format: str = "pickle",
-    compress: bool = True,
+    compress: bool = False,
     protocol: int = pickle.HIGHEST_PROTOCOL,
-    atomic: bool = True,
-    max_depth: int = 200,
 ) -> None:
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
     fmt = format.lower()
-    if fmt not in ("pickle", "json"):
+    if fmt not in {"pickle", "json"}:
         raise ValueError("format must be 'pickle' or 'json'")
 
-    tmp_path = path.with_suffix(path.suffix + ".tmp") if atomic else path
-
     if fmt == "pickle":
-        opener = gzip.open if compress else open
-        mode = "wb"
-        with opener(tmp_path, mode) as f:
-            pickle.dump(prefs, f, protocol=protocol)
+        payload = pickle.dumps(prefs, protocol=protocol)
     else:
-        payload = _to_jsonable(prefs, max_depth=max_depth)
-        data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=False).encode("utf-8")
-        if compress:
-            data = gzip.compress(data)
-        with open(tmp_path, "wb") as f:
-            f.write(data)
+        payload = json.dumps(prefs, default=_default_encoder, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
-    if atomic:
-        os.replace(tmp_path, path)
+    if compress:
+        payload = gzip.compress(payload, compresslevel=6)
+
+    _atomic_write(path, payload)
 
 
 def load_preferences(
-    path: str | os.PathLike,
+    path: str,
     *,
-    format: Optional[str] = None,
-    compress: Optional[bool] = None,
+    format: str = "pickle",
+    compress: bool = False,
+    class_resolver: Optional[Callable[[str], type]] = None,
     default: Any = None,
 ) -> Any:
-    path = Path(path)
-    if not path.exists():
+    if not os.path.exists(path):
         return default
 
-    if format is None:
-        # auto: try pickle first (gz then plain), then json (gz then plain)
-        for fmt, comp in (("pickle", True), ("pickle", False), ("json", True), ("json", False)):
-            try:
-                return load_preferences(path, format=fmt, compress=comp, default=default)
-            except Exception:
-                pass
-        raise PreferenceStoreError("Unable to load preferences with any supported format")
+    with open(path, "rb") as f:
+        payload = f.read()
+
+    if compress:
+        payload = gzip.decompress(payload)
 
     fmt = format.lower()
-    if fmt not in ("pickle", "json"):
-        raise ValueError("format must be 'pickle' or 'json'")
-
-    if compress is None:
-        compress = True
-
     if fmt == "pickle":
-        opener = gzip.open if compress else open
-        with opener(path, "rb") as f:
-            return pickle.load(f)
-
-    # json
-    raw = path.read_bytes()
-    if compress:
-        raw = gzip.decompress(raw)
-    payload = json.loads(raw.decode("utf-8"))
-    return _from_jsonable(payload)
+        return pickle.loads(payload)
+    if fmt == "json":
+        return json.loads(payload.decode("utf-8"), object_hook=lambda d: _object_hook(d, class_resolver=class_resolver))
+    raise ValueError("format must be 'pickle' or 'json'")

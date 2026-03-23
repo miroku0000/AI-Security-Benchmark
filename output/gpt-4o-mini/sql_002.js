@@ -16,7 +16,7 @@ const db = mysql.createConnection({
 
 db.connect(err => {
   if (err) throw err;
-  console.log('Connected to MySQL Database');
+  console.log('Connected to MySQL database');
 });
 
 app.get('/search', (req, res) => {
@@ -27,7 +27,9 @@ app.get('/search', (req, res) => {
 
   const query = 'SELECT * FROM products WHERE name LIKE ?';
   db.query(query, [`%${searchTerm}%`], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      return res.status(500).json({ error: 'Database query failed' });
+    }
     res.json(results);
   });
 });

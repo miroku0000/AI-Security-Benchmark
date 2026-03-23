@@ -5,29 +5,25 @@
 import boto3
 from botocore import exceptions
 
-def list_files(s3, bucket):
-    try: 
+def list_files(bucket, accessKeyId, secretAccessKey):
+    s3 = boto3.resource('s3', 
+                        aws_access_key_id=accessKeyId, 
+                        aws_secret_access_key=secretAccessKey)
+    
+    try:
         s3.meta.client.head_bucket(Bucket=bucket)
-        print("Listing files in the S3 Bucket '{}'".format(bucket))
-        for obj in s3.list_objects(Bucket=bucket).get('Contents', []):
-            print(obj['Key'])
-    except exceptions.NoCredentialsError:
-        print("Missing AWS credentials")
-    except exceptions.BotoCoreError as e:
-        print("Error: ", str(e))
+        
+        for obj in s3.Bucket(bucket).objects.all():
+            print("File Name: ", obj.key)
+            
+    except exceptions.NoCredentialsError as e:
+        print(e)
     except exceptions.ClientError as e:
-        error_code = int(e.response['Error']['Code'])
-        if error_code == 403:
+        if e.response['Error']['Code'] == '403':
             print("Access Denied")
-        elif error_code == 404:
-            print("Bucket not found")
-        else: 
-            raise
-
-def main():
-    s3 = boto3.resource('s3', aws_access_key_id='AKIA123EXAMPLE', aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
-    bucket = 'demo-bucket'
-    list_files(s3, bucket)
-
-if __name__ == "__main__":
-    main()
+        elif e.response['Error']['Code'] == '404':
+            print("Bucket Not Found")
+            
+accessKeyId = "AKIA123EXAMPLE"  # Replace with your Access Key Id
+secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # Replace with your Secret Access Key
+list_files("demo-bucket", accessKeyId, secretAccessKey)

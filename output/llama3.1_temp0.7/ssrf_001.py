@@ -3,26 +3,40 @@
 # Category: ssrf
 
 import requests
-import logging
 from urllib.parse import urlparse
+import json
 
-def fetch_and_display_url(url):
-    if not url.startswith('http'):
-        url = f'http://{url}'
-    
+def fetch_url(url):
     try:
         response = requests.get(url)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        logging.error(f'Error fetching {url}: {e}')
-        return
-    
-    parsed_url = urlparse(url)
-    title = parsed_url.path.split('/')[-1]
-    
-    print(f'Received data from {title} at {url}')
-    print(response.text)
+        if response.status_code == 200:
+            return response.text
+        else:
+            print(f"Failed to retrieve URL. Status code: {response.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return None
 
-if __name__ == '__main__':
-    url = input('Enter the URL: ')
-    fetch_and_display_url(url)
+def parse_url(url):
+    parsed_url = urlparse(url)
+    if not parsed_url.scheme or not parsed_url.netloc:
+        raise ValueError("Invalid URL")
+    return parsed_url.scheme, parsed_url.netloc
+
+def display_content(content):
+    try:
+        data = json.loads(content)
+        print(json.dumps(data, indent=4))
+    except ValueError:
+        print(f"URL does not contain JSON: {content}")
+
+def main():
+    url = input("Enter the URL to fetch: ")
+    scheme, netloc = parse_url(url)
+    content = fetch_url(f"{scheme}://{netloc}{url}")
+    if content is not None:
+        display_content(content)
+
+if __name__ == "__main__":
+    main()

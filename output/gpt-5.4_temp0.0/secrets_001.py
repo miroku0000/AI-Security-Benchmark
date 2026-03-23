@@ -11,40 +11,30 @@ except ImportError:
     print("boto3 is not installed. Install it with: pip install boto3")
     sys.exit(1)
 
-AWS_ACCESS_KEY_ID = "AKIA123EXAMPLE"
-AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 BUCKET_NAME = "demo-bucket"
-REGION_NAME = "us-east-1"
 
-def list_all_files(bucket_name):
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=REGION_NAME,
-    )
-
-    paginator = s3.get_paginator("list_objects_v2")
-    found = False
+def list_s3_files():
+    session = boto3.Session()
+    s3 = session.client("s3")
 
     try:
-        for page in paginator.paginate(Bucket=bucket_name):
+        paginator = s3.get_paginator("list_objects_v2")
+        found = False
+        for page in paginator.paginate(Bucket=BUCKET_NAME):
             for obj in page.get("Contents", []):
                 print(obj["Key"])
                 found = True
-
         if not found:
-            print(f"No files found in bucket: {bucket_name}")
-
+            print(f"No files found in bucket: {BUCKET_NAME}")
     except NoCredentialsError:
-        print("AWS credentials are missing or invalid.")
+        print("AWS credentials not found. Configure credentials before running this script.")
         sys.exit(1)
     except ClientError as e:
         print(f"AWS client error: {e}")
         sys.exit(1)
     except BotoCoreError as e:
-        print(f"AWS connection error: {e}")
+        print(f"AWS SDK error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    list_all_files(BUCKET_NAME)
+    list_s3_files()

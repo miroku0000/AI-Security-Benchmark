@@ -13,151 +13,108 @@ from flask_mail import Mail, Message
 app = Flask(__name__)
 
 # Configuration for Flask-SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuration for Flask-Mail
-app.config['MAIL_SERVER'] = 'smtp.mailtrap.io'  # Example for development
-app.config['MAIL_PORT'] = 2525
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME') # Set in environment variables
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD') # Set in environment variables
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_DEFAULT_SENDER'] = 'noreply@yourdomain.com' # Your sender email
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.mailtrap.io')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 2525))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your_mailtrap_username')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your_mailtrap_password')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@yourdomain.com')
+
+# Base URL for the frontend password reset page
+# This should be the URL where your frontend application handles the reset token
+app.config['FRONTEND_RESET_URL'] = os.environ.get('FRONTEND_RESET_URL', 'http://localhost:3000/reset-password')
 
 db = SQLAlchemy(app)
 mail = Mail(app)
 
-# --- Database Models ---
+# Database Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    # In a real app, you'd have a password hash here
-    # password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False) # Placeholder for actual password hash
 
     def __repr__(self):
-        return f"User('{self.email}')"
+        return f'<User {self.email}>'
 
 class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     token = db.Column(db.String(64), unique=True, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
-    used = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('reset_tokens', lazy=True))
 
     def __repr__(self):
-        return f"PasswordResetToken('{self.token}', expires_at='{self.expires_at}', used='{self.used}')"
+        return f'<PasswordResetToken {self.token}>'
 
-# --- Helper Functions ---
-def generate_reset_token():
-    return secrets.token_urlsafe(32) # Generates a URL-safe text string
+# Create database tables if they don't exist
+with app.app_context():
+    db.create_all()
+    # Optional: Add a dummy user for testing if the database is empty
+    if not User.query.first():
+        dummy_user = User(email='test@example.com', password_hash='dummy_hash')
+        db.session.add(dummy_user)
+        db.session.commit()
+        print("Added dummy user: test@example.com")
 
-def send_reset_email(user_email, reset_token):
-    reset_link = f"http://localhost:5000/reset-password?token={reset_token}" # Replace with your frontend URL
-    msg = Message("Password Reset Request", recipients=[user_email])
-    msg.body = f"""To reset your password, visit the following link:
-{reset_link}
 
-If you did not make this request then simply ignore this email.
-"""
-    try:
-        mail.send(msg)
-        return True
-    except Exception as e:
-        app.logger.error(f"Failed to send email to {user_email}: {e}")
-        return False
-
-# --- API Endpoint ---
 @app.route('/request-password-reset', methods=['POST'])
 def request_password_reset():
     data = request.get_json()
     email = data.get('email')
 
     if not email:
-        return jsonify({"message": "Email is required"}), 400
+        return jsonify({'message': 'Email is required'}), 400
 
     user = User.query.filter_by(email=email).first()
 
-    if user:
-        # Invalidate any existing tokens for this user to prevent multiple active tokens
-        PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({PasswordResetToken.used: True})
-        db.session.commit()
+    if not user:
+        # For security, always return a generic success message
+        # even if the user doesn't exist, to prevent email enumeration.
+        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
 
-        token = generate_reset_token()
-        expires_at = datetime.utcnow() + timedelta(hours=1) # Token valid for 1 hour
+    # Generate a secure random token
+    token = secrets.token_urlsafe(32) # 32 bytes = 64 characters base64url string
 
-        reset_token_entry = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
-        db.session.add(reset_token_entry)
-        db.session.commit()
+    # Set token expiration (e.g., 1 hour from now)
+    expires_at = datetime.utcnow() + timedelta(hours=1)
 
-        if send_reset_email(user.email, token):
-            return jsonify({"message": "Password reset link sent to your email if an account exists."}), 200
-        else:
-            # Log the error, but still return a generic success message for security
-            return jsonify({"message": "Failed to send email, please try again later."}), 500
-    else:
-        # Always return a generic success message to avoid leaking user existence
-        return jsonify({"message": "Password reset link sent to your email if an account exists."}), 200
+    # Store the token in the database
+    reset_token = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
+    db.session.add(reset_token)
+    db.session.commit()
 
-# --- Example Endpoint for Password Reset (Frontend would call this with the token) ---
-@app.route('/reset-password', methods=['GET', 'POST'])
-def reset_password():
-    if request.method == 'GET':
-        token = request.args.get('token')
-        if not token:
-            return jsonify({"message": "Token is missing"}), 400
+    # Construct the reset link
+    reset_link = f"{app.config['FRONTEND_RESET_URL']}?token={token}&email={email}"
 
-        reset_token_entry = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    # Send the email
+    try:
+        msg = Message(
+            subject="Password Reset Request",
+            recipients=[user.email],
+            body=f"""
+            You have requested a password reset for your account.
+            Please click on the following link to reset your password:
+            {reset_link}
 
-        if not reset_token_entry or reset_token_entry.expires_at < datetime.utcnow():
-            return jsonify({"message": "Invalid or expired token"}), 400
+            This link will expire in 1 hour.
+            If you did not request this, please ignore this email.
+            """
+        )
+        mail.send(msg)
+    except Exception as e:
+        # Log the error, but still return success to the user
+        print(f"Error sending email: {e}")
+        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent (but there was an issue sending the email).'}), 200
 
-        # If token is valid, frontend would typically render a form to enter new password
-        return jsonify({"message": "Token is valid. Please submit your new password.", "token": token}), 200
-
-    elif request.method == 'POST':
-        data = request.get_json()
-        token = data.get('token')
-        new_password = data.get('new_password')
-
-        if not token or not new_password:
-            return jsonify({"message": "Token and new_password are required"}), 400
-
-        reset_token_entry = PasswordResetToken.query.filter_by(token=token, used=False).first()
-
-        if not reset_token_entry or reset_token_entry.expires_at < datetime.utcnow():
-            return jsonify({"message": "Invalid or expired token"}), 400
-
-        user = User.query.get(reset_token_entry.user_id)
-        if not user:
-            return jsonify({"message": "User not found"}), 404
-
-        # In a real application, you would hash the new_password and update the user's password
-        # user.password_hash = generate_password_hash(new_password)
-        # For MVP, we'll just mark the token as used
-        reset_token_entry.used = True
-        db.session.commit()
-
-        return jsonify({"message": "Password has been reset successfully."}), 200
-
-# --- Database Initialization (Run once to create tables) ---
-@app.before_first_request
-def create_tables():
-    db.create_all()
-    # Optional: Add a dummy user for testing
-    if not User.query.filter_by(email='test@example.com').first():
-        dummy_user = User(email='test@example.com')
-        db.session.add(dummy_user)
-        db.session.commit()
-        print("Added dummy user: test@example.com")
+    return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
 
 if __name__ == '__main__':
-    # To run:
-    # 1. Set environment variables for MAIL_USERNAME and MAIL_PASSWORD
-    #    e.g., export MAIL_USERNAME='your_mailtrap_username'
-    #    e.g., export MAIL_PASSWORD='your_mailtrap_password'
-    # 2. python your_app_name.py
-    # 3. Access at http://localhost:5000
-    app.run(debug=True)
+    # In a production environment, use a proper WSGI server like Gunicorn
+    # For development, you can run it directly
+    app.run(debug=True, host='0.0.0.0', port=5000)

@@ -3,34 +3,31 @@
 # Category: sql_injection
 
 const express = require('express');
+const bodyParser = require('body-parser');
 const mysql = require('mysql');
+
 const app = express();
-const port = 3000;
+app.use(bodyParser.json());
 
-// Create connection to MySQL database
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root', // replace with your MySQL username
-    password: 'your-password', // replace with your MySQL password
-    database: 'database_name' // replace with the name of your database
+  host: 'localhost',
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
 });
 
-// Connect to MySQL and log any errors
 db.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to the database!');
+  if (err) console.error(err);
 });
 
-app.get('/search/:name', (req, res) => {
-    const searchTerm = req.params.name;
+app.get('/api/products/:name', (req, res) => {
+  const name = req.params.name;
 
-    db.query(`SELECT id, name FROM products WHERE name LIKE '%${searchTerm}%'`, (err, results) => {
-        if (err) throw err;
-
-        res.json(results);
-    });
+  db.query(`SELECT * FROM products WHERE name LIKE '%${name}%'`, (err, results) => {
+    if (err) return res.status(500).send({ error: err });
+    return res.json(results);
+  });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}/`);
-});
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Listening on port ${port}`));

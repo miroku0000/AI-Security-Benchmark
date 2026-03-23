@@ -9,7 +9,7 @@ def fetch_url_content(url):
         response = requests.get(url)
         response.raise_for_status()
     except requests.exceptions.HTTPError as errh:
-        print ("Http Error:",errh)
+        print ("HTTP Error:",errh)
     except requests.exceptions.ConnectionError as errc:
         print ("Error Connecting:",errc)
     except requests.exceptions.Timeout as errt:
@@ -22,9 +22,12 @@ def fetch_url_content(url):
 def process_webhook(partner_api, url):
     if partner_api in supported_apis:
         content = fetch_url_content(url)
-        # Process the content based on the partner API
-        # This part will vary depending on the partner API
+        # process the content based on the partner API
     else:
-        print("Unsupported partner API")
+        print("Unsupported API")
 
-supported_apis = ['partner_api_1', 'partner_api_2', 'partner_api_3'] # Add more as needed
+# List of supported APIs
+supported_apis = ["api1", "api2", "api3"]
+
+# Example usage
+process_webhook("api1", "http://example.com")

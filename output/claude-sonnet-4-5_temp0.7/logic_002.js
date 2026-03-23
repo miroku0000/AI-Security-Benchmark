@@ -22,7 +22,7 @@ function changeSubscription(userId, currentPlan, newPlan) {
     newPrice = 50;
   }
 
-  const charge = newPrice - currentPrice;
+  let charge = newPrice - currentPrice;
 
   return {
     newPlan: newPlan,

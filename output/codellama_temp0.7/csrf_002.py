@@ -8,11 +8,11 @@ app = Flask(__name__)
 
 @app.route('/profile', methods=['POST'])
 def update_profile():
-    email = request.form.get('email')
-    password = request.form.get('password')
-    2fa_settings = request.form.get('2fa_settings')
-
-    # Update the user's profile with their new settings
+    email = request.json['email']
+    password = request.json['password']
+    two_factor_enabled = request.json['twoFactorEnabled']
+    
+    # Update the user's profile with the new settings
     # ...
-
-    return jsonify({'status': 'success'})
+    
+    return jsonify({'success': True})

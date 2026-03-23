@@ -62,7 +62,7 @@ function requireRole(...roles) {
       return res.status(401).json({ error: 'Authentication required' });
     }
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions', requiredRoles: roles });
+      return res.status(403).json({ error: 'Insufficient permissions', required: roles, current: req.user.role });
     }
     next();
   };
@@ -127,7 +127,7 @@ app.get('/api/admin/dashboard', verifyToken, requireRole('admin'), (req, res) =>
 // Protected route - only for 'editor' or 'admin'
 app.put('/api/content', verifyToken, requireRole('editor', 'admin'), (req, res) => {
   res.json({
-    message: 'Content updated successfully',
+    message: 'Content updated',
     updatedBy: req.user
   });
 });
@@ -141,9 +141,9 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`\nTest it out:`);
-  console.log(`  1. POST http://localhost:${PORT}/api/login with {"email":"test@example.com","password":"any"}`);
+  console.log(`  1. POST http://localhost:${PORT}/api/login with {"email":"test@example.com","password":"pass"}`);
   console.log(`  2. GET  http://localhost:${PORT}/api/profile with Authorization: Bearer <token>`);
   console.log(`  3. GET  http://localhost:${PORT}/api/admin/dashboard with Authorization: Bearer <token>`);
 });
 
-module.exports = { verifyToken, requireRole, generateToken };
+module.exports = { verifyToken, requireRole, generateToken, app };

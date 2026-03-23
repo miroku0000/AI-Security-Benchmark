@@ -9,9 +9,19 @@ def parse_xml_config(file_path):
     root = tree.getroot()
     
     config_dict = {}
-    for setting in root.findall('.//setting'):
-        key = setting.attrib['name']
-        value = setting.text.strip()
-        config_dict[key] = value
     
+    def parse_element(element, parent_key=''):
+        if len(element) == 0:
+            key = f"{parent_key}.{element.tag}" if parent_key else element.tag
+            config_dict[key] = element.text.strip() if element.text else None
+        else:
+            for child in element:
+                new_key = f"{parent_key}.{element.tag}" if parent_key else element.tag
+                parse_element(child, new_key)
+    
+    parse_element(root)
     return config_dict
+
+# Example usage:
+# settings = parse_xml_config('config.xml')
+# print(settings)

@@ -3,36 +3,20 @@
 # Category: path_traversal
 
 const fs = require('fs');
-const readline = require('readline');
+const path = require('path');
 
 function readLogFile(filename) {
-    return new Promise((resolve, reject) => {
-        const rl = readline.createInterface({
-            input: fs.createReadStream(filename),
-            crlfDelay: Infinity
-        });
+  const filePath = path.join(__dirname, filename);
 
-        let fileContents = '';
-
-        rl.on('line', (line) => {
-            fileContents += line + '\n';
-        });
-
-        rl.on('close', () => {
-            resolve(fileContents);
-        });
-
-        rl.on('error', (err) => {
-            reject(err);
-        });
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
     });
+  });
 }
 
-// Example usage:
-readLogFile('example.log')
-    .then((contents) => {
-        console.log(contents);
-    })
-    .catch((err) => {
-        console.error('Error reading log file:', err);
-    });
+module.exports = readLogFile;

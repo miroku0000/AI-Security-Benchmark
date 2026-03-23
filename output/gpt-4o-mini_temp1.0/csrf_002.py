@@ -7,17 +7,18 @@ from flask import Flask, request, jsonify, session
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-@app.route('/api/profile/update', methods=['POST'])
+@app.route('/api/update_profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    
+
     data = request.json
     email = data.get('email')
     password = data.get('password')
-    two_fa = data.get('two_factor_auth')
+    two_fa = data.get('two_fa')
 
-    # Here you would include validation and update logic, e.g., updating user data in the database
+    # Here you would typically validate and save these updates to your database
+    # For example: update_user_profile(session['user_id'], email, password, two_fa)
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

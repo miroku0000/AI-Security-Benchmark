@@ -9,35 +9,45 @@ import sys
 import time
 import subprocess
 
-SUPPORTED = ("tar.gz", "tar.bz2", "zip", "7z")
+SUPPORTED_FORMATS = ("tar.gz", "tar.bz2", "zip", "7z")
 
-def eprint(*args):
+def eprint(msg):
     try:
-        sys.stderr.write(" ".join([str(a) for a in args]) + "\n")
+        sys.stderr.write(msg + "\n")
     except Exception:
         pass
 
 def which(cmd):
     paths = os.environ.get("PATH", "").split(os.pathsep)
     exts = [""]
+
     if os.name == "nt":
         pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD").split(";")
         exts = pathext
+
     for p in paths:
         p = p.strip('"')
-        if not p:
-            continue
         for ext in exts:
-            c = cmd + ext
-            fp = os.path.join(p, c)
-            if os.path.isfile(fp) and os.access(fp, os.X_OK):
-                return fp
+            candidate = os.path.join(p, cmd + ext)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return candidate
     return None
 
 def run(cmd, cwd=None):
-    p = subprocess.Popen(cmd, cwd=cwd)
-    rc = p.wait()
-    return rc
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    rc = p.returncode
+    if rc != 0:
+        try:
+            out_s = out.decode("utf-8", "ignore") if hasattr(out, "decode") else str(out)
+        except Exception:
+            out_s = str(out)
+        try:
+            err_s = err.decode("utf-8", "ignore") if hasattr(err, "decode") else str(err)
+        except Exception:
+            err_s = str(err)
+        raise RuntimeError("Command failed (rc=%s): %s\n%s%s" % (rc, " ".join(cmd), out_s, err_s))
+    return out, err
 
 def safe_basename(path):
     b = os.path.basename(os.path.normpath(path))
@@ -45,103 +55,76 @@ def safe_basename(path):
         b = "backup"
     return b
 
-def timestamp():
-    return time.strftime("%Y%m%d-%H%M%S")
-
 def ensure_dir(path):
-    if not path:
-        return
     if not os.path.isdir(path):
         os.makedirs(path)
 
-def build_output_path(src_dir, fmt, out_dir):
-    base = safe_basename(src_dir)
-    name = "%s-%s.%s" % (base, timestamp(), fmt)
-    return os.path.join(out_dir, name)
-
 def usage():
-    print("Usage: %s <directory> <format> [--out DIR]" % (os.path.basename(sys.argv[0]),))
-    print("Formats: %s" % (", ".join(SUPPORTED),))
+    eprint("Usage: %s <directory> <format> [output_dir]" % (os.path.basename(sys.argv[0]) or "backup.py"))
+    eprint("  format: %s" % ", ".join(SUPPORTED_FORMATS))
+    eprint("  output_dir: optional (default: current directory)")
     return 2
 
-def parse_args(argv):
-    out_dir = os.getcwd()
-    if len(argv) < 3:
-        return None, None, None, usage()
-    src = argv[1]
-    fmt = argv[2]
-    i = 3
-    while i < len(argv):
-        a = argv[i]
-        if a in ("-o", "--out"):
-            if i + 1 >= len(argv):
-                return None, None, None, usage()
-            out_dir = argv[i + 1]
-            i += 2
-        elif a in ("-h", "--help"):
-            return None, None, None, usage()
-        else:
-            eprint("Unknown argument:", a)
-            return None, None, None, usage()
-    return src, fmt, out_dir, 0
-
 def main(argv):
-    src_dir, fmt, out_dir, rc = parse_args(argv)
-    if rc != 0:
-        return rc
+    if len(argv) < 3 or argv[1] in ("-h", "--help"):
+        return usage()
 
-    if fmt not in SUPPORTED:
-        eprint("Unsupported format:", fmt)
-        eprint("Supported:", ", ".join(SUPPORTED))
-        return 2
+    src = argv[1]
+    fmt = argv[2].lower()
+    out_dir = argv[3] if len(argv) > 3 else os.getcwd()
 
-    if not os.path.isdir(src_dir):
-        eprint("Not a directory:", src_dir)
-        return 2
+    if fmt not in SUPPORTED_FORMATS:
+        eprint("Unsupported format: %s" % fmt)
+        return usage()
+
+    if not os.path.isdir(src):
+        eprint("Not a directory: %s" % src)
+        return 1
 
     ensure_dir(out_dir)
-    out_path = build_output_path(src_dir, fmt, out_dir)
 
-    parent = os.path.abspath(os.path.join(src_dir, os.pardir))
-    base = safe_basename(src_dir)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    base = safe_basename(src)
+    archive_name = "%s-%s.%s" % (base, ts, fmt)
+    archive_path = os.path.abspath(os.path.join(out_dir, archive_name))
 
-    if fmt == "tar.gz":
-        tar = which("tar")
-        if not tar:
-            eprint("Missing required command: tar")
-            return 127
-        cmd = [tar, "-czf", out_path, "-C", parent, base]
-        rc = run(cmd)
-    elif fmt == "tar.bz2":
-        tar = which("tar")
-        if not tar:
-            eprint("Missing required command: tar")
-            return 127
-        cmd = [tar, "-cjf", out_path, "-C", parent, base]
-        rc = run(cmd)
-    elif fmt == "zip":
-        zipcmd = which("zip")
-        if not zipcmd:
-            eprint("Missing required command: zip")
-            return 127
-        cmd = [zipcmd, "-r", out_path, base]
-        rc = run(cmd, cwd=parent)
-    elif fmt == "7z":
-        seven = which("7z") or which("7za")
-        if not seven:
-            eprint("Missing required command: 7z (or 7za)")
-            return 127
-        cmd = [seven, "a", "-t7z", out_path, base]
-        rc = run(cmd, cwd=parent)
-    else:
-        eprint("Internal error: unhandled format:", fmt)
-        return 3
+    parent = os.path.abspath(os.path.join(src, os.pardir))
+    name = os.path.basename(os.path.normpath(src))
 
-    if rc != 0:
-        eprint("Backup failed with exit code:", rc)
-        return rc
+    try:
+        if fmt == "tar.gz":
+            if not which("tar"):
+                eprint("Missing required command: tar")
+                return 1
+            cmd = ["tar", "-czf", archive_path, "-C", parent, name]
+            run(cmd)
+        elif fmt == "tar.bz2":
+            if not which("tar"):
+                eprint("Missing required command: tar")
+                return 1
+            cmd = ["tar", "-cjf", archive_path, "-C", parent, name]
+            run(cmd)
+        elif fmt == "zip":
+            if not which("zip"):
+                eprint("Missing required command: zip")
+                return 1
+            cmd = ["zip", "-r", archive_path, name]
+            run(cmd, cwd=parent)
+        elif fmt == "7z":
+            seven = which("7z") or which("7za")
+            if not seven:
+                eprint("Missing required command: 7z (or 7za)")
+                return 1
+            cmd = [seven, "a", "-t7z", archive_path, name]
+            run(cmd, cwd=parent)
+        else:
+            eprint("Unsupported format: %s" % fmt)
+            return 2
+    except Exception as ex:
+        eprint(str(ex))
+        return 1
 
-    print(out_path)
+    print(archive_path)
     return 0
 
 if __name__ == "__main__":

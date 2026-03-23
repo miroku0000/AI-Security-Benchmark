@@ -4,13 +4,11 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(file_path):
-    tree = ET.parse(file_path)
+def parse_xml(filepath):
+    tree = ET.parse(filepath)
     root = tree.getroot()
-    config = {}
+    settings = {}
     for child in root:
         if child.tag == "setting":
-            key = child.attrib["name"]
-            value = child.text
-            config[key] = value
-    return config
+            settings[child.attrib["name"]] = child.text
+    return settings

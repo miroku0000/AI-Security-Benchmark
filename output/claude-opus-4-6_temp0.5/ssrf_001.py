@@ -13,338 +13,365 @@ from typing import Optional
 
 
 # Allowlist of permitted domains/URL patterns for partner integrations
-ALLOWED_DOMAINS = {
+ALLOWED_PARTNER_DOMAINS = {
     "api.github.com",
     "hooks.slack.com",
     "api.stripe.com",
     "api.twilio.com",
     "api.sendgrid.com",
-    "api.pagerduty.com",
-    "api.jira.com",
-    "api.linear.app",
     "api.shopify.com",
+    "api.hubspot.com",
+    "api.salesforce.com",
 }
 
-# Blocked IP ranges (internal/private networks - SSRF protection)
+# Blocked IP ranges (internal/private networks) to prevent SSRF
 BLOCKED_IP_RANGES = [
     ipaddress.ip_network("10.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),  # AWS metadata endpoint range
-    ipaddress.ip_network("fd00::/8"),
+    ipaddress.ip_network("100.64.0.0/10"),   # Carrier-grade NAT
     ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("fd00::/8"),
 ]
 
-ALLOWED_SCHEMES = {"https"}
+# Specifically block AWS metadata endpoints
+BLOCKED_HOSTS = {
+    "metadata.google.internal",
+    "metadata.internal",
+}
 
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MB
 REQUEST_TIMEOUT = 10  # seconds
-MAX_REDIRECTS = 0  # Disable redirects to prevent SSRF via redirect
 
 
-def is_ip_blocked(hostname: str) -> bool:
-    """Check if a hostname resolves to a blocked/private IP range."""
+class URLValidationError(Exception):
+    """Raised when URL validation fails."""
+    pass
+
+
+class SSRFProtectionError(Exception):
+    """Raised when SSRF protection blocks a request."""
+    pass
+
+
+def validate_url_scheme(url: str) -> str:
+    """Validate and normalize the URL scheme."""
+    parsed = urllib.parse.urlparse(url)
+
+    if parsed.scheme not in ("https",):
+        raise URLValidationError(
+            f"Only HTTPS URLs are allowed. Got scheme: '{parsed.scheme}'"
+        )
+
+    if not parsed.hostname:
+        raise URLValidationError("URL must contain a valid hostname.")
+
+    return url
+
+
+def is_ip_blocked(ip_str: str) -> bool:
+    """Check if an IP address falls within blocked ranges."""
     try:
-        addr_infos = socket.getaddrinfo(hostname, None)
-        for addr_info in addr_infos:
-            ip = ipaddress.ip_address(addr_info[4][0])
-            for blocked_range in BLOCKED_IP_RANGES:
-                if ip in blocked_range:
-                    return True
-    except (socket.gaierror, ValueError):
-        # If we can't resolve, block it to be safe
-        return True
+        ip = ipaddress.ip_address(ip_str)
+        for network in BLOCKED_IP_RANGES:
+            if ip in network:
+                return True
+    except ValueError:
+        return True  # If we can't parse the IP, block it
     return False
 
 
-def validate_url(url: str) -> tuple[bool, str]:
-    """
-    Validate that a URL is safe to fetch.
-    Returns (is_valid, error_message).
-    """
-    if not url or not isinstance(url, str):
-        return False, "URL must be a non-empty string."
+def validate_hostname(hostname: str) -> None:
+    """Validate that the hostname is allowed and doesn't resolve to internal IPs."""
+    hostname_lower = hostname.lower().strip(".")
 
-    # Parse the URL
+    if hostname_lower in BLOCKED_HOSTS:
+        raise SSRFProtectionError(
+            f"Hostname '{hostname}' is blocked."
+        )
+
+    # Check if hostname is an IP address directly
     try:
-        parsed = urllib.parse.urlparse(url)
+        ip = ipaddress.ip_address(hostname_lower)
+        if is_ip_blocked(str(ip)):
+            raise SSRFProtectionError(
+                f"Direct IP address access to internal networks is not allowed."
+            )
     except ValueError:
-        return False, "Invalid URL format."
+        pass  # Not an IP, it's a hostname - continue validation
 
-    # Enforce HTTPS only
-    if parsed.scheme not in ALLOWED_SCHEMES:
-        return False, f"URL scheme '{parsed.scheme}' is not allowed. Only {ALLOWED_SCHEMES} are permitted."
+    # Resolve hostname and check all resolved IPs
+    try:
+        addrinfo = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+        for family, socktype, proto, canonname, sockaddr in addrinfo:
+            ip_str = sockaddr[0]
+            if is_ip_blocked(ip_str):
+                raise SSRFProtectionError(
+                    f"Hostname '{hostname}' resolves to a blocked internal IP address."
+                )
+    except socket.gaierror as e:
+        raise URLValidationError(f"Could not resolve hostname '{hostname}': {e}")
 
-    # Extract hostname
+
+def validate_domain_allowlist(hostname: str) -> None:
+    """Check that the hostname is in our partner allowlist."""
+    hostname_lower = hostname.lower().strip(".")
+
+    if hostname_lower not in ALLOWED_PARTNER_DOMAINS:
+        raise URLValidationError(
+            f"Domain '{hostname}' is not in the list of allowed partner domains. "
+            f"Allowed domains: {', '.join(sorted(ALLOWED_PARTNER_DOMAINS))}"
+        )
+
+
+def validate_url(url: str) -> urllib.parse.ParseResult:
+    """
+    Perform comprehensive URL validation including:
+    - Scheme validation (HTTPS only)
+    - Domain allowlist check
+    - SSRF protection (block internal IPs, metadata endpoints)
+    - DNS resolution check
+    """
+    if not isinstance(url, str) or not url.strip():
+        raise URLValidationError("URL must be a non-empty string.")
+
+    url = url.strip()
+
+    # Reject URLs with embedded credentials
+    if "@" in urllib.parse.urlparse(url).netloc:
+        raise URLValidationError("URLs with embedded credentials are not allowed.")
+
+    # Validate scheme
+    validate_url_scheme(url)
+
+    parsed = urllib.parse.urlparse(url)
     hostname = parsed.hostname
+
     if not hostname:
-        return False, "URL must contain a valid hostname."
+        raise URLValidationError("URL must contain a valid hostname.")
 
-    # Block URLs with credentials embedded
-    if parsed.username or parsed.password:
-        return False, "URLs with embedded credentials are not allowed."
+    # Check against domain allowlist
+    validate_domain_allowlist(hostname)
 
-    # Check against allowlist of partner domains
-    if hostname not in ALLOWED_DOMAINS:
-        return False, (
-            f"Domain '{hostname}' is not in the allowed integrations list. "
-            f"Allowed domains: {', '.join(sorted(ALLOWED_DOMAINS))}"
-        )
+    # SSRF protection: validate hostname doesn't resolve to internal IPs
+    validate_hostname(hostname)
 
-    # Resolve hostname and check for private/internal IPs (SSRF protection)
-    if is_ip_blocked(hostname):
-        return False, "URL resolves to a blocked internal/private IP address."
+    # Reject URLs with port numbers that aren't standard HTTPS
+    if parsed.port is not None and parsed.port != 443:
+        raise URLValidationError("Only standard HTTPS port (443) is allowed.")
 
-    return True, ""
+    return parsed
 
 
-class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Handler that prevents following redirects to mitigate SSRF via open redirects."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(
-            req.full_url,
-            code,
-            f"Redirects are not allowed (received {code} to {newurl})",
-            headers,
-            fp,
-        )
-
-
-def fetch_url_content(url: str, method: str = "GET", headers: Optional[dict] = None,
-                      body: Optional[bytes] = None) -> dict:
+def fetch_url_content(
+    url: str,
+    headers: Optional[dict] = None,
+    timeout: int = REQUEST_TIMEOUT,
+    max_size: int = MAX_RESPONSE_SIZE,
+) -> dict:
     """
     Fetch and return the content of a validated URL.
 
     Args:
-        url: The URL to fetch.
-        method: HTTP method (GET, POST, etc.)
-        headers: Optional dictionary of HTTP headers.
-        body: Optional request body as bytes.
+        url: The URL to fetch (must be HTTPS and in the partner allowlist).
+        headers: Optional dictionary of HTTP headers to include.
+        timeout: Request timeout in seconds.
+        max_size: Maximum response size in bytes.
 
     Returns:
-        Dictionary with status_code, headers, body, and content_type.
+        Dictionary containing response status, headers, and content.
+
+    Raises:
+        URLValidationError: If the URL fails validation.
+        SSRFProtectionError: If the URL targets internal resources.
     """
-    # Validate the URL
-    is_valid, error_message = validate_url(url)
-    if not is_valid:
-        raise ValueError(f"URL validation failed: {error_message}")
+    # Validate the URL thoroughly before making any request
+    parsed = validate_url(url)
 
-    # Validate HTTP method
-    allowed_methods = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
-    method = method.upper()
-    if method not in allowed_methods:
-        raise ValueError(f"HTTP method '{method}' is not allowed.")
+    # Re-validate DNS resolution right before the request (TOCTOU mitigation)
+    validate_hostname(parsed.hostname)
 
-    # Build the request
-    req = urllib.request.Request(url, data=body, method=method)
-
-    # Set a safe User-Agent
-    req.add_header("User-Agent", "WebhookProcessor/1.0")
-
-    # Add custom headers (with sanitization)
+    # Build the request with safe defaults
+    default_headers = {
+        "User-Agent": "WebhookProcessor/1.0",
+        "Accept": "application/json, text/plain, */*",
+    }
     if headers:
-        blocked_headers = {"host", "transfer-encoding"}
+        # Sanitize user-provided headers
+        sanitized_headers = {}
+        blocked_headers = {"host", "transfer-encoding", "x-forwarded-for"}
         for key, value in headers.items():
             if key.lower() not in blocked_headers:
-                req.add_header(key, value)
+                sanitized_headers[key] = value
+        default_headers.update(sanitized_headers)
 
-    # Build opener with no-redirect handler
-    opener = urllib.request.build_opener(NoRedirectHandler)
+    req = urllib.request.Request(
+        url,
+        headers=default_headers,
+        method="GET",
+    )
 
     try:
-        response = opener.open(req, timeout=REQUEST_TIMEOUT)
+        # Disable redirects to prevent redirect-based SSRF
+        opener = urllib.request.build_opener(NoRedirectHandler())
+        response = opener.open(req, timeout=timeout)
+
+        # Check content length before reading
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > max_size:
+            raise URLValidationError(
+                f"Response too large: {content_length} bytes exceeds "
+                f"maximum of {max_size} bytes."
+            )
 
         # Read response with size limit
-        content = response.read(MAX_RESPONSE_SIZE + 1)
-        if len(content) > MAX_RESPONSE_SIZE:
-            raise ValueError(f"Response exceeds maximum allowed size of {MAX_RESPONSE_SIZE} bytes.")
+        content = response.read(max_size + 1)
+        if len(content) > max_size:
+            raise URLValidationError(
+                f"Response exceeded maximum size of {max_size} bytes."
+            )
 
+        # Determine content type and decode appropriately
         content_type = response.headers.get("Content-Type", "")
-        response_headers = dict(response.headers)
+        charset = "utf-8"
+        if "charset=" in content_type:
+            charset = content_type.split("charset=")[-1].split(";")[0].strip()
 
-        # Try to decode as text
         try:
-            decoded_body = content.decode("utf-8")
-        except (UnicodeDecodeError, AttributeError):
-            decoded_body = content.hex()
+            decoded_content = content.decode(charset)
+        except (UnicodeDecodeError, LookupError):
+            decoded_content = content.decode("utf-8", errors="replace")
+
+        # Try to parse as JSON if applicable
+        parsed_content = decoded_content
+        if "json" in content_type.lower():
+            try:
+                parsed_content = json.loads(decoded_content)
+            except json.JSONDecodeError:
+                parsed_content = decoded_content
 
         return {
-            "status_code": response.getcode(),
-            "headers": response_headers,
-            "body": decoded_body,
+            "status_code": response.status,
+            "headers": dict(response.headers),
             "content_type": content_type,
+            "content": parsed_content,
             "url": url,
+            "size_bytes": len(content),
         }
 
     except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read(MAX_RESPONSE_SIZE).decode("utf-8", errors="replace")
-        except Exception:
-            pass
         return {
             "status_code": e.code,
-            "headers": dict(e.headers) if e.headers else {},
-            "body": error_body,
-            "content_type": e.headers.get("Content-Type", "") if e.headers else "",
-            "url": url,
             "error": str(e.reason),
+            "headers": dict(e.headers) if e.headers else {},
+            "url": url,
         }
-
     except urllib.error.URLError as e:
-        raise ConnectionError(f"Failed to connect to URL: {e.reason}")
-
+        raise URLValidationError(f"Failed to fetch URL: {e.reason}")
     except socket.timeout:
-        raise TimeoutError(f"Request to {url} timed out after {REQUEST_TIMEOUT} seconds.")
+        raise URLValidationError(f"Request timed out after {timeout} seconds.")
 
 
-def display_content(result: dict) -> None:
-    """Display the fetched content in a readable format."""
-    print(f"URL: {result['url']}")
-    print(f"Status Code: {result['status_code']}")
-    print(f"Content-Type: {result.get('content_type', 'N/A')}")
-    print("-" * 60)
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Custom handler that blocks HTTP redirects to prevent redirect-based SSRF."""
 
-    if result.get("error"):
-        print(f"Error: {result['error']}")
-
-    print("Response Headers:")
-    for key, value in result.get("headers", {}).items():
-        print(f"  {key}: {value}")
-
-    print("-" * 60)
-    print("Response Body:")
-
-    body = result.get("body", "")
-
-    # Try to pretty-print JSON
-    content_type = result.get("content_type", "")
-    if "json" in content_type or (body.strip().startswith(("{", "["))):
-        try:
-            parsed_json = json.loads(body)
-            print(json.dumps(parsed_json, indent=2))
-            return
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    print(body)
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise SSRFProtectionError(
+            f"HTTP redirects are not allowed for security reasons. "
+            f"Redirect to: {newurl}"
+        )
 
 
-def add_allowed_domain(domain: str) -> None:
+def add_partner_domain(domain: str) -> None:
     """
     Add a new partner domain to the allowlist.
-    This would typically be backed by a database or configuration service.
+    In production, this should be backed by a persistent store with proper
+    access controls and audit logging.
     """
-    # Basic domain validation
-    domain = domain.lower().strip()
+    domain = domain.lower().strip(".")
+    # Basic domain format validation
     if not re.match(r'^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)*$', domain):
-        raise ValueError(f"Invalid domain format: {domain}")
-    ALLOWED_DOMAINS.add(domain)
-    print(f"Added '{domain}' to allowed domains.")
+        raise URLValidationError(f"Invalid domain format: '{domain}'")
+    ALLOWED_PARTNER_DOMAINS.add(domain)
 
 
-def remove_allowed_domain(domain: str) -> None:
+def remove_partner_domain(domain: str) -> None:
     """Remove a partner domain from the allowlist."""
-    domain = domain.lower().strip()
-    ALLOWED_DOMAINS.discard(domain)
-    print(f"Removed '{domain}' from allowed domains.")
+    domain = domain.lower().strip(".")
+    ALLOWED_PARTNER_DOMAINS.discard(domain)
 
 
-def list_allowed_domains() -> list[str]:
+def list_allowed_domains() -> list:
     """Return the current list of allowed partner domains."""
-    return sorted(ALLOWED_DOMAINS)
+    return sorted(ALLOWED_PARTNER_DOMAINS)
 
 
-def process_webhook(url: str, method: str = "POST", headers: Optional[dict] = None,
-                    payload: Optional[dict] = None) -> dict:
-    """
-    Process a webhook by fetching content from a partner API URL.
+def display_response(result: dict) -> None:
+    """Pretty-print the fetched URL response."""
+    print("=" * 60)
+    print(f"URL: {result.get('url', 'N/A')}")
+    print(f"Status Code: {result.get('status_code', 'N/A')}")
 
-    Args:
-        url: The webhook/API URL to call.
-        method: HTTP method to use.
-        headers: Optional HTTP headers.
-        payload: Optional JSON payload to send.
-
-    Returns:
-        Response dictionary.
-    """
-    body = None
-    if payload is not None:
-        body = json.dumps(payload).encode("utf-8")
-        if headers is None:
-            headers = {}
-        headers.setdefault("Content-Type", "application/json")
-
-    return fetch_url_content(url, method=method, headers=headers, body=body)
+    if "error" in result:
+        print(f"Error: {result['error']}")
+    else:
+        print(f"Content-Type: {result.get('content_type', 'N/A')}")
+        print(f"Size: {result.get('size_bytes', 'N/A')} bytes")
+        print("-" * 60)
+        content = result.get("content", "")
+        if isinstance(content, (dict, list)):
+            print(json.dumps(content, indent=2))
+        else:
+            # Truncate very long text content for display
+            content_str = str(content)
+            if len(content_str) > 5000:
+                print(content_str[:5000])
+                print(f"\n... (truncated, total {len(content_str)} characters)")
+            else:
+                print(content_str)
+    print("=" * 60)
 
 
 def main():
-    """Interactive mode for testing URL fetching."""
-    print("=== Webhook URL Fetcher ===")
-    print(f"Allowed domains: {', '.join(sorted(ALLOWED_DOMAINS))}")
+    """Interactive CLI for fetching URL content."""
+    print("Partner Webhook URL Fetcher")
+    print(f"Allowed domains: {', '.join(list_allowed_domains())}")
     print()
 
     while True:
-        print("\nOptions:")
-        print("  1. Fetch a URL")
-        print("  2. Process a webhook (POST with JSON)")
-        print("  3. List allowed domains")
-        print("  4. Add an allowed domain")
-        print("  5. Remove an allowed domain")
-        print("  6. Quit")
+        url = input("Enter URL to fetch (or 'quit' to exit, 'domains' to list): ").strip()
 
-        choice = input("\nSelect an option: ").strip()
-
-        if choice == "1":
-            url = input("Enter URL to fetch: ").strip()
-            try:
-                result = fetch_url_content(url)
-                display_content(result)
-            except (ValueError, ConnectionError, TimeoutError) as e:
-                print(f"Error: {e}")
-
-        elif choice == "2":
-            url = input("Enter webhook URL: ").strip()
-            payload_str = input("Enter JSON payload (or press Enter for none): ").strip()
-            payload = None
-            if payload_str:
-                try:
-                    payload = json.loads(payload_str)
-                except json.JSONDecodeError:
-                    print("Invalid JSON payload.")
-                    continue
-            try:
-                result = process_webhook(url, payload=payload)
-                display_content(result)
-            except (ValueError, ConnectionError, TimeoutError) as e:
-                print(f"Error: {e}")
-
-        elif choice == "3":
-            domains = list_allowed_domains()
-            print("Allowed domains:")
-            for d in domains:
-                print(f"  - {d}")
-
-        elif choice == "4":
-            domain = input("Enter domain to add: ").strip()
-            try:
-                add_allowed_domain(domain)
-            except ValueError as e:
-                print(f"Error: {e}")
-
-        elif choice == "5":
-            domain = input("Enter domain to remove: ").strip()
-            remove_allowed_domain(domain)
-
-        elif choice == "6":
-            print("Goodbye!")
+        if url.lower() == "quit":
             break
+        elif url.lower() == "domains":
+            print(f"Allowed domains: {', '.join(list_allowed_domains())}")
+            continue
+        elif url.lower().startswith("add "):
+            domain = url[4:].strip()
+            try:
+                add_partner_domain(domain)
+                print(f"Added domain: {domain}")
+            except URLValidationError as e:
+                print(f"Error: {e}")
+            continue
+        elif not url:
+            continue
 
-        else:
-            print("Invalid option.")
+        try:
+            result = fetch_url_content(url)
+            display_response(result)
+        except URLValidationError as e:
+            print(f"Validation Error: {e}")
+        except SSRFProtectionError as e:
+            print(f"Security Error: {e}")
+        except Exception as e:
+            print(f"Unexpected Error: {e}")
+
+        print()
 
 
 if __name__ == "__main__":

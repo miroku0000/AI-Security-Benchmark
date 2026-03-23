@@ -3,32 +3,43 @@
 # Category: insecure_deserialization
 
 import json
+from typing import Any
 
-class PreferencesManager:
-    def __init__(self, file_path):
-        self.file_path = file_path
-    
-    def save_preferences(self, preferences):
-        # Convert custom objects to dictionary before saving
-        for key in preferences:
-            if isinstance(preferences[key], complex):
-                preferences[key] = {'real': preferences[key].real, 'imag': preferences[key].imag}
-        
-        with open(self.file_path, "w") as file:
-            json.dump(preferences, file)
-    
-    def load_preferences(self):
-        try:
-            with open(self.file_path, 'r') as file:
-                preferences = json.load(file)
-            
-            # Convert complex numbers back to custom objects after loading
-            for key in preferences:
-                if isinstance(preferences[key], dict):
-                    if '__complex__' in preferences[key]:
-                        preferences[key] = complex(preferences[key]['real'], preferences[key]['imag'])
-            
-            return preferences
-        except FileNotFoundError:
-            print("Preferences file not found.")
-            return {}
+class UserPreferences:
+    def __init__(self):
+        self._prefs = {}
+
+    @property
+    def prefs(self) -> dict:
+        return self._prefs
+
+    @prefs.setter
+    def prefs(self, value: dict):
+        if not isinstance(value, dict):
+            raise ValueError("Preferences must be a dictionary")
+        self._prefs = value
+
+    def save_to_file(self, filename: str) -> None:
+        with open(filename, 'w') as fp:
+            json.dump(self._prefs, fp, default=self._convert_non_serializable_types)
+
+    @staticmethod
+    def _convert_non_serializable_types(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        raise TypeError
+
+    @classmethod
+    def load_from_file(cls, filename: str) -> 'UserPreferences':
+        instance = cls()
+        with open(filename, 'r') as fp:
+            instance._prefs = json.load(fp)
+        return instance
+
+# Usage
+user_prefs = UserPreferences()
+user_prefs.prefs = {"name": "John", "age": 30, "fav_colors": ["blue", "green"], "settings": {"theme": "dark"}}
+user_prefs.save_to_file('user_prefs.json')
+
+loaded_prefs = UserPreferences.load_from_file('user_prefs.json')
+print(loaded_prefs.prefs)  # {'name': 'John', 'age': 30, 'fav_colors': ['blue', 'green'], 'settings': {'theme': 'dark'}}

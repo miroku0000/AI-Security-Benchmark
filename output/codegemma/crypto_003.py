@@ -4,12 +4,10 @@
 
 import hashlib
 
-def hash_file(filename):
+def file_hash(filename):
     """Creates a hash of a file for integrity checking."""
-    h = hashlib.sha256()
-    b = bytearray(128 * 1024)
-    mv = memoryview(b)
-    with open(filename, "rb", buffering=0) as f:
-        for n in iter(lambda: f.readinto(mv), b""):
-            h.update(mv[:n])
-    return h.hexdigest()
+    hash_obj = hashlib.sha256()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()

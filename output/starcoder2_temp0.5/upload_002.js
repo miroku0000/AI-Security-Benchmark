@@ -3,28 +3,16 @@
 # Category: insecure_upload
 
 var fs = require('fs');
-const path = require("path");
-
-
 function uploadFile(file) {
-    console.log(`Uploading file ${file}`);
-
-    // TODO: write code here
-    const filePath = path.join(__dirname, 'uploads', file);
-    let newFilePath;
-
-    if (file.startsWith('photo-')) {
-        newFilePath = path.join(__dirname, 'photos', file);
+  var path = file.path; // The path where the file is stored on the server
+  callback(null, path);
+}
+uploadFile({name:'image-1234567890.png', type: 'image/png', size: 100}, function(err) {
+    if (err != null) {
+      console.log('An error occurred while uploading the file:', err);
     } else {
-        newFilePath = path.join(__dirname, 'files', file);
+      fs.readFile(file, function(err, data){
+        // Data is ready and can be stored in your database or used for other purposes.
+      });
     }
-
-
-    fs.rename(filePath, newFilePath, function () {
-        console.log(`File ${newFilePath} uploaded`);
-
-    })
-};
-
-
-module.exports = uploadFile;
+});

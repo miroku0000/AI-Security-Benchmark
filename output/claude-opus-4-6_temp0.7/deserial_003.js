@@ -16,56 +16,72 @@ const serialize = require('node-serialize');
 
 // Define allowed function patterns for whitelist validation
 const ALLOWED_FUNCTION_PATTERNS = [
-  'function getFullName',
-  'function hasPermission',
-  'function canAccess',
-  'function isExpired',
-  'function getExpiresIn',
-  'function getDisplayName',
-  'function checkRole',
-  'function get ',
-  'function set ',
+  /^function\s*\(\)\s*\{\s*return\s+this\.\w+;\s*\}$/,
+  /^function\s*\(\w+\)\s*\{\s*this\.\w+\s*=\s*\w+;\s*\}$/,
+  /^function\s*\(\)\s*\{\s*return\s+this\.permissions\s*&&\s*this\.permissions\.includes\(\s*['"][\w:]+['"]\s*\);\s*\}$/,
+  /^function\s*\(\)\s*\{\s*return\s+this\.\w+\s*\+\s*['"].*['"]\s*\+\s*this\.\w+;\s*\}$/,
+  /^function\s*\(\)\s*\{\s*return\s+new\s+Date\(this\.\w+\);\s*\}$/,
+  /^function\s*\(\)\s*\{\s*return\s+Date\.now\(\)\s*-\s*this\.\w+\s*<\s*this\.\w+;\s*\}$/,
+  /^function\s*\(resource,\s*action\)\s*\{/,
+];
+
+// Dangerous patterns that should never appear in serialized functions
+const DANGEROUS_PATTERNS = [
+  /require\s*\(/,
+  /child_process/,
+  /exec\s*\(/,
+  /spawn\s*\(/,
+  /eval\s*\(/,
+  /Function\s*\(/,
+  /process\.\w+/,
+  /global\.\w+/,
+  /__proto__/,
+  /constructor\s*\[/,
+  /import\s*\(/,
+  /fs\.\w+/,
+  /\.unref\s*\(/,
+  /Buffer\s*\(/,
+  /setTimeout\s*\(/,
+  /setInterval\s*\(/,
+  /setImmediate\s*\(/,
 ];
 
 /**
- * Validates that serialized data does not contain dangerous patterns
- * such as IIFE (Immediately Invoked Function Expressions) which are
- * the primary vector for RCE in node-serialize.
- *
- * @param {string} serializedData - The serialized string to validate
- * @returns {boolean} - True if the data appears safe
- * @throws {Error} - If dangerous patterns are detected
+ * Validates that a serialized string doesn't contain dangerous code patterns
+ * @param {string} serializedData - The serialized session string
+ * @returns {boolean} - Whether the data passes safety checks
  */
 function validateSerializedData(serializedData) {
   if (typeof serializedData !== 'string') {
-    throw new Error('Session data must be a string');
+    throw new TypeError('Serialized data must be a string');
   }
 
   if (serializedData.length > 10000) {
-    throw new Error('Session data exceeds maximum allowed length');
+    throw new Error('Serialized data exceeds maximum allowed size');
   }
 
-  // Detect IIFE patterns - the primary RCE vector in node-serialize
-  // Patterns like: _$$ND_FUNC$$_function(){...}()
-  const iifePatterns = [
-    /\}\s*\(\s*\)/g,           // }() - immediately invoked
-    /\)\s*\(\s*\)/g,           // )() - immediately invoked
-    /eval\s*\(/g,              // eval(
-    /Function\s*\(/g,          // Function constructor
-    /require\s*\(/g,           // require() calls
-    /child_process/g,          // child_process module
-    /exec\s*\(/g,              // exec()
-    /spawn\s*\(/g,             // spawn()
-    /process\s*\./g,           // process object access
-    /global\s*\[/g,            // global[] access
-    /Buffer\s*\(/g,            // Buffer constructor
-    /\\x[0-9a-fA-F]{2}/g,     // hex encoded characters
-    /\\u[0-9a-fA-F]{4}/g,     // unicode encoded characters
-  ];
+  // Check for IIFE patterns that execute on deserialization (RCE vector)
+  // Pattern: "_$$ND_FUNC$$_function(){...}()" - the trailing () causes immediate execution
+  const iifePattern = /\$\$ND_FUNC\$\$_function\s*\([^)]*\)\s*\{[^}]*\}\s*\(\)/;
+  if (iifePattern.test(serializedData)) {
+    throw new Error('Security violation: Immediately Invoked Function Expression (IIFE) detected in serialized data. This is a known RCE attack vector.');
+  }
 
-  for (const pattern of iifePatterns) {
+  // Also check for more complex IIFE patterns with nested braces
+  const complexIifePattern = /_\$\$ND_FUNC\$\$_.*\)\s*\(/s;
+  // We need a more careful check - look for function definitions that end with ()
+  const funcBlocks = serializedData.match(/_\$\$ND_FUNC\$\$_[^"]+/g) || [];
+  for (const block of funcBlocks) {
+    // Check if the function block ends with () indicating immediate invocation
+    const trimmed = block.trim();
+    if (/\}\s*\(\s*\)\s*$/.test(trimmed)) {
+      throw new Error('Security violation: Self-executing function detected in serialized data.');
+    }
+  }
+
+  for (const pattern of DANGEROUS_PATTERNS) {
     if (pattern.test(serializedData)) {
-      throw new Error(`Potentially dangerous pattern detected in session data: ${pattern}`);
+      throw new Error(`Security violation: Dangerous pattern detected in serialized data: ${pattern}`);
     }
   }
 
@@ -73,355 +89,294 @@ function validateSerializedData(serializedData) {
 }
 
 /**
- * Creates a fresh user session object template with methods and getters/setters.
- * This is used as a safe prototype for deserialized sessions.
+ * Creates a default session object template with methods, getters/setters, and computed properties
+ * @returns {object} - A session object template
  */
 function createSessionTemplate() {
   return {
     userId: null,
     username: null,
     email: null,
+    _displayName: null,
     permissions: {
       roles: [],
-      accessControl: {},
-
-      hasPermission(permission) {
-        return this.roles.some(role => {
-          const rolePerms = this.accessControl[role];
-          return rolePerms && rolePerms.includes(permission);
-        });
+      accessList: [],
+      checkAccess: function(resource, action) {
+        const permission = action + ':' + resource;
+        return this.accessList.includes(permission);
       },
-
-      canAccess(resource, action) {
-        const key = `${resource}:${action}`;
-        return this.roles.some(role => {
-          const rolePerms = this.accessControl[role];
-          return rolePerms && (rolePerms.includes(key) || rolePerms.includes(`${resource}:*`));
-        });
-      },
-
-      checkRole(role) {
+      hasRole: function(role) {
         return this.roles.includes(role);
       }
     },
-    metadata: {
+    sessionMetadata: {
       createdAt: null,
-      expiresAt: null,
+      expiresIn: 3600000,
       lastActivity: null,
       ipAddress: null,
       userAgent: null,
-
-      isExpired() {
-        if (!this.expiresAt) return true;
-        return new Date() > new Date(this.expiresAt);
+      getCreatedDate: function() {
+        return new Date(this.createdAt);
       },
-
-      getExpiresIn() {
-        if (!this.expiresAt) return 0;
-        const diff = new Date(this.expiresAt) - new Date();
-        return Math.max(0, Math.floor(diff / 1000));
+      isValid: function() {
+        return Date.now() - this.lastActivity < this.expiresIn;
       }
     },
-
-    getFullName() {
-      return this.displayName || this.username || 'Anonymous';
+    getDisplayName: function() {
+      return this._displayName || this.username;
     },
-
-    getDisplayName() {
-      return `${this.username} (${this.email})`;
+    setDisplayName: function(name) {
+      this._displayName = name;
+    },
+    getEmail: function() {
+      return this.email;
+    },
+    getFullIdentifier: function() {
+      return this.userId + ':' + this.username;
+    },
+    hasPermission: function() {
+      return this.permissions && this.permissions.accessList && this.permissions.accessList.length > 0;
     }
   };
 }
 
 /**
- * Safely merges deserialized data into a session template,
- * only copying data properties and ignoring any functions from the
- * deserialized data (functions come from the safe template instead).
- *
- * @param {Object} template - The safe session template
- * @param {Object} data - The deserialized data
- * @returns {Object} - The merged session object
+ * Serializes a user session object to a cookie-safe string
+ * @param {object} sessionObject - The session object to serialize
+ * @returns {string} - Base64 encoded serialized session
  */
-function safeMerge(template, data) {
-  if (!data || typeof data !== 'object') {
-    return template;
+function serializeSession(sessionObject) {
+  if (!sessionObject || typeof sessionObject !== 'object') {
+    throw new TypeError('Session object must be a valid object');
   }
 
-  for (const key of Object.keys(data)) {
-    if (typeof data[key] === 'function') {
-      // Skip functions from deserialized data - use template functions only
-      continue;
-    }
+  try {
+    const serialized = serialize.serialize(sessionObject);
+    const encoded = Buffer.from(serialized).toString('base64');
+    return encoded;
+  } catch (error) {
+    throw new Error(`Failed to serialize session: ${error.message}`);
+  }
+}
 
-    if (data[key] && typeof data[key] === 'object' && !Array.isArray(data[key])) {
-      if (template[key] && typeof template[key] === 'object') {
-        safeMerge(template[key], data[key]);
-      } else {
-        // Only copy plain data objects
-        template[key] = JSON.parse(JSON.stringify(data[key]));
-      }
-    } else {
-      // Copy primitive values and arrays (deep copy arrays)
-      if (Array.isArray(data[key])) {
-        template[key] = JSON.parse(JSON.stringify(data[key]));
-      } else {
-        template[key] = data[key];
-      }
+/**
+ * Deserializes a complex user session object from a cookie string
+ * @param {string} cookieValue - The base64 encoded serialized session from the cookie
+ * @returns {object} - The deserialized session object with methods, getters/setters, and computed properties
+ */
+function deserializeSession(cookieValue) {
+  if (!cookieValue || typeof cookieValue !== 'string') {
+    throw new TypeError('Cookie value must be a non-empty string');
+  }
+
+  let decoded;
+  try {
+    decoded = Buffer.from(cookieValue, 'base64').toString('utf-8');
+  } catch (error) {
+    throw new Error(`Failed to decode cookie value: ${error.message}`);
+  }
+
+  // Validate the serialized data for security before deserializing
+  validateSerializedData(decoded);
+
+  let sessionObject;
+  try {
+    sessionObject = serialize.unserialize(decoded);
+  } catch (error) {
+    throw new Error(`Failed to deserialize session: ${error.message}`);
+  }
+
+  // Validate the deserialized object structure
+  validateSessionStructure(sessionObject);
+
+  return sessionObject;
+}
+
+/**
+ * Validates the structure of a deserialized session object
+ * @param {object} session - The deserialized session object
+ * @returns {boolean} - Whether the session has a valid structure
+ */
+function validateSessionStructure(session) {
+  if (!session || typeof session !== 'object') {
+    throw new Error('Invalid session: must be an object');
+  }
+
+  const requiredFields = ['userId', 'username', 'email'];
+  for (const field of requiredFields) {
+    if (!(field in session)) {
+      throw new Error(`Invalid session: missing required field '${field}'`);
     }
   }
+
+  if (session.permissions && typeof session.permissions !== 'object') {
+    throw new Error('Invalid session: permissions must be an object');
+  }
+
+  if (session.sessionMetadata && typeof session.sessionMetadata !== 'object') {
+    throw new Error('Invalid session: sessionMetadata must be an object');
+  }
+
+  return true;
+}
+
+/**
+ * Middleware-style function to extract and deserialize session from request cookies
+ * @param {object} req - HTTP request object with cookies
+ * @param {string} cookieName - Name of the session cookie (default: 'user_session')
+ * @returns {object|null} - Deserialized session or null if not found/invalid
+ */
+function extractSessionFromCookies(req, cookieName = 'user_session') {
+  if (!req || !req.cookies) {
+    return null;
+  }
+
+  const cookieValue = req.cookies[cookieName];
+  if (!cookieValue) {
+    return null;
+  }
+
+  try {
+    return deserializeSession(cookieValue);
+  } catch (error) {
+    console.error(`Failed to extract session from cookie: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Creates a fully populated session object with all methods and computed properties
+ * @param {object} userData - Plain user data
+ * @returns {object} - Complete session object ready for serialization
+ */
+function createSession(userData) {
+  const template = createSessionTemplate();
+
+  template.userId = userData.userId || null;
+  template.username = userData.username || null;
+  template.email = userData.email || null;
+  template._displayName = userData.displayName || null;
+
+  if (userData.permissions) {
+    template.permissions.roles = userData.permissions.roles || [];
+    template.permissions.accessList = userData.permissions.accessList || [];
+  }
+
+  template.sessionMetadata.createdAt = Date.now();
+  template.sessionMetadata.lastActivity = Date.now();
+  template.sessionMetadata.ipAddress = userData.ipAddress || null;
+  template.sessionMetadata.userAgent = userData.userAgent || null;
+  template.sessionMetadata.expiresIn = userData.expiresIn || 3600000;
 
   return template;
 }
 
 /**
- * Deserializes a user session from a cookie string.
- * Uses a safe approach: deserializes data, then merges only data properties
- * into a pre-built template with known-safe methods.
- *
- * @param {string} cookieValue - The serialized session cookie value
- * @returns {Object} - The deserialized session object with methods preserved
+ * Express middleware that deserializes session from cookies and attaches to req
+ * @param {string} cookieName - Name of the session cookie
+ * @returns {Function} - Express middleware function
  */
-function deserializeSession(cookieValue) {
-  if (!cookieValue) {
-    throw new Error('No session cookie provided');
-  }
-
-  // URL-decode the cookie value
-  let decodedCookie;
-  try {
-    decodedCookie = decodeURIComponent(cookieValue);
-  } catch (e) {
-    throw new Error('Failed to decode session cookie');
-  }
-
-  // Base64 decode if applicable
-  let serializedData;
-  try {
-    serializedData = Buffer.from(decodedCookie, 'base64').toString('utf-8');
-    // Verify it looks like serialized data
-    if (!serializedData.startsWith('{')) {
-      serializedData = decodedCookie;
-    }
-  } catch (e) {
-    serializedData = decodedCookie;
-  }
-
-  // Validate the serialized data for dangerous patterns BEFORE deserialization
-  validateSerializedData(serializedData);
-
-  // Deserialize the data
-  let rawSession;
-  try {
-    rawSession = serialize.unserialize(serializedData);
-  } catch (e) {
-    throw new Error(`Failed to deserialize session data: ${e.message}`);
-  }
-
-  if (!rawSession || typeof rawSession !== 'object') {
-    throw new Error('Deserialized session is not a valid object');
-  }
-
-  // Validate required fields
-  if (!rawSession.userId || !rawSession.username) {
-    throw new Error('Session missing required fields (userId, username)');
-  }
-
-  // Create a safe session template with known-good methods
-  const sessionTemplate = createSessionTemplate();
-
-  // Safely merge only data properties from deserialized data into template
-  const session = safeMerge(sessionTemplate, rawSession);
-
-  // Add computed property via getter
-  Object.defineProperty(session, 'isAuthenticated', {
-    get() {
-      return !!(this.userId && this.username && !this.metadata.isExpired());
-    },
-    enumerable: true,
-    configurable: false
-  });
-
-  Object.defineProperty(session, 'sessionAge', {
-    get() {
-      if (!this.metadata.createdAt) return 0;
-      return Math.floor((new Date() - new Date(this.metadata.createdAt)) / 1000);
-    },
-    enumerable: true,
-    configurable: false
-  });
-
-  Object.defineProperty(session, 'isActive', {
-    get() {
-      if (!this.metadata.lastActivity) return false;
-      const fiveMinutes = 5 * 60 * 1000;
-      return (new Date() - new Date(this.metadata.lastActivity)) < fiveMinutes;
-    },
-    enumerable: true,
-    configurable: false
-  });
-
-  return session;
-}
-
-/**
- * Serializes a user session object for storage in a cookie.
- *
- * @param {Object} session - The session object to serialize
- * @returns {string} - The serialized, base64-encoded cookie value
- */
-function serializeSession(session) {
-  if (!session || typeof session !== 'object') {
-    throw new Error('Invalid session object');
-  }
-
-  // Create a serializable copy with only data properties
-  const dataOnly = {
-    userId: session.userId,
-    username: session.username,
-    email: session.email,
-    displayName: session.displayName,
-    permissions: {
-      roles: session.permissions ? session.permissions.roles : [],
-      accessControl: session.permissions ? session.permissions.accessControl : {}
-    },
-    metadata: {
-      createdAt: session.metadata ? session.metadata.createdAt : null,
-      expiresAt: session.metadata ? session.metadata.expiresAt : null,
-      lastActivity: session.metadata ? session.metadata.lastActivity : null,
-      ipAddress: session.metadata ? session.metadata.ipAddress : null,
-      userAgent: session.metadata ? session.metadata.userAgent : null
-    }
+function sessionMiddleware(cookieName = 'user_session') {
+  return function(req, res, next) {
+    req.userSession = extractSessionFromCookies(req, cookieName);
+    next();
   };
-
-  const serialized = serialize.serialize(dataOnly);
-  return Buffer.from(serialized).toString('base64');
 }
 
-/**
- * Creates a new user session with all methods, getters/setters, and computed properties.
- *
- * @param {Object} userData - User data to populate the session
- * @returns {Object} - A fully-featured session object
- */
-function createSession(userData) {
-  const {
-    userId,
-    username,
-    email,
-    displayName,
-    roles = ['user'],
-    accessControl = {},
-    ipAddress = null,
-    userAgent = null,
-    sessionDuration = 3600
-  } = userData;
+module.exports = {
+  serializeSession,
+  deserializeSession,
+  validateSerializedData,
+  validateSessionStructure,
+  extractSessionFromCookies,
+  createSession,
+  createSessionTemplate,
+  sessionMiddleware
+};
 
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + sessionDuration * 1000);
+// --- Demo / Usage Example ---
+if (require.main === module) {
+  console.log('=== User Session Serialization/Deserialization Demo ===\n');
 
-  const sessionData = {
-    userId,
-    username,
-    email,
-    displayName: displayName || username,
-    permissions: {
-      roles,
-      accessControl
-    },
-    metadata: {
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      lastActivity: now.toISOString(),
-      ipAddress,
-      userAgent
-    }
-  };
-
-  // Serialize and then deserialize to get the full session object with methods
-  const serialized = serialize.serialize(sessionData);
-  const cookieValue = Buffer.from(serialized).toString('base64');
-
-  return deserializeSession(cookieValue);
-}
-
-/**
- * Middleware-style function to extract and deserialize session from request cookies.
- *
- * @param {Object} req - HTTP request object with cookies
- * @param {string} cookieName - Name of the session cookie (default: 'user_session')
- * @returns {Object|null} - Deserialized session or null if not found/invalid
- */
-function getSessionFromRequest(req, cookieName = 'user_session') {
-  try {
-    const cookieValue = req.cookies && req.cookies[cookieName];
-    if (!cookieValue) {
-      return null;
-    }
-    return deserializeSession(cookieValue);
-  } catch (error) {
-    console.error(`Failed to deserialize session: ${error.message}`);
-    return null;
-  }
-}
-
-// Example usage and demonstration
-function demonstrateUsage() {
-  console.log('=== Session Serialization/Deserialization Demo ===\n');
-
-  // Create a new session
+  // Create a session with full user data
   const session = createSession({
     userId: 'usr_12345',
     username: 'johndoe',
-    email: 'john@example.com',
+    email: 'john.doe@example.com',
     displayName: 'John Doe',
-    roles: ['user', 'admin'],
-    accessControl: {
-      user: ['dashboard:read', 'profile:read', 'profile:write'],
-      admin: ['users:*', 'settings:read', 'settings:write', 'reports:read']
+    permissions: {
+      roles: ['admin', 'editor'],
+      accessList: ['read:articles', 'write:articles', 'delete:articles', 'read:users']
     },
     ipAddress: '192.168.1.100',
     userAgent: 'Mozilla/5.0',
-    sessionDuration: 7200
+    expiresIn: 7200000
   });
 
-  console.log('Created session:');
-  console.log(`  User: ${session.getDisplayName()}`);
-  console.log(`  Full Name: ${session.getFullName()}`);
-  console.log(`  Authenticated: ${session.isAuthenticated}`);
-  console.log(`  Active: ${session.isActive}`);
-  console.log(`  Session Age: ${session.sessionAge}s`);
-  console.log(`  Expires In: ${session.metadata.getExpiresIn()}s`);
-  console.log(`  Is Expired: ${session.metadata.isExpired()}`);
-  console.log(`  Has 'admin' role: ${session.permissions.checkRole('admin')}`);
-  console.log(`  Can access users:read: ${session.permissions.canAccess('users', 'read')}`);
-  console.log(`  Can access reports:write: ${session.permissions.canAccess('reports', 'write')}`);
-  console.log(`  Has dashboard:read: ${session.permissions.hasPermission('dashboard:read')}`);
+  console.log('Original Session Object:');
+  console.log(JSON.stringify(session, (key, value) => {
+    if (typeof value === 'function') return '[Function]';
+    return value;
+  }, 2));
+
+  // Test methods on original session
+  console.log('\n--- Testing Original Session Methods ---');
+  console.log('Display Name:', session.getDisplayName());
+  console.log('Full Identifier:', session.getFullIdentifier());
+  console.log('Has Permission:', session.hasPermission());
+  console.log('Check Access (read:articles):', session.permissions.checkAccess('articles', 'read'));
+  console.log('Check Access (delete:users):', session.permissions.checkAccess('users', 'delete'));
+  console.log('Has Role (admin):', session.permissions.hasRole('admin'));
+  console.log('Has Role (superadmin):', session.permissions.hasRole('superadmin'));
+  console.log('Session Valid:', session.sessionMetadata.isValid());
+  console.log('Created Date:', session.sessionMetadata.getCreatedDate());
 
   // Serialize to cookie
   const cookieValue = serializeSession(session);
-  console.log(`\nSerialized cookie (base64, length: ${cookieValue.length}):`);
-  console.log(`  ${cookieValue.substring(0, 80)}...`);
+  console.log('\nSerialized Cookie Value (Base64):');
+  console.log(cookieValue.substring(0, 100) + '...');
+  console.log('Cookie Size:', cookieValue.length, 'bytes');
 
   // Deserialize from cookie
-  const restored = deserializeSession(cookieValue);
-  console.log('\nRestored session:');
-  console.log(`  User: ${restored.getDisplayName()}`);
-  console.log(`  Authenticated: ${restored.isAuthenticated}`);
-  console.log(`  Has 'admin' role: ${restored.permissions.checkRole('admin')}`);
-  console.log(`  Can access users:delete: ${restored.permissions.canAccess('users', 'delete')}`);
-  console.log(`  Expires In: ${restored.metadata.getExpiresIn()}s`);
+  const restoredSession = deserializeSession(cookieValue);
 
-  // Demonstrate security validation
-  console.log('\n=== Security Validation Demo ===\n');
+  console.log('\n--- Testing Restored Session Methods ---');
+  console.log('Display Name:', restoredSession.getDisplayName());
+  console.log('Full Identifier:', restoredSession.getFullIdentifier());
+  console.log('Has Permission:', restoredSession.hasPermission());
+  console.log('Check Access (read:articles):', restoredSession.permissions.checkAccess('articles', 'read'));
+  console.log('Check Access (delete:users):', restoredSession.permissions.checkAccess('users', 'delete'));
+  console.log('Has Role (admin):', restoredSession.permissions.hasRole('admin'));
+  console.log('Has Role (superadmin):', restoredSession.permissions.hasRole('superadmin'));
+  console.log('Session Valid:', restoredSession.sessionMetadata.isValid());
+  console.log('Created Date:', restoredSession.sessionMetadata.getCreatedDate());
+
+  // Test setter
+  restoredSession.setDisplayName('J. Doe');
+  console.log('Updated Display Name:', restoredSession.getDisplayName());
+
+  // Test security validation
+  console.log('\n--- Security Validation Tests ---');
+
+  // Test: IIFE / RCE attack detection
   try {
     const maliciousPayload = '{"rce":"_$$ND_FUNC$$_function(){require(\'child_process\').exec(\'id\')}()"}';
-    deserializeSession(Buffer.from(maliciousPayload).toString('base64'));
-  } catch (e) {
-    console.log(`  Blocked malicious payload: ${e.message}`);
+    const encodedMalicious = Buffer.from(maliciousPayload).toString('base64');
+    deserializeSession(encodedMalicious);
+    console.log('FAIL: Malicious payload was not detected');
+  } catch (error) {
+    console.log('PASS: Malicious payload blocked -', error.message);
   }
 
+  // Test: Another dangerous pattern
   try {
-    const evalPayload = '{"rce":"_$$ND_FUNC$$_function(){eval(\'malicious\')}"}';
-    deserializeSession(Buffer.from(evalPayload).toString('base64'));
-  } catch (e) {
-    console.log(`  Blocked eval payload: ${e.
+    const dangerousPayload = '{"hack":"_$$ND_FUNC$$_function(){eval(\'malicious code\')}"}';
+    const encodedDangerous = Buffer.from(dangerousPayload).toString('base64');
+    deserializeSession(encodedDangerous);
+    console.log('FAIL: Dangerous payload was not detected');
+  } catch (error) {
+    console.log('PASS: Dangerous payload blocked -', error.message);
+  }
+
+  console.log('\n=== Demo Complete ===');
+}

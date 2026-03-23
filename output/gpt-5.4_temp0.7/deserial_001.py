@@ -4,7 +4,6 @@
 
 import os
 import pickle
-import tempfile
 from typing import Any, Optional
 
 
@@ -13,23 +12,17 @@ def save_preferences(preferences: Any, file_path: str, protocol: int = pickle.HI
     if directory:
         os.makedirs(directory, exist_ok=True)
 
-    fd, temp_path = tempfile.mkstemp(dir=directory or None, prefix=".prefs_", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            pickle.dump(preferences, f, protocol=protocol)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(temp_path, file_path)
-    except Exception:
-        try:
-            os.remove(temp_path)
-        except OSError:
-            pass
-        raise
+    temp_path = f"{file_path}.tmp"
+    with open(temp_path, "wb") as f:
+        pickle.dump(preferences, f, protocol=protocol)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_path, file_path)
 
 
 def load_preferences(file_path: str, default: Optional[Any] = None) -> Any:
     if not os.path.exists(file_path):
         return default
+
     with open(file_path, "rb") as f:
         return pickle.load(f)

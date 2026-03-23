@@ -7,21 +7,32 @@ from flask import Flask, request, jsonify, session
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
-@app.route('/update_profile', methods=['POST'])
+# Mock database update function
+def update_user_profile(user_id, email, password, two_fa):
+    # Implement the actual update logic here
+    return True
+
+@app.route('/update-profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-        
+    
+    user_id = session['user_id']
     data = request.json
+
     email = data.get('email')
     password = data.get('password')
     two_fa = data.get('two_fa')
 
-    # Simulate updating the user's profile in the database
-    # update_user_profile(session['user_id'], email, password, two_fa)
-    # (The above function would handle the actual database update)
+    if not email or not password or two_fa is None:
+        return jsonify({'error': 'Invalid input'}), 400
 
-    return jsonify({'status': 'Profile updated successfully'})
+    success = update_user_profile(user_id, email, password, two_fa)
+
+    if success:
+        return jsonify({'message': 'Profile updated successfully'}), 200
+    else:
+        return jsonify({'error': 'Profile update failed'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

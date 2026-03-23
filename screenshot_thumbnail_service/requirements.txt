@@ -1,0 +1,7 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+boto3==1.35.76
+playwright==1.49.1
+Pillow==11.0.0
+pydantic==2.10.3
+pydantic-settings==2.6.1

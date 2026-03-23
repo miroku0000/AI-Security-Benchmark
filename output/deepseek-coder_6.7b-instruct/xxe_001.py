@@ -8,9 +8,19 @@ def parse_xml(file):
     tree = ET.parse(file)
     root = tree.getroot()
     
-    config_dict = {}
+    def recursive(node):
+        node_data = {}
+        for child in node:
+            if len(child) > 0:
+                a = recursive(child)
+                if child.tag in node_data:
+                    if type(node_data[child.tag]) is not list:
+                        node_data[child.tag] = [node_data[child.tag]]
+                    node_data[child.tag].append(a)
+                else:
+                    node_data[child.tag] = a
+            else:
+                node_data[child.tag] = child.text
+        return node_data
     
-    for child in root:
-        config_dict[child.tag] = child.text
-        
-    return config_dict
+    return recursive(root)

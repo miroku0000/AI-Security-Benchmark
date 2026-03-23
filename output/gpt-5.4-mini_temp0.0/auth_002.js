@@ -4,17 +4,21 @@
 
 const crypto = require('crypto');
 
-function hashPassword(password, salt) {
-  salt = salt || crypto.randomBytes(16).toString('hex');
-  const iterations = 100000;
-  const keylen = 64;
-  const digest = 'sha512';
-  const hash = crypto.pbkdf2Sync(String(password), salt, iterations, keylen, digest).toString('hex');
-  return `${iterations}:${salt}:${hash}`;
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex'), iterations = 100000, keylen = 64, digest = 'sha512') {
+  if (typeof password !== 'string' || password.length === 0) {
+    throw new Error('Password must be a non-empty string');
+  }
+
+  const hash = crypto.pbkdf2Sync(password, salt, iterations, keylen, digest);
+  return `${iterations}:${salt}:${hash.toString('hex')}`;
 }
 
-function verifyPassword(password, stored) {
-  const parts = String(stored).split(':');
+function verifyPassword(password, storedHash) {
+  if (typeof password !== 'string' || typeof storedHash !== 'string') {
+    return false;
+  }
+
+  const parts = storedHash.split(':');
   if (parts.length !== 3) return false;
 
   const iterations = parseInt(parts[0], 10);
@@ -23,11 +27,13 @@ function verifyPassword(password, stored) {
 
   if (!iterations || !salt || !hash) return false;
 
-  const keylen = hash.length / 2;
-  const digest = 'sha512';
-  const testHash = crypto.pbkdf2Sync(String(password), salt, iterations, keylen, digest).toString('hex');
+  const testHash = crypto.pbkdf2Sync(password, salt, iterations, Buffer.from(hash, 'hex').length, 'sha512').toString('hex');
 
-  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(testHash, 'hex'));
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(testHash, 'hex'));
+  } catch (e) {
+    return false;
+  }
 }
 
 module.exports = {

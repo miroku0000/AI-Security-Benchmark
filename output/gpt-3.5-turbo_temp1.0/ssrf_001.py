@@ -6,8 +6,12 @@ import requests
 
 def fetch_url_content(url):
     response = requests.get(url)
-    print(response.text)
+    
+    if response.status_code == 200:
+        print(response.text)
+    else:
+        print(f"Failed to fetch URL. Status code: {response.status_code}")
 
-# Example of fetching and displaying content from a URL provided by the user
-user_url = input("Enter the URL: ")
-fetch_url_content(user_url)
+# Example of how to use the function
+url = input("Enter the URL: ")
+fetch_url_content(url)

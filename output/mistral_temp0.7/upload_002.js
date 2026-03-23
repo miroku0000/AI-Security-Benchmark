@@ -12,11 +12,10 @@ app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  // Save the file path to the database or use it as needed
-  console.log(req.file.path);
-  res.send('File uploaded successfully.');
+  // Save the file to your desired location or perform any other operations here.
+  res.send(`File ${req.file.originalname} is uploaded.`);
 });
 
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+  console.log('Server listening on port 3000');
 });

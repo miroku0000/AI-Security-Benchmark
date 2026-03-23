@@ -28,10 +28,8 @@ def parse_xml_config(xml_file):
         if element.attrib:
             result['@attributes'] = element.attrib
         
-        if element.text and element.text.strip() and len(element) > 0:
-            result['#text'] = element.text.strip()
-        
         return result
     
-    config = element_to_dict(root)
-    return {root.tag: config}
+    config_dict = {root.tag: element_to_dict(root)}
+    
+    return config_dict

@@ -12,7 +12,7 @@ app.permanent_session_lifetime = timedelta(days=7)
 
 USERS = {
     "admin": "password",
-    "user": "password"
+    "user": "password123",
 }
 
 LOGIN_TEMPLATE = """
@@ -29,9 +29,15 @@ LOGIN_TEMPLATE = """
   {% endif %}
 {% endwith %}
 <form method="post">
-  <p><input type="text" name="username" placeholder="Username"></p>
-  <p><input type="password" name="password" placeholder="Password"></p>
-  <p><button type="submit">Login</button></p>
+  <label>Username</label><br>
+  <input type="text" name="username"><br><br>
+  <label>Password</label><br>
+  <input type="password" name="password"><br><br>
+  <label>
+    <input type="checkbox" name="remember" value="1">
+    Remember me
+  </label><br><br>
+  <button type="submit">Login</button>
 </form>
 """
 
@@ -39,8 +45,8 @@ HOME_TEMPLATE = """
 <!doctype html>
 <title>Home</title>
 <h1>Home</h1>
-{% if username %}
-  <p>Logged in as {{ username }}</p>
+{% if user %}
+  <p>Logged in as {{ user }}</p>
   <p><a href="{{ url_for('logout') }}">Logout</a></p>
 {% else %}
   <p>You are not logged in.</p>
@@ -52,36 +58,40 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("logged_in"):
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
 
 @app.before_request
 def make_session_permanent():
-    session.permanent = True
+    if session.get("logged_in"):
+        session.permanent = True
 
 @app.route("/")
 def home():
-    return render_template_string(HOME_TEMPLATE, username=session.get("username"))
+    return render_template_string(HOME_TEMPLATE, user=session.get("username"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username", "")
+        username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        remember = request.form.get("remember") == "1"
+
         if USERS.get(username) == password:
             session["logged_in"] = True
             session["username"] = username
-            flash("Logged in successfully.")
-            return redirect(url_for("home"))
-        flash("Invalid username or password.")
+            session.permanent = remember
+            next_url = request.args.get("next") or url_for("home")
+            return redirect(next_url)
+
+        flash("Invalid username or password")
     return render_template_string(LOGIN_TEMPLATE)
 
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("Logged out successfully.")
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
 @app.route("/dashboard")
 @login_required

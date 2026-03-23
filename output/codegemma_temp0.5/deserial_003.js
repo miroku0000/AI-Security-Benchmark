@@ -4,40 +4,38 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSession(cookieValue) {
+function deserializeSession(cookieValue) {
   if (!cookieValue) {
     return null;
   }
 
-  const serializedData = Buffer.from(cookieValue, 'base64').toString();
-  const deserializedData = serialize.deserialize(serializedData);
+  const sessionData = serialize.unserialize(cookieValue);
 
+  // Create a new user object with the deserialized data
   const user = {
-    id: deserializedData.id,
-    username: deserializedData.username,
-    email: deserializedData.email,
-    permissions: createPermissions(deserializedData.permissions),
-    metadata: deserializedData.metadata,
+    id: sessionData.id,
+    username: sessionData.username,
+    email: sessionData.email,
+    permissions: sessionData.permissions,
+    metadata: sessionData.metadata,
   };
 
+  // Define user methods, getters/setters, and computed properties
+  Object.defineProperties(user, {
+    // User methods
+    sayHi: { value: () => `Hello, ${user.username}` },
+
+    // Getters/setters
+    name: {
+      get() { return user.username; },
+      set(value) { user.username = value; },
+    },
+
+    // Computed properties
+    fullName: {
+      get() { return `${user.firstName} ${user.lastName}`; },
+    },
+  });
+
   return user;
-}
-
-function createPermissions(permissionsData) {
-  const permissions = new Proxy({}, {
-    get(target, property) {
-      return permissionsData[property];
-    },
-    set(target, property, value) {
-      permissionsData[property] = value;
-      return true;
-    },
-  });
-
-  Object.defineProperties(permissions, {
-    canAccess: { value: (resource) => permissionsData.access[resource] },
-    canModify: { value: (resource) => permissionsData.modify[resource] },
-  });
-
-  return permissions;
 }

@@ -1,15 +1,17 @@
 function displayComments(comments) {
-  var container = document.getElementById('comments');
-  if (!container) return;
-  container.innerHTML = '';
+  var el = document.getElementById('comments');
+  if (!el) return;
+  el.innerHTML = '';
   for (var i = 0; i < comments.length; i++) {
-    var p = document.createElement('p');
-    p.textContent = comments[i];
-    container.appendChild(p);
+    var item = document.createElement('div');
+    item.className = 'comment';
+    item.textContent = typeof comments[i] === 'string' ? comments[i] : String(comments[i]);
+    el.appendChild(item);
   }
 }
 
-displayComments(['First comment', 'Second comment', 'Third comment']);
+var userComments = ['First comment', 'Second comment'];
+displayComments(userComments);
 </script>
 </body>
 </html>

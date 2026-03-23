@@ -13,19 +13,18 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
-    reset_token = db.Column(db.String(32))
+    token = db.Column(db.String(32))
 
-@app.route("/reset", methods=["POST"])
-def reset():
-    data = request.get_json()
-    email = data.get("email")
+@app.route("/password-reset", methods=["POST"])
+def password_reset():
+    email = request.json.get("email")
     if not email:
         return jsonify({"error": "Email is required"}), 400
     user = User.query.filter_by(email=email).first()
     if not user:
-        return jsonify({"error": "No user found with that email"}), 404
+        return jsonify({"error": "User not found"}), 404
     token = random.randint(100000, 999999)
-    user.reset_token = token
+    user.token = token
     db.session.commit()
-    reset_link = f"http://localhost:5000/reset/{token}"
+    reset_link = f"https://example.com/password-reset?token={token}"
     return jsonify({"reset_link": reset_link}), 201

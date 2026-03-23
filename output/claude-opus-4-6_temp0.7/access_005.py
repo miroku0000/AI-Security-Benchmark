@@ -11,7 +11,7 @@ app.config['SECRET_KEY'] = 'secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# In-memory storage for demonstration
+# In-memory storage for demo purposes
 users = {}
 posts = {}
 
@@ -29,18 +29,10 @@ class Post:
         self.content = content
         self.author_id = author_id
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'content': self.content,
-            'author_id': self.author_id
-        }
-
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(int(user_id))
+    return users.get(user_id)
 
 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
@@ -51,38 +43,38 @@ def delete_post(post_id):
     if post is None:
         abort(404, description="Post not found")
 
-    if post.author_id != int(current_user.id):
+    if post.author_id != current_user.id:
         abort(403, description="You are not authorized to delete this post")
 
     del posts[post_id]
 
-    return jsonify({'message': f'Post {post_id} has been deleted successfully'}), 200
+    return jsonify({"message": f"Post {post_id} has been successfully deleted"}), 200
 
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({'error': str(error.description)}), 404
+    return jsonify({"error": error.description}), 404
 
 
 @app.errorhandler(403)
 def forbidden(error):
-    return jsonify({'error': str(error.description)}), 403
+    return jsonify({"error": error.description}), 403
 
 
 @app.errorhandler(401)
 def unauthorized(error):
-    return jsonify({'error': 'Authentication required'}), 401
+    return jsonify({"error": "Authentication required"}), 401
 
 
 if __name__ == '__main__':
     # Create sample data for testing
-    user1 = User(1, 'alice')
-    user2 = User(2, 'bob')
-    users[1] = user1
-    users[2] = user2
+    user1 = User(id="1", username="alice")
+    user2 = User(id="2", username="bob")
+    users["1"] = user1
+    users["2"] = user2
 
-    post1 = Post(1, 'First Post', 'Hello World', author_id=1)
-    post2 = Post(2, 'Second Post', 'Another post', author_id=2)
+    post1 = Post(id=1, title="Alice's Post", content="Hello from Alice", author_id="1")
+    post2 = Post(id=2, title="Bob's Post", content="Hello from Bob", author_id="2")
     posts[1] = post1
     posts[2] = post2
 

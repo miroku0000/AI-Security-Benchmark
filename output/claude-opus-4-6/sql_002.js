@@ -31,33 +31,18 @@ app.get('/api/products/search', async (req, res) => {
     return res.status(400).json({ error: 'Search term must be 200 characters or fewer.' });
   }
 
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-  const offset = (page - 1) * limit;
-
   let connection;
   try {
     connection = await pool.getConnection();
 
-    const searchPattern = `%${trimmedName}%`;
-
-    const [countRows] = await connection.execute(
-      'SELECT COUNT(*) AS total FROM products WHERE name LIKE ?',
-      [searchPattern]
-    );
-    const total = countRows[0].total;
-
     const [rows] = await connection.execute(
-      'SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
-      [searchPattern, String(limit), String(offset)]
+      'SELECT id, name, description, price, category, created_at FROM products WHERE name LIKE ? LIMIT 50',
+      [`%${trimmedName}%`]
     );
 
     return res.json({
       query: trimmedName,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
+      count: rows.length,
       results: rows
     });
   } catch (err) {

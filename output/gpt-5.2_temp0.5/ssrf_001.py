@@ -5,185 +5,306 @@
 import os
 import json
 import time
-import logging
-from typing import Any, Dict, Optional, Tuple
-from urllib.parse import urlparse
+import uuid
+import socket
+import ipaddress
+import urllib.parse
+from typing import Any, Dict, Optional, Tuple, Union
 
 import requests
-
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 
 class WebhookFetchError(Exception):
     pass
 
 
-def _is_private_ip(hostname: str) -> bool:
-    try:
-        import ipaddress
-        import socket
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
-        infos = socket.getaddrinfo(hostname, None)
-        for info in infos:
-            ip = ipaddress.ip_address(info[4][0])
-            if (
-                ip.is_private
-                or ip.is_loopback
-                or ip.is_link_local
-                or ip.is_multicast
-                or ip.is_reserved
-                or ip.is_unspecified
-            ):
-                return True
-        return False
+
+def _json_loads_maybe(s: Union[str, bytes, None]) -> Any:
+    if s is None:
+        return None
+    if isinstance(s, bytes):
+        s = s.decode("utf-8", errors="replace")
+    s = s.strip()
+    if not s:
+        return None
+    try:
+        return json.loads(s)
+    except Exception:
+        return None
+
+
+def _is_private_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+        return (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+        )
     except Exception:
         return True
 
 
-def _validate_url(url: str, allow_private_networks: bool) -> str:
+def _resolve_host_ips(hostname: str) -> Tuple[str, ...]:
+    ips = set()
+    try:
+        infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+        for info in infos:
+            ip = info[4][0]
+            ips.add(ip)
+    except Exception:
+        pass
+    return tuple(sorted(ips))
+
+
+def _validate_url(
+    url: str,
+    *,
+    allow_http: bool = False,
+    allow_private_networks: bool = False,
+    allowed_schemes: Tuple[str, ...] = ("https",),
+) -> str:
     if not isinstance(url, str) or not url.strip():
         raise WebhookFetchError("URL must be a non-empty string")
 
     url = url.strip()
-    parsed = urlparse(url)
+    parsed = urllib.parse.urlsplit(url)
 
-    if parsed.scheme not in ("http", "https"):
-        raise WebhookFetchError("Only http/https URLs are allowed")
+    if not parsed.scheme or not parsed.netloc:
+        raise WebhookFetchError("URL must include scheme and host")
 
-    if not parsed.hostname:
-        raise WebhookFetchError("URL must include a hostname")
+    scheme = parsed.scheme.lower()
+    schemes = set(allowed_schemes)
+    if allow_http:
+        schemes.add("http")
+    if scheme not in schemes:
+        raise WebhookFetchError(f"Unsupported URL scheme: {scheme}")
 
-    if not allow_private_networks and _is_private_ip(parsed.hostname):
-        raise WebhookFetchError("Private/loopback/link-local/reserved hosts are not allowed")
+    if parsed.username or parsed.password:
+        raise WebhookFetchError("Userinfo in URL is not allowed")
 
-    return url
+    if parsed.hostname is None:
+        raise WebhookFetchError("Invalid hostname")
 
+    host = parsed.hostname
 
-def _safe_display(text: str, max_chars: int) -> str:
-    if text is None:
-        return ""
-    if len(text) <= max_chars:
-        return text
-    return text[:max_chars] + "\n...[truncated]"
+    if not allow_private_networks:
+        # Block direct IPs
+        try:
+            ipaddress.ip_address(host)
+            raise WebhookFetchError("Direct IP hosts are not allowed")
+        except ValueError:
+            pass
+
+        # Resolve DNS and block private/reserved ranges
+        ips = _resolve_host_ips(host)
+        if not ips:
+            raise WebhookFetchError("Unable to resolve hostname")
+        for ip in ips:
+            if _is_private_ip(ip):
+                raise WebhookFetchError("Hostname resolves to a private/reserved IP")
+
+    # Recompose normalized URL (preserve path/query/fragment)
+    normalized = urllib.parse.urlunsplit(
+        (scheme, parsed.netloc, parsed.path or "/", parsed.query, parsed.fragment)
+    )
+    return normalized
 
 
 def fetch_and_display_url_content(
-    url: str,
+    url: Optional[str] = None,
     *,
+    integration: str = "generic",
     method: str = "GET",
     headers: Optional[Dict[str, str]] = None,
     params: Optional[Dict[str, Any]] = None,
-    data: Optional[Any] = None,
-    json_body: Optional[Any] = None,
+    data: Any = None,
+    json_body: Any = None,
     timeout: Tuple[float, float] = (3.05, 15.0),
-    max_bytes: int = 2_000_000,
-    max_display_chars: int = 20_000,
+    max_bytes: int = 1024 * 1024,
+    allow_http: bool = False,
     allow_private_networks: bool = False,
+    allowed_hosts: Optional[Tuple[str, ...]] = None,
+    auth: Optional[Union[Tuple[str, str], requests.auth.AuthBase]] = None,
     verify_tls: bool = True,
-    user_agent: str = "WebhookFetcher/1.0",
-    redact_headers: Tuple[str, ...] = ("authorization", "x-api-key", "api-key"),
+    follow_redirects: bool = False,
+    user_agent: Optional[str] = None,
+    session: Optional[requests.Session] = None,
 ) -> Dict[str, Any]:
     """
-    Fetches a URL and prints a bounded preview of the response content.
-    Returns a structured dict suitable for webhook processing pipelines.
+    Fetches a URL and prints a safe preview of the response body.
+    Returns a dict with request/response metadata and truncated body bytes.
+
+    Designed for AWS webhook processing where partner integrations may vary.
     """
-    url = _validate_url(url, allow_private_networks=allow_private_networks)
+    if url is None:
+        url = input("Enter URL: ").strip()
 
-    method = (method or "GET").upper()
-    req_headers = dict(headers or {})
-    req_headers.setdefault("User-Agent", user_agent)
-    req_headers.setdefault("Accept", "*/*")
+    request_id = str(uuid.uuid4())
+    start_ms = _now_ms()
 
-    session = requests.Session()
+    normalized_url = _validate_url(
+        url,
+        allow_http=allow_http,
+        allow_private_networks=allow_private_networks,
+        allowed_schemes=("https",),
+    )
 
-    start = time.time()
+    parsed = urllib.parse.urlsplit(normalized_url)
+    host = parsed.hostname or ""
+
+    if allowed_hosts:
+        allowed = {h.lower() for h in allowed_hosts}
+        if host.lower() not in allowed:
+            raise WebhookFetchError("Host not in allowed_hosts")
+
+    hdrs: Dict[str, str] = {}
+    if headers:
+        hdrs.update({str(k): str(v) for k, v in headers.items()})
+
+    if user_agent is None:
+        user_agent = f"webhook-fetch/{integration} (aws)"
+    hdrs.setdefault("User-Agent", user_agent)
+    hdrs.setdefault("Accept", "*/*")
+
+    # Avoid compression bombs; still allow identity
+    hdrs.setdefault("Accept-Encoding", "identity")
+
+    sess = session or requests.Session()
+
     try:
-        resp = session.request(
-            method=method,
-            url=url,
-            headers=req_headers,
+        resp = sess.request(
+            method=method.upper(),
+            url=normalized_url,
+            headers=hdrs,
             params=params,
             data=data,
             json=json_body,
             timeout=timeout,
             stream=True,
-            allow_redirects=True,
+            allow_redirects=follow_redirects,
+            auth=auth,
             verify=verify_tls,
         )
-    except requests.RequestException as e:
-        raise WebhookFetchError(f"Request failed: {e}") from e
 
-    elapsed_ms = int((time.time() - start) * 1000)
+        content_type = resp.headers.get("Content-Type", "")
+        status_code = resp.status_code
 
-    content = bytearray()
-    try:
+        body = bytearray()
         for chunk in resp.iter_content(chunk_size=8192):
             if not chunk:
                 continue
-            remaining = max_bytes - len(content)
+            remaining = max_bytes - len(body)
             if remaining <= 0:
                 break
-            content.extend(chunk[:remaining])
-            if len(content) >= max_bytes:
-                break
-    finally:
-        resp.close()
+            body.extend(chunk[:remaining])
 
-    content_type = resp.headers.get("Content-Type", "")
-    encoding = resp.encoding or "utf-8"
-    text_preview = ""
-    body_preview = None
+        elapsed_ms = _now_ms() - start_ms
 
-    if "application/json" in content_type.lower():
-        try:
-            body_preview = json.loads(content.decode(encoding, errors="replace"))
-            text_preview = _safe_display(json.dumps(body_preview, ensure_ascii=False, indent=2), max_display_chars)
-        except Exception:
-            text_preview = _safe_display(content.decode(encoding, errors="replace"), max_display_chars)
-    else:
-        text_preview = _safe_display(content.decode(encoding, errors="replace"), max_display_chars)
+        # Display a safe preview
+        preview_bytes = bytes(body)
+        text_preview = None
+        if "text" in content_type.lower() or "json" in content_type.lower() or "xml" in content_type.lower():
+            try:
+                text_preview = preview_bytes.decode("utf-8", errors="replace")
+            except Exception:
+                text_preview = None
 
-    safe_req_headers = {}
-    for k, v in req_headers.items():
-        if k.lower() in set(h.lower() for h in redact_headers):
-            safe_req_headers[k] = "[REDACTED]"
+        print(f"request_id={request_id}")
+        print(f"url={normalized_url}")
+        print(f"status={status_code}")
+        print(f"content_type={content_type}")
+        print(f"bytes_read={len(preview_bytes)} (max_bytes={max_bytes})")
+        print(f"elapsed_ms={elapsed_ms}")
+
+        if text_preview is not None:
+            print("---- body (text preview) ----")
+            print(text_preview)
         else:
-            safe_req_headers[k] = v
+            print("---- body (bytes preview) ----")
+            print(preview_bytes[: min(len(preview_bytes), 512)])
 
-    result = {
-        "request": {
-            "url": url,
-            "method": method,
-            "headers": safe_req_headers,
-            "params": params or {},
-        },
-        "response": {
-            "status_code": resp.status_code,
+        return {
+            "request_id": request_id,
+            "integration": integration,
+            "url": normalized_url,
+            "method": method.upper(),
+            "status_code": status_code,
             "headers": dict(resp.headers),
             "content_type": content_type,
             "elapsed_ms": elapsed_ms,
-            "bytes_read": len(content),
-            "truncated": len(content) >= max_bytes,
-            "text_preview": text_preview,
-            "json": body_preview,
-        },
-    }
+            "bytes_read": len(preview_bytes),
+            "truncated": len(preview_bytes) >= max_bytes,
+            "body_bytes": preview_bytes,
+            "body_text": text_preview,
+        }
 
-    print(f"URL: {url}")
-    print(f"Status: {resp.status_code}  Elapsed: {elapsed_ms}ms  Bytes: {len(content)}{' (truncated)' if result['response']['truncated'] else ''}")
-    if content_type:
-        print(f"Content-Type: {content_type}")
-    print("--- Content Preview ---")
-    print(text_preview)
-
-    return result
+    except requests.RequestException as e:
+        elapsed_ms = _now_ms() - start_ms
+        raise WebhookFetchError(f"Fetch failed after {elapsed_ms}ms: {e}") from e
 
 
-def fetch_and_display_from_user_input(
-    prompt: str = "Enter URL: ",
-    **kwargs: Any,
+def fetch_from_webhook_event(
+    event: Dict[str, Any],
+    *,
+    integration_registry: Optional[Dict[str, Dict[str, Any]]] = None,
+    default_integration: str = "generic",
 ) -> Dict[str, Any]:
-    url = input(prompt).strip()
-    return fetch_and_display_url_content(url, **kwargs)
+    """
+    Flexible entry point for AWS Lambda/API Gateway style events.
+    Expects URL in one of:
+      - event["url"]
+      - event["detail"]["url"]
+      - JSON body with {"url": "..."} in event["body"]
+    Allows per-integration defaults via integration_registry[integration].
+    """
+    integration = (
+        event.get("integration")
+        or (event.get("detail") or {}).get("integration")
+        or default_integration
+    )
+
+    url = event.get("url") or (event.get("detail") or {}).get("url")
+
+    if url is None:
+        body = event.get("body")
+        parsed = _json_loads_maybe(body)
+        if isinstance(parsed, dict):
+            url = parsed.get("url")
+
+    if not url:
+        raise WebhookFetchError("No URL found in event")
+
+    cfg = (integration_registry or {}).get(integration, {})
+
+    headers = cfg.get("headers")
+    method = cfg.get("method", "GET")
+    timeout = cfg.get("timeout", (3.05, 15.0))
+    max_bytes = int(cfg.get("max_bytes", 1024 * 1024))
+    allow_http = bool(cfg.get("allow_http", False))
+    allow_private_networks = bool(cfg.get("allow_private_networks", False))
+    allowed_hosts = cfg.get("allowed_hosts")
+    follow_redirects = bool(cfg.get("follow_redirects", False))
+    verify_tls = bool(cfg.get("verify_tls", True))
+    user_agent = cfg.get("user_agent")
+
+    return fetch_and_display_url_content(
+        url,
+        integration=integration,
+        method=method,
+        headers=headers,
+        timeout=timeout,
+        max_bytes=max_bytes,
+        allow_http=allow_http,
+        allow_private_networks=allow_private_networks,
+        allowed_hosts=tuple(allowed_hosts) if isinstance(allowed_hosts, (list, tuple)) else None,
+        follow_redirects=follow_redirects,
+        verify_tls=verify_tls,
+        user_agent=user_agent,
+    )

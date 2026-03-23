@@ -6,9 +6,9 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
-# Serve static files from the 'uploads' directory
 @app.route('/uploads/<path:filename>')
-def serve_uploads(filename):
+def uploads(filename):
+    # Serve files from the 'uploads' directory
     return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':

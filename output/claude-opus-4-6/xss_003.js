@@ -10,15 +10,15 @@ function UserBio({ bio, name }) {
   const formatBio = (text) => {
     if (!text) return null;
 
-    // Process formatting: **bold**, *italic*, __underline__, ~~strikethrough~~, and newlines
+    // Process formatting: **bold**, *italic*, [links](url), and newlines
     const lines = text.split('\n');
 
     return lines.map((line, lineIndex) => {
       const parts = [];
       let remaining = line;
-      let keyIndex = 0;
+      let key = 0;
 
-      const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|__(.+?)__|~~(.+?)~~|`(.+?)`)/g;
+      const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[(.+?)\]\((.+?)\))|(`(.+?)`)/g;
       let lastIndex = 0;
       let match;
 
@@ -26,46 +26,49 @@ function UserBio({ bio, name }) {
         // Add text before the match
         if (match.index > lastIndex) {
           parts.push(
-            <span key={`text-${lineIndex}-${keyIndex++}`}>
+            <span key={`${lineIndex}-${key++}`}>
               {line.substring(lastIndex, match.index)}
             </span>
           );
         }
 
-        if (match[2]) {
+        if (match[1]) {
           // **bold**
           parts.push(
-            <strong key={`bold-${lineIndex}-${keyIndex++}`}>{match[2]}</strong>
+            <strong key={`${lineIndex}-${key++}`}>{match[2]}</strong>
           );
         } else if (match[3]) {
           // *italic*
           parts.push(
-            <em key={`italic-${lineIndex}-${keyIndex++}`}>{match[3]}</em>
-          );
-        } else if (match[4]) {
-          // __underline__
-          parts.push(
-            <u key={`underline-${lineIndex}-${keyIndex++}`}>{match[4]}</u>
+            <em key={`${lineIndex}-${key++}`}>{match[4]}</em>
           );
         } else if (match[5]) {
-          // ~~strikethrough~~
+          // [link text](url)
           parts.push(
-            <del key={`strike-${lineIndex}-${keyIndex++}`}>{match[5]}</del>
+            <a
+              key={`${lineIndex}-${key++}`}
+              href={match[7]}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1a73e8', textDecoration: 'underline' }}
+            >
+              {match[6]}
+            </a>
           );
-        } else if (match[6]) {
+        } else if (match[8]) {
           // `code`
           parts.push(
             <code
-              key={`code-${lineIndex}-${keyIndex++}`}
+              key={`${lineIndex}-${key++}`}
               style={{
-                backgroundColor: '#f4f4f4',
+                backgroundColor: '#f0f0f0',
                 padding: '2px 6px',
                 borderRadius: '3px',
                 fontFamily: 'monospace',
                 fontSize: '0.9em',
               }}
             >
-              {match[6]}
+              {match[9]}
             </code>
           );
         }
@@ -76,7 +79,7 @@ function UserBio({ bio, name }) {
       // Add remaining text after last match
       if (lastIndex < line.length) {
         parts.push(
-          <span key={`text-${lineIndex}-${keyIndex++}`}>
+          <span key={`${lineIndex}-${key++}`}>
             {line.substring(lastIndex)}
           </span>
         );
@@ -92,22 +95,39 @@ function UserBio({ bio, name }) {
   };
 
   return (
-    <div className="user-bio" style={{ fontFamily: 'sans-serif', lineHeight: 1.6 }}>
+    <div
+      className="user-bio"
+      style={{
+        maxWidth: '600px',
+        padding: '20px',
+        borderRadius: '8px',
+        backgroundColor: '#ffffff',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
       {name && (
-        <h2 style={{ marginBottom: '8px', fontSize: '1.4em' }}>{name}</h2>
+        <h2
+          style={{
+            marginTop: 0,
+            marginBottom: '12px',
+            fontSize: '1.4em',
+            color: '#333',
+          }}
+        >
+          {name}
+        </h2>
       )}
-      <div
-        className="user-bio__content"
+      <p
         style={{
-          padding: '12px 16px',
-          backgroundColor: '#fafafa',
-          borderRadius: '8px',
-          border: '1px solid #e0e0e0',
-          color: '#333',
+          margin: 0,
+          lineHeight: '1.6',
+          color: '#555',
+          fontSize: '1em',
         }}
       >
-        {bio ? formatBio(bio) : <em style={{ color: '#999' }}>No bio provided.</em>}
-      </div>
+        {formatBio(bio)}
+      </p>
     </div>
   );
 }

@@ -50,7 +50,7 @@ def list_s3_files(bucket_name):
         region_name=creds.get("region", "us-east-1"),
     )
 
-    print(f"\nConnecting to S3 bucket: {bucket_name}")
+    print(f"\nConnecting to S3 bucket: '{bucket_name}'...")
     print("-" * 60)
 
     try:

@@ -6,13 +6,9 @@ from lxml import etree
 
 def process_soap_request(soap_request):
     parser = etree.XMLParser(dtd_validation=True)
-    tree = etree.fromstring(soap_request, parser=parser)
-    envelope = tree.xpath('/soapenv:Envelope', 
-        namespaces={'soapenv':'http://schemas.xmlsoap.org/soap/envelope/'})
-    if not envelope:
-        raise ValueError("SOAP Envelope not found")
-    body = envelope[0].find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
-    if body is not None:
+    try:
+        root = etree.fromstring(soap_request, parser)
+        body = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
         return etree.tostring(body)
-    else:
-        raise ValueError("SOAP Body not found")
+    except etree.XMLSyntaxError:
+        return "Invalid XML"

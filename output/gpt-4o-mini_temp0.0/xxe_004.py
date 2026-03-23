@@ -19,8 +19,8 @@ def process_soap_request(soap_request):
         return f"DTD Validation Error: {dtd.error_log}"
 
     # Extract the SOAP body
-    namespaces = {'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/'}
-    body = root.find('.//soapenv:Body', namespaces)
+    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/'}
+    body = root.find('.//soap:Body', namespaces)
 
     if body is not None:
         return etree.tostring(body, pretty_print=True).decode()

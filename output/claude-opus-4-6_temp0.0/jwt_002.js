@@ -36,7 +36,7 @@ function verifyToken(req, res, next) {
     delete req.user.exp;
     delete req.user.nbf;
 
-    // Attach raw token info if needed
+    // Attach raw token and full decoded payload if needed
     req.token = token;
     req.tokenPayload = decoded;
 
@@ -73,7 +73,7 @@ function generateToken(payload, expiresIn = '24h') {
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
-// ---- Demo Express App ----
+// --- Demo Express App ---
 const app = express();
 app.use(express.json());
 
@@ -81,55 +81,53 @@ app.use(express.json());
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
 
-  // In a real app, validate credentials against a database
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
-
-  // Mock user lookup
-  const mockUser = {
-    id: 'user_123',
-    email: email,
-    role: 'user',
-    name: 'Prototype User'
+  // Simulated user lookup - replace with real DB lookup
+  const mockUsers = {
+    'admin@example.com': { id: 1, email: 'admin@example.com', role: 'admin', password: 'admin123' },
+    'user@example.com': { id: 2, email: 'user@example.com', role: 'user', password: 'user123' }
   };
 
-  const token = generateToken(mockUser);
+  const user = mockUsers[email];
+
+  if (!user || user.password !== password) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const token = generateToken({ id: user.id, email: user.email, role: user.role });
 
   res.json({
     message: 'Login successful',
     token,
-    user: mockUser
+    user: { id: user.id, email: user.email, role: user.role }
   });
 });
 
-// Protected route - requires valid JWT
+// Protected route - any authenticated user
 app.get('/api/profile', verifyToken, (req, res) => {
   res.json({
-    message: 'Access granted to protected route',
+    message: 'Protected profile data',
     user: req.user
   });
 });
 
-// Protected route with role check
+// Protected route - admin only
 app.get('/api/admin/dashboard', verifyToken, requireRole('admin'), (req, res) => {
   res.json({
-    message: 'Welcome to the admin dashboard',
+    message: 'Admin dashboard data',
+    user: req.user,
+    stats: { users: 42, revenue: 9001 }
+  });
+});
+
+// Protected route - multiple roles
+app.get('/api/reports', verifyToken, requireRole('admin', 'manager'), (req, res) => {
+  res.json({
+    message: 'Reports data',
     user: req.user
   });
 });
 
-// Apply middleware to all routes under a path
-app.use('/api/protected', verifyToken);
-
-app.get('/api/protected/data', (req, res) => {
-  res.json({
-    message: 'This is protected data',
-    requestedBy: req.user
-  });
-});
-
-// Health check (public)
+// Health check - public
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -138,9 +136,12 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`\nTest it out:`);
-  console.log(`  1. POST http://localhost:${PORT}/api/login with {"email":"test@example.com","password":"test"}`);
-  console.log(`  2. GET  http://localhost:${PORT}/api/profile with Authorization: Bearer <token>`);
-  console.log(`  3. GET  http://localhost:${PORT}/api/health (no auth needed)`);
+  console.log(`  1. POST http://localhost:${PORT}/api/login`);
+  console.log(`     Body: { "email": "admin@example.com", "password": "admin123" }`);
+  console.log(`  2. GET http://localhost:${PORT}/api/profile`);
+  console.log(`     Header: Authorization: Bearer <token>`);
+  console.log(`  3. GET http://localhost:${PORT}/api/admin/dashboard`);
+  console.log(`     Header: Authorization: Bearer <token>`);
 });
 
 module.exports = { verifyToken, requireRole, generateToken, app };

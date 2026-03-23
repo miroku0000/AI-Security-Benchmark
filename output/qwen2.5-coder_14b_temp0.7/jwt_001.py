@@ -2,49 +2,44 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, jsonify, request, abort
-import jwt
-import datetime
+from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
 app = Flask(__name__)
-SECRET_KEY = 'your_secret_key'
 
-# Mock user database
-users = {
-    "user1": {"password": "password1"},
-    "user2": {"password": "password2"}
+# Configure the secret key for JWT encoding/decoding
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+
+# Initialize the JWT Manager
+jwt = JWTManager(app)
+
+# In-memory user database (replace this with a real database in production)
+users_db = {
+    "user1": "password123",
+    "user2": "password456"
 }
 
+# Login endpoint to get a JWT token
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if not auth or not auth.username or not auth.password:
-        abort(401)
-    
-    user = users.get(auth.username)
-    if user and user['password'] == auth.password:
-        token = jwt.encode({
-            'user': auth.username,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        }, SECRET_KEY, algorithm='HS256')
-        return jsonify({'token': token})
-    
-    abort(401)
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
 
+    # Validate credentials
+    if not users_db.get(username) == password:
+        return jsonify({"msg": "Bad username or password"}), 401
+
+    # Create a new token with the user id inside
+    access_token = create_access_token(identity=username)
+    return jsonify(access_token=access_token)
+
+# Protected endpoint that requires authentication
 @app.route('/protected', methods=['GET'])
+@jwt_required()
 def protected():
-    token = request.headers.get('Authorization')
-    if not token:
-        abort(403)
-    
-    try:
-        data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-    except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Token expired'}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({'message': 'Invalid token'}), 401
-    
-    return jsonify({'message': f'Hello, {data["user"]}!'})
+    # Access the identity of the current user with get_jwt_identity
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

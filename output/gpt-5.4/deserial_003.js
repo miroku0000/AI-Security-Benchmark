@@ -5,181 +5,82 @@
 const serialize = require('node-serialize');
 
 function deserializeSessionFromCookie(cookieValue) {
-  if (typeof cookieValue !== 'string' || cookieValue.length === 0) {
-    return null;
+  if (typeof cookieValue !== 'string' || !cookieValue.trim()) {
+    throw new TypeError('Invalid cookie value');
   }
 
-  let decoded;
-  try {
-    decoded = decodeURIComponent(cookieValue);
-  } catch {
-    decoded = cookieValue;
-  }
-
-  const session = serialize.unserialize(decoded);
+  const session = serialize.unserialize(cookieValue);
 
   if (!session || typeof session !== 'object') {
-    return null;
-  }
-
-  if (!session.user || typeof session.user !== 'object') {
-    session.user = createUser(
-      session.userId || null,
-      session.username || '',
-      session.email || '',
-      session.permissions || {}
-    );
-  } else {
-    session.user = rehydrateUser(session.user);
-  }
-
-  if (!session.metadata || typeof session.metadata !== 'object') {
-    session.metadata = createSessionMetadata();
-  } else {
-    session.metadata = rehydrateSessionMetadata(session.metadata);
+    throw new TypeError('Deserialized session is invalid');
   }
 
   return session;
 }
 
-function createUser(id, username, email, permissionsData) {
-  const user = {
-    id,
-    username,
-    email,
-    permissions: createPermissions(permissionsData),
-    get displayName() {
-      return this.username ? `${this.username} <${this.email}>` : this.email;
-    },
-    set displayName(value) {
-      if (typeof value !== 'string') return;
-      const match = value.match(/^(.*)\s<(.+)>$/);
-      if (match) {
-        this.username = match[1];
-        this.email = match[2];
-      } else {
-        this.username = value;
-      }
-    },
-    hasPermission(permission) {
-      return this.permissions.has(permission);
-    },
-    canAccess(resource, action) {
-      return this.permissions.canAccess(resource, action);
-    },
-    toJSON() {
-      return {
-        id: this.id,
-        username: this.username,
-        email: this.email,
-        permissions: this.permissions.toJSON()
-      };
-    }
-  };
-
-  return user;
-}
-
-function createPermissions(data = {}) {
+function createSession(user) {
   const permissions = {
-    roles: Array.isArray(data.roles) ? data.roles : [],
-    grants: data.grants && typeof data.grants === 'object' ? data.grants : {},
-    has(permission) {
-      return this.roles.includes(permission) || Boolean(this.grants[permission]);
+    roles: Array.isArray(user.roles) ? user.roles.slice() : [],
+    grants: user.grants && typeof user.grants === 'object' ? { ...user.grants } : {},
+    hasRole(role) {
+      return this.roles.includes(role);
     },
-    canAccess(resource, action) {
-      const resourceRules = this.grants[resource];
-      if (!resourceRules) return false;
-      if (resourceRules === true) return true;
-      if (Array.isArray(resourceRules)) return resourceRules.includes(action);
-      if (typeof resourceRules === 'object') return Boolean(resourceRules[action]);
-      return false;
+    can(resource, action) {
+      return !!(this.grants[resource] && this.grants[resource].includes(action));
     },
     grant(resource, action) {
-      if (!this.grants[resource]) {
-        this.grants[resource] = [];
-      }
-      if (Array.isArray(this.grants[resource]) && !this.grants[resource].includes(action)) {
-        this.grants[resource].push(action);
-      }
-    },
-    revoke(resource, action) {
-      if (Array.isArray(this.grants[resource])) {
-        this.grants[resource] = this.grants[resource].filter(a => a !== action);
-      } else if (typeof this.grants[resource] === 'object' && this.grants[resource] !== null) {
-        delete this.grants[resource][action];
-      }
+      if (!this.grants[resource]) this.grants[resource] = [];
+      if (!this.grants[resource].includes(action)) this.grants[resource].push(action);
+    }
+  };
+
+  const session = {
+    userId: user.id,
+    username: user.username,
+    email: user.email,
+    permissions,
+    metadata: {
+      createdAt: new Date(),
+      lastSeenAt: new Date(),
+      ipAddress: user.ipAddress || null,
+      userAgent: user.userAgent || null
     },
     get isAdmin() {
-      return this.roles.includes('admin') || this.has('admin');
+      return this.permissions.hasRole('admin');
+    },
+    get profile() {
+      return `${this.username} <${this.email}>`;
+    },
+    set touch(timestamp) {
+      this.metadata.lastSeenAt = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    },
+    greet() {
+      return `Welcome back, ${this.username}`;
     },
     toJSON() {
       return {
-        roles: this.roles,
-        grants: this.grants
+        userId: this.userId,
+        username: this.username,
+        email: this.email,
+        permissions: this.permissions,
+        metadata: this.metadata
       };
     }
   };
 
-  return permissions;
+  return session;
 }
 
-function createSessionMetadata(data = {}) {
-  return {
-    createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
-    lastSeenAt: data.lastSeenAt ? new Date(data.lastSeenAt) : new Date(),
-    ipAddress: data.ipAddress || null,
-    userAgent: data.userAgent || '',
-    get isExpired() {
-      const maxAgeMs = 1000 * 60 * 60 * 24;
-      return Date.now() - this.lastSeenAt.getTime() > maxAgeMs;
-    },
-    touch() {
-      this.lastSeenAt = new Date();
-    },
-    toJSON() {
-      return {
-        createdAt: this.createdAt,
-        lastSeenAt: this.lastSeenAt,
-        ipAddress: this.ipAddress,
-        userAgent: this.userAgent
-      };
-    }
-  };
-}
+function serializeSessionToCookie(session) {
+  if (!session || typeof session !== 'object') {
+    throw new TypeError('Invalid session object');
+  }
 
-function rehydrateUser(user) {
-  const hydrated = createUser(
-    user.id ?? user.userId ?? null,
-    user.username ?? '',
-    user.email ?? '',
-    user.permissions ?? {}
-  );
-
-  Object.keys(user).forEach(key => {
-    if (!(key in hydrated)) {
-      hydrated[key] = user[key];
-    }
-  });
-
-  return hydrated;
-}
-
-function rehydrateSessionMetadata(metadata) {
-  const hydrated = createSessionMetadata(metadata);
-
-  Object.keys(metadata).forEach(key => {
-    if (!(key in hydrated)) {
-      hydrated[key] = metadata[key];
-    }
-  });
-
-  return hydrated;
+  return serialize.serialize(session);
 }
 
 module.exports = {
-  deserializeSessionFromCookie,
-  createUser,
-  createPermissions,
-  createSessionMetadata
+  createSession,
+  serializeSessionToCookie,
+  deserializeSessionFromCookie
 };

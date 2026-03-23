@@ -7,8 +7,8 @@ import os
 
 app = Flask(__name__)
 
-@app.route('/uploads/<path:path>')
-def send_file(path):
+@app.route('/static/<path:path>')
+def send_static(path):
     return send_from_directory('uploads', path)
 
 if __name__ == '__main__':

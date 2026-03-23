@@ -15,37 +15,30 @@ def create_backup(source_dir, compression_format):
         sys.exit(1)
     
     if not os.path.isdir(source_dir):
-        print("Error: Source path is not a directory: {}".format(source_dir))
+        print("Error: Path is not a directory: {}".format(source_dir))
         sys.exit(1)
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     dir_name = os.path.basename(os.path.abspath(source_dir))
+    backup_name = "{}_backup_{}".format(dir_name, timestamp)
     
-    parent_dir = os.path.dirname(os.path.abspath(source_dir))
+    compression_format = compression_format.lower()
     
-    if compression_format == "tar.gz":
-        archive_name = "{}_backup_{}.tar.gz".format(dir_name, timestamp)
-        archive_path = os.path.join(parent_dir, archive_name)
-        cmd = ["tar", "-czf", archive_path, "-C", parent_dir, dir_name]
+    if compression_format == "tar.gz" or compression_format == "tgz":
+        archive_file = "{}.tar.gz".format(backup_name)
+        cmd = ["tar", "-czf", archive_file, "-C", os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
     
-    elif compression_format == "tar.bz2":
-        archive_name = "{}_backup_{}.tar.bz2".format(dir_name, timestamp)
-        archive_path = os.path.join(parent_dir, archive_name)
-        cmd = ["tar", "-cjf", archive_path, "-C", parent_dir, dir_name]
+    elif compression_format == "tar.bz2" or compression_format == "tbz2":
+        archive_file = "{}.tar.bz2".format(backup_name)
+        cmd = ["tar", "-cjf", archive_file, "-C", os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
     
     elif compression_format == "zip":
-        archive_name = "{}_backup_{}.zip".format(dir_name, timestamp)
-        archive_path = os.path.join(parent_dir, archive_name)
-        original_dir = os.getcwd()
-        os.chdir(parent_dir)
-        cmd = ["zip", "-r", archive_name, dir_name]
+        archive_file = "{}.zip".format(backup_name)
+        cmd = ["zip", "-r", archive_file, source_dir]
     
     elif compression_format == "7z":
-        archive_name = "{}_backup_{}.7z".format(dir_name, timestamp)
-        archive_path = os.path.join(parent_dir, archive_name)
-        original_dir = os.getcwd()
-        os.chdir(parent_dir)
-        cmd = ["7z", "a", archive_name, dir_name]
+        archive_file = "{}.7z".format(backup_name)
+        cmd = ["7z", "a", archive_file, source_dir]
     
     else:
         print("Error: Unsupported compression format: {}".format(compression_format))
@@ -54,37 +47,27 @@ def create_backup(source_dir, compression_format):
     
     print("Creating backup of: {}".format(source_dir))
     print("Archive format: {}".format(compression_format))
-    print("Archive name: {}".format(archive_name))
+    print("Archive file: {}".format(archive_file))
     
     try:
         result = subprocess.call(cmd)
-        
-        if compression_format in ["zip", "7z"]:
-            os.chdir(original_dir)
-        
         if result == 0:
-            print("Backup created successfully: {}".format(archive_path))
-            return archive_path
+            print("Backup completed successfully: {}".format(archive_file))
+            if os.path.exists(archive_file):
+                size = os.path.getsize(archive_file)
+                print("Archive size: {} bytes ({:.2f} MB)".format(size, size / (1024.0 * 1024.0)))
         else:
-            print("Error: Backup creation failed with exit code {}".format(result))
+            print("Error: Backup failed with exit code {}".format(result))
             sys.exit(1)
-    
     except OSError as e:
-        if compression_format in ["zip", "7z"]:
-            os.chdir(original_dir)
-        print("Error: Failed to execute command. Make sure the required tools are installed.")
-        print("Details: {}".format(str(e)))
-        sys.exit(1)
-    except Exception as e:
-        if compression_format in ["zip", "7z"]:
-            os.chdir(original_dir)
-        print("Error: {}".format(str(e)))
+        print("Error: Failed to execute command. Make sure required tools are installed.")
+        print("Error details: {}".format(str(e)))
         sys.exit(1)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: {} <directory_path> <compression_format>".format(sys.argv[0]))
-        print("Supported formats: tar.gz, tar.bz2, zip, 7z")
+        print("Compression formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
     
     source_directory = sys.argv[1]

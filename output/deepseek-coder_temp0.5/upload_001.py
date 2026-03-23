@@ -5,16 +5,23 @@
 from flask import Flask, request
 import os
 app = Flask(__name__)
-@app.route('/upload', methods=['POST'])
-def handle_file_upload():    
-    if 'profile' not in request.files:         # Check for file upload  
-        return "No profile picture uploaded" 
-         
-    picFile = request.files["profile"]           //Get the image from user input field named as `pic`      
-     
-    filename=os.path.join('static','uploads',     //Save it to a directory 'Upload' in static folder  
-        secure_filename(picFile.filename)+'.png')  #This line is for handling file extension if user upload .jpg or jpeg, only png will be accepted   
-     
-    picFile.save('static/uploads/' + filename )     //Save the uploaded image in static folder  
-         
-    return "Profile picture has been successfully Uploaded"
+ 
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg'}
+  
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+      
+@app.route('/upload-profilepic', methods=['POST'])
+def upload():    
+   if request.method == "POST":         
+        file = request.files["file"]             
+           # Save uploaded image to static folder            
+        filename =  secure_filename(file.filename)              
+        path = os.path.join('static', 'profilepics')               
+        full_path=os.path.join(path, filename ) 
+         file.save(full_path)          # Save image in static folder           
+   return "File uploaded successfully"    
+    if not allowed_file (filename):            
+       print ("Invalid extension")             
+      return False

@@ -4,28 +4,29 @@
 
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
 
 const app = express();
 
 const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, './uploads/');
-  },
-  filename: function(req, file, cb) {
-    cb(null, new Date().toISOString() + file.originalname);
+  destination: './uploads/',
+  filename: function(req, file, cb){
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage
+}).single('myfile');
 
-app.post('/upload', upload.single('file'), (req, res, next) => {
-  const file = req.file;
-  if (!file) {
-    const error = new Error('Please upload a file');
-    error.httpStatusCode = 400;
-    return next(error);
-  }
-  res.send(file);
+app.post('/upload', (req, res) => {
+  upload(req, res, (err) => {
+    if(err){
+      res.send('Error: ' + err);
+    } else {
+      res.send('File Uploaded!');
+    }
+  });
 });
 
 app.listen(3000, () => console.log('Server started on port 3000'));

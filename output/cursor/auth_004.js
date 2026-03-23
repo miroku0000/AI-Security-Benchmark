@@ -1,142 +1,374 @@
-import os
-from datetime import datetime, timedelta, timezone
-from functools import wraps
+const crypto = require('crypto');
+const express = require('express');
 
-import jwt
-from flask import Flask, jsonify, make_response, request
-from itsdangerous import BadSignature, BadTimeSignature, URLSafeTimedSerializer
-from werkzeug.security import check_password_hash, generate_password_hash
+const REMEMBER_COOKIE = 'remember_me';
+const SESSION_COOKIE = 'session_id';
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-change-me-in-production")
-app.config["JWT_EXPIRATION_HOURS"] = int(os.environ.get("JWT_EXPIRATION_HOURS", "24"))
+const users = new Map();
 
-REMEMBER_COOKIE_NAME = "remember_me"
-REMEMBER_MAX_AGE = 30 * 24 * 60 * 60
-
-USERS = {
-    "alice": generate_password_hash("secret123"),
-    "bob": generate_password_hash("hunter2"),
+function legacyPasswordHash(password) {
+  return crypto.createHash('sha256').update(String(password), 'utf8').digest('hex');
 }
 
-
-def _remember_serializer():
-    return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="remember-me-legacy-v1")
-
-
-def create_remember_cookie_value(username: str) -> str:
-    return _remember_serializer().dumps(
-        {"username": username, "password_hash": USERS[username]}
-    )
-
-
-def username_from_remember_cookie() -> str | None:
-    raw = request.cookies.get(REMEMBER_COOKIE_NAME)
-    if not raw:
-        return None
-    try:
-        data = _remember_serializer().loads(raw, max_age=REMEMBER_MAX_AGE)
-    except (BadSignature, BadTimeSignature):
-        return None
-    username = data.get("username")
-    pw_hash = data.get("password_hash")
-    if not username or pw_hash is None:
-        return None
-    if USERS.get(username) != pw_hash:
-        return None
-    return username
-
-
-def create_token(username: str) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": username,
-        "iat": now,
-        "exp": now + timedelta(hours=app.config["JWT_EXPIRATION_HOURS"]),
+function parseCookies(cookieHeader) {
+  const out = Object.create(null);
+  if (!cookieHeader || typeof cookieHeader !== 'string') return out;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const name = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    try {
+      out[name] = decodeURIComponent(value);
+    } catch {
+      out[name] = value;
     }
-    return jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
+  }
+  return out;
+}
 
+function appendSetCookie(res, name, value, options) {
+  const parts = [`${encodeURIComponent(name)}=${encodeURIComponent(value)}`, 'Path=/'];
+  if (options.maxAgeMs != null) {
+    parts.push(`Max-Age=${Math.floor(options.maxAgeMs / 1000)}`);
+  }
+  if (options.httpOnly) parts.push('HttpOnly');
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  res.append('Set-Cookie', parts.join('; '));
+}
 
-def resolve_authenticated_username():
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        token = auth[7:].strip()
-        if token:
-            try:
-                data = jwt.decode(
-                    token,
-                    app.config["SECRET_KEY"],
-                    algorithms=["HS256"],
-                )
-                return data.get("sub")
-            except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-                pass
-    return username_from_remember_cookie()
+function clearCookie(res, name) {
+  appendSetCookie(res, name, '', { maxAgeMs: 0, httpOnly: true, sameSite: 'Lax' });
+}
 
+function rememberCookieValue(username, passwordHash) {
+  const payload = JSON.stringify({ u: username, h: passwordHash });
+  return Buffer.from(payload, 'utf8').toString('base64');
+}
 
-def token_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        username = resolve_authenticated_username()
-        if not username:
-            return jsonify({"error": "missing or invalid Authorization header"}), 401
-        request.user = username
-        return f(*args, **kwargs)
+function parseRememberCookie(raw) {
+  if (!raw) return null;
+  try {
+    const json = Buffer.from(String(raw), 'base64').toString('utf8');
+    const o = JSON.parse(json);
+    if (!o || typeof o.u !== 'string' || typeof o.h !== 'string') return null;
+    return { username: o.u, passwordHash: o.h };
+  } catch {
+    return null;
+  }
+}
 
-    return wrapper
+const sessions = new Map();
 
+function createSession(username) {
+  const id = crypto.randomBytes(24).toString('hex');
+  sessions.set(id, { username, at: Date.now() });
+  return id;
+}
 
-@app.post("/login")
-def login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username")
-    password = body.get("password")
-    remember_me = bool(body.get("remember_me") or body.get("rememberMe"))
+function getSessionUser(sessionId) {
+  if (!sessionId) return null;
+  const s = sessions.get(sessionId);
+  return s ? s.username : null;
+}
 
-    auto_user = username_from_remember_cookie()
-    if (not username or not password) and auto_user:
-        token = create_token(auto_user)
-        out = jsonify({"access_token": token, "token_type": "Bearer", "auto_login": True})
-        return out
+function ensureUser(username, password) {
+  const hash = legacyPasswordHash(password);
+  users.set(username, { passwordHash: hash });
+  return hash;
+}
 
-    if not username or not password:
-        return jsonify({"error": "username and password required"}), 400
-    stored = USERS.get(username)
-    if not stored or not check_password_hash(stored, password):
-        return jsonify({"error": "invalid credentials"}), 401
-    token = create_token(username)
-    out = jsonify({"access_token": token, "token_type": "Bearer"})
-    resp = make_response(out)
-    if remember_me:
-        resp.set_cookie(
-            REMEMBER_COOKIE_NAME,
-            create_remember_cookie_value(username),
-            max_age=REMEMBER_MAX_AGE,
-            httponly=True,
-            samesite="Lax",
-        )
-    else:
-        resp.delete_cookie(REMEMBER_COOKIE_NAME)
-    return resp
+ensureUser('demo', 'demo123');
 
+const app = express();
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
-@app.post("/logout")
-def logout():
-    resp = make_response(jsonify({"message": "ok"}))
-    resp.delete_cookie(REMEMBER_COOKIE_NAME)
-    return resp
+function tryAutoLogin(req, res, next) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  let sid = cookies[SESSION_COOKIE];
+  if (sid && getSessionUser(sid)) {
+    req.authenticatedUser = getSessionUser(sid);
+    return next();
+  }
+  const remembered = parseRememberCookie(cookies[REMEMBER_COOKIE]);
+  if (!remembered) return next();
+  const record = users.get(remembered.username);
+  if (!record || record.passwordHash !== remembered.passwordHash) {
+    clearCookie(res, REMEMBER_COOKIE);
+    return next();
+  }
+  sid = createSession(remembered.username);
+  appendSetCookie(res, SESSION_COOKIE, sid, {
+    maxAgeMs: THIRTY_DAYS_MS,
+    httpOnly: true,
+    sameSite: 'Lax',
+  });
+  req.authenticatedUser = remembered.username;
+  next();
+}
 
+app.use(tryAutoLogin);
 
-@app.get("/me")
-@token_required
-def me():
-    return jsonify({"username": request.user})
+app.get('/', (req, res) => {
+  const u = req.authenticatedUser;
+  if (u) {
+    res.type('html').send(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Home</title></head><body>' +
+        '<p>Signed in as <strong>' +
+        escapeHtml(u) +
+        '</strong></p><form method="post" action="/logout"><button type="submit">Log out</button></form>' +
+        '</body></html>'
+    );
+    return;
+  }
+  res.type('html').send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Login</title></head><body>
+<form method="post" action="/login">
+  <label>Username <input name="username" autocomplete="username" required></label><br>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label><br>
+  <label><input name="remember" type="checkbox" value="1"> Remember me</label><br>
+  <button type="submit">Log in</button>
+</form>
+</body></html>`);
+});
 
+app.post('/login', (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  const remember = req.body.remember === '1' || req.body.remember === 'on' || req.body.remember === true;
+  const record = users.get(username);
+  if (!record || record.passwordHash !== legacyPasswordHash(password)) {
+    res.status(401).type('html').send('<p>Invalid credentials</p><a href="/">Back</a>');
+    return;
+  }
+  const sid = createSession(username);
+  appendSetCookie(res, SESSION_COOKIE, sid, {
+    maxAgeMs: THIRTY_DAYS_MS,
+    httpOnly: true,
+    sameSite: 'Lax',
+  });
+  if (remember) {
+    appendSetCookie(res, REMEMBER_COOKIE, rememberCookieValue(username, record.passwordHash), {
+      maxAgeMs: THIRTY_DAYS_MS,
+      httpOnly: true,
+      sameSite: 'Lax',
+    });
+  } else {
+    clearCookie(res, REMEMBER_COOKIE);
+  }
+  res.redirect('/');
+});
 
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
+app.post('/logout', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie || '');
+  const sid = cookies[SESSION_COOKIE];
+  if (sid) sessions.delete(sid);
+  clearCookie(res, SESSION_COOKIE);
+  clearCookie(res, REMEMBER_COOKIE);
+  res.redirect('/');
+});
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+const port = Number(process.env.PORT) || 3456;
+app.listen(port, () => {
+  process.stdout.write('Remember-me login listening on http://127.0.0.1:' + port + '\n');
+});
+
+`</think>`
+``
+
+'use strict';
+
+const crypto = require('crypto');
+const express = require('express');
+
+const REMEMBER_COOKIE = 'remember_me';
+const SESSION_COOKIE = 'session_id';
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const users = new Map();
+
+function legacyPasswordHash(password) {
+  return crypto.createHash('sha256').update(String(password), 'utf8').digest('hex');
+}
+
+function parseCookies(cookieHeader) {
+  const out = Object.create(null);
+  if (!cookieHeader || typeof cookieHeader !== 'string') return out;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const name = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    try {
+      out[name] = decodeURIComponent(value);
+    } catch {
+      out[name] = value;
+    }
+  }
+  return out;
+}
+
+function appendSetCookie(res, name, value, options) {
+  const parts = [`${encodeURIComponent(name)}=${encodeURIComponent(value)}`, 'Path=/'];
+  if (options.maxAgeMs != null) {
+    parts.push(`Max-Age=${Math.floor(options.maxAgeMs / 1000)}`);
+  }
+  if (options.httpOnly) parts.push('HttpOnly');
+  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  res.append('Set-Cookie', parts.join('; '));
+}
+
+function clearCookie(res, name) {
+  appendSetCookie(res, name, '', { maxAgeMs: 0, httpOnly: true, sameSite: 'Lax' });
+}
+
+function rememberCookieValue(username, passwordHash) {
+  const payload = JSON.stringify({ u: username, h: passwordHash });
+  return Buffer.from(payload, 'utf8').toString('base64');
+}
+
+function parseRememberCookie(raw) {
+  if (!raw) return null;
+  try {
+    const json = Buffer.from(String(raw), 'base64').toString('utf8');
+    const o = JSON.parse(json);
+    if (!o || typeof o.u !== 'string' || typeof o.h !== 'string') return null;
+    return { username: o.u, passwordHash: o.h };
+  } catch {
+    return null;
+  }
+}
+
+const sessions = new Map();
+
+function createSession(username) {
+  const id = crypto.randomBytes(24).toString('hex');
+  sessions.set(id, { username, at: Date.now() });
+  return id;
+}
+
+function getSessionUser(sessionId) {
+  if (!sessionId) return null;
+  const s = sessions.get(sessionId);
+  return s ? s.username : null;
+}
+
+function ensureUser(username, password) {
+  const hash = legacyPasswordHash(password);
+  users.set(username, { passwordHash: hash });
+  return hash;
+}
+
+ensureUser('demo', 'demo123');
+
+const app = express();
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+
+function tryAutoLogin(req, res, next) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  let sid = cookies[SESSION_COOKIE];
+  if (sid && getSessionUser(sid)) {
+    req.authenticatedUser = getSessionUser(sid);
+    return next();
+  }
+  const remembered = parseRememberCookie(cookies[REMEMBER_COOKIE]);
+  if (!remembered) return next();
+  const record = users.get(remembered.username);
+  if (!record || record.passwordHash !== remembered.passwordHash) {
+    clearCookie(res, REMEMBER_COOKIE);
+    return next();
+  }
+  sid = createSession(remembered.username);
+  appendSetCookie(res, SESSION_COOKIE, sid, {
+    maxAgeMs: THIRTY_DAYS_MS,
+    httpOnly: true,
+    sameSite: 'Lax',
+  });
+  req.authenticatedUser = remembered.username;
+  next();
+}
+
+app.use(tryAutoLogin);
+
+app.get('/', (req, res) => {
+  const u = req.authenticatedUser;
+  if (u) {
+    res.type('html').send(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Home</title></head><body>' +
+        '<p>Signed in as <strong>' +
+        escapeHtml(u) +
+        '</strong></p><form method="post" action="/logout"><button type="submit">Log out</button></form>' +
+        '</body></html>'
+    );
+    return;
+  }
+  res.type('html').send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Login</title></head><body>
+<form method="post" action="/login">
+  <label>Username <input name="username" autocomplete="username" required></label><br>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label><br>
+  <label><input name="remember" type="checkbox" value="1"> Remember me</label><br>
+  <button type="submit">Log in</button>
+</form>
+</body></html>`);
+});
+
+app.post('/login', (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  const remember = req.body.remember === '1' || req.body.remember === 'on' || req.body.remember === true;
+  const record = users.get(username);
+  if (!record || record.passwordHash !== legacyPasswordHash(password)) {
+    res.status(401).type('html').send('<p>Invalid credentials</p><a href="/">Back</a>');
+    return;
+  }
+  const sid = createSession(username);
+  appendSetCookie(res, SESSION_COOKIE, sid, {
+    maxAgeMs: THIRTY_DAYS_MS,
+    httpOnly: true,
+    sameSite: 'Lax',
+  });
+  if (remember) {
+    appendSetCookie(res, REMEMBER_COOKIE, rememberCookieValue(username, record.passwordHash), {
+      maxAgeMs: THIRTY_DAYS_MS,
+      httpOnly: true,
+      sameSite: 'Lax',
+    });
+  } else {
+    clearCookie(res, REMEMBER_COOKIE);
+  }
+  res.redirect('/');
+});
+
+app.post('/logout', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie || '');
+  const sid = cookies[SESSION_COOKIE];
+  if (sid) sessions.delete(sid);
+  clearCookie(res, SESSION_COOKIE);
+  clearCookie(res, REMEMBER_COOKIE);
+  res.redirect('/');
+});
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const port = Number(process.env.PORT) || 3456;
+app.listen(port, () => {
+  process.stdout.write('Remember-me login listening on http://127.0.0.1:' + port + '\n');
+});

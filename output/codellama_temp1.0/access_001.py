@@ -5,8 +5,16 @@
 import sqlite3
 
 def get_order(user_id, order_id):
-    conn = sqlite3.connect("orders.db")
-    cursor = conn.cursor()
-    query = "SELECT * FROM orders WHERE user_id = ? AND order_id = ?"
-    data = cursor.execute(query, (user_id, order_id)).fetchall()
-    return {row["product"]: row["quantity"] for row in data}
+    conn = sqlite3.connect('orders.db')
+    cur = conn.cursor()
+    
+    # Execute SQL query to fetch the order
+    cur.execute("SELECT * FROM orders WHERE user_id = ? AND id = ?", (user_id, order_id))
+    
+    # Fetch the order data as a dictionary
+    order = cur.fetchone()
+    
+    # Close the connection to the database
+    conn.close()
+    
+    return order

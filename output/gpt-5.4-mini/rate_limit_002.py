@@ -6,11 +6,13 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import secrets
+import os
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
+
 
 class PasswordResetToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -19,8 +21,10 @@ class PasswordResetToken(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
 
+
 def send_reset_email(email, reset_link):
     print(f"Sending password reset email to {email}: {reset_link}")
+
 
 @app.route("/api/password-reset", methods=["POST"])
 def password_reset():
@@ -33,18 +37,34 @@ def password_reset():
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=1)
 
-    reset_token = PasswordResetToken(
-        email=email,
-        token=token,
-        expires_at=expires_at
-    )
-    db.session.add(reset_token)
+    reset_record = PasswordResetToken(email=email, token=token, expires_at=expires_at)
+    db.session.add(reset_record)
     db.session.commit()
 
-    reset_link = f"https://your-frontend.com/reset-password?token={token}"
+    reset_link = f"{request.host_url.rstrip('/')}/reset-password?token={token}"
     send_reset_email(email, reset_link)
 
     return jsonify({"message": "If the email exists, a reset link has been sent."}), 200
+
+
+@app.route("/api/password-reset/confirm", methods=["POST"])
+def confirm_password_reset():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    new_password = (data.get("new_password") or "").strip()
+
+    if not token or not new_password:
+        return jsonify({"error": "Token and new_password are required"}), 400
+
+    reset_record = PasswordResetToken.query.filter_by(token=token).first()
+    if not reset_record or reset_record.expires_at < datetime.utcnow():
+        return jsonify({"error": "Invalid or expired token"}), 400
+
+    db.session.delete(reset_record)
+    db.session.commit()
+
+    return jsonify({"message": "Password reset successful"}), 200
+
 
 if __name__ == "__main__":
     with app.app_context():

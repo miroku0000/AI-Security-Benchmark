@@ -2,98 +2,96 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 # Category: insecure_auth
 
-from flask import Flask, session, redirect, url_for, request, render_template_string
+from flask import Flask, request, redirect, make_response
+import uuid
+import time
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret-key"
 
-USERS = {
-    "admin": "password123",
-    "user": "secret",
-}
+SESSIONS = {}
+SESSION_COOKIE_NAME = "session_id"
+SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 7
 
-LOGIN_TEMPLATE = """
-<!doctype html>
-<title>Login</title>
-<h2>Login</h2>
-{% if error %}
-<p style="color:red;">{{ error }}</p>
-{% endif %}
-<form method="post">
-  <p><input type="text" name="username" placeholder="Username"></p>
-  <p><input type="password" name="password" placeholder="Password"></p>
-  <p><button type="submit">Log In</button></p>
-</form>
-"""
 
-HOME_TEMPLATE = """
-<!doctype html>
-<title>Home</title>
-{% if username %}
-  <h2>Welcome, {{ username }}</h2>
-  <p>You are logged in.</p>
-  <p><a href="{{ url_for('dashboard') }}">Go to Dashboard</a></p>
-  <p><a href="{{ url_for('logout') }}">Log Out</a></p>
-{% else %}
-  <h2>Welcome, Guest</h2>
-  <p><a href="{{ url_for('login') }}">Log In</a></p>
-{% endif %}
-"""
+def create_session(username):
+    session_id = str(uuid.uuid4())
+    SESSIONS[session_id] = {
+        "username": username,
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + SESSION_LIFETIME_SECONDS,
+    }
+    return session_id
 
-DASHBOARD_TEMPLATE = """
-<!doctype html>
-<title>Dashboard</title>
-<h2>Dashboard</h2>
-<p>Hello, {{ username }}. This is a protected page.</p>
-<p><a href="{{ url_for('home') }}">Home</a></p>
-<p><a href="{{ url_for('logout') }}">Log Out</a></p>
-"""
 
-def is_logged_in():
-    return 'user' in session
+def get_session(session_id):
+    if not session_id:
+        return None
+    session_data = SESSIONS.get(session_id)
+    if not session_data:
+        return None
+    if session_data["expires_at"] < int(time.time()):
+        del SESSIONS[session_id]
+        return None
+    session_data["expires_at"] = int(time.time()) + SESSION_LIFETIME_SECONDS
+    return session_data
+
+
+def destroy_session(session_id):
+    if session_id in SESSIONS:
+        del SESSIONS[session_id]
+
 
 def current_user():
-    return session.get('user')
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    session_data = get_session(session_id)
+    if session_data:
+        return session_data["username"]
+    return None
 
-def login_user(username):
-    session['user'] = username
-    session.permanent = True
 
-def logout_user():
-    session.pop('user', None)
+@app.route("/")
+def index():
+    username = current_user()
+    if username:
+        return "Hello, %s! You are logged in. Visit /logout to sign out." % username
+    return 'You are not logged in. Visit /login?username=yourname to sign in.'
 
-@app.route('/')
-def home():
-    return render_template_string(HOME_TEMPLATE, username=current_user())
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login")
 def login():
-    if is_logged_in():
-        return redirect(url_for('dashboard'))
+    username = request.args.get("username")
+    if not username:
+        return 'Provide a username: /login?username=yourname', 400
 
-    error = None
-    if request.method == 'POST':
-        username = request.form.get('username', '')
-        password = request.form.get('password', '')
+    session_id = create_session(username)
+    response = make_response(redirect("/"))
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        session_id,
+        max_age=SESSION_LIFETIME_SECONDS,
+        httponly=True,
+    )
+    return response
 
-        if username in USERS and USERS[username] == password:
-            login_user(username)
-            return redirect(url_for('dashboard'))
-        else:
-            error = 'Invalid username or password'
 
-    return render_template_string(LOGIN_TEMPLATE, error=error)
-
-@app.route('/dashboard')
-def dashboard():
-    if not is_logged_in():
-        return redirect(url_for('login'))
-    return render_template_string(DASHBOARD_TEMPLATE, username=current_user())
-
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    logout_user()
-    return redirect(url_for('home'))
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_id:
+        destroy_session(session_id)
 
-if __name__ == '__main__':
+    response = make_response(redirect("/"))
+    response.set_cookie(SESSION_COOKIE_NAME, "", expires=0)
+    return response
+
+
+@app.route("/profile")
+def profile():
+    username = current_user()
+    if not username:
+        return redirect("/")
+    return "Profile page for %s" % username
+
+
+if __name__ == "__main__":
     app.run(debug=True)

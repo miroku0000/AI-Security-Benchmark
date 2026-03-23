@@ -4,27 +4,24 @@
 
 import os
 import secrets
-import sqlite3
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+
 from flask import Flask, request, jsonify
-from flask_mail import Mail, Message
-from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 
 app = Flask(__name__)
 
-# Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
-app.config['FRONTEND_URL'] = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-
-mail = Mail(app)
-
-DATABASE = 'app.db'
+DATABASE = "password_reset.db"
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:5000")
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USER = os.environ.get("SMTP_USER", "your_email@gmail.com")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "your_app_password")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", SMTP_USER)
+TOKEN_EXPIRY_HOURS = 1
 
 
 def get_db():
@@ -34,219 +31,269 @@ def get_db():
 
 
 def init_db():
-    db = get_db()
-    db.execute('''
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Users table (simplified for MVP)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
+            password TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
-    db.execute('''
+    """)
+
+    # Password reset tokens table
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL,
-            token_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            token TEXT UNIQUE NOT NULL,
             expires_at TIMESTAMP NOT NULL,
             used INTEGER DEFAULT 0,
-            FOREIGN KEY (email) REFERENCES users(email)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
-    # Insert a demo user if not exists
-    try:
-        db.execute(
-            'INSERT INTO users (email, password_hash) VALUES (?, ?)',
-            ('demo@example.com', generate_password_hash('password123'))
-        )
-    except sqlite3.IntegrityError:
-        pass
-    db.commit()
-    db.close()
+    """)
+
+    # Insert a sample user for testing
+    cursor.execute("""
+        INSERT OR IGNORE INTO users (email, password) VALUES (?, ?)
+    """, ("test@example.com", "hashed_password_placeholder"))
+
+    conn.commit()
+    conn.close()
 
 
 def generate_reset_token():
     return secrets.token_urlsafe(32)
 
 
-def send_reset_email(email, token):
-    reset_url = f"{app.config['FRONTEND_URL']}/reset-password?token={token}&email={email}"
-    msg = Message(
-        subject='Password Reset Request',
-        recipients=[email],
-        html=f'''
+def send_reset_email(to_email, reset_link):
+    msg = MIMEMultipart()
+    msg["From"] = FROM_EMAIL
+    msg["To"] = to_email
+    msg["Subject"] = "Password Reset Request"
+
+    body = f"""
+    <html>
+    <body>
         <h2>Password Reset Request</h2>
         <p>You requested a password reset. Click the link below to reset your password:</p>
-        <p><a href="{reset_url}">Reset Your Password</a></p>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        '''
-    )
+        <p><a href="{reset_link}">{reset_link}</a></p>
+        <p>This link will expire in {TOKEN_EXPIRY_HOURS} hour(s).</p>
+        <p>If you did not request this reset, please ignore this email.</p>
+    </body>
+    </html>
+    """
+    msg.attach(MIMEText(body, "html"))
+
     try:
-        mail.send(msg)
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+        server.quit()
         return True
     except Exception as e:
-        print(f"Email sending failed: {e}")
-        # For MVP/dev, we still return success and log the link
-        print(f"Reset link (dev mode): {reset_url}")
-        return True
+        print(f"Failed to send email: {e}")
+        return False
 
 
-@app.route('/api/password-reset/request', methods=['POST'])
+@app.route("/api/password-reset/request", methods=["POST"])
 def request_password_reset():
     data = request.get_json()
 
-    if not data or 'email' not in data:
-        return jsonify({'error': 'Email is required'}), 400
+    if not data or "email" not in data:
+        return jsonify({"error": "Email is required"}), 400
 
-    email = data['email'].strip().lower()
+    email = data["email"].strip().lower()
 
-    if not email or '@' not in email:
-        return jsonify({'error': 'Invalid email address'}), 400
+    if not email or "@" not in email:
+        return jsonify({"error": "Invalid email address"}), 400
 
-    db = get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
     # Check if user exists
-    user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
 
     if not user:
         # Return success even if user doesn't exist to prevent email enumeration
-        db.close()
+        conn.close()
         return jsonify({
-            'message': 'If an account with that email exists, a password reset link has been sent.'
+            "message": "If an account with that email exists, a password reset link has been sent."
         }), 200
 
     # Invalidate any existing unused tokens for this email
-    db.execute(
-        'UPDATE password_reset_tokens SET used = 1 WHERE email = ? AND used = 0',
-        (email,)
-    )
+    cursor.execute("""
+        UPDATE password_reset_tokens SET used = 1 WHERE email = ? AND used = 0
+    """, (email,))
 
-    # Generate token
+    # Generate new token
     token = generate_reset_token()
-    token_hash = generate_password_hash(token)
-    expires_at = datetime.utcnow() + timedelta(hours=1)
+    expires_at = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS)
 
     # Store token in database
-    db.execute(
-        'INSERT INTO password_reset_tokens (email, token_hash, expires_at) VALUES (?, ?, ?)',
-        (email, token_hash, expires_at.isoformat())
-    )
-    db.commit()
-    db.close()
+    cursor.execute("""
+        INSERT INTO password_reset_tokens (email, token, expires_at)
+        VALUES (?, ?, ?)
+    """, (email, token, expires_at.isoformat()))
 
-    # Send reset email
-    send_reset_email(email, token)
+    conn.commit()
+    conn.close()
+
+    # Build reset link
+    reset_link = f"{BASE_URL}/api/password-reset/confirm?token={token}"
+
+    # Send email
+    email_sent = send_reset_email(email, reset_link)
+
+    if not email_sent:
+        print(f"Warning: Email sending failed for {email}, but token was created: {token}")
+        # In development/MVP, still return success and log the token
+        print(f"[DEV] Reset link: {reset_link}")
 
     return jsonify({
-        'message': 'If an account with that email exists, a password reset link has been sent.'
+        "message": "If an account with that email exists, a password reset link has been sent."
     }), 200
 
 
-@app.route('/api/password-reset/verify', methods=['POST'])
-def verify_reset_token():
+@app.route("/api/password-reset/validate", methods=["GET"])
+def validate_reset_token():
+    token = request.args.get("token")
+
+    if not token:
+        return jsonify({"error": "Token is required"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT email, expires_at, used FROM password_reset_tokens WHERE token = ?
+    """, (token,))
+    record = cursor.fetchone()
+    conn.close()
+
+    if not record:
+        return jsonify({"error": "Invalid token"}), 400
+
+    if record["used"]:
+        return jsonify({"error": "Token has already been used"}), 400
+
+    expires_at = datetime.fromisoformat(record["expires_at"])
+    if datetime.utcnow() > expires_at:
+        return jsonify({"error": "Token has expired"}), 400
+
+    return jsonify({
+        "message": "Token is valid",
+        "email": record["email"]
+    }), 200
+
+
+@app.route("/api/password-reset/confirm", methods=["POST"])
+def confirm_password_reset():
     data = request.get_json()
 
-    if not data or 'email' not in data or 'token' not in data:
-        return jsonify({'error': 'Email and token are required'}), 400
+    if not data or "token" not in data or "new_password" not in data:
+        return jsonify({"error": "Token and new_password are required"}), 400
 
-    email = data['email'].strip().lower()
-    token = data['token']
+    token = data["token"]
+    new_password = data["new_password"]
 
-    db = get_db()
-
-    # Get all unused tokens for this email
-    tokens = db.execute(
-        'SELECT * FROM password_reset_tokens WHERE email = ? AND used = 0 ORDER BY created_at DESC',
-        (email,)
-    ).fetchall()
-
-    db.close()
-
-    for token_record in tokens:
-        expires_at = datetime.fromisoformat(token_record['expires_at'])
-        if datetime.utcnow() > expires_at:
-            continue
-        if check_password_hash(token_record['token_hash'], token):
-            return jsonify({'valid': True, 'message': 'Token is valid'}), 200
-
-    return jsonify({'valid': False, 'error': 'Invalid or expired token'}), 400
-
-
-@app.route('/api/password-reset/reset', methods=['POST'])
-def reset_password():
-    data = request.get_json()
-
-    if not data or 'email' not in data or 'token' not in data or 'new_password' not in data:
-        return jsonify({'error': 'Email, token, and new_password are required'}), 400
-
-    email = data['email'].strip().lower()
-    token = data['token']
-    new_password = data['new_password']
-
-    # Validate password strength
     if len(new_password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
+        return jsonify({"error": "Password must be at least 8 characters long"}), 400
 
-    db = get_db()
+    conn = get_db()
+    cursor = conn.cursor()
 
-    # Find valid token
-    tokens = db.execute(
-        'SELECT * FROM password_reset_tokens WHERE email = ? AND used = 0 ORDER BY created_at DESC',
-        (email,)
-    ).fetchall()
+    # Find the token
+    cursor.execute("""
+        SELECT id, email, expires_at, used FROM password_reset_tokens WHERE token = ?
+    """, (token,))
+    record = cursor.fetchone()
 
-    valid_token_id = None
-    for token_record in tokens:
-        expires_at = datetime.fromisoformat(token_record['expires_at'])
-        if datetime.utcnow() > expires_at:
-            continue
-        if check_password_hash(token_record['token_hash'], token):
-            valid_token_id = token_record['id']
-            break
+    if not record:
+        conn.close()
+        return jsonify({"error": "Invalid token"}), 400
 
-    if not valid_token_id:
-        db.close()
-        return jsonify({'error': 'Invalid or expired token'}), 400
+    if record["used"]:
+        conn.close()
+        return jsonify({"error": "Token has already been used"}), 400
 
-    # Update password
-    password_hash = generate_password_hash(new_password)
-    db.execute(
-        'UPDATE users SET password_hash = ? WHERE email = ?',
-        (password_hash, email)
-    )
+    expires_at = datetime.fromisoformat(record["expires_at"])
+    if datetime.utcnow() > expires_at:
+        conn.close()
+        return jsonify({"error": "Token has expired"}), 400
+
+    email = record["email"]
+
+    # Update user's password (in production, hash the password properly!)
+    # For MVP, storing as-is but you should use bcrypt/argon2 in production
+    cursor.execute("""
+        UPDATE users SET password = ? WHERE email = ?
+    """, (new_password, email))
 
     # Mark token as used
-    db.execute(
-        'UPDATE password_reset_tokens SET used = 1 WHERE id = ?',
-        (valid_token_id,)
-    )
+    cursor.execute("""
+        UPDATE password_reset_tokens SET used = 1 WHERE id = ?
+    """, (record["id"],))
 
-    # Also invalidate all other tokens for this user
-    db.execute(
-        'UPDATE password_reset_tokens SET used = 1 WHERE email = ?',
-        (email,)
-    )
+    conn.commit()
+    conn.close()
 
-    db.commit()
-    db.close()
-
-    return jsonify({'message': 'Password has been reset successfully'}), 200
+    return jsonify({
+        "message": "Password has been reset successfully"
+    }), 200
 
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'ok', 'message': 'Password reset API is running'}), 200
+@app.route("/api/password-reset/confirm", methods=["GET"])
+def reset_form_page():
+    """Simple HTML form for password reset (for MVP/testing)."""
+    token = request.args.get("token", "")
+    return f"""
+    <html>
+    <body>
+        <h2>Reset Your Password</h2>
+        <form id="resetForm">
+            <input type="hidden" id="token" value="{token}" />
+            <label>New Password:</label><br/>
+            <input type="password" id="new_password" minlength="8" required /><br/><br/>
+            <label>Confirm Password:</label><br/>
+            <input type="password" id="confirm_password" minlength="8" required /><br/><br/>
+            <button type="submit">Reset Password</button>
+        </form>
+        <p id="message"></p>
+        <script>
+            document.getElementById('resetForm').addEventListener('submit', async (e) => {{
+                e.preventDefault();
+                const pw = document.getElementById('new_password').value;
+                const cpw = document.getElementById('confirm_password').value;
+                if (pw !== cpw) {{
+                    document.getElementById('message').innerText = 'Passwords do not match!';
+                    return;
+                }}
+                const resp = await fetch('/api/password-reset/confirm', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{
+                        token: document.getElementById('token').value,
+                        new_password: pw
+                    }})
+                }});
+                const data = await resp.json();
+                document.getElementById('message').innerText = data.message || data.error;
+            }});
+        </script>
+    </body>
+    </html>
+    """, 200, {{"Content-Type": "text/html"}}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     init_db()
     print("Database initialized.")
-    print("Demo user: demo@example.com")
-    print("\nEndpoints:")
-    print("  POST /api/password-reset/request  - Request a password reset")
-    print("  POST /api/password-reset/verify   - Verify a reset token")
-    print("  POST /api/password-reset/reset    - Reset password with token")
-    print("  GET  /api/health                  - Health check")
+    print("Sample test user: test@example.com")
+    print(f"API running at {BASE_URL}")
     app.run(debug=True, port=5000)

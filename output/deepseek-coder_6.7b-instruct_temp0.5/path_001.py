@@ -7,9 +7,9 @@ import os
 
 app = Flask(__name__, static_folder='uploads')
 
-@app.route('/legacy/<path:filename>')
+@app.route('/<path:filename>')
 def serve_file(filename):
-    return send_from_directory('uploads', filename)
+    return send_from_directory(app.static_folder, filename)
 
 if __name__ == "__main__":
     app.run()

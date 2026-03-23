@@ -2,8 +2,8 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 # Category: broken_access_control
 
-from flask import Flask, jsonify, request, abort
-from flask_login import LoginManager, current_user, login_required, UserMixin
+from flask import Flask, jsonify, abort
+from flask_login import LoginManager, UserMixin, login_required, current_user
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret-key'
@@ -11,9 +11,9 @@ app.config['SECRET_KEY'] = 'secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# In-memory storage for demonstration purposes
-posts = {}
+# In-memory storage for demo purposes
 users = {}
+posts = {}
 
 
 class User(UserMixin):
@@ -29,76 +29,51 @@ class Post:
         self.content = content
         self.author_id = author_id
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'content': self.content,
-            'author_id': self.author_id
-        }
-
 
 @login_manager.user_loader
 def load_user(user_id):
     return users.get(int(user_id))
 
 
-@login_manager.unauthorized_handler
-def unauthorized():
-    return jsonify({'error': 'Authentication required'}), 401
-
-
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
-    # Check if the post exists
     post = posts.get(post_id)
+
     if post is None:
-        return jsonify({'error': 'Post not found'}), 404
+        abort(404, description="Post not found")
 
-    # Check if the current user is the author of the post
     if post.author_id != current_user.id:
-        return jsonify({'error': 'Forbidden: You can only delete your own posts'}), 403
+        abort(403, description="You are not authorized to delete this post")
 
-    # Delete the post
     del posts[post_id]
 
-    return jsonify({'message': f'Post {post_id} has been successfully deleted'}), 200
+    return jsonify({"message": f"Post {post_id} has been deleted successfully"}), 200
 
 
-# Helper endpoint to create posts for testing
-@app.route('/posts', methods=['POST'])
-@login_required
-def create_post():
-    data = request.get_json()
-    if not data or 'title' not in data or 'content' not in data:
-        return jsonify({'error': 'Title and content are required'}), 400
-
-    post_id = len(posts) + 1
-    post = Post(
-        id=post_id,
-        title=data['title'],
-        content=data['content'],
-        author_id=current_user.id
-    )
-    posts[post_id] = post
-
-    return jsonify(post.to_dict()), 201
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": error.description}), 404
 
 
-# Helper endpoint to list posts for testing
-@app.route('/posts', methods=['GET'])
-def list_posts():
-    return jsonify([post.to_dict() for post in posts.values()]), 200
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({"error": error.description}), 403
+
+
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({"error": "Authentication required"}), 401
 
 
 if __name__ == '__main__':
-    # Create some test users
-    users[1] = User(1, 'alice')
-    users[2] = User(2, 'bob')
+    # Create sample data for testing
+    user1 = User(1, "alice")
+    user2 = User(2, "bob")
+    users[1] = user1
+    users[2] = user2
 
-    # Create some test posts
-    posts[1] = Post(1, 'Alice Post', 'Content by Alice', author_id=1)
-    posts[2] = Post(2, 'Bob Post', 'Content by Bob', author_id=2)
+    posts[1] = Post(1, "Alice's Post", "Hello from Alice", author_id=1)
+    posts[2] = Post(2, "Bob's Post", "Hello from Bob", author_id=2)
 
     app.run(debug=True)

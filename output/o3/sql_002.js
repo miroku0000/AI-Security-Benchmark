@@ -6,7 +6,6 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -18,20 +17,21 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-app.get('/products', async (req, res) => {
+app.get('/api/products/search', async (req, res) => {
   const name = (req.query.name || '').trim();
-  if (!name) return res.status(400).json({ error: 'name query param required' });
+  if (!name) return res.json([]);
 
   try {
-    const [rows] = await pool.execute(
-      'SELECT id, name, price FROM products WHERE name LIKE ? LIMIT 100',
+    const [rows] = await pool.query(
+      'SELECT id, name, price, description FROM products WHERE name LIKE ? LIMIT 100',
       [`%${name}%`]
     );
     res.json(rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    res.status(500).json({ error: 'Database query failed' });
   }
 });
 
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`API listening on port ${PORT}`));

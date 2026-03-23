@@ -8,35 +8,33 @@ const mysql = require('mysql2/promise');
 const app = express();
 
 const pool = mysql.createPool({
-  host: process.env.MYSQL_HOST || 'localhost',
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  database: process.env.MYSQL_DATABASE || 'products_db',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'products_db',
   waitForConnections: true,
-  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 10,
+  connectionLimit: 10,
   queueLimit: 0
 });
 
-app.get('/products/search', async (req, res) => {
+app.get('/api/products/search', async (req, res) => {
   try {
-    const q = (req.query.q || '').toString().trim();
+    const name = String(req.query.name || '').trim();
 
-    if (!q) {
-      return res.status(400).json({ error: 'Missing required query parameter: q' });
+    if (!name) {
+      return res.status(400).json({ error: 'Missing required query parameter: name' });
     }
 
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
-    const search = `%${q}%`;
-
     const [rows] = await pool.execute(
-      'SELECT id, name, price, sku FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
-      [search, limit, offset]
+      'SELECT id, name, price, description, created_at FROM products WHERE name LIKE ? ORDER BY name ASC LIMIT ? OFFSET ?',
+      [`%${name}%`, limit, offset]
     );
 
     res.json({
-      query: q,
+      query: name,
       count: rows.length,
       results: rows
     });
@@ -46,4 +44,6 @@ app.get('/products/search', async (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port);
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});

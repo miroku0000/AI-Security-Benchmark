@@ -182,6 +182,12 @@ class AutomatedBenchmark:
 def _detect_provider(model: str) -> str:
     """Detect provider from model name."""
     model_lower = model.lower()
+    if 'codex-app' in model_lower or 'codex_app' in model_lower:
+        return 'codex-app'
+    if 'claude-code' in model_lower or 'claude_code' in model_lower:
+        return 'claude-code'
+    if 'cursor' in model_lower:
+        return 'cursor'
     if any(x in model_lower for x in ['gpt-3', 'gpt-4', 'gpt-5', 'o1', 'o3', 'o4', 'chatgpt']):
         return 'openai'
     if 'claude' in model_lower:
@@ -203,6 +209,8 @@ def load_models_from_config(config_path: str = 'benchmark_config.yaml') -> dict:
         'google': models_config.get('google', []),
         'ollama': models_config.get('ollama', []),
         'cursor': models_config.get('cursor', []),
+        'codex-app': models_config.get('codex-app', []),
+        'claude-code': models_config.get('claude-code', []),
     }
 
 
@@ -214,8 +222,10 @@ def run_all_models(args):
     api_models = models_by_provider['openai'] + models_by_provider['anthropic'] + models_by_provider['google']
     ollama_models = models_by_provider['ollama']
     cursor_models = models_by_provider['cursor']
+    codex_models = models_by_provider['codex-app']
+    claude_code_models = models_by_provider['claude-code']
 
-    total = len(api_models) + len(ollama_models) + len(cursor_models)
+    total = len(api_models) + len(ollama_models) + len(cursor_models) + len(codex_models) + len(claude_code_models)
     run_start = datetime.now()
     logger.info("=" * 70)
     logger.info("FULL BENCHMARK: %d models", total)
@@ -223,19 +233,21 @@ def run_all_models(args):
     logger.info("API models (parallel):      %d", len(api_models))
     logger.info("Ollama models (sequential): %d", len(ollama_models))
     logger.info("Cursor models:              %d", len(cursor_models))
+    logger.info("Codex.app models:           %d", len(codex_models))
+    logger.info("Claude Code models:         %d", len(claude_code_models))
     logger.info("Started: %s", run_start.strftime('%Y-%m-%d %H:%M:%S'))
     logger.info("=" * 70)
 
     # Check API keys
     has_openai = bool(os.getenv('OPENAI_API_KEY'))
-    has_anthropic = bool(os.getenv('ANTHROPIC_API_KEY'))
+    has_anthropic = bool(os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY'))
 
     if models_by_provider['openai'] and not has_openai:
         logger.warning("OPENAI_API_KEY not set, skipping OpenAI models")
         api_models = [m for m in api_models if _detect_provider(m) != 'openai']
 
     if models_by_provider['anthropic'] and not has_anthropic:
-        logger.warning("ANTHROPIC_API_KEY not set, skipping Anthropic models")
+        logger.warning("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) not set, skipping Anthropic models")
         api_models = [m for m in api_models if _detect_provider(m) != 'anthropic']
 
     has_google = bool(os.getenv('GEMINI_API_KEY'))
@@ -337,9 +349,109 @@ def run_all_models(args):
                     logger.error("Cursor generation failed")
                     all_results['cursor'] = (None, 0)
 
+    # Run Codex.app models
+    if codex_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 4: CODEX.APP MODELS (%d models)", len(codex_models))
+        logger.info("=" * 70)
+
+        # Check if codex CLI is available
+        import shutil
+        codex_cli = shutil.which('codex')
+        if not codex_cli:
+            codex_cli = '/Applications/Codex.app/Contents/Resources/codex'
+
+        has_codex = Path(codex_cli).exists() if codex_cli else False
+
+        if not has_codex:
+            logger.warning("Codex CLI not found - skipping Codex.app models")
+            logger.warning("Install Codex.app from OpenAI")
+        else:
+            for model in codex_models:
+                logger.info(">>> Running Codex.app benchmark...")
+
+                # Run codex generation script
+                output_dir = 'output/codex-app'
+                result = subprocess.run([
+                    'python3', 'scripts/test_codex_app.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '120'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on codex output
+                    logger.info(">>> Running security tests on Codex.app output...")
+                    report_name = f"codex-app_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='codex-app',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['codex-app'] = (summary, len(files))
+                else:
+                    logger.error("Codex.app generation failed")
+                    all_results['codex-app'] = (None, 0)
+
+    # Run Claude Code models
+    if claude_code_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 5: CLAUDE CODE MODELS (%d models)", len(claude_code_models))
+        logger.info("=" * 70)
+
+        # Check if claude CLI is available
+        import shutil
+        has_claude = bool(shutil.which('claude'))
+
+        if not has_claude:
+            logger.warning("Claude Code CLI not found - skipping Claude Code models")
+            logger.warning("Install Claude Code from Anthropic")
+        else:
+            for model in claude_code_models:
+                logger.info(">>> Running Claude Code benchmark...")
+
+                # Run claude code generation script
+                output_dir = 'output/claude-code'
+                result = subprocess.run([
+                    'python3', 'scripts/test_claude_code.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '120'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on claude code output
+                    logger.info(">>> Running security tests on Claude Code output...")
+                    report_name = f"claude-code_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='claude-code',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['claude-code'] = (summary, len(files))
+                else:
+                    logger.error("Claude Code generation failed")
+                    all_results['claude-code'] = (None, 0)
+
     # Generate HTML reports
     logger.info("=" * 70)
-    logger.info("PHASE 4: GENERATING HTML REPORTS")
+    logger.info("PHASE 6: GENERATING HTML REPORTS")
     logger.info("=" * 70)
 
     subprocess.run(['python3', 'utils/generate_html_reports.py'])

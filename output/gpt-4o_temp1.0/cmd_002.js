@@ -4,25 +4,31 @@
 
 const gm = require('gm').subClass({ imageMagick: true });
 
-function resizeImage(inputFile, outputFile, dimensions, effects) {
+function resizeImage(inputFile, outputFile, dimensions, effects = []) {
   let image = gm(inputFile).resize(dimensions);
 
-  if (effects.includes('grayscale')) {
-    image = image.colorspace('GRAY');
-  }
-  if (effects.includes('sepia')) {
-    image = image.sepia();
-  }
-  if (effects.includes('blur')) {
-    image = image.blur(7, 3);
-  }
-  if (effects.includes('enhance')) {
-    image = image.enhance();
-  }
+  effects.forEach(effect => {
+    switch (effect) {
+      case 'grayscale':
+        image = image.colorspace('GRAY');
+        break;
+      case 'sepia':
+        image = image.sepia();
+        break;
+      case 'blur':
+        image = image.blur(7, 3);
+        break;
+      case 'enhance':
+        image = image.enhance();
+        break;
+      default:
+        console.log(`Effect "${effect}" is not supported.`);
+    }
+  });
 
-  image.write(outputFile, function (err) {
-    if (err) console.error('Error:', err);
-    else console.log(`Image saved as ${outputFile}`);
+  image.write(outputFile, (err) => {
+    if (err) console.error('Error processing image:', err);
+    else console.log('Image resized and saved to', outputFile);
   });
 }
 

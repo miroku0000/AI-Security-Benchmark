@@ -9,15 +9,16 @@ def parse_xml_config(file_path):
     root = tree.getroot()
     config_dict = {}
     
-    def recurse_elements(element, parent_key=""):
+    def parse_element(element, parent_dict):
         for child in element:
-            key = f"{parent_key}.{child.tag}" if parent_key else child.tag
-            if list(child):
-                recurse_elements(child, key)
+            if len(child) > 0:
+                child_dict = {}
+                parent_dict[child.tag] = child_dict
+                parse_element(child, child_dict)
             else:
-                config_dict[key] = child.text
+                parent_dict[child.tag] = child.text
     
-    recurse_elements(root)
+    parse_element(root, config_dict)
     return config_dict
 
 # Example usage:

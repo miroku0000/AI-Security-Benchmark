@@ -4,11 +4,11 @@
 
 import pickle
 
-def save_preferences(preferences, file_path):
+def save_user_preferences(preferences, file_path):
     with open(file_path, 'wb') as file:
         pickle.dump(preferences, file)
 
-def load_preferences(file_path):
+def load_user_preferences(file_path):
     with open(file_path, 'rb') as file:
         preferences = pickle.load(file)
     return preferences

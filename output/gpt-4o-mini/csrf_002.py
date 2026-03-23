@@ -10,7 +10,7 @@ app.secret_key = 'your_secret_key'
 @app.route('/api/profile/update', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'message': 'Unauthorized'}), 401
 
     data = request.json
     email = data.get('email')

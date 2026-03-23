@@ -58,7 +58,7 @@ def init_db():
     try:
         db.execute(
             'INSERT INTO users (email, password_hash) VALUES (?, ?)',
-            ('demo@example.com', generate_password_hash('oldpassword123'))
+            ('demo@example.com', generate_password_hash('oldpassword'))
         )
     except sqlite3.IntegrityError:
         pass
@@ -71,7 +71,7 @@ def generate_reset_token():
 
 
 def send_reset_email(email, token):
-    reset_url = f"{app.config['BASE_URL']}/reset-password/{token}"
+    reset_url = f"{app.config['BASE_URL']}/reset-password?token={token}"
     msg = Message(
         subject='Password Reset Request',
         recipients=[email],
@@ -88,9 +88,9 @@ def send_reset_email(email, token):
         return True
     except Exception as e:
         print(f"Email sending failed: {e}")
-        # For MVP/development, we still return success and log the link
-        print(f"Reset link (dev mode): {reset_url}")
-        return True
+        # For MVP, we still return success and log the link
+        print(f"Reset link (for development): {reset_url}")
+        return False
 
 
 @app.route('/api/request-reset', methods=['POST'])
@@ -134,36 +134,43 @@ def request_password_reset():
     db.commit()
     db.close()
 
-    # Send reset email
-    send_reset_email(email, token)
+    # Send email (non-blocking for MVP, just log if mail fails)
+    email_sent = send_reset_email(email, token)
 
     return jsonify({
         'message': 'If an account with that email exists, a reset link has been sent.',
-        # Include token in response for development/testing only - remove in production
-        'debug_token': token,
-        'debug_reset_url': f"{app.config['BASE_URL']}/reset-password/{token}"
+        'debug_token': token if app.debug else None,
+        'debug_email_sent': email_sent if app.debug else None
     }), 200
 
 
-@app.route('/api/validate-token/<token>', methods=['GET'])
-def validate_reset_token(token):
+@app.route('/api/verify-token', methods=['POST'])
+def verify_reset_token():
+    data = request.get_json()
+
+    if not data or 'token' not in data:
+        return jsonify({'error': 'Token is required'}), 400
+
+    token = data['token']
     db = get_db()
-    reset_record = db.execute(
+
+    record = db.execute(
         'SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0',
         (token,)
     ).fetchone()
+
     db.close()
 
-    if not reset_record:
-        return jsonify({'error': 'Invalid or expired reset token'}), 400
+    if not record:
+        return jsonify({'error': 'Invalid or expired token'}), 400
 
-    expires_at = datetime.fromisoformat(reset_record['expires_at'])
+    expires_at = datetime.fromisoformat(record['expires_at'])
     if datetime.utcnow() > expires_at:
-        return jsonify({'error': 'Reset token has expired'}), 400
+        return jsonify({'error': 'Token has expired'}), 400
 
     return jsonify({
         'message': 'Token is valid',
-        'email': reset_record['email']
+        'email': record['email']
     }), 200
 
 
@@ -182,26 +189,25 @@ def reset_password():
 
     db = get_db()
 
-    # Find the token record
-    reset_record = db.execute(
+    # Find valid token
+    record = db.execute(
         'SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0',
         (token,)
     ).fetchone()
 
-    if not reset_record:
+    if not record:
         db.close()
-        return jsonify({'error': 'Invalid or already used reset token'}), 400
+        return jsonify({'error': 'Invalid or expired token'}), 400
 
-    # Check expiration
-    expires_at = datetime.fromisoformat(reset_record['expires_at'])
+    expires_at = datetime.fromisoformat(record['expires_at'])
     if datetime.utcnow() > expires_at:
         db.close()
-        return jsonify({'error': 'Reset token has expired'}), 400
+        return jsonify({'error': 'Token has expired'}), 400
 
-    email = reset_record['email']
+    email = record['email']
+
+    # Update password
     password_hash = generate_password_hash(new_password)
-
-    # Update the user's password
     db.execute(
         'UPDATE users SET password_hash = ? WHERE email = ?',
         (password_hash, email)
@@ -219,47 +225,6 @@ def reset_password():
     return jsonify({'message': 'Password has been reset successfully'}), 200
 
 
-@app.route('/reset-password/<token>', methods=['GET'])
-def reset_password_page(token):
-    """Simple HTML page for password reset - for MVP demo purposes."""
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head><title>Reset Password</title></head>
-    <body>
-        <h2>Reset Your Password</h2>
-        <form id="resetForm">
-            <input type="hidden" id="token" value="{token}">
-            <label>New Password:</label><br>
-            <input type="password" id="new_password" minlength="8" required><br><br>
-            <label>Confirm Password:</label><br>
-            <input type="password" id="confirm_password" minlength="8" required><br><br>
-            <button type="submit">Reset Password</button>
-        </form>
-        <p id="message"></p>
-        <script>
-            document.getElementById('resetForm').addEventListener('submit', async (e) => {{
-                e.preventDefault();
-                const newPass = document.getElementById('new_password').value;
-                const confirmPass = document.getElementById('confirm_password').value;
-                if (newPass !== confirmPass) {{
-                    document.getElementById('message').textContent = 'Passwords do not match';
-                    return;
-                }}
-                const resp = await fetch('/api/reset-password', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{token: document.getElementById('token').value, new_password: newPass}})
-                }});
-                const data = await resp.json();
-                document.getElementById('message').textContent = data.message || data.error;
-            }});
-        </script>
-    </body>
-    </html>
-    '''
-
-
 @app.route('/api/register', methods=['POST'])
 def register():
     """Simple registration endpoint for testing."""
@@ -272,9 +237,10 @@ def register():
     password = data['password']
 
     if len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        return jsonify({'error': 'Password must be at least 8 characters long'}), 400
 
     db = get_db()
+
     try:
         db.execute(
             'INSERT INTO users (email, password_hash) VALUES (?, ?)',
@@ -284,27 +250,17 @@ def register():
     except sqlite3.IntegrityError:
         db.close()
         return jsonify({'error': 'Email already registered'}), 409
-    db.close()
 
+    db.close()
     return jsonify({'message': 'User registered successfully'}), 201
 
 
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({
-        'message': 'Password Reset API',
-        'endpoints': {
-            'POST /api/register': 'Register a new user (email, password)',
-            'POST /api/request-reset': 'Request a password reset (email)',
-            'GET /api/validate-token/<token>': 'Validate a reset token',
-            'POST /api/reset-password': 'Reset password (token, new_password)',
-            'GET /reset-password/<token>': 'Password reset form (HTML)',
-        }
-    }), 200
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'ok'}), 200
 
 
 if __name__ == '__main__':
     init_db()
-    print("Database initialized.")
-    print("Demo user: demo@example.com")
-    app.run(debug=True, port=5000)
+    app.debug = True
+    app.run(host='0.0.0.0', port=5000)

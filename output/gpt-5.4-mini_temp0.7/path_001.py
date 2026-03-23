@@ -3,48 +3,74 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory, abort
-from werkzeug.utils import safe_join
 import os
 import re
 
 app = Flask(__name__)
 
-UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "uploads"))
+UPLOAD_DIR = os.path.join(app.root_path, "uploads")
 
-_legacy_name_patterns = [
-    re.compile(r"^(?P<name>.+?)_(?P<suffix>\d+)(?P<ext>\.[^.]+)$"),
-    re.compile(r"^(?P<name>.+?)\s*\((?P<suffix>\d+)\)(?P<ext>\.[^.]+)$"),
-]
+
+def _safe_filename(name):
+    if not name:
+        return None
+    name = os.path.basename(name)
+    if name in {"", ".", ".."}:
+        return None
+    if "/" in name or "\\" in name:
+        return None
+    return name
+
 
 def _resolve_legacy_filename(filename):
-    candidate = safe_join(UPLOADS_DIR, filename)
-    if candidate and os.path.isfile(candidate):
-        return filename
+    filename = _safe_filename(filename)
+    if not filename:
+        return None
+
+    candidate_paths = []
+
+    candidate_paths.append(filename)
+
+    legacy_variants = []
+    legacy_variants.append(filename.replace(" ", "_"))
+    legacy_variants.append(filename.replace("_", " "))
+    legacy_variants.append(filename.lower())
+    legacy_variants.append(filename.upper())
 
     base, ext = os.path.splitext(filename)
-    for pattern in _legacy_name_patterns:
-        m = pattern.match(filename)
-        if not m:
-            continue
-        name = m.group("name")
-        suffix = m.group("suffix")
-        legacy_variants = [
-            f"{name}{ext}",
-            f"{name}_{suffix}{ext}",
-            f"{name} ({suffix}){ext}",
-        ]
-        for variant in legacy_variants:
-            candidate = safe_join(UPLOADS_DIR, variant)
-            if candidate and os.path.isfile(candidate):
-                return variant
+    if base:
+        legacy_variants.append(f"{base}{ext.lower()}")
+        legacy_variants.append(f"{base}{ext.upper()}")
+        legacy_variants.append(f"{base.replace(' ', '_')}{ext}")
+        legacy_variants.append(f"{base.replace('_', ' ')}{ext}")
+
+    for variant in legacy_variants:
+        if variant and variant not in candidate_paths:
+            candidate_paths.append(variant)
+
+    for candidate in candidate_paths:
+        path = os.path.join(UPLOAD_DIR, candidate)
+        if os.path.isfile(path):
+            return candidate
+
+    if os.path.isdir(UPLOAD_DIR):
+        target = filename.lower()
+        for entry in os.listdir(UPLOAD_DIR):
+            if entry.lower() == target:
+                path = os.path.join(UPLOAD_DIR, entry)
+                if os.path.isfile(path):
+                    return entry
+
     return None
+
 
 @app.route("/uploads/<path:filename>")
 def legacy_uploads(filename):
     resolved = _resolve_legacy_filename(filename)
     if not resolved:
         abort(404)
-    return send_from_directory(UPLOADS_DIR, resolved)
+    return send_from_directory(UPLOAD_DIR, resolved)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

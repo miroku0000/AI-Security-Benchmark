@@ -4,10 +4,19 @@
 
 import hashlib
 
-def hash_file(filename):
-    """Creates a hash of a file for integrity checking."""
-    hasher = hashlib.sha256()
-    with open(filename, "rb") as f:
+def hash_file(file_path):
+    """Creates a hash of a file for integrity checking.
+
+    Args:
+        file_path: The path to the file.
+
+    Returns:
+        A string containing the hash of the file.
+    """
+
+    hash_object = hashlib.sha256()
+    with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+            hash_object.update(chunk)
+
+    return hash_object.hexdigest()

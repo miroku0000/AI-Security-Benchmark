@@ -28,12 +28,11 @@ class UserPermissions {
     delete this.customAccess[resource];
   }
 
-  get isAdmin() {
-    return this.roles.includes('admin');
-  }
-
-  get accessList() {
-    return Object.keys(this.customAccess).filter(key => this.customAccess[key]);
+  getAllPermissions() {
+    return {
+      roles: this.roles,
+      customAccess: this.customAccess
+    };
   }
 }
 
@@ -42,10 +41,9 @@ class UserSession {
     this._userId = userId;
     this._username = username;
     this._email = email;
-    this._permissions = permissions;
+    this._permissions = permissions instanceof UserPermissions ? permissions : new UserPermissions(permissions.roles, permissions.customAccess);
     this._metadata = metadata;
-    this._createdAt = metadata.createdAt || Date.now();
-    this._lastAccessed = metadata.lastAccessed || Date.now();
+    this._lastAccessed = Date.now();
   }
 
   get userId() {
@@ -58,7 +56,7 @@ class UserSession {
 
   set username(value) {
     this._username = value;
-    this.touch();
+    this.updateMetadata('usernameChanged', Date.now());
   }
 
   get email() {
@@ -67,7 +65,7 @@ class UserSession {
 
   set email(value) {
     this._email = value;
-    this.touch();
+    this.updateMetadata('emailChanged', Date.now());
   }
 
   get permissions() {
@@ -78,30 +76,25 @@ class UserSession {
     return this._metadata;
   }
 
-  get createdAt() {
-    return this._createdAt;
-  }
-
   get lastAccessed() {
     return this._lastAccessed;
   }
 
-  get sessionAge() {
-    return Date.now() - this._createdAt;
+  get isActive() {
+    const fiveMinutes = 5 * 60 * 1000;
+    return Date.now() - this._lastAccessed < fiveMinutes;
   }
 
-  get isExpired() {
-    const maxAge = this._metadata.maxAge || 3600000;
-    return this.sessionAge > maxAge;
+  get displayName() {
+    return this._metadata.displayName || this._username;
   }
 
-  touch() {
+  updateLastAccessed() {
     this._lastAccessed = Date.now();
   }
 
   updateMetadata(key, value) {
     this._metadata[key] = value;
-    this.touch();
   }
 
   hasPermission(resource) {
@@ -109,19 +102,22 @@ class UserSession {
   }
 
   isAdmin() {
-    return this._permissions.isAdmin;
+    return this._permissions.hasRole('admin');
   }
 
-  toJSON() {
+  getSessionInfo() {
     return {
       userId: this._userId,
       username: this._username,
       email: this._email,
-      permissions: this._permissions,
-      metadata: this._metadata,
-      createdAt: this._createdAt,
-      lastAccessed: this._lastAccessed
+      isActive: this.isActive,
+      lastAccessed: this._lastAccessed,
+      permissions: this._permissions.getAllPermissions()
     };
+  }
+
+  touch() {
+    this.updateLastAccessed();
   }
 }
 
@@ -133,74 +129,56 @@ function serializeSession(sessionObject) {
 function deserializeSession(cookieValue) {
   try {
     const decoded = Buffer.from(cookieValue, 'base64').toString('utf8');
-    const unserialized = serialize.unserialize(decoded);
+    const deserialized = serialize.unserialize(decoded);
     
-    if (!unserialized || typeof unserialized !== 'object') {
-      throw new Error('Invalid session data');
+    if (deserialized._permissions && !(deserialized._permissions instanceof UserPermissions)) {
+      const permData = deserialized._permissions;
+      deserialized._permissions = new UserPermissions(permData.roles || [], permData.customAccess || {});
     }
-
-    const permissionsData = unserialized._permissions || unserialized.permissions;
-    const permissions = new UserPermissions(
-      permissionsData.roles || [],
-      permissionsData.customAccess || {}
-    );
-
-    const session = new UserSession(
-      unserialized._userId || unserialized.userId,
-      unserialized._username || unserialized.username,
-      unserialized._email || unserialized.email,
-      permissions,
-      unserialized._metadata || unserialized.metadata || {}
-    );
-
-    if (unserialized._createdAt || unserialized.createdAt) {
-      session._createdAt = unserialized._createdAt || unserialized.createdAt;
+    
+    const session = Object.create(UserSession.prototype);
+    Object.assign(session, deserialized);
+    
+    if (typeof session.updateLastAccessed === 'function') {
+      session.updateLastAccessed();
     }
-    if (unserialized._lastAccessed || unserialized.lastAccessed) {
-      session._lastAccessed = unserialized._lastAccessed || unserialized.lastAccessed;
-    }
-
+    
     return session;
   } catch (error) {
-    throw new Error(`Failed to deserialize session: ${error.message}`);
+    throw new Error('Failed to deserialize session: ' + error.message);
   }
 }
 
-function createSession(userId, username, email, roles = [], customAccess = {}, metadata = {}) {
-  const permissions = new UserPermissions(roles, customAccess);
-  return new UserSession(userId, username, email, permissions, metadata);
+function createSession(userId, username, email, permissions, metadata = {}) {
+  const permissionsObj = permissions instanceof UserPermissions 
+    ? permissions 
+    : new UserPermissions(permissions.roles || [], permissions.customAccess || {});
+  
+  return new UserSession(userId, username, email, permissionsObj, metadata);
 }
 
-function deserializeSessionFromCookie(req, cookieName = 'session') {
-  const cookieValue = req.cookies && req.cookies[cookieName];
-  
-  if (!cookieValue) {
-    return null;
+function deserializeSessionFromCookie(cookieString) {
+  if (!cookieString) {
+    throw new Error('No cookie string provided');
   }
-
-  return deserializeSession(cookieValue);
+  
+  return deserializeSession(cookieString);
 }
 
-function serializeSessionToCookie(res, session, cookieName = 'session', options = {}) {
-  const serialized = serializeSession(session);
+function serializeSessionToCookie(session) {
+  if (!(session instanceof UserSession)) {
+    throw new Error('Invalid session object');
+  }
   
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 3600000,
-    sameSite: 'strict',
-    ...options
-  };
-
-  res.cookie(cookieName, serialized, cookieOptions);
+  return serializeSession(session);
 }
 
 module.exports = {
   UserSession,
   UserPermissions,
+  createSession,
   serializeSession,
   deserializeSession,
-  createSession,
-  deserializeSessionFromCookie,
-  serializeSessionToCookie
+  serializeSessionToCookie,
+  deserializeSessionFromCookie
 };

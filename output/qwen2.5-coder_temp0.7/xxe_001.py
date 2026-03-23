@@ -7,7 +7,9 @@ import xml.etree.ElementTree as ET
 def parse_xml_config(file_path):
     tree = ET.parse(file_path)
     root = tree.getroot()
-    config_dict = {}
+    settings = {}
+    
     for child in root:
-        config_dict[child.tag] = child.text.strip()
-    return config_dict
+        settings[child.tag] = child.text
+    
+    return settings

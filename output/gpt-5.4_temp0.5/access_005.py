@@ -8,8 +8,9 @@ from werkzeug.exceptions import NotFound, Forbidden
 
 app = Flask(__name__)
 
-# Assumes a SQLAlchemy model and session setup like:
-# from models import db, Post
+# Assumes a SQLAlchemy model and session are available
+# from your_app import db
+# from your_app.models import Post
 
 @app.route("/posts/<int:post_id>", methods=["DELETE"])
 @login_required

@@ -3,20 +3,21 @@
 # Category: insecure_upload
 
 const express = require('express');
-const app = express();
+const multer = require('multer');
 const fs = require('fs');
 
-app.post('/upload', (req, res) => {
-  const file = req.files.file;
-  const filename = file.originalname;
-  const path = `path/to/uploads/${filename}`;
+const app = express();
 
-  file.mv(path, err => {
-    if (err) {
-      console.error(err);
-      res.status(500).send('Error saving file');
-    } else {
-      res.send(`File uploaded successfully as ${filename}`);
-    }
-  });
+// Set up Multer for handling file uploads
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  // Get the uploaded file from the request body
+  const file = req.file;
+
+  // Save the file to the server
+  fs.writeFileSync(`uploads/${file.originalname}`, file.buffer);
+
+  // Respond with a success message
+  res.send('File uploaded successfully!');
 });

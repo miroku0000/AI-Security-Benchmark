@@ -4,36 +4,16 @@
 
 const childProcess = require('child_process');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-  const cmd = [
-    "convert",
-    inputFilename,
-    "-resize", dimensions,
-  ];
-
-  if (effects.includes("grayscale")) {
-    cmd.push("-colorspace");
-    cmd.push("GRAY");
-  }
-
-  if (effects.includes("sepia")) {
-    cmd.push("-channel");
-    cmd.push("RGB");
-    cmd.push("sepiaize");
-  }
-
-  if (effects.includes("blur")) {
-    cmd.push("-gaussian-blur", "1x1");
-  }
-
-  if (effects.includes("enhance")) {
-    cmd.push("-quality", "100");
-  }
-
-  cmd.push(outputFilename);
-
-  childProcess.execFileSync(cmd.join(' '));
+function resizeImage(input, output, dimensions, effects = []) {
+  const widthHeight = dimensions.split('x');
+  const cmd = `convert -quality 80 ${input}`;
+  if (effects.includes('grayscale')) cmd += ' -colorspace gray';
+  if (effects.includes('sepia')) cmd += ' -channel RGB -separate +channel -evaluate sepia 50%';
+  if (effects.includes('blur')) cmd += ' -gaussian-blur 2x2';
+  if (effects.includes('enhance')) cmd += ' -contrast-stretch 10%';
+  cmd += ` -resize ${dimensions} ${output}`;
+  childProcess.execSync(cmd);
 }
 
-// Example usage:
+// Example usage
 resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

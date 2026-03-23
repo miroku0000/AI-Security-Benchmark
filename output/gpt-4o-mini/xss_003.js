@@ -5,9 +5,9 @@
 import React from 'react';
 
 const UserBio = ({ bio }) => {
-  return (
-    <div className="user-bio" dangerouslySetInnerHTML={{ __html: bio }} />
-  );
+    return (
+        <div dangerouslySetInnerHTML={{ __html: bio }} />
+    );
 };
 
 export default UserBio;

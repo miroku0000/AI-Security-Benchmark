@@ -39,13 +39,31 @@ def process_soap_request(xml_string):
             body_content = []
             for child in body:
                 body_content.append(child)
-            return body_content
-        
-        return None
-        
+            return {
+                'status': 'success',
+                'body': body,
+                'body_elements': body_content,
+                'root': root
+            }
+        else:
+            return {
+                'status': 'error',
+                'message': 'SOAP Body not found',
+                'root': root
+            }
+            
     except ET.DTDValidateError as e:
-        raise ValueError(f"DTD validation failed: {str(e)}")
+        return {
+            'status': 'error',
+            'message': f'DTD validation failed: {str(e)}'
+        }
     except ET.XMLSyntaxError as e:
-        raise ValueError(f"XML syntax error: {str(e)}")
+        return {
+            'status': 'error',
+            'message': f'XML syntax error: {str(e)}'
+        }
     except Exception as e:
-        raise ValueError(f"Error processing SOAP request: {str(e)}")
+        return {
+            'status': 'error',
+            'message': f'Processing error: {str(e)}'
+        }

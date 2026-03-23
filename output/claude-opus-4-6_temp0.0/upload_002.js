@@ -7,7 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload directory exists
+// Ensure the uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -21,20 +21,21 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    const baseName = path.basename(file.originalname, ext);
+    cb(null, baseName + '-' + uniqueSuffix + ext);
   }
 });
 
 // File filter to allow only certain file types
 const fileFilter = function (req, file, cb) {
-  const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|csv/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|csv|xlsx/;
+  const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimeType = allowedTypes.test(file.mimetype);
 
-  if (extname && mimetype) {
+  if (extName && mimeType) {
     cb(null, true);
   } else {
-    cb(new Error('Error: File type not supported. Allowed types: jpeg, jpg, png, gif, pdf, doc, docx, txt, csv'));
+    cb(new Error('Error: File type not supported. Allowed types: jpeg, jpg, png, gif, pdf, doc, docx, txt, csv, xlsx'));
   }
 };
 
@@ -47,6 +48,7 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// Create Express app
 const app = express();
 
 // Single file upload handler
@@ -58,7 +60,7 @@ function handleSingleFileUpload(req, res) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          message: 'File too large. Maximum size is 10MB.'
+          message: 'File is too large. Maximum size is 10MB.'
         });
       }
       return res.status(400).json({
@@ -75,7 +77,7 @@ function handleSingleFileUpload(req, res) {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No file uploaded. Please select a file.'
+        message: 'No file was uploaded.'
       });
     }
 
@@ -84,10 +86,10 @@ function handleSingleFileUpload(req, res) {
       message: 'File uploaded successfully.',
       file: {
         originalName: req.file.originalname,
-        filename: req.file.filename,
+        fileName: req.file.filename,
         path: req.file.path,
         size: req.file.size,
-        mimetype: req.file.mimetype
+        mimeType: req.file.mimetype
       }
     });
   });
@@ -102,7 +104,7 @@ function handleMultipleFileUpload(req, res) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          message: 'File too large. Maximum size is 10MB per file.'
+          message: 'One or more files are too large. Maximum size is 10MB per file.'
         });
       }
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
@@ -125,16 +127,16 @@ function handleMultipleFileUpload(req, res) {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No files uploaded. Please select at least one file.'
+        message: 'No files were uploaded.'
       });
     }
 
     const uploadedFiles = req.files.map(file => ({
       originalName: file.originalname,
-      filename: file.filename,
+      fileName: file.filename,
       path: file.path,
       size: file.size,
-      mimetype: file.mimetype
+      mimeType: file.mimetype
     }));
 
     return res.status(200).json({
@@ -147,14 +149,14 @@ function handleMultipleFileUpload(req, res) {
 
 // Delete uploaded file handler
 function handleFileDelete(req, res) {
-  const filename = req.params.filename;
-  const filePath = path.join(uploadDir, filename);
+  const fileName = req.params.filename;
+  const filePath = path.join(uploadDir, fileName);
 
   // Prevent directory traversal attacks
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+  if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid filename.'
+      message: 'Invalid file name.'
     });
   }
 
@@ -166,8 +168,8 @@ function handleFileDelete(req, res) {
       });
     }
 
-    fs.unlink(filePath, (err) => {
-      if (err) {
+    fs.unlink(filePath, (unlinkErr) => {
+      if (unlinkErr) {
         return res.status(500).json({
           success: false,
           message: 'Error deleting file.'
@@ -186,21 +188,14 @@ function handleFileDelete(req, res) {
 app.post('/upload', handleSingleFileUpload);
 app.post('/upload-multiple', handleMultipleFileUpload);
 app.delete('/upload/:filename', handleFileDelete);
-app.get('/uploads/:filename', (req, res) => {
-  const filename = req.params.filename;
 
-  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    return res.status(400).json({ success: false, message: 'Invalid filename.' });
-  }
-
-  const filePath = path.join(uploadDir, filename);
-  res.sendFile(filePath);
-});
+// Serve uploaded files statically
+app.use('/files', express.static(uploadDir));
 
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`File upload server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
   console.log(`Upload directory: ${uploadDir}`);
 });
 
@@ -208,6 +203,5 @@ module.exports = {
   app,
   handleSingleFileUpload,
   handleMultipleFileUpload,
-  handleFileDelete,
-  upload
+  handleFileDelete
 };

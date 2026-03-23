@@ -12,153 +12,64 @@ function ensureDirSync(dir) {
 
 function sanitizeFilename(name) {
   const base = path.basename(String(name || 'file'));
-  const cleaned = base.replace(/[^\w.\-()+@[\] ]+/g, '_').trim();
-  return cleaned.length ? cleaned : 'file';
-}
-
-function safeJoin(baseDir, targetName) {
-  const base = path.resolve(baseDir);
-  const target = path.resolve(base, targetName);
-  if (!target.startsWith(base + path.sep)) throw new Error('Invalid path');
-  return target;
+  const cleaned = base.replace(/[^\w.\-()+@[\] ]+/g, '_').replace(/\s+/g, ' ').trim();
+  return cleaned || 'file';
 }
 
 function uniqueName(originalName) {
   const ext = path.extname(originalName);
-  const stem = path.basename(originalName, ext);
+  const base = path.basename(originalName, ext);
   const id = crypto.randomBytes(8).toString('hex');
-  return `${stem}-${id}${ext}`;
+  return `${base}-${id}${ext}`;
 }
 
-/**
- * Handles multipart/form-data file uploads using busboy.
- * Expects the request to be a Node/Express req object.
- *
- * @param {IncomingMessage} req
- * @param {Object} options
- * @param {string} [options.uploadDir] Directory to save files
- * @param {number} [options.maxFileSize] Max bytes per file
- * @param {number} [options.maxFiles] Max number of files
- * @param {string[]} [options.allowedMimeTypes] Allowed MIME types (optional)
- * @param {Function} [options.filename] (info) => string (optional)
- * @returns {Promise<{files: Array, fields: Object}>}
- */
-function handleFileUpload(req, options = {}) {
-  const Busboy = require('busboy');
+// Express middleware using multer (expects: npm i multer)
+function createUploadMiddleware(options = {}) {
+  const multer = require('multer');
 
-  const uploadDir = options.uploadDir || path.join(process.cwd(), 'uploads');
-  const maxFileSize = Number.isFinite(options.maxFileSize) ? options.maxFileSize : 25 * 1024 * 1024;
-  const maxFiles = Number.isFinite(options.maxFiles) ? options.maxFiles : 10;
-  const allowedMimeTypes = Array.isArray(options.allowedMimeTypes) ? options.allowedMimeTypes : null;
-  const filenameFn = typeof options.filename === 'function' ? options.filename : null;
-
+  const uploadDir = path.resolve(options.uploadDir || path.join(process.cwd(), 'uploads'));
   ensureDirSync(uploadDir);
 
-  return new Promise((resolve, reject) => {
-    let finished = false;
-    const files = [];
-    const fields = Object.create(null);
-    const pendingWrites = new Set();
+  const maxFileSize = Number.isFinite(options.maxFileSize) ? options.maxFileSize : 25 * 1024 * 1024;
 
-    function done(err) {
-      if (finished) return;
-      finished = true;
-
-      const cleanup = () => {
-        for (const f of files) {
-          try { fs.unlinkSync(f.path); } catch (_) {}
-        }
-      };
-
-      if (err) {
-        cleanup();
-        return reject(err);
-      }
-
-      Promise.allSettled([...pendingWrites]).then(() => resolve({ files, fields }), reject);
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+      const original = sanitizeFilename(file.originalname);
+      cb(null, uniqueName(original));
     }
-
-    let busboy;
-    try {
-      busboy = Busboy({
-        headers: req.headers,
-        limits: {
-          fileSize: maxFileSize,
-          files: maxFiles
-        }
-      });
-    } catch (e) {
-      return reject(e);
-    }
-
-    busboy.on('field', (name, val) => {
-      if (Object.prototype.hasOwnProperty.call(fields, name)) {
-        if (Array.isArray(fields[name])) fields[name].push(val);
-        else fields[name] = [fields[name], val];
-      } else {
-        fields[name] = val;
-      }
-    });
-
-    busboy.on('file', (fieldname, file, info) => {
-      const originalName = sanitizeFilename(info && info.filename ? info.filename : 'file');
-      const mimeType = info && info.mimeType ? info.mimeType : 'application/octet-stream';
-
-      if (allowedMimeTypes && !allowedMimeTypes.includes(mimeType)) {
-        file.resume();
-        return done(Object.assign(new Error('Unsupported file type'), { code: 'UNSUPPORTED_MIME', mimeType }));
-      }
-
-      const finalName = sanitizeFilename(
-        filenameFn
-          ? filenameFn({ fieldname, originalName, mimeType })
-          : uniqueName(originalName)
-      );
-
-      const destPath = safeJoin(uploadDir, finalName);
-
-      const out = fs.createWriteStream(destPath, { flags: 'wx' });
-      const meta = {
-        fieldname,
-        originalName,
-        filename: finalName,
-        mimeType,
-        path: destPath,
-        size: 0
-      };
-      files.push(meta);
-
-      file.on('data', (chunk) => { meta.size += chunk.length; });
-
-      const writePromise = new Promise((res, rej) => {
-        out.on('error', rej);
-        out.on('finish', res);
-      });
-      pendingWrites.add(writePromise);
-      writePromise.finally(() => pendingWrites.delete(writePromise));
-
-      file.on('limit', () => {
-        file.unpipe(out);
-        out.destroy();
-        file.resume();
-        done(Object.assign(new Error('File too large'), { code: 'LIMIT_FILE_SIZE', fieldname, filename: finalName }));
-      });
-
-      file.on('error', (err) => done(err));
-      out.on('error', (err) => done(err));
-
-      file.pipe(out);
-    });
-
-    busboy.on('filesLimit', () => done(Object.assign(new Error('Too many files'), { code: 'LIMIT_FILE_COUNT' })));
-    busboy.on('error', (err) => done(err));
-    busboy.on('finish', () => done());
-
-    req.on('aborted', () => done(Object.assign(new Error('Request aborted'), { code: 'REQUEST_ABORTED' })));
-    req.on('error', (err) => done(err));
-
-    req.pipe(busboy);
   });
+
+  const fileFilter = typeof options.fileFilter === 'function'
+    ? options.fileFilter
+    : (req, file, cb) => cb(null, true);
+
+  return multer({ storage, limits: { fileSize: maxFileSize }, fileFilter });
 }
 
-module.exports = { handleFileUpload };
+// Express route handler that returns saved file info
+function handleFileUpload(fieldName = 'file', options = {}) {
+  const upload = createUploadMiddleware(options).single(fieldName);
+
+  return function (req, res, next) {
+    upload(req, res, function (err) {
+      if (err) return next(err);
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+      const publicBaseUrl = options.publicBaseUrl || null;
+      const fileUrl = publicBaseUrl ? `${publicBaseUrl.replace(/\/+$/, '')}/${encodeURIComponent(req.file.filename)}` : null;
+
+      res.status(201).json({
+        field: req.file.fieldname,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path,
+        url: fileUrl
+      });
+    });
+  };
+}
+
+module.exports = { createUploadMiddleware, handleFileUpload };

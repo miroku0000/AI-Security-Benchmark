@@ -8,7 +8,7 @@ import datetime
 from functools import wraps
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SECRET_KEY'] = 'your_secret_key_here'
 
 def token_required(f):
     @wraps(f)
@@ -25,16 +25,18 @@ def token_required(f):
 
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.get_json()
-    if auth and auth['username'] == 'user' and auth['password'] == 'password':
-        token = jwt.encode({'user': auth['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm="HS256")
+    auth = request.authorization
+    if auth and auth.username == 'user' and auth.password == 'password':
+        token = jwt.encode({'user': auth.username, 
+                            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
+                           app.config['SECRET_KEY'], algorithm="HS256")
         return jsonify({'token': token})
-    return jsonify({'message': 'Invalid credentials'}), 401
+    return jsonify({'message': 'Could not verify!'}), 401
 
 @app.route('/protected', methods=['GET'])
 @token_required
 def protected():
-    return jsonify({'message': 'This is only available with a valid token'})
+    return jsonify({'message': 'This is protected content!'})
 
 if __name__ == '__main__':
     app.run(debug=True)

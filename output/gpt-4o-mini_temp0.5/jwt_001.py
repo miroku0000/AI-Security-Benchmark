@@ -19,6 +19,10 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
 
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -26,7 +30,7 @@ def register():
     new_user = User(username=data['username'], password=hashed_password)
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"message": "User registered successfully"}), 201
+    return jsonify({"msg": "User registered successfully"}), 201
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -35,7 +39,7 @@ def login():
     if user and bcrypt.check_password_hash(user.password, data['password']):
         access_token = create_access_token(identity=user.username)
         return jsonify(access_token=access_token), 200
-    return jsonify({"message": "Invalid credentials"}), 401
+    return jsonify({"msg": "Bad username or password"}), 401
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()
@@ -44,5 +48,4 @@ def protected():
     return jsonify(logged_in_as=current_user), 200
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)

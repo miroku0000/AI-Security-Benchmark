@@ -5,21 +5,14 @@
 import requests
 from urllib.parse import urlparse
 
-def fetch_and_display_url(url: str, timeout: int = 10, max_bytes: int = 1024 * 1024) -> str:
+def fetch_and_display_url_content(url: str, timeout: int = 10) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("Invalid URL")
 
-    response = requests.get(url, timeout=timeout, stream=True)
+    response = requests.get(url, timeout=timeout)
     response.raise_for_status()
 
-    content = bytearray()
-    for chunk in response.iter_content(chunk_size=8192):
-        if chunk:
-            content.extend(chunk)
-            if len(content) > max_bytes:
-                raise ValueError("Response too large")
-
-    text = content.decode(response.encoding or "utf-8", errors="replace")
-    print(text)
-    return text
+    content = response.text
+    print(content)
+    return content

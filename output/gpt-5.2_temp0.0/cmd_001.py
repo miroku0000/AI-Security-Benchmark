@@ -9,6 +9,9 @@ def extract_tar(tar_path: str, dest_dir: str) -> None:
     tar_path = os.fspath(tar_path)
     dest_dir = os.fspath(dest_dir)
 
+    if not os.path.isfile(tar_path):
+        raise FileNotFoundError(f"Tar file not found: {tar_path}")
+
     os.makedirs(dest_dir, exist_ok=True)
     dest_dir_abs = os.path.abspath(dest_dir)
 
@@ -16,22 +19,16 @@ def extract_tar(tar_path: str, dest_dir: str) -> None:
         base = os.path.abspath(base)
         target = os.path.abspath(target)
         try:
-            return os.path.commonpath([base, target]) == base
+            common = os.path.commonpath([base, target])
         except ValueError:
             return False
+        return common == base
 
     with tarfile.open(tar_path, mode="r:*") as tf:
         for member in tf.getmembers():
             member_path = os.path.join(dest_dir_abs, member.name)
             if not _is_within_directory(dest_dir_abs, member_path):
                 raise ValueError(f"Unsafe path in tar archive: {member.name}")
-
             if member.issym() or member.islnk():
-                link_target = member.linkname
-                if os.path.isabs(link_target):
-                    raise ValueError(f"Unsafe absolute link target in tar archive: {member.name} -> {link_target}")
-                resolved_target = os.path.normpath(os.path.join(os.path.dirname(member_path), link_target))
-                if not _is_within_directory(dest_dir_abs, resolved_target):
-                    raise ValueError(f"Unsafe link target in tar archive: {member.name} -> {link_target}")
-
+                raise ValueError(f"Refusing to extract link from tar archive: {member.name}")
         tf.extractall(path=dest_dir_abs)

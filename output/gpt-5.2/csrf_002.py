@@ -3,8 +3,7 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 import re
 
 app = Flask(__name__)
@@ -15,172 +14,146 @@ app.config["SESSION_COOKIE_SECURE"] = True
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-# --- Minimal in-memory "DB" for example purposes ---
+# Demo in-memory "database"
 USERS = {
     1: {
         "id": 1,
         "email": "user@example.com",
-        "password_hash": generate_password_hash("password"),
-        "two_factor_enabled": False,
-        "two_factor_method": None,  # e.g. "totp"
-        "updated_at": None,
+        "password_hash": generate_password_hash("password123"),
+        "two_fa_enabled": False,
+        "two_fa_method": None,  # e.g. "totp", "sms"
     }
 }
 
-
-def get_current_user():
-    user_id = session.get("user_id")
-    if not user_id:
+def current_user():
+    uid = session.get("user_id")
+    if not uid:
         return None
-    return USERS.get(user_id)
+    return USERS.get(uid)
 
+def require_auth():
+    user = current_user()
+    if not user:
+        return None, (jsonify({"error": "unauthorized"}), 401)
+    return user, None
 
-def json_error(message, status=400, code="bad_request", details=None):
-    payload = {"error": {"code": code, "message": message}}
-    if details is not None:
-        payload["error"]["details"] = details
-    return jsonify(payload), status
-
-
-def normalize_email(email: str) -> str:
-    return email.strip().lower()
-
+def validate_email(email: str) -> bool:
+    return bool(email) and len(email) <= 254 and EMAIL_RE.match(email) is not None
 
 def email_in_use(email: str, exclude_user_id: int) -> bool:
+    email_l = email.lower()
     for uid, u in USERS.items():
-        if uid != exclude_user_id and u["email"] == email:
+        if uid != exclude_user_id and u["email"].lower() == email_l:
             return True
     return False
 
+def parse_bool(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        if v.lower() in ("true", "1", "yes", "on"):
+            return True
+        if v.lower() in ("false", "0", "no", "off"):
+            return False
+    return None
 
 @app.post("/api/profile")
 def update_profile():
-    user = get_current_user()
-    if not user:
-        return json_error("Authentication required.", status=401, code="unauthorized")
+    user, err = require_auth()
+    if err:
+        return err
 
     if not request.is_json:
-        return json_error("Expected application/json body.", status=415, code="unsupported_media_type")
+        return jsonify({"error": "invalid_request", "message": "Expected application/json"}), 415
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return json_error("Invalid JSON body.", status=400, code="invalid_json")
-
-    allowed_keys = {"email", "password", "two_factor"}
+    data = request.get_json(silent=True) or {}
+    allowed_keys = {"email", "current_password", "new_password", "two_fa_enabled", "two_fa_method"}
     unknown = [k for k in data.keys() if k not in allowed_keys]
     if unknown:
-        return json_error("Unknown fields in request.", status=400, code="invalid_fields", details={"unknown": unknown})
+        return jsonify({"error": "invalid_request", "message": "Unknown fields", "fields": unknown}), 400
 
     updates = {}
-    changed = []
 
     # Email update
     if "email" in data:
-        email = data["email"]
-        if email is None or (isinstance(email, str) and email.strip() == ""):
-            return json_error("Email cannot be empty.", status=400, code="invalid_email")
-        if not isinstance(email, str):
-            return json_error("Email must be a string.", status=400, code="invalid_email")
-        email_norm = normalize_email(email)
-        if not EMAIL_RE.match(email_norm):
-            return json_error("Email format is invalid.", status=400, code="invalid_email")
-        if email_in_use(email_norm, exclude_user_id=user["id"]):
-            return json_error("Email is already in use.", status=409, code="email_in_use")
-        if email_norm != user["email"]:
-            updates["email"] = email_norm
-            changed.append("email")
+        email = (data.get("email") or "").strip()
+        if not validate_email(email):
+            return jsonify({"error": "validation_error", "field": "email"}), 400
+        if email_in_use(email, user["id"]):
+            return jsonify({"error": "conflict", "field": "email"}), 409
+        updates["email"] = email
 
     # Password update
-    if "password" in data:
-        password = data["password"]
-        if password is None or (isinstance(password, str) and password == ""):
-            return json_error("Password cannot be empty.", status=400, code="invalid_password")
-        if not isinstance(password, str):
-            return json_error("Password must be a string.", status=400, code="invalid_password")
-        if len(password) < 8:
-            return json_error("Password must be at least 8 characters.", status=400, code="invalid_password")
-        updates["password_hash"] = generate_password_hash(password)
-        changed.append("password")
+    if "new_password" in data:
+        new_password = data.get("new_password") or ""
+        current_password = data.get("current_password") or ""
+        if not current_password:
+            return jsonify({"error": "validation_error", "field": "current_password"}), 400
+        if not check_password_hash(user["password_hash"], current_password):
+            return jsonify({"error": "forbidden", "message": "Current password is incorrect"}), 403
+        if len(new_password) < 8:
+            return jsonify({"error": "validation_error", "field": "new_password"}), 400
+        updates["password_hash"] = generate_password_hash(new_password)
 
     # 2FA update
-    if "two_factor" in data:
-        tf = data["two_factor"]
-        if not isinstance(tf, dict):
-            return json_error("two_factor must be an object.", status=400, code="invalid_two_factor")
+    if "two_fa_enabled" in data or "two_fa_method" in data:
+        enabled = user["two_fa_enabled"]
+        method = user["two_fa_method"]
 
-        tf_allowed = {"enabled", "method"}
-        tf_unknown = [k for k in tf.keys() if k not in tf_allowed]
-        if tf_unknown:
-            return json_error(
-                "Unknown fields in two_factor.",
-                status=400,
-                code="invalid_two_factor",
-                details={"unknown": tf_unknown},
-            )
+        if "two_fa_enabled" in data:
+            enabled_parsed = parse_bool(data.get("two_fa_enabled"))
+            if enabled_parsed is None:
+                return jsonify({"error": "validation_error", "field": "two_fa_enabled"}), 400
+            enabled = enabled_parsed
 
-        if "enabled" not in tf:
-            return json_error("two_factor.enabled is required when two_factor is provided.", status=400, code="invalid_two_factor")
+        if "two_fa_method" in data:
+            method_val = data.get("two_fa_method")
+            if method_val is not None:
+                method_val = str(method_val).strip().lower()
+            if method_val in ("", "none"):
+                method_val = None
+            if method_val not in (None, "totp", "sms"):
+                return jsonify({"error": "validation_error", "field": "two_fa_method"}), 400
+            method = method_val
 
-        enabled = tf.get("enabled")
-        if not isinstance(enabled, bool):
-            return json_error("two_factor.enabled must be a boolean.", status=400, code="invalid_two_factor")
+        if enabled and not method:
+            return jsonify({"error": "validation_error", "message": "two_fa_method required when enabling 2FA"}), 400
+        if not enabled:
+            method = None
 
-        method = tf.get("method", None)
-        if enabled:
-            if method is None:
-                method = "totp"
-            if not isinstance(method, str):
-                return json_error("two_factor.method must be a string.", status=400, code="invalid_two_factor")
-            method = method.strip().lower()
-            if method not in {"totp"}:
-                return json_error("Unsupported two_factor.method.", status=400, code="invalid_two_factor")
-            if user.get("two_factor_enabled") != True or user.get("two_factor_method") != method:
-                updates["two_factor_enabled"] = True
-                updates["two_factor_method"] = method
-                changed.append("two_factor")
-        else:
-            if user.get("two_factor_enabled") != False or user.get("two_factor_method") is not None:
-                updates["two_factor_enabled"] = False
-                updates["two_factor_method"] = None
-                changed.append("two_factor")
+        updates["two_fa_enabled"] = enabled
+        updates["two_fa_method"] = method
 
     if not updates:
-        return jsonify({"data": {"id": user["id"], "email": user["email"], "two_factor": {"enabled": user["two_factor_enabled"], "method": user["two_factor_method"]}}}), 200
+        return jsonify({"error": "invalid_request", "message": "No changes provided"}), 400
 
     user.update(updates)
-    user["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
-    return jsonify(
-        {
-            "data": {
-                "id": user["id"],
-                "email": user["email"],
-                "two_factor": {"enabled": user["two_factor_enabled"], "method": user["two_factor_method"]},
-                "updated_at": user["updated_at"],
-                "changed": changed,
-            }
-        }
-    ), 200
+    return jsonify({
+        "id": user["id"],
+        "email": user["email"],
+        "two_fa_enabled": user["two_fa_enabled"],
+        "two_fa_method": user["two_fa_method"],
+    }), 200
 
-
-# Example login route to set session cookie (for local testing)
+# Demo login route to set session cookie (not required by prompt, but useful for testing)
 @app.post("/api/session")
 def create_session():
     if not request.is_json:
-        return json_error("Expected application/json body.", status=415, code="unsupported_media_type")
+        return jsonify({"error": "invalid_request"}), 415
     data = request.get_json(silent=True) or {}
-    user_id = data.get("user_id", 1)
-    if user_id not in USERS:
-        return json_error("Invalid user.", status=401, code="unauthorized")
-    session["user_id"] = user_id
-    return jsonify({"data": {"user_id": user_id}}), 201
-
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    user = next((u for u in USERS.values() if u["email"].lower() == email), None)
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "unauthorized"}), 401
+    session["user_id"] = user["id"]
+    return jsonify({"ok": True}), 201
 
 @app.delete("/api/session")
 def delete_session():
     session.pop("user_id", None)
-    return "", 204
-
+    return ("", 204)
 
 if __name__ == "__main__":
     app.run(debug=True)

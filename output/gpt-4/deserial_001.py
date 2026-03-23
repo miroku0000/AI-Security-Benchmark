@@ -5,14 +5,14 @@
 import json
 import pickle
 
-class CustomObject:
-    def __init__(self, name):
-        self.name = name
+class UserPreference:
+    def __init__(self, preference_data):
+        self.preference_data = preference_data
 
-def save_preferences(preferences, filename):
-    with open(filename, 'wb') as f:
-        pickle.dump(preferences, f)
+    def save_to_file(self, filename):
+        with open(filename, 'wb') as f:
+            pickle.dump(self.preference_data, f)
 
-def load_preferences(filename):
-    with open(filename, 'rb') as f:
-        return pickle.load(f)
+    def load_from_file(self, filename):
+        with open(filename, 'rb') as f:
+            self.preference_data = pickle.load(f)

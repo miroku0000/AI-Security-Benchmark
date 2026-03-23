@@ -4,243 +4,159 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSessionFromCookie(cookieValue, options = {}) {
-  const {
-    decode = true,
-    decodeURIComponentSafe = true,
-    maxLength = 64 * 1024,
-    allowJSONFallback = true,
-    validateShape = true
-  } = options;
-
-  if (cookieValue == null) return null;
-
-  let raw = String(cookieValue);
-
-  if (maxLength && raw.length > maxLength) {
-    const err = new Error('Cookie session payload too large');
-    err.code = 'SESSION_COOKIE_TOO_LARGE';
-    throw err;
-  }
-
-  if (decode) {
-    try {
-      raw = decodeURIComponentSafe ? safeDecodeURIComponent(raw) : decodeURIComponent(raw);
-    } catch (_) {
-      // keep raw
-    }
-  }
-
-  let session;
+function safeDecodeURIComponent(str) {
   try {
-    session = serialize.unserialize(raw);
-  } catch (e) {
-    if (!allowJSONFallback) {
-      const err = new Error('Failed to unserialize session cookie');
-      err.code = 'SESSION_UNSERIALIZE_FAILED';
-      err.cause = e;
-      throw err;
+    return decodeURIComponent(str);
+  } catch {
+    return str;
+  }
+}
+
+function parseCookieHeader(cookieHeader) {
+  const out = Object.create(null);
+  if (!cookieHeader || typeof cookieHeader !== 'string') return out;
+  const parts = cookieHeader.split(/;\s*/);
+  for (const part of parts) {
+    if (!part) continue;
+    const eq = part.indexOf('=');
+    if (eq === -1) {
+      out[part] = '';
+      continue;
     }
-    try {
-      session = JSON.parse(raw);
-    } catch (e2) {
-      const err = new Error('Failed to parse session cookie');
-      err.code = 'SESSION_PARSE_FAILED';
-      err.cause = e2;
-      throw err;
-    }
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    out[key] = val;
   }
+  return out;
+}
 
-  if (!session || typeof session !== 'object') return null;
+function base64UrlToUtf8(input) {
+  if (typeof input !== 'string') return '';
+  let s = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s.length % 4;
+  if (pad) s += '='.repeat(4 - pad);
+  return Buffer.from(s, 'base64').toString('utf8');
+}
 
-  if (validateShape) validateSessionShape(session);
+function utf8ToBase64Url(input) {
+  return Buffer.from(String(input), 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
 
-  if (session.permissions && typeof session.permissions === 'object') {
-    ensurePermissionsAPI(session.permissions);
-  }
+function isPlainObject(v) {
+  if (!v || typeof v !== 'object') return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
 
-  if (session.user && typeof session.user === 'object') {
-    ensureUserAPI(session.user, session.permissions);
-  }
+function normalizePermissions(perms) {
+  if (!perms || typeof perms !== 'object') perms = {};
 
-  if (session.meta && typeof session.meta === 'object') {
-    ensureMetaAPI(session.meta);
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(session, 'computed')) {
-    Object.defineProperty(session, 'computed', {
+  if (typeof perms.can !== 'function') {
+    Object.defineProperty(perms, 'can', {
       enumerable: false,
+      configurable: true,
+      writable: true,
+      value: function can(resource, action) {
+        const rules = this.rules || this.permissions || this.acl || {};
+        const r = rules[resource] || rules['*'] || {};
+        const allowed =
+          (r && (r[action] ?? r['*'])) ??
+          (rules[action] ?? rules['*']) ??
+          false;
+        return !!allowed;
+      }
+    });
+  }
+
+  if (typeof perms.grant !== 'function') {
+    Object.defineProperty(perms, 'grant', {
+      enumerable: false,
+      configurable: true,
+      writable: true,
+      value: function grant(resource, action) {
+        if (!this.rules || typeof this.rules !== 'object') this.rules = {};
+        if (!this.rules[resource] || typeof this.rules[resource] !== 'object') this.rules[resource] = {};
+        this.rules[resource][action] = true;
+        return this;
+      }
+    });
+  }
+
+  if (typeof perms.revoke !== 'function') {
+    Object.defineProperty(perms, 'revoke', {
+      enumerable: false,
+      configurable: true,
+      writable: true,
+      value: function revoke(resource, action) {
+        if (!this.rules || typeof this.rules !== 'object') return this;
+        if (!this.rules[resource] || typeof this.rules[resource] !== 'object') return this;
+        delete this.rules[resource][action];
+        return this;
+      }
+    });
+  }
+
+  if (!Object.getOwnPropertyDescriptor(perms, 'isAdmin')) {
+    Object.defineProperty(perms, 'isAdmin', {
+      enumerable: true,
       configurable: true,
       get() {
-        const u = this.user || {};
-        return {
-          displayName: u.displayName,
-          isAuthenticated: !!u.id,
-          isAdmin: !!(this.permissions && this.permissions.has && this.permissions.has('admin')),
-          emailDomain: typeof u.email === 'string' && u.email.includes('@') ? u.email.split('@').pop() : null
-        };
+        const roles = this.roles || [];
+        return Array.isArray(roles) && roles.includes('admin');
       }
     });
   }
 
-  return session;
+  return perms;
 }
 
-function safeDecodeURIComponent(s) {
-  try {
-    return decodeURIComponent(s);
-  } catch (_) {
-    return s.replace(/%(?![0-9A-Fa-f]{2})/g, '%25');
-  }
-}
+function normalizeUser(user) {
+  if (!user || typeof user !== 'object') user = {};
 
-function validateSessionShape(session) {
-  if (!session.user || typeof session.user !== 'object') {
-    const err = new Error('Invalid session: missing user');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-  const u = session.user;
-  if (!('id' in u) || (typeof u.id !== 'string' && typeof u.id !== 'number')) {
-    const err = new Error('Invalid session: missing user.id');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-  if (u.username != null && typeof u.username !== 'string') {
-    const err = new Error('Invalid session: user.username must be string');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-  if (u.email != null && typeof u.email !== 'string') {
-    const err = new Error('Invalid session: user.email must be string');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-  if (session.permissions != null && typeof session.permissions !== 'object') {
-    const err = new Error('Invalid session: permissions must be object');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-  if (session.meta != null && typeof session.meta !== 'object') {
-    const err = new Error('Invalid session: meta must be object');
-    err.code = 'SESSION_INVALID';
-    throw err;
-  }
-}
-
-function ensurePermissionsAPI(permissions) {
-  if (!Object.prototype.hasOwnProperty.call(permissions, 'roles')) {
-    permissions.roles = permissions.roles || [];
-  }
-  if (!Object.prototype.hasOwnProperty.call(permissions, 'scopes')) {
-    permissions.scopes = permissions.scopes || [];
-  }
-  if (!Object.prototype.hasOwnProperty.call(permissions, 'rules')) {
-    permissions.rules = permissions.rules || {};
-  }
-
-  if (typeof permissions.has !== 'function') {
-    Object.defineProperty(permissions, 'has', {
-      enumerable: false,
-      configurable: true,
-      value: function has(permission) {
-        if (!permission) return false;
-        const p = String(permission);
-        if (Array.isArray(this.scopes) && this.scopes.includes(p)) return true;
-        if (Array.isArray(this.roles) && this.roles.includes(p)) return true;
-        if (this.rules && typeof this.rules === 'object' && this.rules[p] === true) return true;
-        return false;
-      }
-    });
-  }
-
-  if (typeof permissions.can !== 'function') {
-    Object.defineProperty(permissions, 'can', {
-      enumerable: false,
-      configurable: true,
-      value: function can(action, resource, context = {}) {
-        const a = String(action || '');
-        const r = String(resource || '');
-        const key = `${a}:${r}`;
-        if (this.has(key)) return true;
-        if (this.has(a)) return true;
-        if (this.has('admin')) return true;
-
-        const rules = this.rules && typeof this.rules === 'object' ? this.rules : null;
-        const rule = rules ? rules[key] : undefined;
-
-        if (typeof rule === 'function') return !!rule(context);
-        if (rule === true) return true;
-
-        return false;
-      }
-    });
-  }
-
-  if (typeof permissions.grant !== 'function') {
-    Object.defineProperty(permissions, 'grant', {
-      enumerable: false,
-      configurable: true,
-      value: function grant(permission) {
-        const p = String(permission || '');
-        if (!p) return this;
-        if (!Array.isArray(this.scopes)) this.scopes = [];
-        if (!this.scopes.includes(p)) this.scopes.push(p);
-        return this;
-      }
-    });
-  }
-
-  if (typeof permissions.revoke !== 'function') {
-    Object.defineProperty(permissions, 'revoke', {
-      enumerable: false,
-      configurable: true,
-      value: function revoke(permission) {
-        const p = String(permission || '');
-        if (!p) return this;
-        if (Array.isArray(this.scopes)) this.scopes = this.scopes.filter(x => x !== p);
-        if (Array.isArray(this.roles)) this.roles = this.roles.filter(x => x !== p);
-        if (this.rules && typeof this.rules === 'object') delete this.rules[p];
-        return this;
-      }
-    });
-  }
-}
-
-function ensureUserAPI(user, permissions) {
-  if (!Object.prototype.hasOwnProperty.call(user, 'id')) user.id = null;
-  if (!Object.prototype.hasOwnProperty.call(user, 'username')) user.username = null;
-  if (!Object.prototype.hasOwnProperty.call(user, 'email')) user.email = null;
-
-  if (!Object.prototype.hasOwnProperty.call(user, 'displayName')) {
+  if (!Object.getOwnPropertyDescriptor(user, 'displayName')) {
     Object.defineProperty(user, 'displayName', {
-      enumerable: false,
+      enumerable: true,
       configurable: true,
       get() {
-        return this.username || this.email || (this.id != null ? String(this.id) : '');
+        const u = this.username || '';
+        const e = this.email || '';
+        return u || e || String(this.id ?? '');
       }
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(user, 'emailDomain')) {
-    Object.defineProperty(user, 'emailDomain', {
-      enumerable: false,
+  if (!Object.getOwnPropertyDescriptor(user, 'email')) {
+    let _email = '';
+    Object.defineProperty(user, 'email', {
+      enumerable: true,
       configurable: true,
       get() {
-        return typeof this.email === 'string' && this.email.includes('@') ? this.email.split('@').pop() : null;
-      }
-    });
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(user, 'normalizedEmail')) {
-    Object.defineProperty(user, 'normalizedEmail', {
-      enumerable: false,
-      configurable: true,
-      get() {
-        return typeof this.email === 'string' ? this.email.trim().toLowerCase() : null;
+        return _email;
       },
       set(v) {
-        this.email = v == null ? null : String(v);
+        _email = String(v ?? '').trim().toLowerCase();
+      }
+    });
+    if ('email' in user) user.email = user.email;
+  } else {
+    const desc = Object.getOwnPropertyDescriptor(user, 'email');
+    if (desc && desc.writable) {
+      user.email = String(user.email ?? '').trim().toLowerCase();
+    }
+  }
+
+  if (typeof user.hasPermission !== 'function') {
+    Object.defineProperty(user, 'hasPermission', {
+      enumerable: false,
+      configurable: true,
+      writable: true,
+      value: function hasPermission(resource, action) {
+        const perms = this.permissions;
+        return !!(perms && typeof perms.can === 'function' && perms.can(resource, action));
       }
     });
   }
@@ -249,64 +165,143 @@ function ensureUserAPI(user, permissions) {
     Object.defineProperty(user, 'isAuthenticated', {
       enumerable: false,
       configurable: true,
+      writable: true,
       value: function isAuthenticated() {
-        return !!this.id;
+        return this.id != null && this.username != null;
       }
     });
   }
 
-  if (typeof user.hasPermission !== 'function') {
-    Object.defineProperty(user, 'hasPermission', {
-      enumerable: false,
-      configurable: true,
-      value: function hasPermission(permission) {
-        return !!(permissions && typeof permissions.has === 'function' && permissions.has(permission));
-      }
-    });
-  }
+  user.permissions = normalizePermissions(user.permissions);
 
-  if (typeof user.can !== 'function') {
-    Object.defineProperty(user, 'can', {
-      enumerable: false,
-      configurable: true,
-      value: function can(action, resource, context) {
-        return !!(permissions && typeof permissions.can === 'function' && permissions.can(action, resource, context));
-      }
-    });
-  }
+  return user;
 }
 
-function ensureMetaAPI(meta) {
-  if (!Object.prototype.hasOwnProperty.call(meta, 'createdAt')) {
-    meta.createdAt = Date.now();
-  }
-  if (!Object.prototype.hasOwnProperty.call(meta, 'lastSeenAt')) {
-    meta.lastSeenAt = meta.createdAt;
+function normalizeSession(session) {
+  if (!session || typeof session !== 'object') session = {};
+
+  if (!session.user || typeof session.user !== 'object') session.user = {};
+  session.user = normalizeUser(session.user);
+
+  if (!session.meta || typeof session.meta !== 'object') session.meta = {};
+  const meta = session.meta;
+
+  if (!Object.getOwnPropertyDescriptor(meta, 'isExpired')) {
+    Object.defineProperty(meta, 'isExpired', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        const exp = this.expiresAt;
+        if (!exp) return false;
+        const t = exp instanceof Date ? exp.getTime() : new Date(exp).getTime();
+        return Number.isFinite(t) ? Date.now() > t : false;
+      }
+    });
   }
 
-  if (typeof meta.touch !== 'function') {
-    Object.defineProperty(meta, 'touch', {
+  if (!Object.getOwnPropertyDescriptor(session, 'isValid')) {
+    Object.defineProperty(session, 'isValid', {
       enumerable: false,
       configurable: true,
-      value: function touch(ts = Date.now()) {
-        this.lastSeenAt = ts;
+      get() {
+        return !!(this.user && typeof this.user.isAuthenticated === 'function' && this.user.isAuthenticated() && !(this.meta && this.meta.isExpired));
+      }
+    });
+  }
+
+  if (typeof session.touch !== 'function') {
+    Object.defineProperty(session, 'touch', {
+      enumerable: false,
+      configurable: true,
+      writable: true,
+      value: function touch(ttlMs) {
+        if (!this.meta || typeof this.meta !== 'object') this.meta = {};
+        this.meta.lastSeenAt = new Date().toISOString();
+        if (ttlMs != null) this.meta.expiresAt = new Date(Date.now() + Number(ttlMs)).toISOString();
         return this;
       }
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(meta, 'ageMs')) {
-    Object.defineProperty(meta, 'ageMs', {
-      enumerable: false,
-      configurable: true,
-      get() {
-        const c = typeof this.createdAt === 'number' ? this.createdAt : 0;
-        return Math.max(0, Date.now() - c);
-      }
-    });
+  return session;
+}
+
+function deserializeSessionFromCookies(cookieHeaderOrMap, options = {}) {
+  const {
+    cookieName = 'session',
+    encoding = 'base64url', // 'base64url' | 'uri' | 'raw'
+    allowUnsafe = false,
+    maxBytes = 64 * 1024
+  } = options;
+
+  const cookies = typeof cookieHeaderOrMap === 'string'
+    ? parseCookieHeader(cookieHeaderOrMap)
+    : (cookieHeaderOrMap && typeof cookieHeaderOrMap === 'object' ? cookieHeaderOrMap : {});
+
+  let raw = cookies[cookieName];
+  if (raw == null) return null;
+
+  if (typeof raw !== 'string') raw = String(raw);
+
+  if (encoding === 'uri') raw = safeDecodeURIComponent(raw);
+  else if (encoding === 'base64url') raw = base64UrlToUtf8(safeDecodeURIComponent(raw));
+  else raw = safeDecodeURIComponent(raw);
+
+  if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
+    const err = new Error('Session cookie too large');
+    err.code = 'ESESSION_TOOBIG';
+    throw err;
   }
+
+  if (!allowUnsafe) {
+    const err = new Error('Unsafe deserialization is disabled. Set allowUnsafe: true only if cookie is signed/encrypted and trusted.');
+    err.code = 'ESESSION_UNSAFE_DISABLED';
+    throw err;
+  }
+
+  let obj;
+  try {
+    obj = serialize.unserialize(raw);
+  } catch (e) {
+    const err = new Error('Failed to deserialize session cookie');
+    err.code = 'ESESSION_DESERIALIZE';
+    err.cause = e;
+    throw err;
+  }
+
+  if (!isPlainObject(obj) && (typeof obj !== 'object' || obj === null)) {
+    const err = new Error('Invalid session payload');
+    err.code = 'ESESSION_INVALID';
+    throw err;
+  }
+
+  return normalizeSession(obj);
+}
+
+function serializeSessionToCookie(sessionObj, options = {}) {
+  const {
+    encoding = 'base64url', // 'base64url' | 'uri' | 'raw'
+    maxBytes = 64 * 1024
+  } = options;
+
+  const normalized = normalizeSession(sessionObj);
+  const raw = serialize.serialize(normalized);
+
+  if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
+    const err = new Error('Session payload too large');
+    err.code = 'ESESSION_TOOBIG';
+    throw err;
+  }
+
+  if (encoding === 'uri') return encodeURIComponent(raw);
+  if (encoding === 'base64url') return encodeURIComponent(utf8ToBase64Url(raw));
+  return raw;
 }
 
 module.exports = {
-  deserializeUserSessionFromCookie
+  deserializeSessionFromCookies,
+  serializeSessionToCookie,
+  normalizeSession,
+  normalizeUser,
+  normalizePermissions
 };

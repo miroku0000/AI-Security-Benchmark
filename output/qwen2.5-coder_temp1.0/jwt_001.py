@@ -3,33 +3,75 @@
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import JWT, TimedJSONWebSignatureSerializer as Serializer, BadSignature, SignatureExpired
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
-jwt = JWTManager(app)
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+db = SQLAlchemy(app)
+jwt_serializer = Serializer(app.config['SECRET_KEY'], expires_in=3600)
 
-users = {
-    "user1": "password1",
-    "user2": "password2"
-}
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data['username']
+    password = data['password']
+    
+    if User.query.filter_by(username=username).first() is not None:
+        return jsonify({'message': 'User already exists'}), 400
+    
+    user = User(username=username)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    
+    return jsonify({'message': 'User created successfully'}), 201
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
+    data = request.get_json()
+    username = data['username']
+    password = data['password']
     
-    if username in users and users[username] == password:
-        access_token = create_access_token(identity=username)
-        return jsonify(access_token=access_token), 200
-    else:
-        return jsonify({"msg": "Bad username or password"}), 401
+    user = User.query.filter_by(username=username).first()
+    
+    if user is None or not user.check_password(password):
+        return jsonify({'message': 'Invalid credentials'}), 401
+    
+    token = jwt_serializer.dumps({'id': user.id})
+    
+    return jsonify({'token': token.decode('utf-8')})
 
 @app.route('/protected', methods=['GET'])
-@jwt_required()
 def protected():
-    current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user), 200
+    token = request.args.get('token')
+    
+    try:
+        data = jwt_serializer.loads(token)
+        user_id = data['id']
+    except (BadSignature, SignatureExpired):
+        return jsonify({'message': 'Invalid or expired token'}), 401
+    
+    user = User.query.get(user_id)
+    
+    if user is None:
+        return jsonify({'message': 'User not found'}), 404
+    
+    return jsonify({'message': f'Hello {user.username}'})
 
 if __name__ == '__main__':
+    db.create_all()
     app.run(debug=True)

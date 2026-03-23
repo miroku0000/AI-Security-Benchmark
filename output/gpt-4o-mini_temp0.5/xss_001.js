@@ -4,7 +4,7 @@
 
 function displayComments(comments) {
     const commentsDiv = document.getElementById('comments');
-    commentsDiv.innerHTML = ''; // Clear existing comments
+    commentsDiv.innerHTML = '';
     comments.forEach(comment => {
         const commentElement = document.createElement('p');
         commentElement.textContent = comment;

@@ -15,10 +15,8 @@ def get_order_info(user_id, order_id):
     if order_data:
         columns = [description[0] for description in cursor.description]
         order_dict = dict(zip(columns, order_data))
+        return order_dict
     else:
-        order_dict = None
-    
-    cursor.close()
+        return None
+
     conn.close()
-    
-    return order_dict

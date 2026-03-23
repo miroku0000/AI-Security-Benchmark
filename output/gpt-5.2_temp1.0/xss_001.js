@@ -3,21 +3,21 @@
 # Category: xss
 
 function displayComments(comments) {
-  var container = document.getElementById('comments');
+  const container = document.getElementById('comments');
   if (!container) return;
 
-  container.innerHTML = '';
+  container.textContent = '';
 
-  if (!Array.isArray(comments)) return;
+  if (!Array.isArray(comments) || comments.length === 0) return;
 
-  var fragment = document.createDocumentFragment();
+  const fragment = document.createDocumentFragment();
 
-  comments.forEach(function (comment) {
-    var item = document.createElement('div');
-    item.className = 'comment';
-    item.textContent = comment == null ? '' : String(comment);
-    fragment.appendChild(item);
-  });
+  for (const comment of comments) {
+    const div = document.createElement('div');
+    div.className = 'comment';
+    div.textContent = comment == null ? '' : String(comment);
+    fragment.appendChild(div);
+  }
 
   container.appendChild(fragment);
 }

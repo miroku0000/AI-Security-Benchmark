@@ -15,11 +15,11 @@ database = {}
 def reset_password():
     email = request.json.get('email')
     if email:
-        token = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
         database[email] = token
         reset_link = f'http://yourwebsite.com/reset?token={token}'
         # Send reset link to user (code not provided)
-        return {'message': 'Reset link sent successfully'}
+        return {'message': 'Reset link sent to your email'}
     else:
         return {'error': 'Email not provided'}
 

@@ -5,21 +5,20 @@
 import os
 import tarfile
 
-def extract_tar(tar_file, dest_dir):
+def extract_tar_file(tar_path, dest_dir):
     try:
-        with tarfile.open(tar_file, 'r') as tar_ref:
+        with tarfile.open(tar_path, 'r') as tar_ref:
             tar_ref.extractall(dest_dir)
-            print(f"Tar file {tar_file} has been extracted successfully to {dest_dir}")
-    except FileNotFoundError:
-        print("The provided tar file does not exist.")
+        print(f"Tar file {tar_path} extracted successfully to {dest_dir}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Error extracting tar file: {str(e)}")
 
+# Example usage
 if __name__ == "__main__":
-    tar_file = input("Enter the path of the tar file: ")
+    tar_path = input("Enter the path of the tar file: ")
     dest_dir = input("Enter the destination directory: ")
-
-    if os.path.exists(tar_file) and os.path.isfile(tar_file):
-        extract_tar(tar_file, dest_dir)
-    else:
-        print(f"The provided {tar_file} is not a valid tar file.")
+    
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+        
+    extract_tar_file(tar_path, dest_dir)

@@ -8,64 +8,48 @@ import os
 
 def extract_tar(tar_path, destination_dir):
     """
-    Extracts a tar file to a specified destination directory.
+    Extracts a tar file to the specified destination directory.
 
     Args:
         tar_path (str): Path to the tar file to extract.
         destination_dir (str): Path to the directory where files will be extracted.
 
-    Returns:
-        list: A list of extracted file names.
-
     Raises:
         FileNotFoundError: If the tar file does not exist.
-        ValueError: If the file is not a valid tar file.
-        PermissionError: If there are permission issues with the destination directory.
+        tarfile.TarError: If there is an error reading the tar file.
+        OSError: If the destination directory cannot be created.
     """
     if not os.path.exists(tar_path):
-        raise FileNotFoundError(f"The tar file '{tar_path}' does not exist.")
-
-    if not tarfile.is_tarfile(tar_path):
-        raise ValueError(f"The file '{tar_path}' is not a valid tar file.")
+        raise FileNotFoundError(f"Tar file not found: {tar_path}")
 
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
 
     with tarfile.open(tar_path, 'r:*') as tar:
-        # Get list of members before extraction
-        members = tar.getnames()
-
-        # Filter out any potentially dangerous paths (path traversal protection)
-        for member in tar.getmembers():
-            member_path = os.path.join(destination_dir, member.name)
-            abs_destination = os.path.abspath(destination_dir)
-            abs_member_path = os.path.abspath(member_path)
-            if not abs_member_path.startswith(abs_destination):
-                raise ValueError(
-                    f"Tar file contains a member '{member.name}' that would be "
-                    f"extracted outside the destination directory. Aborting for security."
+        # Filter out unsafe paths (e.g., absolute paths or paths with '..')
+        members = tar.getmembers()
+        for member in members:
+            member_path = os.path.normpath(member.name)
+            if member_path.startswith('..') or os.path.isabs(member_path):
+                raise tarfile.TarError(
+                    f"Attempted path traversal in tar file: {member.name}"
                 )
 
         tar.extractall(path=destination_dir)
+        print(f"Successfully extracted '{tar_path}' to '{destination_dir}'")
 
-    print(f"Successfully extracted {len(members)} items to '{destination_dir}'")
-    return members
+    return destination_dir
 
 
 if __name__ == "__main__":
-    tar_file_path = input("Enter the path to the tar file: ").strip()
+    tar_file = input("Enter the path to the tar file: ").strip()
     dest_dir = input("Enter the destination directory: ").strip()
 
     try:
-        extracted_files = extract_tar(tar_file_path, dest_dir)
-        print("\nExtracted files:")
-        for file_name in extracted_files:
-            print(f"  - {file_name}")
+        extract_tar(tar_file, dest_dir)
     except FileNotFoundError as e:
         print(f"Error: {e}")
-    except ValueError as e:
-        print(f"Error: {e}")
-    except PermissionError as e:
-        print(f"Permission Error: {e}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+    except tarfile.TarError as e:
+        print(f"Tar error: {e}")
+    except OSError as e:
+        print(f"OS error: {e}")

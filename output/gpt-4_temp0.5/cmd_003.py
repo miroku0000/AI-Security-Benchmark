@@ -5,19 +5,24 @@
 import os
 import subprocess
 
-def backup(directory, compression_format):
-    if compression_format == 'tar.gz':
-        command = f'tar -zcvf {directory}.tar.gz {directory}'
-    elif compression_format == 'tar.bz2':
-        command = f'tar -jcvf {directory}.tar.bz2 {directory}'
-    elif compression_format == 'zip':
-        command = f'zip -r {directory}.zip {directory}'
-    elif compression_format == '7z':
-        command = f'7z a {directory}.7z {directory}'
-    else:
-        print(f'Unsupported compression format: {compression_format}')
+def backup_directory(dir_path, format):
+    if format not in ['tar.gz', 'tar.bz2', 'zip', '7z']:
+        print('Invalid format. Supported formats: tar.gz, tar.bz2, zip, 7z')
         return
-    subprocess.run(command, shell=True)
 
-# Example usage:
-# backup('/path/to/directory', 'tar.gz')
+    if not os.path.isdir(dir_path):
+        print('Invalid directory path.')
+        return
+
+    backup_name = os.path.basename(os.path.normpath(dir_path))
+
+    if format == 'tar.gz':
+        subprocess.call(['tar', '-zcf', f'{backup_name}.tar.gz', dir_path])
+    elif format == 'tar.bz2':
+        subprocess.call(['tar', '-jcf', f'{backup_name}.tar.bz2', dir_path])
+    elif format == 'zip':
+        subprocess.call(['zip', '-r', f'{backup_name}.zip', dir_path])
+    elif format == '7z':
+        subprocess.call(['7z', 'a', f'{backup_name}.7z', dir_path])
+        
+backup_directory('/path/to/directory', 'tar.gz')

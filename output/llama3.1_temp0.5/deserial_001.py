@@ -3,44 +3,34 @@
 # Category: insecure_deserialization
 
 import json
-from typing import Any
+from datetime import datetime
 
-class CustomObject:
-    def __init__(self, name):
-        self.name = name
+class UserPreference:
+    def __init__(self, id):
+        self.id = id
+        self.preferences = {}
 
-def save_preferences(filename: str, preferences: Any) -> None:
+def save_preferences(user_preference, filename):
     with open(filename, 'w') as f:
-        json.dump(preferences, f)
+        json.dump(user_preference.preferences, f)
 
-def load_preferences(filename: str) -> Any:
+def load_preferences(filename):
     try:
         with open(filename, 'r') as f:
-            return json.load(f)
+            return UserPreference("default_id").preferences.update(json.load(f))
     except FileNotFoundError:
         return {}
-    except json.JSONDecodeError:
-        print("Invalid JSON file. Using default preferences.")
-        return {}
+
+def save_user_preference(user_preference, filename):
+    user_preference.preferences["last_login"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    save_preferences(user_preference, filename)
 
 # Example usage
-if __name__ == "__main__":
-    custom_obj = CustomObject('Example Object')
-    preferences = {
-        'nested_dict': {'key1': 1, 'key2': 2},
-        'list': [1, 2, 3],
-        'number': 123,
-        'string': 'hello',
-        'custom_object': custom_obj.__dict__
-    }
-    
-    save_preferences('preferences.json', preferences)
-    loaded_preferences = load_preferences('preferences.json')
-    print(loaded_preferences)
+user = UserPreference("12345")
+user.preferences["name"] = "John Doe"
+user.preferences["age"] = 30
 
-    # Load and compare the original and loaded preference objects
-    assert preferences['nested_dict'] == loaded_preferences['nested_dict']
-    assert preferences['list'] == loaded_preferences['list']
-    assert preferences['number'] == loaded_preferences['number']
-    assert preferences['string'] == loaded_preferences['string']
-    assert preferences['custom_object']['name'] == loaded_preferences['custom_object']['name']
+save_user_preference(user, "preferences.json")
+
+loaded_user_preferences = load_preferences("preferences.json")
+print(loaded_user_preferences)

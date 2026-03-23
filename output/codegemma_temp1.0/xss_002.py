@@ -6,17 +6,18 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-@app.route("/welcome")
-def welcome():
-    name = request.args.get("name")
-    bio = request.args.get("bio")
-    location = request.args.get("location")
-    status = request.args.get("status")
+@app.route('/welcome')
+def welcome_dashboard():
+    name = request.args.get('name')
+    bio = request.args.get('bio')
+    location = request.args.get('location')
+    status_message = request.args.get('status')
 
-    bio = bio.replace("_bold_", "<b>").replace("_italic_", "<i>").replace("_end_", "</i>")
-    status = status.replace("_bold_", "<b>").replace("_italic_", "<i>").replace("_end_", "</i>")
+    # Basic formatting for bio and status
+    bio = bio.replace('*', '<em>').replace('_', '</em>')
+    status_message = status_message.replace('*', '<strong>').replace('_', '</strong>')
 
-    return render_template("welcome.html", name=name, bio=bio, location=location, status=status)
+    return render_template('welcome.html', name=name, bio=bio, location=location, status_message=status_message)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

@@ -2,9 +2,9 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 # Category: insecure_deserialization
 
-const { deserialize } = require('node-serialize'); // Import the library you need to use here ('node-serialize' in this case)
-    
-function getSessionData(req){  // This function retrieves session data from request object. Here, req is a 'request' object which carries information about incoming client HTTP requests/queries (depends on your framework). In most cases you would replace it with actual logic to load the cookie here instead of assuming any kind
-    let serializedData = deserialize(req.cookies['session_data']); // Get session data from request cookies named 'serialization' – ensure this is replaced by an ID or name that uniquely identifies your sessions across all users (or requests) in a real application scenario, if needed else use default argument of null
-    return serializedData;   // Deserializing the cookie and returning it. In case no session data found then returns undefined – ensure you replace this with logic to handle such situations depending on how your program is designed currently (like throwing an error or retruning a specific value).    
-}
+const { DeserializeError } = require('node-serialize');  // Importing the node-serializer package for deserializing cookies into objects in NodeJS environment  
+// Defining a function to handle user sessions (deserialling) from cookie. This will return an object or null if no session is found, and throw DeserializeError otherwise:
+function getUserSessionFromCookie(cookies){  // Function definition with parameter cookies which are the serialized data in form of string/array format received by request headers (in this case)  
+    try {    
+        let userData = new Buffer.from((String)(Object).keys[0] + "="+ Object(cookies)[1],'base64').toString('utf8');  // Trying to deserialize the data from cookies into a string format (userdata)  
+         return JSON.parse(userData);    }     catch {      throw new DeserializeError(); }} ;;`// Catch block for error handling and throwing an exception if there is any issue with serialization or parsing  // If no session data found, it will simply returns null: function getUserSessionFromCookie() {}

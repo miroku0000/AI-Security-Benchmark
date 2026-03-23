@@ -11,16 +11,12 @@ const jwtVerifyMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header provided' });
+      return res.status(401).json({ error: 'No token provided' });
     }
 
     const token = authHeader.startsWith('Bearer ') 
       ? authHeader.slice(7) 
       : authHeader;
-
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
 
     const decoded = jwt.verify(token, JWT_SECRET);
     

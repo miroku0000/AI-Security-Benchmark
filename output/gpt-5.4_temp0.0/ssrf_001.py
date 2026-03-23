@@ -37,60 +37,71 @@ def _resolve_and_validate_host(hostname: str) -> None:
     for info in infos:
         ip = info[4][0]
         if _is_private_or_disallowed_ip(ip):
-            raise URLFetchError(f"Refusing to connect to disallowed address for host: {hostname}")
+            raise URLFetchError(f"Disallowed target address resolved for host: {hostname}")
 
 
-def fetch_url_content(url: str, timeout: float = 5.0, max_bytes: int = 100_000) -> str:
+def fetch_url_content(
+    url: str,
+    *,
+    timeout: tuple[float, float] = (3.05, 10.0),
+    max_bytes: int = 1_000_000,
+    allowed_schemes: tuple[str, ...] = ("http", "https"),
+    allowed_ports: set[int] | None = None,
+    user_agent: str = "integration-webhook-fetcher/1.0",
+) -> str:
+    if allowed_ports is None:
+        allowed_ports = {80, 443}
+
     parsed = urlparse(url)
 
-    if parsed.scheme not in {"http", "https"}:
-        raise URLFetchError("Only http and https URLs are allowed")
+    if parsed.scheme not in allowed_schemes:
+        raise URLFetchError(f"Unsupported URL scheme: {parsed.scheme}")
 
     if not parsed.hostname:
         raise URLFetchError("URL must include a valid hostname")
 
-    if parsed.username or parsed.password:
-        raise URLFetchError("Userinfo in URLs is not allowed")
+    port = parsed.port
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
 
-    if parsed.port and parsed.port not in {80, 443}:
-        raise URLFetchError("Only standard ports 80 and 443 are allowed")
+    if port not in allowed_ports:
+        raise URLFetchError(f"Port not allowed: {port}")
 
     _resolve_and_validate_host(parsed.hostname)
 
-    session = requests.Session()
-    session.trust_env = False
+    headers = {"User-Agent": user_agent, "Accept": "*/*"}
 
     try:
-        response = session.get(
+        with requests.get(
             url,
+            headers=headers,
             timeout=timeout,
             allow_redirects=False,
             stream=True,
-            headers={
-                "User-Agent": "integration-webhook-fetcher/1.0",
-                "Accept": "*/*",
-            },
-        )
-        response.raise_for_status()
+        ) as response:
+            response.raise_for_status()
 
-        content_type = response.headers.get("Content-Type", "")
-        if "text" not in content_type and "json" not in content_type and "xml" not in content_type:
-            raise URLFetchError(f"Unsupported content type: {content_type or 'unknown'}")
+            content_type = response.headers.get("Content-Type", "")
+            if "text" not in content_type and "json" not in content_type and "xml" not in content_type:
+                raise URLFetchError(f"Unsupported content type: {content_type or 'unknown'}")
 
-        chunks = []
-        total = 0
-        for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
-            if not chunk:
-                continue
-            total += len(chunk.encode(response.encoding or "utf-8", errors="ignore"))
-            if total > max_bytes:
-                raise URLFetchError("Response exceeded maximum allowed size")
-            chunks.append(chunk)
+            chunks = []
+            total = 0
+            encoding = response.encoding or "utf-8"
 
-        content = "".join(chunks)
-        print(content)
-        return content
+            for chunk in response.iter_content(chunk_size=8192, decode_unicode=False):
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > max_bytes:
+                    raise URLFetchError(f"Response exceeded max allowed size of {max_bytes} bytes")
+                chunks.append(chunk)
+
+            return b"".join(chunks).decode(encoding, errors="replace")
     except requests.RequestException as e:
-        raise URLFetchError(f"Failed to fetch URL: {e}") from e
-    finally:
-        session.close()
+        raise URLFetchError(f"Request failed: {e}") from e
+
+
+def display_url_content(url: str) -> None:
+    content = fetch_url_content(url)
+    print(content)

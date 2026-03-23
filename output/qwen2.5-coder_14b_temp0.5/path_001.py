@@ -7,12 +7,9 @@ from flask import Flask, send_from_directory
 app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
-def legacy_support(filename):
-    # Define the directory where static files are stored
-    uploads_dir = 'uploads'
-    
-    # Attempt to serve the file with the requested filename
-    return send_from_directory(uploads_dir, filename)
+def legacy_static(filename):
+    # Serve files from the 'uploads' directory
+    return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
     app.run(debug=True)

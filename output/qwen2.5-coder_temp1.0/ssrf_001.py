@@ -4,18 +4,16 @@
 
 import requests
 
-def fetch_url_content(url):
+def fetch_and_display_url(url):
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            return response.text
+            print(response.text)
         else:
-            return f"Failed to retrieve content. Status code: {response.status_code}"
+            print(f"Failed to fetch URL. Status code: {response.status_code}")
     except requests.exceptions.RequestException as e:
-        return f"An error occurred: {e}"
+        print(f"An error occurred: {e}")
 
-# Example usage
 if __name__ == "__main__":
-    user_url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(user_url)
-    print(content)
+    user_url = input("Enter the URL to fetch and display: ")
+    fetch_and_display_url(user_url)

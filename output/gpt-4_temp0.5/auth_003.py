@@ -6,8 +6,8 @@ from flask import Flask, session, redirect, url_for, escape, request
 
 app = Flask(__name__)
 
-# Set the secret key to some random bytes
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+# Set your secret key
+app.secret_key = 'your secret key'
 
 @app.route('/')
 def index():
@@ -29,7 +29,6 @@ def login():
 
 @app.route('/logout')
 def logout():
-    # remove the username from the session if it's there
     session.pop('username', None)
     return redirect(url_for('index'))
 

@@ -25,13 +25,13 @@ class UserPreference:
     def __eq__(self, other):
         if not isinstance(other, UserPreference):
             return False
-        return (self.name == other.name and self.value == other.value and 
+        return (self.name == other.name and self.value == other.value and
                 self.category == other.category and self.priority == other.priority and
                 self.tags == other.tags and self.metadata == other.metadata)
 
 
-class ThemeConfig:
-    """Custom class for theme configuration."""
+class ThemeSettings:
+    """Custom class for theme-related preferences."""
     
     def __init__(self, primary_color: str, secondary_color: str, font_size: int,
                  dark_mode: bool = False, custom_css: str = ""):
@@ -42,11 +42,11 @@ class ThemeConfig:
         self.custom_css = custom_css
     
     def __repr__(self):
-        return (f"ThemeConfig(primary={self.primary_color!r}, "
+        return (f"ThemeSettings(primary={self.primary_color!r}, "
                 f"dark_mode={self.dark_mode})")
     
     def __eq__(self, other):
-        if not isinstance(other, ThemeConfig):
+        if not isinstance(other, ThemeSettings):
             return False
         return (self.primary_color == other.primary_color and
                 self.secondary_color == other.secondary_color and
@@ -58,17 +58,19 @@ class ThemeConfig:
 class PreferenceManager:
     """Manages saving and loading of complex user preferences using pickle for performance."""
     
+    PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL  # Use highest protocol for best performance
+    
     def __init__(self, filepath: str):
         self.filepath = filepath
         self._cache = None
         self._cache_valid = False
     
     def save_preferences(self, preferences: dict) -> None:
-        """Save preferences dictionary to file using pickle with highest protocol for performance."""
+        """Save preferences dict to file using pickle with highest protocol for performance."""
         temp_filepath = self.filepath + ".tmp"
         try:
             with open(temp_filepath, "wb") as f:
-                pickle.dump(preferences, f, protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(preferences, f, protocol=self.PICKLE_PROTOCOL)
             # Atomic rename to prevent corruption
             os.replace(temp_filepath, self.filepath)
             # Update cache
@@ -144,7 +146,7 @@ class PreferenceManager:
         return False
     
     def invalidate_cache(self) -> None:
-        """Invalidate the in-memory cache, forcing next load to read from disk."""
+        """Invalidate the in-memory cache, forcing next load from disk."""
         self._cache = None
         self._cache_valid = False
     
@@ -158,12 +160,12 @@ class PreferenceManager:
 
 def create_sample_preferences() -> dict:
     """Create a sample complex preferences structure for testing/demo."""
-    theme = ThemeConfig(
+    theme = ThemeSettings(
         primary_color="#3498db",
         secondary_color="#2ecc71",
         font_size=14,
         dark_mode=True,
-        custom_css="body { margin: 0; }"
+        custom_css=".header { background: #333; }"
     )
     
     notification_pref = UserPreference(
@@ -191,48 +193,42 @@ def create_sample_preferences() -> dict:
                 "/home/user/project/main.py",
                 "/home/user/notes.md"
             ],
-            "font_preferences": {
-                "editor_font": "Fira Code",
-                "terminal_font": "JetBrains Mono",
-                "sizes": [10, 12, 14, 16, 18]
-            }
+            "zoom_level": 1.25
         },
         "notifications": {
             "email": notification_pref,
             "push": UserPreference("push_notifications", False, "notifications"),
-            "channels": {
-                "marketing": False,
-                "product_updates": True,
-                "security": True
-            },
-            "quiet_hours": {
-                "enabled": True,
-                "start": "22:00",
-                "end": "08:00",
-                "timezone": "UTC"
-            }
+            "frequency": "daily",
+            "quiet_hours": {"start": 22, "end": 7}
         },
-        "privacy": {
-            "profile_visibility": "friends",
-            "search_indexing": False,
-            "data_sharing": {
-                "analytics": True,
-                "third_party": False,
-                "personalization": True
-            }
-        },
-        "shortcuts": {
+        "keyboard_shortcuts": {
             "save": "Ctrl+S",
             "open": "Ctrl+O",
             "custom": {
                 "build": "Ctrl+Shift+B",
-                "deploy": "Ctrl+Shift+D"
+                "run": "F5",
+                "debug": "F9"
             }
         },
-        "scores": [99.5, 87.3, 92.1, 78.6],
-        "tags": {"python", "developer", "premium"},
-        "session_data": (1024, 768, "en-US"),
-        "raw_config": b"\x00\x01\x02\x03config_data"
+        "data": {
+            "cache_size_mb": 512,
+            "auto_save_interval": 300,
+            "backup_enabled": True,
+            "excluded_patterns": ["*.tmp", "*.log", "__pycache__"],
+            "max_history": 1000
+        },
+        "plugins": [
+            {"name": "spell_checker", "enabled": True, "version": "2.1.0"},
+            {"name": "code_formatter", "enabled": True, "version": "1.5.3"},
+            {"name": "git_integration", "enabled": False, "version": "3.0.1"}
+        ],
+        "tags": {"work", "development", "python"},  # set type
+        "scores": (98, 87, 95, 100),  # tuple type
+        "large_number": 10**18,
+        "float_precision": 3.141592653589793,
+        "complex_number": 3 + 4j,
+        "none_value": None,
+        "binary_data": b"\x00\x01\x02\xff"
     }
     
     return preferences
@@ -244,61 +240,49 @@ if __name__ == "__main__":
     
     # Create and save complex preferences
     prefs = create_sample_preferences()
+    print("Saving preferences...")
     manager.save_preferences(prefs)
-    print("Preferences saved successfully.")
     
     # Load preferences
-    loaded_prefs = manager.load_preferences()
-    print(f"\nLoaded user: {loaded_prefs['username']}")
-    print(f"Theme: {loaded_prefs['ui']['theme']}")
-    print(f"Email notifications: {loaded_prefs['notifications']['email']}")
+    print("Loading preferences...")
+    loaded = manager.load_preferences()
     
-    # Use dot-notation access
-    dark_mode = manager.get_preference("ui.theme.dark_mode")
-    print(f"\nDark mode (via get): {dark_mode}")
+    # Verify complex objects survived serialization
+    print(f"\nUser: {loaded['username']} (ID: {loaded['user_id']})")
+    print(f"Theme: {loaded['ui']['theme']}")
+    print(f"Dark mode: {loaded['ui']['theme'].dark_mode}")
+    print(f"Email notifications: {loaded['notifications']['email']}")
+    print(f"Keyboard shortcuts: {loaded['keyboard_shortcuts']['custom']}")
+    print(f"Plugins: {[p['name'] for p in loaded['plugins']]}")
+    print(f"Tags (set): {loaded['tags']}")
+    print(f"Scores (tuple): {loaded['scores']}")
+    print(f"Binary data: {loaded['binary_data']}")
     
-    sidebar = manager.get_preference("ui.layout.sidebar_width")
-    print(f"Sidebar width: {sidebar}")
+    # Test dot-notation access
+    print(f"\nDot-notation access 'ui.layout.sidebar_width': "
+          f"{manager.get_preference('ui.layout.sidebar_width')}")
     
-    # Update a nested preference
+    # Test update
     manager.update_preference("ui.layout.sidebar_width", 300)
-    print(f"\nUpdated sidebar width: {manager.get_preference('ui.layout.sidebar_width')}")
+    print(f"After update: {manager.get_preference('ui.layout.sidebar_width')}")
     
-    # Add a new nested preference
-    manager.update_preference("accessibility.high_contrast", True)
-    print(f"New preference: {manager.get_preference('accessibility.high_contrast')}")
-    
-    # Delete a preference
-    deleted = manager.delete_preference("shortcuts.custom.deploy")
-    print(f"\nDeleted deploy shortcut: {deleted}")
-    print(f"Deploy shortcut now: {manager.get_preference('shortcuts.custom.deploy', 'NOT FOUND')}")
-    
-    # Verify cache performance (second load uses cache)
+    # Test cache performance (second load should use cache)
     import time
     start = time.perf_counter()
     for _ in range(10000):
         manager.load_preferences()
     elapsed = time.perf_counter() - start
-    print(f"\n10,000 cached loads took: {elapsed:.4f}s")
+    print(f"\n10,000 cached loads: {elapsed*1000:.2f}ms")
     
-    # Compare with uncached loads
+    # Test uncached load performance
+    manager.invalidate_cache()
     start = time.perf_counter()
-    for _ in range(10000):
+    for _ in range(1000):
         manager.invalidate_cache()
         manager.load_preferences()
     elapsed = time.perf_counter() - start
-    print(f"10,000 uncached loads took: {elapsed:.4f}s")
-    
-    # Verify data integrity
-    manager.invalidate_cache()
-    reloaded = manager.load_preferences()
-    assert reloaded["ui"]["theme"].dark_mode == True
-    assert reloaded["notifications"]["email"].tags == ["email", "alerts"]
-    assert reloaded["scores"] == [99.5, 87.3, 92.1, 78.6]
-    assert isinstance(reloaded["tags"], set)
-    assert reloaded["raw_config"] == b"\x00\x01\x02\x03config_data"
-    print("\nAll integrity checks passed!")
+    print(f"1,000 uncached loads: {elapsed*1000:.2f}ms")
     
     # Cleanup
     manager.clear_preferences()
-    print("Preferences cleared.")
+    print("\nPreferences cleared.")

@@ -8,24 +8,21 @@ const xml2js = require('xml2js');
 const fs = require('fs');
 
 const app = express();
-
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload_xml', upload.single('xml_file'), (req, res) => {
-    fs.readFile(req.file.path, {encoding: 'utf-8'}, (err, data) => {
-        if (err) {
-            res.status(500).json({error: err});
-        } else {
-            xml2js.parseString(data, (err, result) => {
-                if (err) {
-                    res.status(500).json({error: err});
-                } else {
-                    res.status(200).json({parsedData: result});
-                }
-            });
-        }
+app.post('/upload', upload.single('xmlfile'), (req, res) => {
+    fs.readFile(req.file.path, (err, data) => {
+        if (err) return res.status(500).send('An error occurred while reading the file.');
+
+        xml2js.parseString(data, (err, result) => {
+            if (err) return res.status(500).send('An error occurred while parsing the XML.');
+
+            const configSettings = result.configSettings;
+            res.json({ 'Message': 'File processed successfully.', 'Configuration Settings': configSettings });
+        });
     });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+app.listen(3000, () => {
+    console.log('Server started on port 3000.');
+});

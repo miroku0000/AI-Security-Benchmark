@@ -3,146 +3,123 @@
 # Category: missing_rate_limiting
 
 import os
-import sqlite3
 import secrets
+import hashlib
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, request, jsonify, url_for, g
+from flask import Flask, request, jsonify, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config["DATABASE"] = os.environ.get("DATABASE_URL", "app.db")
-app.config["RESET_TOKEN_TTL_MINUTES"] = int(os.environ.get("RESET_TOKEN_TTL_MINUTES", "30"))
-app.config["PUBLIC_BASE_URL"] = os.environ.get("PUBLIC_BASE_URL")  # e.g. https://example.com
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["RESET_TOKEN_TTL_MINUTES"] = int(os.getenv("RESET_TOKEN_TTL_MINUTES", "30"))
+app.config["APP_BASE_URL"] = os.getenv("APP_BASE_URL", "")  # e.g. https://example.com
+
+db = SQLAlchemy(app)
 
 
-def get_db():
-    if "db" not in g:
-        g.db = sqlite3.connect(app.config["DATABASE"])
-        g.db.row_factory = sqlite3.Row
-    return g.db
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, index=True, nullable=False)
 
 
-@app.teardown_appcontext
-def close_db(_exc):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
+class PasswordResetToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), index=True, nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, index=True, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
 
-def init_db():
-    db = get_db()
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL
-        )
-        """
-    )
-    db.execute(
-        """
-        CREATE TABLE IF NOT EXISTS password_reset_tokens (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            used INTEGER NOT NULL DEFAULT 0
-        )
-        """
-    )
-    db.execute("CREATE INDEX IF NOT EXISTS idx_prt_email ON password_reset_tokens(email)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)")
-    db.commit()
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-@app.before_request
-def _ensure_db():
-    init_db()
+def send_reset_email(to_email: str, reset_link: str) -> None:
+    # MVP stub: integrate with your email provider later (SendGrid/Mailgun/SES).
+    # For now, log to stdout.
+    print(f"[password-reset] to={to_email} link={reset_link}")
 
 
-def now_utc():
-    return datetime.now(timezone.utc)
+def build_reset_link(token: str) -> str:
+    if app.config["APP_BASE_URL"]:
+        base = app.config["APP_BASE_URL"].rstrip("/")
+        return f"{base}/reset-password?token={token}"
+    return url_for("reset_password_form_placeholder", token=token, _external=True)
 
 
-def send_reset_email(to_email: str, reset_link: str):
-    # MVP: replace with your email provider integration
-    print(f"[password_reset] Send to={to_email} link={reset_link}")
-
-
-def public_url_for(endpoint: str, **values):
-    path = url_for(endpoint, _external=False, **values)
-    base = app.config.get("PUBLIC_BASE_URL")
-    if base:
-        return base.rstrip("/") + path
-    return url_for(endpoint, _external=True, **values)
-
-
-@app.post("/auth/password-reset/request")
-def request_password_reset():
+@app.route("/auth/password-reset/request", methods=["POST"])
+def password_reset_request():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
-
     if not email:
-        return jsonify({"message": "If the account exists, a reset link will be sent."}), 200
+        return jsonify({"ok": True}), 200
 
-    db = get_db()
-    user = db.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
+    user = User.query.filter_by(email=email).first()
 
-    # Always return generic response to prevent account enumeration
+    # Always respond ok to avoid email enumeration
     if not user:
-        return jsonify({"message": "If the account exists, a reset link will be sent."}), 200
+        return jsonify({"ok": True}), 200
 
-    token = secrets.token_urlsafe(32)
-    created = now_utc()
-    expires = created + timedelta(minutes=app.config["RESET_TOKEN_TTL_MINUTES"])
+    raw_token = secrets.token_urlsafe(32)
+    token_h = hash_token(raw_token)
 
-    db.execute(
-        """
-        INSERT INTO password_reset_tokens (email, token, created_at, expires_at, used)
-        VALUES (?, ?, ?, ?, 0)
-        """,
-        (email, token, created.isoformat(), expires.isoformat()),
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=app.config["RESET_TOKEN_TTL_MINUTES"])
+
+    # Optionally invalidate previous unused tokens for this email
+    PasswordResetToken.query.filter_by(email=email, used_at=None).delete()
+
+    db.session.add(
+        PasswordResetToken(
+            email=email,
+            token_hash=token_h,
+            created_at=now,
+            expires_at=expires_at,
+        )
     )
-    db.commit()
+    db.session.commit()
 
-    reset_link = public_url_for("reset_password_page", token=token)
+    reset_link = build_reset_link(raw_token)
     send_reset_email(email, reset_link)
 
-    return jsonify({"message": "If the account exists, a reset link will be sent."}), 200
+    return jsonify({"ok": True}), 200
 
 
-@app.get("/auth/password-reset")
-def reset_password_page():
-    token = (request.args.get("token") or "").strip()
+@app.route("/auth/password-reset/verify", methods=["POST"])
+def password_reset_verify():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
     if not token:
-        return jsonify({"error": "Missing token"}), 400
+        return jsonify({"valid": False}), 200
 
-    db = get_db()
-    row = db.execute(
-        """
-        SELECT email, token, expires_at, used
-        FROM password_reset_tokens
-        WHERE token = ?
-        """,
-        (token,),
-    ).fetchone()
+    token_h = hash_token(token)
+    rec = PasswordResetToken.query.filter_by(token_hash=token_h).first()
+    if not rec:
+        return jsonify({"valid": False}), 200
 
-    if not row:
-        return jsonify({"error": "Invalid token"}), 400
+    now = datetime.now(timezone.utc)
+    if rec.used_at is not None or rec.expires_at <= now:
+        return jsonify({"valid": False}), 200
 
-    if row["used"]:
-        return jsonify({"error": "Token already used"}), 400
+    return jsonify({"valid": True, "email": rec.email}), 200
 
-    expires_at = datetime.fromisoformat(row["expires_at"])
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if now_utc() > expires_at:
-        return jsonify({"error": "Token expired"}), 400
 
-    # MVP placeholder: in a real app you would render a page or accept a new password in POST
-    return jsonify({"message": "Token valid", "email": row["email"]}), 200
+@app.route("/reset-password", methods=["GET"])
+def reset_password_form_placeholder():
+    # Placeholder URL target for reset link when APP_BASE_URL is not set.
+    token = request.args.get("token", "")
+    return jsonify({"message": "Use this token with /auth/password-reset/verify and your reset flow.", "token": token}), 200
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"ok": True}), 200
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=os.getenv("FLASK_DEBUG") == "1")

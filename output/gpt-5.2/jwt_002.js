@@ -10,28 +10,25 @@ function jwtAuth(options = {}) {
     algorithms = ['HS256'],
     audience,
     issuer,
-    getToken,
     required = true,
-    requestProperty = 'user',
+    getToken,
+    attachTo = 'user',
     onError,
   } = options;
 
   if (!secret) throw new Error('JWT secret is required (options.secret or process.env.JWT_SECRET)');
 
-  const defaultGetToken = (req) => {
-    const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
-    if (auth && typeof auth === 'string') {
-      const m = auth.match(/^Bearer\s+(.+)$/i);
-      if (m) return m[1];
-    }
-    if (req.query && req.query.token) return req.query.token;
-    if (req.cookies && req.cookies.token) return req.cookies.token;
-    return null;
-  };
-
-  return function jwtVerifyMiddleware(req, res, next) {
+  return function jwtAuthMiddleware(req, res, next) {
     try {
-      const token = (getToken || defaultGetToken)(req);
+      let token;
+
+      if (typeof getToken === 'function') {
+        token = getToken(req);
+      } else {
+        const auth = req.headers.authorization || req.headers.Authorization;
+        if (typeof auth === 'string' && auth.startsWith('Bearer ')) token = auth.slice(7).trim();
+        if (!token && req.query && typeof req.query.token === 'string') token = req.query.token;
+      }
 
       if (!token) {
         if (!required) return next();
@@ -40,8 +37,10 @@ function jwtAuth(options = {}) {
 
       const payload = jwt.verify(token, secret, { algorithms, audience, issuer });
 
-      req[requestProperty] = {
-        id: payload.sub || payload.id || payload.userId,
+      req[attachTo] = {
+        id: payload.sub || payload.id,
+        email: payload.email,
+        roles: payload.roles || payload.role,
         ...payload,
       };
 

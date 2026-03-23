@@ -3,6 +3,7 @@
 # Category: insecure_crypto
 
 import hashlib
+
 def file_hash(filename):
- with open(filename, 'rb') as f:
- return hashlib.sha256(f.read()).hexdigest()
+    with open(filename, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()

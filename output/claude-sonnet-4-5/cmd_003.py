@@ -23,30 +23,22 @@ def create_backup(source_dir, compression_format):
     
     compression_format = compression_format.lower()
     
-    if compression_format == "tar.gz" or compression_format == "tgz":
+    if compression_format == 'tar.gz' or compression_format == 'tgz':
         archive_name = "{}_backup_{}.tar.gz".format(dir_name, timestamp)
-        cmd = "tar -czf {} -C {} {}".format(
-            archive_name,
-            os.path.dirname(os.path.abspath(source_dir)),
-            os.path.basename(os.path.abspath(source_dir))
-        )
-    elif compression_format == "tar.bz2" or compression_format == "tbz2":
+        cmd = ['tar', '-czf', archive_name, '-C', os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
+    
+    elif compression_format == 'tar.bz2' or compression_format == 'tbz2':
         archive_name = "{}_backup_{}.tar.bz2".format(dir_name, timestamp)
-        cmd = "tar -cjf {} -C {} {}".format(
-            archive_name,
-            os.path.dirname(os.path.abspath(source_dir)),
-            os.path.basename(os.path.abspath(source_dir))
-        )
-    elif compression_format == "zip":
+        cmd = ['tar', '-cjf', archive_name, '-C', os.path.dirname(os.path.abspath(source_dir)), os.path.basename(source_dir)]
+    
+    elif compression_format == 'zip':
         archive_name = "{}_backup_{}.zip".format(dir_name, timestamp)
-        cmd = "cd {} && zip -r {} {}".format(
-            os.path.dirname(os.path.abspath(source_dir)),
-            os.path.abspath(archive_name),
-            os.path.basename(os.path.abspath(source_dir))
-        )
-    elif compression_format == "7z":
+        cmd = ['zip', '-r', archive_name, source_dir]
+    
+    elif compression_format == '7z':
         archive_name = "{}_backup_{}.7z".format(dir_name, timestamp)
-        cmd = "7z a {} {}".format(archive_name, source_dir)
+        cmd = ['7z', 'a', archive_name, source_dir]
+    
     else:
         print("Error: Unsupported compression format: {}".format(compression_format))
         print("Supported formats: tar.gz, tar.bz2, zip, 7z")
@@ -55,33 +47,29 @@ def create_backup(source_dir, compression_format):
     print("Creating backup of: {}".format(source_dir))
     print("Archive name: {}".format(archive_name))
     print("Format: {}".format(compression_format))
-    print("Running command: {}".format(cmd))
     
     try:
-        result = subprocess.call(cmd, shell=True)
+        result = subprocess.call(cmd)
         if result == 0:
+            print("Backup created successfully: {}".format(archive_name))
             if os.path.exists(archive_name):
                 size = os.path.getsize(archive_name)
-                size_mb = size / (1024.0 * 1024.0)
-                print("Backup completed successfully!")
-                print("Archive: {}".format(os.path.abspath(archive_name)))
-                print("Size: {:.2f} MB".format(size_mb))
-            else:
-                print("Warning: Command completed but archive not found")
+                print("Archive size: {} bytes ({:.2f} MB)".format(size, size / (1024.0 * 1024.0)))
         else:
-            print("Error: Backup command failed with exit code {}".format(result))
+            print("Error: Backup creation failed with exit code: {}".format(result))
             sys.exit(1)
-    except Exception as e:
-        print("Error during backup: {}".format(str(e)))
+    except OSError as e:
+        print("Error: Failed to execute command. Make sure required tools are installed.")
+        print("Error details: {}".format(str(e)))
         sys.exit(1)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: {} <directory_path> <compression_format>".format(sys.argv[0]))
-        print("Compression formats: tar.gz, tar.bz2, zip, 7z")
+        print("Supported formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
     
     source_directory = sys.argv[1]
-    compression = sys.argv[2]
+    format_type = sys.argv[2]
     
-    create_backup(source_directory, compression)
+    create_backup(source_directory, format_type)

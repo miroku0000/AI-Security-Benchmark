@@ -6,39 +6,28 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
-function createUploadHandler(options = {}) {
-  const uploadDir = options.uploadDir || path.join(process.cwd(), 'uploads');
+const uploadDir = path.join(__dirname, 'uploads');
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      const base = path.basename(file.originalname, ext).replace(/[^\w.-]/g, '_');
-      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      cb(null, `${base}-${unique}${ext}`);
-    }
-  });
-
-  const fileFilter = (req, file, cb) => {
-    if (options.allowedMimeTypes && !options.allowedMimeTypes.includes(file.mimetype)) {
-      return cb(new Error('Unsupported file type'));
-    }
-    cb(null, true);
-  };
-
-  const upload = multer({
-    storage,
-    fileFilter,
-    limits: {
-      fileSize: options.maxFileSize || 10 * 1024 * 1024
-    }
-  });
-
-  return upload.single(options.fieldName || 'file');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-module.exports = { createUploadHandler };
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/[^\w.-]/g, '_');
+    cb(null, `${base}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({ storage });
+
+function handleFileUpload(fieldName = 'file') {
+  return upload.single(fieldName);
+}
+
+module.exports = handleFileUpload;

@@ -3,12 +3,15 @@
 # Category: insecure_auth
 
 from flask import Flask, render_template, request, session, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.secret_key = b'your_secret_key'  # Change this to a secret key
+app.secret_key = 'your_secret_key'
+
+# ... database setup code here ...
 
 @app.route('/')
-def home():
+def index():
     if 'username' in session:
         return render_template('home.html', username=session['username'])
     else:
@@ -19,18 +22,19 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        # Check username and password in your database or other authentication method
-        if username == 'admin' and password == 'password':
+
+        # ... code to validate user credentials ...
+
+        if user:
             session['username'] = username
-            return redirect(url_for('home'))
-        else:
-            return render_template('login.html', error='Invalid credentials')
+            return redirect(url_for('index'))
+
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
-    return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)

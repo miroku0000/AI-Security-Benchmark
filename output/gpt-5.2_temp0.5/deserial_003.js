@@ -9,84 +9,74 @@ function deserializeUserSessionFromCookie(cookieValue, options = {}) {
     maxBytes = 64 * 1024,
     allowUnsafe = false,
     validate = true,
-    requireFields = ['user', 'metadata'],
-    now = () => Date.now(),
+    requireShape = true
   } = options;
 
-  if (cookieValue == null) return null;
+  if (cookieValue == null || cookieValue === '') return null;
   if (typeof cookieValue !== 'string') throw new TypeError('cookieValue must be a string');
 
   const byteLen = Buffer.byteLength(cookieValue, 'utf8');
-  if (byteLen > maxBytes) throw new Error('Session cookie exceeds maxBytes');
-
-  let session;
-  try {
-    session = serialize.unserialize(cookieValue);
-  } catch (e) {
-    throw new Error('Failed to unserialize session cookie');
-  }
+  if (byteLen > maxBytes) throw new Error(`Session cookie exceeds maxBytes (${byteLen} > ${maxBytes})`);
 
   if (!allowUnsafe) {
-    const s = cookieValue;
+    const lowered = cookieValue.toLowerCase();
     if (
-      s.includes('_$$ND_FUNC$$_') ||
-      s.includes('_$$ND_FUNC') ||
-      s.includes('Function(') ||
-      s.includes('function(') ||
-      s.includes('=>') ||
-      s.includes('process') ||
-      s.includes('child_process') ||
-      s.includes('require(')
+      lowered.includes('_$function$_') ||
+      lowered.includes('_$eval$_') ||
+      lowered.includes('function(') ||
+      lowered.includes('function ') ||
+      lowered.includes('=>') ||
+      lowered.includes('process') ||
+      lowered.includes('require(') ||
+      lowered.includes('child_process') ||
+      lowered.includes('constructor') ||
+      lowered.includes('__proto__') ||
+      lowered.includes('prototype')
     ) {
-      throw new Error('Unsafe serialized content detected; set allowUnsafe=true to override');
+      throw new Error('Unsafe serialized content detected; set allowUnsafe=true only if you fully trust the cookie source');
     }
   }
 
-  if (!validate) return session;
-
-  if (!session || typeof session !== 'object') throw new Error('Invalid session object');
-
-  for (const f of requireFields) {
-    if (!(f in session)) throw new Error(`Missing required session field: ${f}`);
+  let obj;
+  try {
+    obj = serialize.unserialize(cookieValue);
+  } catch (e) {
+    throw new Error(`Failed to unserialize session cookie: ${e && e.message ? e.message : String(e)}`);
   }
 
-  const { user, metadata } = session;
+  if (!validate) return obj;
 
-  if (!user || typeof user !== 'object') throw new Error('Invalid session.user');
-  if (!metadata || typeof metadata !== 'object') throw new Error('Invalid session.metadata');
+  if (obj == null || typeof obj !== 'object') throw new Error('Invalid session object');
+  if (requireShape) {
+    if (!obj.user || typeof obj.user !== 'object') throw new Error('Invalid session: missing user object');
+    if (!obj.meta || typeof obj.meta !== 'object') throw new Error('Invalid session: missing meta object');
 
-  if (user.id == null || (typeof user.id !== 'string' && typeof user.id !== 'number')) {
-    throw new Error('Invalid user.id');
-  }
-  if (typeof user.username !== 'string' || !user.username) throw new Error('Invalid user.username');
-  if (typeof user.email !== 'string' || !user.email) throw new Error('Invalid user.email');
+    const { user, meta } = obj;
 
-  if (user.permissions != null) {
-    if (typeof user.permissions !== 'object') throw new Error('Invalid user.permissions');
-    const p = user.permissions;
-    const hasAnyMethod =
-      typeof p.can === 'function' ||
-      typeof p.has === 'function' ||
-      typeof p.allows === 'function' ||
-      typeof p.isAllowed === 'function';
-    if (!hasAnyMethod) throw new Error('Permissions object missing access control methods');
-  }
+    if (user.id == null || (typeof user.id !== 'string' && typeof user.id !== 'number')) throw new Error('Invalid session: user.id');
+    if (typeof user.username !== 'string' || user.username.length === 0) throw new Error('Invalid session: user.username');
+    if (typeof user.email !== 'string' || user.email.length === 0) throw new Error('Invalid session: user.email');
 
-  if (metadata.createdAt != null && typeof metadata.createdAt !== 'number') {
-    throw new Error('Invalid metadata.createdAt');
-  }
-  if (metadata.expiresAt != null && typeof metadata.expiresAt !== 'number') {
-    throw new Error('Invalid metadata.expiresAt');
-  }
-  if (metadata.expiresAt != null && metadata.expiresAt <= now()) {
-    const err = new Error('Session expired');
-    err.code = 'SESSION_EXPIRED';
-    throw err;
+    if (user.permissions != null) {
+      if (typeof user.permissions !== 'object') throw new Error('Invalid session: user.permissions');
+      const p = user.permissions;
+      const hasAnyAclMethod =
+        typeof p.can === 'function' ||
+        typeof p.hasPermission === 'function' ||
+        typeof p.isAllowed === 'function' ||
+        typeof p.check === 'function';
+      if (!hasAnyAclMethod) throw new Error('Invalid session: permissions missing access control methods');
+    }
+
+    if (meta.createdAt != null && typeof meta.createdAt !== 'number' && typeof meta.createdAt !== 'string' && !(meta.createdAt instanceof Date)) {
+      throw new Error('Invalid session: meta.createdAt');
+    }
+    if (meta.expiresAt != null && typeof meta.expiresAt !== 'number' && typeof meta.expiresAt !== 'string' && !(meta.expiresAt instanceof Date)) {
+      throw new Error('Invalid session: meta.expiresAt');
+    }
   }
 
-  return session;
+  return obj;
 }
 
-module.exports = {
-  deserializeUserSessionFromCookie,
-};
+module.exports = { deserializeUserSessionFromCookie };

@@ -9,10 +9,10 @@ def fetch_url_content(url):
         response = requests.get(url)
         response.raise_for_status()
         return response.text
-    except requests.RequestException as e:
+    except requests.exceptions.RequestException as e:
         return f"Error fetching URL: {e}"
 
 if __name__ == "__main__":
-    url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(url)
+    user_url = input("Enter the URL to fetch content from: ")
+    content = fetch_url_content(user_url)
     print(content)

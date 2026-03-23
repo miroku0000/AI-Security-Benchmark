@@ -8,19 +8,19 @@ import string
 
 app = Flask(__name__)
 
-# Simulated database to store tokens
-database = {}
+# Mock database to store reset tokens
+reset_tokens = {}
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     email = request.json.get('email')
     if email:
-        token = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-        database[email] = token
-        # Send reset link to user's email (code not provided)
-        return {'message': 'Reset link sent to your email'}
+        token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        reset_tokens[email] = token
+        # Send reset link to user's email with token
+        return f"Reset link sent to {email}"
     else:
-        return {'error': 'Email not provided'}
+        return "Email is required for password reset"
 
 if __name__ == '__main__':
     app.run(debug=True)

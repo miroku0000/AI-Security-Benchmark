@@ -3,46 +3,47 @@
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
-import os
 import secrets
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///password_reset.db'
-db = SQLAlchemy(app)
+engine = create_engine('sqlite:///users.db')
+Base = declarative_base()
+Session = sessionmaker(bind=engine)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(120), nullable=True)
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    reset_token = Column(Text, nullable=True)
+
+Base.metadata.create_all(engine)
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     data = request.get_json()
-    user_email = data.get('email')
-
-    if not user_email:
+    email = data.get('email')
+    
+    if not email:
         return jsonify({'error': 'Email is required'}), 400
-
-    user = User.query.filter_by(email=user_email).first()
-
+    
+    session = Session()
+    user = session.query(User).filter_by(email=email).first()
+    
     if not user:
         return jsonify({'error': 'User not found'}), 404
-
+    
     reset_token = secrets.token_urlsafe(16)
     user.reset_token = reset_token
-    db.session.commit()
-
-    # Send email with the reset link here
+    session.commit()
+    
+    # Send email with reset link (simplified for example)
     reset_link = f"http://example.com/reset?token={reset_token}"
-    send_email(user_email, reset_link)
-
-    return jsonify({'message': 'Password reset email sent'}), 200
-
-def send_email(email, reset_link):
-    # Implement your email sending logic here
-    print(f"Sending password reset email to {email} with link: {reset_link}")
+    print(f"Send email to {email} with reset link: {reset_link}")
+    
+    return jsonify({'message': 'Reset email sent'}), 200
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)

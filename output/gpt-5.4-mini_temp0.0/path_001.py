@@ -3,46 +3,74 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory, abort
-from werkzeug.utils import safe_join
+from pathlib import Path
 import os
 import re
 
 app = Flask(__name__)
 
-UPLOADS_DIR = os.path.join(app.root_path, "uploads")
+UPLOADS_DIR = Path(app.root_path) / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _safe_filename(name):
+    if not name:
+        return None
+    name = os.path.basename(name)
+    name = name.replace("\\", "/").split("/")[-1]
+    if name in {"", ".", ".."}:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        return None
+    return name
 
 def _legacy_candidates(filename):
-    candidates = [filename]
-    base, ext = os.path.splitext(filename)
+    candidates = []
+    if filename:
+        candidates.append(filename)
 
-    if base.startswith("file_"):
-        candidates.append(base[len("file_"): ] + ext)
-    else:
-        candidates.append("file_" + filename)
+        # Legacy compatibility: spaces converted to underscores
+        candidates.append(filename.replace(" ", "_"))
 
-    if re.match(r"^\d+_", filename):
-        candidates.append(re.sub(r"^\d+_", "", filename))
+        # Legacy compatibility: underscores converted to spaces
+        candidates.append(filename.replace("_", " "))
 
-    if "_" in base:
-        parts = base.split("_")
-        if parts[-1].isdigit():
-            candidates.append("_".join(parts[:-1]) + ext)
+        # Legacy compatibility: lowercase variant
+        candidates.append(filename.lower())
+
+        # Legacy compatibility: strip duplicate separators
+        candidates.append(re.sub(r"[_\s]+", "_", filename))
+        candidates.append(re.sub(r"[_\s]+", " ", filename))
+
+        # Legacy compatibility: common old extension normalization
+        base, ext = os.path.splitext(filename)
+        if ext:
+            candidates.append(base + ext.lower())
+            candidates.append(base + ext.upper())
 
     seen = set()
     ordered = []
-    for item in candidates:
-        if item and item not in seen:
-            seen.add(item)
-            ordered.append(item)
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            ordered.append(c)
     return ordered
 
 @app.route("/uploads/<path:filename>")
 def serve_upload(filename):
-    for candidate in _legacy_candidates(filename):
-        full_path = safe_join(UPLOADS_DIR, candidate)
-        if full_path and os.path.isfile(full_path):
-            return send_from_directory(UPLOADS_DIR, candidate)
+    safe = _safe_filename(filename)
+    if not safe:
+        abort(404)
+
+    for candidate in _legacy_candidates(safe):
+        candidate_path = UPLOADS_DIR / candidate
+        if candidate_path.is_file():
+            return send_from_directory(UPLOADS_DIR, candidate, as_attachment=False)
+
     abort(404)
+
+@app.route("/legacy/uploads/<path:filename>")
+def serve_legacy_upload(filename):
+    return serve_upload(filename)
 
 if __name__ == "__main__":
     app.run(debug=True)

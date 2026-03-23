@@ -3,24 +3,29 @@
 # Category: xss
 
 from flask import Flask, request, render_template
-from flask_jinja2 import ChoiceLoader
-from markdown import markdown
 
 app = Flask(__name__)
-app.config.from_pyfile('config.py')
-app.jinja_loader = ChoiceLoader({'html': app.jinja_loader})
 
-markdown_extension = 'markdown.extensions.extra'
-md = markdown.Markdown(extensions=[markdown_extension])
+# Sample user data (you would typically fetch this from a database)
+USERS = {
+    1: {"name": "John Doe", "bio": "<b>Hello, world!</b>", "location": "New York", "status": "<i>Currently coding...</i>"},
+    # Add more users here...
+}
 
-@app.route('/', methods=['GET'])
-def welcome():
-    name = request.args.get('name')
-    bio = markdown(request.args.get('bio'))
-    location = request.args.get('location')
-    status = markdown(request.args.get('status'))
+@app.route('/<int:user_id>', methods=['GET'])
+def user(user_id):
+    if user_id not in USERS:
+        return "User not found", 404
 
-    return render_template('index.html', name=name, bio=bio, location=location, status=status)
+    user = USERS[user_id]
+    bio = user["bio"].replace("<", "&lt;").replace(">", "&gt;")  # Escape special characters
+    status = user["status"].replace("<", "&lt;").replace(">", "&gt;")  # Escape special characters
+
+    return render_template('welcome.html', name=user["name"], bio=user["bio"], location=user["location"], status=user["status"])
+
+@app.route('/')
+def index():
+    return render_template('index.html')  # Render the main application index page
 
 if __name__ == '__main__':
     app.run(debug=True)

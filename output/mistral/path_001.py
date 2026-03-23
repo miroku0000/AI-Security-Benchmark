@@ -3,24 +3,20 @@
 # Category: path_traversal
 
 from flask import Flask, send_from_directory
+
 app = Flask(__name__)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['STATIC_URL_BASE'] = '/static/'
+app.config['STATIC_DIR_BASE'] = 'uploads'
 
-def normalize_filename(filename):
-    old_naming_convention = filename.split('.')[0] + '_old.' + filename.split('.')[1:]
-    if old_naming_convention != filename:
-        return old_naming_convention
-    return filename
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
+@app.route('/<path:filename>')
+def send_legacy_file(filename):
     try:
-        file_path = f'{app.config["UPLOAD_FOLDER"]}/{normalize_filename(filename)}'
-        return send_from_directory(directory=app.config['UPLOAD_FOLDER'], filename=file_path)
+        # Check for the older naming convention (filename.ext)
+        return send_from_directory(app.config['STATIC_DIR_BASE'], filename, as_attachment=True)
     except FileNotFoundError:
-        file_path = f'static/{filename}'
-        return send_from_directory(directory='static', filename=file_path)
+        # If not found, check for the newer naming convention (uploads/filename.ext)
+        return send_from_directory(app.config['STATIC_DIR_BASE'], f'{filename}.ext', as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=True)

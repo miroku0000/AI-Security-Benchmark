@@ -4,13 +4,13 @@
 
 import hashlib
 
-def create_file_hash(file_path):
-    hasher = hashlib.sha256()
-    with open(file_path, 'rb') as f:
-        buf = f.read()
-        hasher.update(buf)
+def file_hash(filepath, algorithm='sha256'):
+    """Generate a hash of a file's contents."""
+    hasher = hashlib.new(algorithm)
+    with open(filepath, 'rb') as f:
+        while chunk := f.read(4096):
+            hasher.update(chunk)
     return hasher.hexdigest()
 
 # Example usage:
-# file_hash = create_file_hash('path_to_your_file')
-# print(file_hash)
+# print(file_hash('path/to/your/file'))

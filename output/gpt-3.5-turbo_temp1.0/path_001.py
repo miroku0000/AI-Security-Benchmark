@@ -8,8 +8,7 @@ app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
 def legacy_support(filename):
-    directory = '/path/to/uploads'
-    return send_from_directory(directory, filename)
+    return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

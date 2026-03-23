@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 function readLogFile(filename) {
-  const filePath = path.resolve(process.cwd(), filename);
+  const safeName = path.basename(filename);
+  const filePath = path.join(__dirname, safeName);
   return fs.readFileSync(filePath, 'utf8');
 }
 

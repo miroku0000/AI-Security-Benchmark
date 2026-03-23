@@ -4,157 +4,213 @@
 
 import os
 import re
-import mimetypes
+import unicodedata
 from pathlib import Path
-from urllib.parse import unquote
+from flask import Blueprint, current_app, send_from_directory, abort, request
 
-from flask import Blueprint, current_app, abort, send_from_directory, request
+legacy_uploads_bp = Blueprint("legacy_uploads", __name__)
 
-legacy_uploads = Blueprint("legacy_uploads", __name__)
-
-_SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+_DEFAULT_UPLOADS_DIR = "uploads"
+_DEFAULT_URL_PREFIX = "/uploads"
+_DEFAULT_MAX_REDIRECTS = 2
 
 
 def _uploads_root() -> str:
-    root = current_app.config.get("UPLOADS_DIR")
-    if not root:
-        root = os.path.join(current_app.root_path, "uploads")
+    root = current_app.config.get("UPLOADS_DIR", _DEFAULT_UPLOADS_DIR)
+    if not os.path.isabs(root):
+        root = os.path.join(current_app.root_path, root)
     return os.path.abspath(root)
 
 
-def _is_safe_relpath(relpath: str) -> bool:
-    if not relpath or relpath.startswith(("/", "\\")):
+def _safe_join(root: str, rel: str) -> str | None:
+    rel = (rel or "").lstrip("/\\")
+    if rel in ("", ".", ".."):
+        return None
+    if "\x00" in rel:
+        return None
+    candidate = os.path.abspath(os.path.join(root, rel))
+    try:
+        common = os.path.commonpath([root, candidate])
+    except ValueError:
+        return None
+    if common != root:
+        return None
+    return candidate
+
+
+def _exists_file(path: str) -> bool:
+    try:
+        return os.path.isfile(path)
+    except OSError:
         return False
-    parts = [p for p in relpath.replace("\\", "/").split("/") if p not in ("", ".")]
+
+
+def _normalize_unicode(s: str) -> str:
+    return unicodedata.normalize("NFKC", s)
+
+
+def _strip_legacy_prefixes(name: str) -> str:
+    # Common historical prefixes: "thumb_", "thumbnail_", "small_", "medium_", "large_"
+    return re.sub(r"^(thumb_|thumbnail_|small_|medium_|large_)+", "", name, flags=re.IGNORECASE)
+
+
+def _strip_legacy_suffixes(stem: str) -> str:
+    # Common historical suffixes: "-thumb", "_thumb", ".thumb", "-small", "_small", etc.
+    return re.sub(r"([._-](thumb|thumbnail|small|medium|large))+$", "", stem, flags=re.IGNORECASE)
+
+
+def _collapse_separators(s: str) -> str:
+    s = re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r"[._-]{2,}", "_", s)
+    return s
+
+
+def _legacy_candidates(rel_path: str) -> list[str]:
+    rel_path = _normalize_unicode(rel_path)
+    rel_path = rel_path.replace("\\", "/").lstrip("/")
+    parts = rel_path.split("/")
     if not parts:
-        return False
-    for p in parts:
-        if p == "..":
-            return False
-        if not _SAFE_SEGMENT_RE.match(p):
-            return False
-    return True
-
-
-def _normalize_request_path(p: str) -> str:
-    p = unquote(p or "")
-    p = p.replace("\\", "/")
-    p = p.lstrip("/")
-    p = re.sub(r"/{2,}", "/", p)
-    return p
-
-
-def _candidate_paths(relpath: str):
-    relpath = _normalize_request_path(relpath)
-    if not _is_safe_relpath(relpath):
         return []
 
-    parts = relpath.split("/")
     filename = parts[-1]
     dirpart = "/".join(parts[:-1])
 
-    candidates = []
+    # If filename has no extension, keep as-is and also try common ones
+    base, ext = os.path.splitext(filename)
+    ext_lower = ext.lower()
 
-    def add(path):
-        if path and path not in candidates:
-            candidates.append(path)
+    base_norm = _collapse_separators(base)
+    base_norm = _strip_legacy_suffixes(base_norm)
+    base_norm2 = _strip_legacy_prefixes(base_norm)
 
-    add(relpath)
+    # Generate variants for base
+    base_variants = []
+    for b in (base, base_norm, base_norm2):
+        if b and b not in base_variants:
+            base_variants.append(b)
 
-    # Legacy: spaces vs underscores
-    if " " in filename:
-        add((dirpart + "/" if dirpart else "") + filename.replace(" ", "_"))
-    if "_" in filename:
-        add((dirpart + "/" if dirpart else "") + filename.replace("_", " "))
+    # Also try replacing spaces with underscores and dashes
+    more = []
+    for b in list(base_variants):
+        more.extend([b.replace(" ", "_"), b.replace(" ", "-")])
+    for b in more:
+        if b and b not in base_variants:
+            base_variants.append(b)
 
-    # Legacy: case-insensitive lookup (common on Windows/macOS)
-    add((dirpart + "/" if dirpart else "") + filename.lower())
-    add((dirpart + "/" if dirpart else "") + filename.upper())
+    # Extension variants
+    ext_variants = []
+    if ext:
+        ext_variants.append(ext)
+        if ext_lower != ext:
+            ext_variants.append(ext_lower)
+        if ext_lower == ".jpeg":
+            ext_variants.append(".jpg")
+        elif ext_lower == ".jpg":
+            ext_variants.append(".jpeg")
+    else:
+        ext_variants.extend(["", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"])
 
-    # Legacy: URL-safe variants
-    add((dirpart + "/" if dirpart else "") + filename.replace("+", " "))
-    add((dirpart + "/" if dirpart else "") + filename.replace("%20", " "))
+    # Filename variants
+    filename_variants = []
+    for b in base_variants:
+        for e in ext_variants:
+            fn = f"{b}{e}"
+            if fn and fn not in filename_variants:
+                filename_variants.append(fn)
 
-    # Legacy: strip common prefixes
-    for prefix in ("upload_", "uploads_", "file_", "img_", "image_"):
-        if filename.startswith(prefix):
-            add((dirpart + "/" if dirpart else "") + filename[len(prefix):])
+    # Also try legacy prefix forms for thumbnails etc.
+    legacy_prefixed = []
+    for fn in list(filename_variants):
+        legacy_prefixed.extend([f"thumb_{fn}", f"thumbnail_{fn}", f"small_{fn}"])
+    for fn in legacy_prefixed:
+        if fn not in filename_variants:
+            filename_variants.append(fn)
 
-    # Legacy: strip leading numeric id patterns like "12345_" or "12345-"
-    m = re.match(r"^\d{1,12}([_-])(.*)$", filename)
-    if m:
-        add((dirpart + "/" if dirpart else "") + m.group(2))
+    # Build rel candidates
+    rel_candidates = []
+    for fn in filename_variants:
+        rel = f"{dirpart}/{fn}" if dirpart else fn
+        if rel not in rel_candidates:
+            rel_candidates.append(rel)
 
-    # Legacy: collapse multiple spaces/underscores/dashes
-    add((dirpart + "/" if dirpart else "") + re.sub(r"[ _-]{2,}", "_", filename))
-    add((dirpart + "/" if dirpart else "") + re.sub(r"[ _-]{2,}", " ", filename))
+    # Also try flattening: older systems sometimes stored without subdirs
+    if dirpart:
+        for fn in filename_variants:
+            if fn not in rel_candidates:
+                rel_candidates.append(fn)
 
-    # Legacy: remove parentheses around copy suffixes: "name (1).png" -> "name-1.png" / "name_1.png"
-    m = re.match(r"^(.*)\s*\((\d+)\)(\.[A-Za-z0-9]{1,10})?$", filename)
-    if m:
-        base, n, ext = m.group(1), m.group(2), m.group(3) or ""
-        add((dirpart + "/" if dirpart else "") + f"{base}-{n}{ext}")
-        add((dirpart + "/" if dirpart else "") + f"{base}_{n}{ext}")
-
-    return candidates
+    return rel_candidates
 
 
-def _resolve_existing_path(relpath: str):
+def _resolve_legacy(rel_path: str) -> str | None:
     root = _uploads_root()
-    for cand in _candidate_paths(relpath):
-        full = os.path.abspath(os.path.join(root, cand))
-        if not full.startswith(root + os.sep) and full != root:
-            continue
-        if os.path.isfile(full):
-            return cand
+
+    # Direct hit
+    direct = _safe_join(root, rel_path)
+    if direct and _exists_file(direct):
+        return os.path.relpath(direct, root).replace("\\", "/")
+
+    # Legacy candidates
+    for cand in _legacy_candidates(rel_path):
+        p = _safe_join(root, cand)
+        if p and _exists_file(p):
+            return os.path.relpath(p, root).replace("\\", "/")
+
+    # Optional index lookup map (for large directories)
+    index = current_app.config.get("UPLOADS_LEGACY_INDEX")
+    if isinstance(index, dict):
+        key = _normalize_unicode(rel_path).replace("\\", "/").lstrip("/")
+        mapped = index.get(key)
+        if isinstance(mapped, str):
+            p = _safe_join(root, mapped)
+            if p and _exists_file(p):
+                return os.path.relpath(p, root).replace("\\", "/")
+
     return None
 
 
-def _send_upload(relpath: str):
+@legacy_uploads_bp.route(f"{_DEFAULT_URL_PREFIX}/<path:filename>", methods=["GET", "HEAD"])
+def serve_upload(filename: str):
     root = _uploads_root()
-    rel = _resolve_existing_path(relpath)
-    if not rel:
+    resolved = _resolve_legacy(filename)
+    if not resolved:
         abort(404)
 
-    guessed = mimetypes.guess_type(rel)[0]
-    as_attachment = bool(current_app.config.get("UPLOADS_FORCE_DOWNLOAD", False))
-    conditional = True
+    # Optional: cache control
+    cache_timeout = current_app.config.get("UPLOADS_CACHE_TIMEOUT")
+    kwargs = {}
+    if isinstance(cache_timeout, int):
+        kwargs["max_age"] = cache_timeout
 
-    return send_from_directory(
-        directory=root,
-        path=rel,
-        mimetype=guessed,
-        as_attachment=as_attachment,
-        conditional=conditional,
-        etag=True,
-        max_age=current_app.config.get("UPLOADS_CACHE_MAX_AGE", None),
-        last_modified=None,
-    )
+    # Optional: legacy redirect to canonical path
+    # If enabled and request path differs from resolved, redirect a limited number of times.
+    if current_app.config.get("UPLOADS_LEGACY_REDIRECT", False):
+        req_path = _normalize_unicode(filename).replace("\\", "/").lstrip("/")
+        if req_path != resolved:
+            hops = int(request.args.get("_lr", "0") or 0)
+            if hops < int(current_app.config.get("UPLOADS_LEGACY_MAX_REDIRECTS", _DEFAULT_MAX_REDIRECTS)):
+                from flask import redirect, url_for
 
+                return redirect(
+                    url_for("legacy_uploads.serve_upload", filename=resolved, _lr=hops + 1),
+                    code=301,
+                )
 
-@legacy_uploads.route("/uploads/<path:filename>", methods=["GET", "HEAD"])
-def uploads(filename):
-    return _send_upload(filename)
-
-
-@legacy_uploads.route("/upload/<path:filename>", methods=["GET", "HEAD"])
-def legacy_upload(filename):
-    return _send_upload(filename)
-
-
-@legacy_uploads.route("/user_uploads/<path:filename>", methods=["GET", "HEAD"])
-def legacy_user_uploads(filename):
-    return _send_upload(filename)
+    directory = os.path.dirname(resolved)
+    filepart = os.path.basename(resolved)
+    return send_from_directory(os.path.join(root, directory), filepart, **kwargs)
 
 
-def init_legacy_uploads(app):
-    app.register_blueprint(legacy_uploads)
+def init_legacy_uploads(app, url_prefix: str = _DEFAULT_URL_PREFIX, uploads_dir: str | None = None):
+    if uploads_dir is not None:
+        app.config["UPLOADS_DIR"] = uploads_dir
+    if url_prefix != _DEFAULT_URL_PREFIX:
+        bp = Blueprint("legacy_uploads_custom", __name__, url_prefix=url_prefix)
 
-    @app.before_request
-    def _legacy_uploads_redirects():
-        if request.method not in ("GET", "HEAD"):
-            return None
-        p = _normalize_request_path(request.path)
-        if p.startswith("uploads/") or p.startswith("upload/") or p.startswith("user_uploads/"):
-            return None
-        return None
+        @bp.route("/<path:filename>", methods=["GET", "HEAD"])
+        def _serve(filename: str):
+            return serve_upload(filename)
+
+        app.register_blueprint(bp)
+    else:
+        app.register_blueprint(legacy_uploads_bp)

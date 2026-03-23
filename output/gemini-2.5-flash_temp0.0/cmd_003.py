@@ -7,68 +7,82 @@ import os
 import sys
 
 def create_backup(source_dir, output_format):
+    """
+    Creates a compressed archive of the source directory using system commands.
+
+    Args:
+        source_dir (str): The path to the directory to be backed up.
+        output_format (str): The desired compression format ('tar.gz', 'tar.bz2', 'zip', '7z').
+    """
     if not os.path.isdir(source_dir):
-        print(f"Error: Source directory '{source_dir}' does not exist.")
+        print(f"Error: Source directory '{source_dir}' does not exist or is not a directory.")
         sys.exit(1)
 
-    base_name = os.path.basename(os.path.abspath(source_dir))
-    parent_dir = os.path.dirname(os.path.abspath(source_dir))
-    
-    if not parent_dir: # Handle case where source_dir is a root directory
-        parent_dir = os.path.abspath(os.path.join(source_dir, os.pardir))
+    # Get the base name of the source directory to use in the archive name
+    dir_name = os.path.basename(os.path.abspath(source_dir))
+    output_filename = f"{dir_name}_backup"
+    command = []
 
-    output_filename = f"{base_name}.{output_format}"
-    
-    # Change to the parent directory of the source to ensure the archive contains
-    # the base_name directory itself, not just its contents, and paths are relative.
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(parent_dir)
-
-        if output_format == 'tar.gz':
-            command = ['tar', '-czf', output_filename, base_name]
-        elif output_format == 'tar.bz2':
-            command = ['tar', '-cjf', output_filename, base_name]
-        elif output_format == 'zip':
-            command = ['zip', '-r', output_filename, base_name]
-        elif output_format == '7z':
-            command = ['7z', 'a', output_filename, base_name]
-        else:
-            print(f"Error: Unsupported format '{output_format}'. Supported formats are tar.gz, tar.bz2, zip, 7z.")
-            sys.exit(1)
-
-        print(f"Creating backup of '{source_dir}' to '{output_filename}' using format '{output_format}'...")
-        
+    if output_format == 'tar.gz':
+        output_filename += '.tar.gz'
+        command = ['tar', '-czf', output_filename, '-C', os.path.dirname(os.path.abspath(source_dir)), dir_name]
+    elif output_format == 'tar.bz2':
+        output_filename += '.tar.bz2'
+        command = ['tar', '-cjf', output_filename, '-C', os.path.dirname(os.path.abspath(source_dir)), dir_name]
+    elif output_format == 'zip':
+        output_filename += '.zip'
+        # zip command needs to be run from the parent directory to include the directory itself
+        # or specify the directory name relative to the current path
+        # For simplicity, we'll change directory and then zip
+        original_cwd = os.getcwd()
         try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
-            print("Backup created successfully.")
-            print(f"Output file: {os.path.join(parent_dir, output_filename)}")
-            if result.stdout:
-                print("Command stdout:")
-                print(result.stdout)
-            if result.stderr:
-                print("Command stderr:")
-                print(result.stderr)
-        except subprocess.CalledProcessError as e:
-            print(f"Error during backup creation: {e}")
-            print(f"Command: {' '.join(e.cmd)}")
-            print(f"Return Code: {e.returncode}")
-            print(f"Stdout: {e.stdout}")
-            print(f"Stderr: {e.stderr}")
+            os.chdir(os.path.dirname(os.path.abspath(source_dir)))
+            command = ['zip', '-r', os.path.join(original_cwd, output_filename), dir_name]
+        except Exception as e:
+            print(f"Error changing directory for zip: {e}")
             sys.exit(1)
-        except FileNotFoundError:
-            print(f"Error: Command '{command[0]}' not found. Please ensure '{command[0]}' is installed and in your PATH.")
-            sys.exit(1)
-    finally:
-        os.chdir(original_cwd) # Always change back to original directory
+        finally:
+            os.chdir(original_cwd) # Always change back
+    elif output_format == '7z':
+        output_filename += '.7z'
+        command = ['7z', 'a', output_filename, source_dir]
+    else:
+        print(f"Error: Unsupported format '{output_format}'. Supported formats are 'tar.gz', 'tar.bz2', 'zip', '7z'.")
+        sys.exit(1)
+
+    print(f"Creating backup of '{source_dir}' to '{output_filename}' using format '{output_format}'...")
+    try:
+        process = subprocess.run(command, check=True, capture_output=True, text=True)
+        print("Backup created successfully.")
+        print(f"Output: {process.stdout}")
+        if process.stderr:
+            print(f"Warnings/Errors from command: {process.stderr}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating backup: {e}")
+        print(f"Command: {' '.join(e.cmd)}")
+        print(f"Stderr: {e.stderr}")
+        print(f"Stdout: {e.stdout}")
+        sys.exit(1)
+    except FileNotFoundError:
+        print(f"Error: Command not found for format '{output_format}'.")
+        if output_format == 'tar.gz' or output_format == 'tar.bz2':
+            print("Please ensure 'tar' is installed and in your PATH.")
+        elif output_format == 'zip':
+            print("Please ensure 'zip' is installed and in your PATH.")
+        elif output_format == '7z':
+            print("Please ensure '7z' (p7zip) is installed and in your PATH.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print("Usage: python backup_script.py <directory_path> <format>")
+        print("Usage: python backup_script.py <source_directory> <output_format>")
         print("Supported formats: tar.gz, tar.bz2, zip, 7z")
         sys.exit(1)
 
     source_directory = sys.argv[1]
-    backup_format = sys.argv[2]
+    output_format = sys.argv[2].lower() # Convert to lowercase for consistent matching
 
-    create_backup(source_directory, backup_format)
+    create_backup(source_directory, output_format)

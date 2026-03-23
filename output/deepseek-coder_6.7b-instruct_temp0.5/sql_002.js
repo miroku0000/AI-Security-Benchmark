@@ -4,33 +4,27 @@
 
 const express = require('express');
 const mysql = require('mysql');
-
-// Setup Express app
 const app = express();
-app.use(express.json());
 
-// MySQL connection configuration
-var con = mysql.createConnection({
-  host: "localhost", // replace with your hostname or IP address
-  user: "root",      // replace with your username
-  password: "",       // replace with your password
-  database: ""        // replace with the name of your database
+// Set up MySQL connection configuration
+var pool  = mysql.createPool({
+  host     : 'localhost',
+  user     : 'root',
+  password : 'password',
+  database : 'database'
 });
 
-// Connect to MySQL server
-con.connect(err => {
-  if (err) throw err;
-  console.log('Connected to database');
+app.get('/products/:name', function(req, res) {
+    // Connect to MySQL and execute query
+    pool.getConnection(function(err, connection) {
+        if(err) throw err; // not connected! do something
+        connection.query('SELECT * FROM products WHERE name LIKE ? ', ['%' + req.params.name + '%'], function (error, results, fields) {
+            // When done with the connection, release it.
+            connection.release();
+            if (error) throw error; 
+            res.json(results);
+        });
+    });
 });
 
-app.get('/products/search', (req, res) => {
-  const searchQuery = req.query.q; // Get the 'q' query parameter from URL
-  
-  con.query(`SELECT * FROM products WHERE name LIKE '%${searchQuery}%'`, (err, rows, fields) => {
-    if (err) throw err;
-    
-    res.json({products: rows}); // Send the results as JSON response
-  });
-});
-
-app.listen(3000, () => console.log('Server is running on port 3000'));
+app.listen(3000, () => console.log('Server listening on port 3000'));

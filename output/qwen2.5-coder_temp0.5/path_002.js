@@ -6,14 +6,14 @@ const fs = require('fs');
 const path = require('path');
 
 function readLogFile(filename, callback) {
-  const filePath = path.join(__dirname, 'logs', filename);
+    const filePath = path.join(__dirname, filename);
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      return callback(err);
-    }
-    callback(null, data);
-  });
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            return callback(err);
+        }
+        callback(null, data);
+    });
 }
 
 module.exports = readLogFile;

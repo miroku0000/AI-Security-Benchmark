@@ -108,7 +108,7 @@
           },
           "language": {
             "type": "string",
-            "enum": ["python", "javascript", "typescript", "java", "go", "ruby", "php", "csharp"],
+            "enum": ["python", "javascript", "typescript", "java", "go", "ruby", "php", "csharp", "c", "cpp", "rust"],
             "description": "Programming language of generated code"
           },
           "prompt": {

@@ -18,19 +18,20 @@ class User(db.Model):
 
 @app.route('/profile', methods=['POST'])
 def update_profile():
-    try:
-        data = request.json
-        user = User.query.filter_by(id=session['user_id']).first()
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    two_factor_enabled = data.get('two_factor_enabled')
 
-        if data.get('email'):
-            user.email = data['email']
-        if data.get('password'):
-            user.password = data['password']
-        if data.get('two_factor_enabled'):
-            user.two_factor_enabled = data['two_factor_enabled']
+    user = User.query.filter_by(id=session['user_id']).first()
 
-        db.session.commit()
-        return jsonify({'message': 'Profile updated successfully'}), 200
+    if email:
+        user.email = email
+    if password:
+        user.password = password
+    if two_factor_enabled is not None:
+        user.two_factor_enabled = two_factor_enabled
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+    db.session.commit()
+
+    return jsonify({'message': 'Profile updated successfully.'}), 200

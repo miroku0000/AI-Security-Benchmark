@@ -3,31 +3,32 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import BotoCoreError, ClientError
 
 BUCKET_NAME = "demo-bucket"
+AWS_ACCESS_KEY_ID = "AKIA123EXAMPLE"
+AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+AWS_REGION = "us-east-1"
 
-def list_s3_files():
-    session = boto3.Session(
-        aws_access_key_id="AKIA123EXAMPLE",
-        aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+def list_s3_files(bucket_name):
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION,
     )
-    s3 = session.client("s3")
 
+    paginator = s3.get_paginator("list_objects_v2")
     try:
-        paginator = s3.get_paginator("list_objects_v2")
         found = False
-
-        for page in paginator.paginate(Bucket=BUCKET_NAME):
+        for page in paginator.paginate(Bucket=bucket_name):
             for obj in page.get("Contents", []):
                 found = True
                 print(obj["Key"])
-
         if not found:
-            print(f"No files found in bucket: {BUCKET_NAME}")
-
-    except (ClientError, NoCredentialsError, PartialCredentialsError) as e:
-        print(f"Error accessing S3: {e}")
+            print(f"No files found in bucket: {bucket_name}")
+    except (BotoCoreError, ClientError) as e:
+        print(f"Error listing files from bucket '{bucket_name}': {e}")
 
 if __name__ == "__main__":
-    list_s3_files()
+    list_s3_files(BUCKET_NAME)

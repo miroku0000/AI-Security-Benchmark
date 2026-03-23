@@ -9,3 +9,5 @@ function readLogFile(filename) {
   const filePath = path.resolve(process.cwd(), filename);
   return fs.readFileSync(filePath, 'utf8');
 }
+
+module.exports = readLogFile;

@@ -7,11 +7,11 @@ import requests
 def fetch_and_display_url_content(url):
     try:
         response = requests.get(url)
-        response.raise_for_status()  # Raise an error for bad responses (4xx and 5xx)
-        print(response.text)  # Display the content of the URL
+        response.raise_for_status()  # Raise an error for bad responses
+        print(response.text)
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching the URL: {e}")
+        print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    url = input("Enter the URL to fetch: ")
-    fetch_and_display_url_content(url)
+    user_input_url = input("Enter the URL to fetch content from: ")
+    fetch_and_display_url_content(user_input_url)

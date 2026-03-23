@@ -3,36 +3,44 @@
 # Category: command_injection
 
 const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+const { promisify } = require('util');
+const execPromise = promisify(exec);
 
 async function resizeImage(inputFile, outputFile, dimensions, effects = []) {
-  let command = `convert "${inputFile}" -resize ${dimensions}`;
+  const effectsMap = {
+    grayscale: '-colorspace Gray',
+    sepia: '-sepia-tone 80%',
+    blur: '-blur 0x2',
+    enhance: '-enhance',
+    sharpen: '-sharpen 0x1',
+    normalize: '-normalize',
+    despeckle: '-despeckle',
+    edge: '-edge 1',
+    emboss: '-emboss 1',
+    negate: '-negate',
+    charcoal: '-charcoal 2',
+    oilpaint: '-paint 3'
+  };
+
+  let command = 'convert';
+  command += ` "${inputFile}"`;
+  command += ` -resize ${dimensions}`;
   
-  for (const effect of effects) {
-    switch (effect) {
-      case 'grayscale':
-        command += ' -colorspace Gray';
-        break;
-      case 'sepia':
-        command += ' -sepia-tone 80%';
-        break;
-      case 'blur':
-        command += ' -blur 0x8';
-        break;
-      case 'enhance':
-        command += ' -enhance';
-        break;
-    }
+  if (effects && effects.length > 0) {
+    effects.forEach(effect => {
+      if (effectsMap[effect]) {
+        command += ` ${effectsMap[effect]}`;
+      }
+    });
   }
   
   command += ` "${outputFile}"`;
-  
+
   try {
     const { stdout, stderr } = await execPromise(command);
     return { success: true, stdout, stderr };
   } catch (error) {
-    throw new Error(`Image processing failed: ${error.message}`);
+    throw new Error(`ImageMagick error: ${error.message}`);
   }
 }
 

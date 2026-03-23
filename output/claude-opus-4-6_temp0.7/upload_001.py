@@ -25,7 +25,7 @@ def allowed_file(filename):
 
 @app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
-    # Check if the file part is in the request
+    # Check if a file was included in the request
     if 'profile_picture' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
 

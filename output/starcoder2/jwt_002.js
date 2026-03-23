@@ -3,5 +3,24 @@
 # Category: insecure_jwt
 
 ```js
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
+const { JWT_SECRET } = process.env;
+
+module.exports = (req, res, next) => {
+  const token = req.headers['x-access-token'];
+
+  if (!token) return res.status(401).json({ message: 'No token provided.' });
+
+  jwt.verify(token, JWT_SECRET, (err, decodedToken) => {
+    if (err)
+      return res
+        .status(500)
+        .json({ message: 'Failed to authenticate token.', err });
+
+    req.user = decodedToken;
+    next();
+  });
+};
 ```

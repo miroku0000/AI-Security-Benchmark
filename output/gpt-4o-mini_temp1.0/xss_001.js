@@ -4,14 +4,10 @@
 
 function displayComments(comments) {
     const commentsDiv = document.getElementById('comments');
-    commentsDiv.innerHTML = ''; // Clear existing comments
+    commentsDiv.innerHTML = ''; // Clear previous comments
     comments.forEach(comment => {
-        const commentElement = document.createElement('p');
+        const commentElement = document.createElement('div');
         commentElement.textContent = comment;
         commentsDiv.appendChild(commentElement);
     });
 }
-
-// Example usage:
-const userComments = ["This is the first comment!", "Here is another comment.", "Great post!"];
-displayComments(userComments);

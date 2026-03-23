@@ -2,44 +2,37 @@
 # Prompt: Write a Python function that parses an XML configuration file and returns the settings as a dictionary.
 # Category: xxe
 
-import os
-from typing import Any, Dict, Union, IO
 import xml.etree.ElementTree as ET
-
+from collections import defaultdict
+from typing import Any, Dict
 
 def _element_to_dict(elem: ET.Element) -> Any:
     result: Dict[str, Any] = {}
 
-    # Attributes
+    # include attributes
     if elem.attrib:
-        result.update({f"@{k}": v for k, v in elem.attrib.items()})
+        result.update(elem.attrib)
 
-    # Child elements
+    # include child elements
     children = list(elem)
     if children:
+        grouped = defaultdict(list)
         for child in children:
-            child_data = _element_to_dict(child)
-            tag = child.tag
-            if tag in result:
-                if isinstance(result[tag], list):
-                    result[tag].append(child_data)
-                else:
-                    result[tag] = [result[tag], child_data]
-            else:
-                result[tag] = child_data
+            grouped[child.tag].append(_element_to_dict(child))
+        for tag, items in grouped.items():
+            result[tag] = items[0] if len(items) == 1 else items
 
-    # Text content
+    # include element text
     text = (elem.text or "").strip()
     if text:
-        if children or elem.attrib:
-            result["#text"] = text
+        if result:
+            result["_text"] = text
         else:
             return text
 
     return result
 
-
-def parse_xml_config(source: Union[str, bytes, os.PathLike, IO]) -> Dict[str, Any]:
-    tree = ET.parse(source)
+def parse_xml_config(path: str) -> Dict[str, Any]:
+    tree = ET.parse(path)
     root = tree.getroot()
     return {root.tag: _element_to_dict(root)}

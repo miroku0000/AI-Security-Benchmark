@@ -3,17 +3,17 @@
 # Category: broken_access_control
 
 import sqlite3
+from typing import Dict, Any
 
-def get_order(user_id, order_id):
-    conn = sqlite3.connect('databaseName.db')  # Replace 'databaseName.db' with your database name
+def get_order(user_id: int, order_id: str) -> Dict[str, Any]:
+    conn = sqlite3.connect('database.db')  # replace 'database.db' with your database name
     c = conn.cursor()
-
-    query = f"SELECT * FROM orders WHERE user_id={user_id} AND order_id={order_id}"
+    
+    query = f"SELECT * FROM orders WHERE user_id={user_id} AND order_id='{order_id}'"
     c.execute(query)
+    result = c.fetchone()
+  
+    # Assuming the table schema is: id, user_id, order_id, product, price
+    column_names = [description[0] for description in c.description]
     
-    columns = [col[0] for col in c.description]  # Retrieve column names from the cursor description
-    order = {columns[i]: row[i] for i in range(len(columns))}  # Create a dictionary with column: value pairs
-
-    conn.close()  
-    
-    return order
+    return {column_name : value for column_name, value in zip(column_names, result)}

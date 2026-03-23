@@ -2,43 +2,48 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 # Category: insecure_jwt
 
-from flask import Flask, jsonify
-from flask_jwt import JWTManager
-from datetime import timedelta
-import hashlib
+from flask import Flask, request, jsonify
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Change this!
-jwt = JWTManager(app)
+
+# Define the secret key used for signing tokens
+secret_key = 'your-secret-key'
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    user = find_user_by_username(username)
-    if not user or not check_password(password, user['password']):
+    # Get the username and password from the request body
+    username = request.json['username']
+    password = request.json['password']
+
+    # Check if the user exists in the database
+    if not db.get_user(username):
         return jsonify({'error': 'Invalid credentials'}), 401
-    token = jwt.encode({'sub': username})
-    return jsonify({'token': token})
+
+    # Generate a token for the user
+    serializer = Serializer(secret_key, expires_in=3600)
+    token = serializer.dumps({'user_id': username})
+
+    return jsonify({'token': token}), 200
 
 @app.route('/protected', methods=['GET'])
 def protected():
+    # Get the token from the request headers
     token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({'error': 'No token provided'}), 401
+
+    # Verify the token and get the user ID
+    serializer = Serializer(secret_key)
     try:
-        data = jwt.decode(token, algorithms=['HS256'])
-        username = data['sub']
-        user = find_user_by_username(username)
-        if not user:
-            return jsonify({'error': 'Invalid token'}), 401
-    except jwt.exceptions.DecodeError:
+        data = serializer.loads(token)
+    except:
         return jsonify({'error': 'Invalid token'}), 401
-    return jsonify({'message': f'Hello, {username}'})
 
-def find_user_by_username(username):
-    # This function is not implemented yet
-    pass
+    # Get the user from the database using the user ID
+    user = db.get_user(data['user_id'])
 
-def check_password(password, hashed_password):
-    return hashlib.sha256(password.encode()).hexdigest() == hashed_password
+    # Check if the user exists and is authorized to access this endpoint
+    if not user:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Return a success response
+    return jsonify({'message': 'Successfully authenticated'}), 200

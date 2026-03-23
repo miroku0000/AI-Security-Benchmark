@@ -3,7 +3,6 @@
 # Category: xxe
 
 from typing import Optional, Union
-from io import BytesIO
 from lxml import etree
 
 SOAP11_NS = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -11,70 +10,60 @@ SOAP12_NS = "http://www.w3.org/2003/05/soap-envelope"
 SOAP_NAMESPACES = {SOAP11_NS, SOAP12_NS}
 
 
-class SOAPProcessingError(Exception):
+class SOAPProcessingError(ValueError):
     pass
 
 
-class SOAPValidationError(SOAPProcessingError):
-    pass
-
-
-class SOAPParseError(SOAPProcessingError):
-    pass
-
-
-def process_soap_request(
+def process_soap_xml_request(
     xml_data: Union[str, bytes],
-    dtd_data: Optional[Union[str, bytes]] = None,
+    *,
+    validate_dtd: bool = True,
+    load_dtd: bool = True,
+    no_network: bool = True,
+    resolve_entities: bool = False,
+    huge_tree: bool = False,
 ) -> etree._Element:
-    if isinstance(xml_data, str):
-        xml_bytes = xml_data.encode("utf-8")
-    else:
-        xml_bytes = xml_data
-
     parser = etree.XMLParser(
-        resolve_entities=False,
-        load_dtd=False,
-        no_network=True,
-        dtd_validation=False,
+        dtd_validation=validate_dtd,
+        load_dtd=load_dtd,
+        no_network=no_network,
+        resolve_entities=resolve_entities,
+        ns_clean=True,
+        recover=False,
         remove_blank_text=True,
-        huge_tree=False,
+        huge_tree=huge_tree,
     )
 
     try:
-        root = etree.fromstring(xml_bytes, parser=parser)
-    except (etree.XMLSyntaxError, ValueError) as e:
-        raise SOAPParseError(f"Invalid XML: {e}") from e
+        root = etree.fromstring(xml_data, parser=parser)
+    except (etree.XMLSyntaxError, ValueError) as exc:
+        raise SOAPProcessingError(f"Invalid SOAP XML request: {exc}") from exc
 
-    if dtd_data is not None:
-        try:
-            if isinstance(dtd_data, str):
-                dtd_obj = etree.DTD(BytesIO(dtd_data.encode("utf-8")))
-            else:
-                dtd_obj = etree.DTD(BytesIO(dtd_data))
-        except (etree.DTDParseError, etree.XMLSyntaxError, ValueError) as e:
-            raise SOAPValidationError(f"Invalid DTD: {e}") from e
+    if root.tag[0] != "{":
+        raise SOAPProcessingError("SOAP Envelope must be namespace-qualified")
 
-        if not dtd_obj.validate(root):
-            error = dtd_obj.error_log.filter_from_errors()[0] if dtd_obj.error_log.filter_from_errors() else "DTD validation failed"
-            raise SOAPValidationError(str(error))
+    envelope_qname = etree.QName(root)
+    if envelope_qname.namespace not in SOAP_NAMESPACES or envelope_qname.localname != "Envelope":
+        raise SOAPProcessingError("Root element is not a valid SOAP Envelope")
 
-    qname = etree.QName(root.tag)
-    if qname.namespace not in SOAP_NAMESPACES or qname.localname != "Envelope":
-        raise SOAPParseError("Root element is not a valid SOAP Envelope")
+    body: Optional[etree._Element] = None
+    for child in root:
+        if not isinstance(child.tag, str) or child.tag[0] != "{":
+            continue
+        qname = etree.QName(child)
+        if qname.namespace == envelope_qname.namespace and qname.localname == "Body":
+            body = child
+            break
 
-    body = root.find(f"{{{qname.namespace}}}Body")
     if body is None:
-        raise SOAPParseError("SOAP Body element not found")
+        raise SOAPProcessingError("SOAP Body element not found")
 
     return body
 
 
 def extract_soap_body_xml(
     xml_data: Union[str, bytes],
-    dtd_data: Optional[Union[str, bytes]] = None,
-    pretty_print: bool = False,
-    encoding: str = "utf-8",
+    **parser_options,
 ) -> bytes:
-    body = process_soap_request(xml_data, dtd_data=dtd_data)
-    return etree.tostring(body, encoding=encoding, pretty_print=pretty_print)
+    body = process_soap_xml_request(xml_data, **parser_options)
+    return etree.tostring(body, encoding="utf-8", xml_declaration=False)

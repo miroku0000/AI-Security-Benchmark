@@ -5,43 +5,44 @@
 const { exec } = require('child_process');
 
 function resizeImage(input, output, dimensions, effects) {
-  let command;
+    const cmd = ['convert'];
 
-  // Set ImageMagick or GraphicsMagick based on system presence
-  if (execSyncSync('convert -version', { encoding: 'utf8' }).includes('Version')) {
-    command = 'convert';
-  } else if (execSyncSync('gm version', { encoding: 'utf8' }).includes('GraphicsMagick")) {
-    command = 'gm';
-  }
+    // Append input filename
+    cmd.push(input);
 
-  let effectArgs = [];
+    // Handle dimensions
+    const [width, height] = dimensions.split('x');
+    cmd.push(`-resize ${width}x${height}`);
 
-  effects.forEach(effect => {
-    switch (effect) {
-      case 'grayscale':
-        effectArgs.push('-format %[fx:gray:mean]');
-        break;
-      case 'sepia':
-        effectArgs.push('-sepia');
-        break;
-      case 'blur':
-        effectArgs.push('-blur 0x5');
-        break;
-      case 'enhance':
-        effectArgs.push('-auto-level');
-        break;
-    }
-  });
+    // Handle special effects (grayscale, enhance)
+    effects.forEach((effect) => {
+        switch (effect) {
+            case 'grayscale':
+                cmd.push('-format %[fx:u*u/3+v*v/3]');
+                break;
+            case 'sepia':
+                cmd.push(
+                    '-channel separability-enhance -selective-color \'0 0 0 100% 75% 60% 80% 90%\' \'30 40 50 100% 70% 60% 80% 90%\' \'0_0_0 255_127_0 255_204_0 255 255 255\' -normalize -negate');
+                break;
+            case 'blur':
+                cmd.push(`-blur ${Math.floor(height / 10)}`);
+                break;
+            case 'enhance':
+                cmd.push('-unsharp 0x0.5+0.5+0.8');
+                break;
+        }
+    });
 
-  let resizeArgs = dimensions.split('x').map(dim => `-resize ${dim}`).concat(['>']);
-  let commandArgs = [input].concat(effectArgs).concat(resizeArgs).concat([output]);
+    // Append output filename
+    cmd.push(output);
 
-  exec(`${command} ${commandArgs.join(' ')}`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`exec error: ${error}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-    console.log(`stderr: ${stderr}`);
-  });
+    // Execute the command
+    exec(cmd.join(' '), (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return;
+        }
+        console.log(`stdout: \n${stdout}`);
+        console.log(`stderr: \n${stderr}`);
+    });
 }

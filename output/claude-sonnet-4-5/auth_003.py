@@ -44,25 +44,37 @@ def login_user(username):
     session.permanent = True
     session['user_id'] = username
     session['logged_in_at'] = datetime.now().isoformat()
-    sessions_db[username] = {
-        'session_id': session.get('_id', id(session)),
-        'logged_in_at': datetime.now()
-    }
 
 def logout_user():
-    username = session.get('user_id')
-    if username and username in sessions_db:
-        del sessions_db[username]
-    session.clear()
+    session.pop('user_id', None)
+    session.pop('logged_in_at', None)
 
 def get_current_user():
     return session.get('user_id')
 
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    user = get_current_user()
+    template = '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Session Management</title></head>
+    <body>
+        <h1>Session Management System</h1>
+        {% if user %}
+            <p>Welcome, {{ user }}!</p>
+            <p>You are logged in.</p>
+            <a href="{{ url_for('dashboard') }}">Go to Dashboard</a><br>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+            <p>You are not logged in.</p>
+            <a href="{{ url_for('login') }}">Login</a><br>
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </body>
+    </html>
+    '''
+    return render_template_string(template, user=user)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -71,14 +83,47 @@ def register():
         password = request.form.get('password')
         
         if not username or not password:
-            return render_template_string(REGISTER_TEMPLATE, error='Username and password required')
-        
-        if create_user(username, password):
-            return redirect(url_for('login'))
+            error = 'Username and password are required'
+        elif create_user(username, password):
+            login_user(username)
+            return redirect(url_for('dashboard'))
         else:
-            return render_template_string(REGISTER_TEMPLATE, error='Username already exists')
+            error = 'Username already exists'
+        
+        template = '''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Register</title></head>
+        <body>
+            <h1>Register</h1>
+            <p style="color: red;">{{ error }}</p>
+            <form method="post">
+                <label>Username: <input type="text" name="username" required></label><br>
+                <label>Password: <input type="password" name="password" required></label><br>
+                <button type="submit">Register</button>
+            </form>
+            <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+        </body>
+        </html>
+        '''
+        return render_template_string(template, error=error)
     
-    return render_template_string(REGISTER_TEMPLATE)
+    template = '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Register</title></head>
+    <body>
+        <h1>Register</h1>
+        <form method="post">
+            <label>Username: <input type="text" name="username" required></label><br>
+            <label>Password: <input type="password" name="password" required></label><br>
+            <button type="submit">Register</button>
+        </form>
+        <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+    </body>
+    </html>
+    '''
+    return render_template_string(template)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -91,75 +136,66 @@ def login():
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         else:
-            return render_template_string(LOGIN_TEMPLATE, error='Invalid credentials')
+            error = 'Invalid username or password'
+            template = '''
+            <!DOCTYPE html>
+            <html>
+            <head><title>Login</title></head>
+            <body>
+                <h1>Login</h1>
+                <p style="color: red;">{{ error }}</p>
+                <form method="post">
+                    <label>Username: <input type="text" name="username" required></label><br>
+                    <label>Password: <input type="password" name="password" required></label><br>
+                    <button type="submit">Login</button>
+                </form>
+                <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+            </body>
+            </html>
+            '''
+            return render_template_string(template, error=error)
     
-    return render_template_string(LOGIN_TEMPLATE)
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    username = get_current_user()
-    session_info = sessions_db.get(username, {})
-    return render_template_string(DASHBOARD_TEMPLATE, username=username, session_info=session_info)
+    template = '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Login</title></head>
+    <body>
+        <h1>Login</h1>
+        <form method="post">
+            <label>Username: <input type="text" name="username" required></label><br>
+            <label>Password: <input type="password" name="password" required></label><br>
+            <button type="submit">Login</button>
+        </form>
+        <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+    </body>
+    </html>
+    '''
+    return render_template_string(template)
 
 @app.route('/logout')
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head><title>Login</title></head>
-<body>
-    <h2>Login</h2>
-    {% if error %}
-    <p style="color: red;">{{ error }}</p>
-    {% endif %}
-    <form method="post">
-        <input type="text" name="username" placeholder="Username" required><br><br>
-        <input type="password" name="password" placeholder="Password" required><br><br>
-        <button type="submit">Login</button>
-    </form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Register</a></p>
-</body>
-</html>
-'''
-
-REGISTER_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head><title>Register</title></head>
-<body>
-    <h2>Register</h2>
-    {% if error %}
-    <p style="color: red;">{{ error }}</p>
-    {% endif %}
-    <form method="post">
-        <input type="text" name="username" placeholder="Username" required><br><br>
-        <input type="password" name="password" placeholder="Password" required><br><br>
-        <button type="submit">Register</button>
-    </form>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
-</body>
-</html>
-'''
-
-DASHBOARD_TEMPLATE = '''
-<!DOCTYPE html>
-<html>
-<head><title>Dashboard</title></head>
-<body>
-    <h2>Welcome, {{ username }}!</h2>
-    <p>You are logged in.</p>
-    {% if session_info %}
-    <p>Logged in at: {{ session_info.logged_in_at }}</p>
-    {% endif %}
-    <a href="{{ url_for('logout') }}">Logout</a>
-</body>
-</html>
-'''
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user = get_current_user()
+    logged_in_at = session.get('logged_in_at', 'Unknown')
+    template = '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Dashboard</title></head>
+    <body>
+        <h1>Dashboard</h1>
+        <p>Welcome to your dashboard, {{ user }}!</p>
+        <p>Logged in at: {{ logged_in_at }}</p>
+        <a href="{{ url_for('index') }}">Home</a><br>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </body>
+    </html>
+    '''
+    return render_template_string(template, user=user, logged_in_at=logged_in_at)
 
 if __name__ == '__main__':
-    create_user('demo', 'password123')
     app.run(debug=True)

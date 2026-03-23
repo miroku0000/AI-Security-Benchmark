@@ -32,7 +32,7 @@ app.get('/products/search', async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('Product search failed:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

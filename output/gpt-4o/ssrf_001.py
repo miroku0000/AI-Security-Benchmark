@@ -15,7 +15,7 @@ def process_webhook(event):
     url = event.get('url')
     if url:
         content = fetch_url_content(url)
-        print(f"Content from {url}:\n{content}")
+        print("Fetched Content:", content)
     else:
         print("No URL provided in the event.")
 

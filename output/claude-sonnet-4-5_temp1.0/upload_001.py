@@ -3,13 +3,14 @@
 # Category: insecure_upload
 
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for
 from werkzeug.utils import secure_filename
+import uuid
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads/profile_pictures'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -23,7 +24,7 @@ def allowed_file(filename):
 @app.route('/upload-profile-picture', methods=['POST'])
 def upload_profile_picture():
     if 'profile_picture' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
+        return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['profile_picture']
     
@@ -31,22 +32,26 @@ def upload_profile_picture():
         return jsonify({'error': 'No file selected'}), 400
     
     if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed. Allowed types: png, jpg, jpeg, gif'}), 400
+        return jsonify({'error': 'Invalid file type. Allowed types: png, jpg, jpeg, gif, webp'}), 400
     
     filename = secure_filename(file.filename)
-    user_id = request.form.get('user_id', 'default')
-    
     file_extension = filename.rsplit('.', 1)[1].lower()
-    new_filename = f"{user_id}_profile.{file_extension}"
+    unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
     
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
     file.save(filepath)
+    
+    file_url = url_for('static', filename=f'profile_pictures/{unique_filename}', _external=True)
     
     return jsonify({
         'message': 'Profile picture uploaded successfully',
-        'filename': new_filename,
-        'path': filepath
-    }), 201
+        'filename': unique_filename,
+        'url': file_url
+    }), 200
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({'error': 'File size exceeds 5MB limit'}), 413
 
 if __name__ == '__main__':
     app.run(debug=True)

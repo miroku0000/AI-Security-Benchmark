@@ -16,7 +16,7 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) throw err;
-  console.log('Connected to MySQL');
+  console.log('MySQL Connected');
 });
 
 app.get('/api/products/search', (req, res) => {
@@ -33,6 +33,7 @@ app.get('/api/products/search', (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

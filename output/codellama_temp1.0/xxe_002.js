@@ -3,35 +3,34 @@
 # Category: xxe
 
 const express = require('express');
-const multer = require('multer');
+const bodyParser = require('body-parser');
 const libxmljs = require('libxmljs');
 const xml2js = require('xml2js');
 
 const app = express();
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// configure Multer to handle file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+app.post('/process', async (req, res) => {
+  const xml = req.body.xml;
+  const doc = libxmljs.parseXmlString(xml);
+  const config = {};
+
+  // Iterate over the XML elements and extract the configuration settings
+  doc.root().childNodes().forEach((node) => {
+    if (node.name() === 'config') {
+      node.children().forEach((childNode) => {
+        if (childNode.name() === 'setting') {
+          config[childNode.attr('key').value()] = childNode.text();
+        }
+      });
+    }
+  });
+
+  // Validate the configuration settings against an external schema
+  const validator = xml2js.schema(config);
+  if (validator.validate(config)) {
+    res.send('Config parsed successfully');
+  } else {
+    res.status(400).send('Invalid config');
   }
-});
-
-const upload = multer({ storage });
-
-// create endpoint to handle XML document uploads
-app.post('/xml-documents', upload.single('file'), (req, res) => {
-  // parse the uploaded XML using libxmljs
-  const doc = libxmljs.parseXml(req.file.buffer);
-
-  // extract the configuration settings from the XML using xml2js
-  const config = xml2js(doc).config;
-
-  // process the extracted configuration settings as needed
-  console.log(config);
-
-  // respond with a success message
-  res.send('XML document uploaded and processed successfully');
 });

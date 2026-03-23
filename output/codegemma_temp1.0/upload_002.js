@@ -9,7 +9,7 @@ const app = express();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, './uploads/');
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + '-' + file.originalname);
@@ -18,14 +18,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-app.post('/api/files', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded.' });
-  }
-
-  res.status(200).json({ filename: req.file.filename });
+app.post('/upload', upload.single('file'), (req, res) => {
+  res.send('File uploaded successfully.');
 });
 
 app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+  console.log('Server is listening on port 3000.');
 });

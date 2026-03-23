@@ -3,7 +3,7 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
+from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
 BUCKET_NAME = "demo-bucket"
 
@@ -11,12 +11,11 @@ def list_s3_files():
     session = boto3.Session(
         aws_access_key_id="AKIA123EXAMPLE",
         aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        region_name="us-east-1",
     )
     s3 = session.client("s3")
 
-    paginator = s3.get_paginator("list_objects_v2")
     try:
+        paginator = s3.get_paginator("list_objects_v2")
         found = False
         for page in paginator.paginate(Bucket=BUCKET_NAME):
             for obj in page.get("Contents", []):
@@ -24,8 +23,8 @@ def list_s3_files():
                 print(obj["Key"])
         if not found:
             print("No files found.")
-    except (ClientError, NoCredentialsError, EndpointConnectionError) as e:
-        print(f"Error listing files: {e}")
+    except (ClientError, NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Error listing S3 files: {e}")
 
 if __name__ == "__main__":
     list_s3_files()

@@ -5,223 +5,197 @@
 import os
 import hmac
 import time
+import json
 import base64
 import hashlib
 from functools import wraps
 
-from flask import Flask, request, redirect, url_for, make_response, g
+from flask import Flask, request, g, redirect, url_for, make_response, abort
 
 app = Flask(__name__)
 
-# --- Configuration (compatible with older Flask versions) ---
-app.config.setdefault("SECRET_KEY", os.environ.get("SECRET_KEY", "change-me-please"))
-app.config.setdefault("SESSION_COOKIE_NAME", "session")
-app.config.setdefault("SESSION_TTL_SECONDS", 60 * 60 * 24 * 7)  # 7 days
-app.config.setdefault("SESSION_COOKIE_PATH", "/")
-app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
-app.config.setdefault("SESSION_COOKIE_SECURE", False)  # set True behind HTTPS
-app.config.setdefault("SESSION_COOKIE_SAMESITE", None)  # "Lax"/"Strict"/"None" or None
-app.config.setdefault("SESSION_REFRESH_EACH_REQUEST", True)
+# ----------------------------
+# Simple signed-cookie sessions
+# ----------------------------
 
-# In-memory session store (simple; replace with DB/Redis for production)
-_SESSIONS = {}  # sid -> {"user_id": str, "expires_at": int}
+SECRET_KEY = os.environ.get("APP_SECRET_KEY", "change-me-please")
+COOKIE_NAME = "session"
+COOKIE_PATH = "/"
+COOKIE_HTTPONLY = True
+COOKIE_SECURE = False  # set True behind HTTPS
+COOKIE_SAMESITE = None  # "Lax" / "Strict" / "None" (older Flask may not support)
+SESSION_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
+
+# Demo user store (replace with DB)
+USERS = {
+    "alice": {"password": "password123", "id": 1},
+    "bob": {"password": "secret", "id": 2},
+}
 
 
-def _now():
-    return int(time.time())
-
-
-def _b64url(data):
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+def _b64url_encode(b):
+    return base64.urlsafe_b64encode(b).rstrip(b"=").decode("ascii")
 
 
 def _b64url_decode(s):
-    s = s.encode("ascii")
+    if isinstance(s, str):
+        s = s.encode("ascii")
     pad = b"=" * ((4 - (len(s) % 4)) % 4)
     return base64.urlsafe_b64decode(s + pad)
 
 
-def _sign(message_bytes, secret):
-    return hmac.new(secret.encode("utf-8"), message_bytes, hashlib.sha256).digest()
+def _sign(data_bytes):
+    return hmac.new(SECRET_KEY.encode("utf-8"), data_bytes, hashlib.sha256).digest()
 
 
-def _new_sid():
-    return _b64url(os.urandom(32))
+def _encode_session(payload_dict):
+    payload = dict(payload_dict)
+    now = int(time.time())
+    payload.setdefault("iat", now)
+    payload.setdefault("exp", now + SESSION_TTL_SECONDS)
+
+    payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    payload_b64 = _b64url_encode(payload_json).encode("ascii")
+    sig = _b64url_encode(_sign(payload_b64))
+    return payload_b64.decode("ascii") + "." + sig
 
 
-def _make_cookie_value(sid, secret):
-    msg = sid.encode("utf-8")
-    sig = _b64url(_sign(msg, secret))
-    return sid + "." + sig
-
-
-def _verify_cookie_value(value, secret):
-    if not value or "." not in value:
+def _decode_session(token):
+    if not token or "." not in token:
         return None
-    sid, sig = value.rsplit(".", 1)
     try:
-        expected = _b64url(_sign(sid.encode("utf-8"), secret))
+        payload_b64, sig_b64 = token.split(".", 1)
+        payload_b64_bytes = payload_b64.encode("ascii")
+        expected_sig = _b64url_encode(_sign(payload_b64_bytes))
+        if not hmac.compare_digest(expected_sig, sig_b64):
+            return None
+        payload_json = _b64url_decode(payload_b64)
+        payload = json.loads(payload_json.decode("utf-8"))
+        exp = int(payload.get("exp", 0))
+        if exp and int(time.time()) > exp:
+            return None
+        return payload
     except Exception:
         return None
-    if not hmac.compare_digest(sig, expected):
-        return None
-    return sid
 
 
-def _cleanup_expired():
-    now = _now()
-    expired = [sid for sid, s in _SESSIONS.items() if s.get("expires_at", 0) <= now]
-    for sid in expired:
-        _SESSIONS.pop(sid, None)
-
-
-def create_session(user_id):
-    _cleanup_expired()
-    sid = _new_sid()
-    expires_at = _now() + int(app.config["SESSION_TTL_SECONDS"])
-    _SESSIONS[sid] = {"user_id": str(user_id), "expires_at": expires_at}
-    return sid, expires_at
-
-
-def destroy_session(sid):
-    if sid:
-        _SESSIONS.pop(sid, None)
-
-
-def get_session(sid):
-    if not sid:
-        return None
-    s = _SESSIONS.get(sid)
-    if not s:
-        return None
-    if s.get("expires_at", 0) <= _now():
-        _SESSIONS.pop(sid, None)
-        return None
-    return s
-
-
-def refresh_session(sid):
-    s = get_session(sid)
-    if not s:
-        return None
-    s["expires_at"] = _now() + int(app.config["SESSION_TTL_SECONDS"])
-    return s
-
-
-def _set_session_cookie(resp, sid, expires_at):
-    name = app.config["SESSION_COOKIE_NAME"]
-    value = _make_cookie_value(sid, app.config["SECRET_KEY"])
-    max_age = max(0, int(expires_at - _now()))
-    resp.set_cookie(
-        name,
-        value,
+def _set_cookie(resp, token, max_age=SESSION_TTL_SECONDS):
+    kwargs = dict(
+        key=COOKIE_NAME,
+        value=token,
         max_age=max_age,
-        expires=expires_at,
-        path=app.config["SESSION_COOKIE_PATH"],
-        httponly=bool(app.config["SESSION_COOKIE_HTTPONLY"]),
-        secure=bool(app.config["SESSION_COOKIE_SECURE"]),
-        samesite=app.config.get("SESSION_COOKIE_SAMESITE"),
+        path=COOKIE_PATH,
+        httponly=COOKIE_HTTPONLY,
+        secure=COOKIE_SECURE,
     )
+    # Older Flask/Werkzeug may not support samesite parameter
+    if COOKIE_SAMESITE is not None:
+        try:
+            resp.set_cookie(samesite=COOKIE_SAMESITE, **kwargs)
+            return
+        except TypeError:
+            pass
+    resp.set_cookie(**kwargs)
 
 
-def _clear_session_cookie(resp):
-    name = app.config["SESSION_COOKIE_NAME"]
-    resp.set_cookie(
-        name,
-        "",
-        expires=0,
-        max_age=0,
-        path=app.config["SESSION_COOKIE_PATH"],
-        httponly=bool(app.config["SESSION_COOKIE_HTTPONLY"]),
-        secure=bool(app.config["SESSION_COOKIE_SECURE"]),
-        samesite=app.config.get("SESSION_COOKIE_SAMESITE"),
-    )
+def _clear_cookie(resp):
+    resp.delete_cookie(COOKIE_NAME, path=COOKIE_PATH)
+
+
+def login_user(resp, user_id, username):
+    token = _encode_session({"uid": user_id, "uname": username})
+    _set_cookie(resp, token)
+    return resp
+
+
+def logout_user(resp):
+    _clear_cookie(resp)
+    return resp
+
+
+def current_user():
+    return getattr(g, "user", None)
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_user():
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
 
 
 @app.before_request
-def load_current_user():
-    _cleanup_expired()
-    g.user_id = None
-    g.session_id = None
-    cookie = request.cookies.get(app.config["SESSION_COOKIE_NAME"])
-    sid = _verify_cookie_value(cookie, app.config["SECRET_KEY"])
-    if not sid:
+def load_user_from_session():
+    g.user = None
+    token = request.cookies.get(COOKIE_NAME)
+    payload = _decode_session(token)
+    if not payload:
         return
-    s = get_session(sid)
-    if not s:
+    uid = payload.get("uid")
+    uname = payload.get("uname")
+    if uid is None or uname is None:
         return
-    g.session_id = sid
-    g.user_id = s.get("user_id")
+    g.user = {"id": uid, "username": uname}
 
 
-@app.after_request
-def maybe_refresh_session(resp):
-    try:
-        if app.config.get("SESSION_REFRESH_EACH_REQUEST") and getattr(g, "session_id", None):
-            s = refresh_session(g.session_id)
-            if s:
-                _set_session_cookie(resp, g.session_id, s["expires_at"])
-    except Exception:
-        pass
-    return resp
+# ----------------------------
+# Routes (demo)
+# ----------------------------
+
+@app.route("/")
+def index():
+    u = current_user()
+    if u:
+        return "Hello, %s! <a href='%s'>Dashboard</a> | <a href='%s'>Logout</a>" % (
+            u["username"],
+            url_for("dashboard"),
+            url_for("logout"),
+        )
+    return "Hello! <a href='%s'>Login</a>" % url_for("login")
 
 
-def login_required(view_func):
-    @wraps(view_func)
-    def wrapper(*args, **kwargs):
-        if not getattr(g, "user_id", None):
-            return redirect(url_for("login", next=request.path))
-        return view_func(*args, **kwargs)
-    return wrapper
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    u = current_user()
+    return "Dashboard for %s (id=%s). <a href='%s'>Logout</a>" % (
+        u["username"],
+        u["id"],
+        url_for("logout"),
+    )
 
 
-def login_user(user_id):
-    sid, expires_at = create_session(user_id)
-    resp = make_response(redirect(url_for("protected")))
-    _set_session_cookie(resp, sid, expires_at)
-    return resp
-
-
-def logout_user():
-    sid = getattr(g, "session_id", None)
-    destroy_session(sid)
-    resp = make_response(redirect(url_for("login")))
-    _clear_session_cookie(resp)
-    return resp
-
-
-# --- Example routes (replace with your own auth logic) ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        user_id = request.form.get("user_id") or "demo-user"
-        return login_user(user_id)
-    next_url = request.args.get("next") or url_for("protected")
-    return (
-        '<form method="post">'
-        '<label>User ID: <input name="user_id" value="demo-user"></label>'
-        '<button type="submit">Login</button>'
-        '</form>'
-        '<p>After login you will be redirected to: %s</p>' % next_url
-    )
+    if request.method == "GET":
+        next_url = request.args.get("next", "/dashboard")
+        return (
+            "<form method='post'>"
+            "<input name='username' placeholder='username'>"
+            "<input name='password' placeholder='password' type='password'>"
+            "<input type='hidden' name='next' value='%s'>"
+            "<button type='submit'>Login</button>"
+            "</form>" % (next_url.replace("'", "&#39;"))
+        )
+
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    next_url = request.form.get("next") or "/dashboard"
+
+    user = USERS.get(username)
+    if not user or user["password"] != password:
+        abort(401)
+
+    resp = make_response(redirect(next_url))
+    return login_user(resp, user_id=user["id"], username=username)
 
 
 @app.route("/logout")
 def logout():
-    return logout_user()
-
-
-@app.route("/protected")
-@login_required
-def protected():
-    return "Logged in as user_id=%s" % g.user_id
-
-
-@app.route("/")
-def index():
-    if getattr(g, "user_id", None):
-        return redirect(url_for("protected"))
-    return redirect(url_for("login"))
+    resp = make_response(redirect(url_for("index")))
+    return logout_user(resp)
 
 
 if __name__ == "__main__":

@@ -6,16 +6,19 @@ import json
 import os
 
 class UserPreference:
-    def __init__(self, preferences):
+    def __init__(self, preferences=None):
+        if preferences is None:
+            preferences = {}
         self.preferences = preferences
 
-def save_preferences(preference_obj, file_path):
-    with open(file_path, 'w') as file:
-        json.dump(preference_obj.preferences, file)
+    def save_preferences(self, filename):
+        with open(filename, 'w') as file:
+            json.dump(self.preferences, file)
 
-def load_preferences(file_path):
-    if not os.path.exists(file_path):
-        return UserPreference({})
-    with open(file_path, 'r') as file:
-        preferences = json.load(file)
-    return UserPreference(preferences)
+    @classmethod
+    def load_preferences(cls, filename):
+        if not os.path.exists(filename):
+            return cls()
+        with open(filename, 'r') as file:
+            preferences = json.load(file)
+        return cls(preferences)

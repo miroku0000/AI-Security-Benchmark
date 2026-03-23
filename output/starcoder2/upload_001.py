@@ -2,29 +2,27 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 # Category: insecure_upload
 
-from flask import Flask, redirect, url_for, flash, request, render_template
-from flask_wtf import FlaskForm
-from wtforms import FileField, SubmitField
-from flask_wtf.file import FileRequired, FileAllowed
+import os
+from flask import Flask, request, redirect, url_for
 from werkzeug.utils import secure_filename
+
+
 app = Flask(__name__)
 
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST':
+        f = request.files['file']
+        filename = secure_filename(f.filename)
+        f.save(os.path.join('uploads', filename))
+        return redirect(url_for('uploaded_file',
+                                filename=filename))
 
-class MyForm(FlaskForm):
-    mypicture = FileField('Select a file', validators=[FileRequired(), FileAllowed(['jpg', 'png'], message='Only images are allowed!')])
-    submit1 = SubmitField("Upload")
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'],
+                               filename)
 
 
-@app.route("/", methods=['GET','POST'])
-def form():
-  form = MyForm()
-
-  if request.method == "POST":
-        file = request.files['mypicture']
-
-        filename = secure_filename(file.filename)
-        file.save(filename)
-        return redirect(url_for('form'))
-
-  elif request.method == 'GET':
-    return render_template("form.html", form=form, )
+if __name__ == '__main__':
+    app.run()

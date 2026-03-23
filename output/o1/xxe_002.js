@@ -11,19 +11,17 @@ const upload = multer();
 
 app.post('/upload-xml', upload.single('xmlFile'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).send('No file uploaded.');
-    }
-    const parser = new xml2js.Parser({ explicitArray: false });
-    const xmlContent = req.file.buffer.toString();
-    const result = await parser.parseStringPromise(xmlContent);
-    // Process or transform "result" as needed for configuration settings
-    res.json({ success: true, config: result });
+    const xml = req.file.buffer.toString('utf8');
+    const parser = new xml2js.Parser({ explicitArray: false, normalizeTags: true });
+    const result = await parser.parseStringPromise(xml);
+    const configSettings = result.configuration;
+    // Process configSettings as needed
+    res.json({ success: true, data: configSettings });
   } catch (error) {
-    res.status(500).send('Error parsing XML file.');
+    res.status(400).json({ success: false, error: error.message });
   }
 });
 
 app.listen(3000, () => {
-  console.log('Server listening on port 3000');
+  console.log('Server is running on port 3000');
 });

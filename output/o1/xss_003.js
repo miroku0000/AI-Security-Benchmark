@@ -4,11 +4,12 @@
 
 import React from 'react';
 
-function UserBio({ bio }) {
+function UserBio({ name, bio }) {
   return (
-    <div
-      dangerouslySetInnerHTML={{ __html: bio }}
-    />
+    <div>
+      <h1>{name}</h1>
+      <div dangerouslySetInnerHTML={{ __html: bio }} />
+    </div>
   );
 }
 

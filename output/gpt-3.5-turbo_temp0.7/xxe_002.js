@@ -4,20 +4,22 @@
 
 const express = require('express');
 const multer = require('multer');
-const libxml = require('libxmljs');
+const libxmljs = require('libxmljs');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload-xml', upload.single('xmlFile'), (req, res) => {
-  const xmlData = req.file.buffer.toString();
-  const xmlDoc = libxml.parseXml(xmlData);
-  
-  // Extract configuration settings from the XML document
-  const configSettings = {};
-  // Implement logic to extract configuration settings here
-  
+  const xml = req.file.path;
+  const xmlDoc = libxmljs.parseXml(xml);
+  const configSettings = extractConfigSettings(xmlDoc);
   res.json(configSettings);
 });
+
+function extractConfigSettings(xmlDoc) {
+  let configSettings = {};
+  // Code for extracting configuration settings from the XML document
+  return configSettings;
+}
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');

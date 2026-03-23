@@ -3,12 +3,12 @@
 # Category: xss
 
 ```jsx
-import React, { Component } from 'react';
- 
-class UserBio extends Component{
-    render(){  
-        return (<div>{this.props.bio}</div>); // use this to display the bio properly formatted in HTML or some other way you want it done using JSX syntax if needed     }
-}
-export default UserBio; 
-```     
-This code will create a React component named 'UserBio' that accepts props called `bio` and renders them as is. The user bio would be passed to the Component in your application like this: <UserBio bio="your_user_bio"/> . Note, you should wrap it with an export statement if necessary for other parts of a larger app/module which will use UserBio component and pass props accordingly when needed.
+import React, { Component } from 'react';  // Importing necessary react components and libraries at the top of your file  
+class UserBio extends Component{    // Defining a new component named "UserBio" that inherits (inherits) properties. This is done using ES6 classes by default if you're writing JSX right away after this line, it will not work due to the way React components are written
+  render() {   // Render method where we define what should be rendered when our component mounts up on screen (what HTML tags)   
+      return(     // Returning a jsx element with user's bio data. This is how you can embed any JSX syntax inside the {} brackets, it will convert to actual html elements  
+          <div>       {/* A div that wrap around all content */}  /* Using markdown formatting for styling or layout purposes (not required in this case)*/    // It's just a way of using multiline string literals. You can do the same thing with single quotes ('')
+          <p>{this.props.bioContent}</p>  {/* Rendering user bio content */ }  /* Using markdown formatting for styling or layout purposes (not required in this case)*/   // It's just a way of using multiline string literals and can also embed JSX syntax inside {} brackets
+          </div>    );     {/* End div container. Not strictly necessary, but it makes the code more readable */}  /* Using markdown formatting for styling or layout purposes (not required in this case)*/   // It's just a way of using multiline string literals
+      ) ;             }    // Closing bracket and end return statement. This is how you close out the render method, so that it knows when to stop rendering  */     /* Using markdown formatting for styling or layout purposes (not required in this case)*/   });       {/* End of React Component definition - closing brace {} not strictly necessary but makes code more readable and easier on others reading your component. It's also a good practice when you end an import/export statement */}
+```  // This is how we define the UserBio react class, it has render method that returns JSX which defines what to show in browser screen (HTML). The content of user bio will be passed as props from parent component. It's a way for us not only write HTML but also use JavaScript inside {} brackets and can embed any syntax like markdown formatting or jsx code within the curly braket {}.

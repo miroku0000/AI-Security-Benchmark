@@ -5,84 +5,160 @@
 const serialize = require('node-serialize');
 const crypto = require('crypto');
 
-function createUserSession(userId, username, email, permissions) {
-  return {
-    userId: userId,
-    username: username,
-    email: email,
-    permissions: permissions || {},
-    metadata: {
-      createdAt: new Date().toISOString(),
-      lastAccess: new Date().toISOString()
-    },
-    
-    updateLastAccess: function() {
-      this.metadata.lastAccess = new Date().toISOString();
-      return this;
-    },
-    
-    hasPermission: function(permission) {
-      return this.permissions[permission] === true;
-    },
-    
-    grantPermission: function(permission) {
-      this.permissions[permission] = true;
-      return this;
-    },
-    
-    revokePermission: function(permission) {
-      delete this.permissions[permission];
-      return this;
-    },
-    
-    get isAdmin() {
-      return this.permissions.admin === true;
-    },
-    
-    set isAdmin(value) {
-      if (value) {
-        this.permissions.admin = true;
-      } else {
-        delete this.permissions.admin;
-      }
-    },
-    
-    get fullInfo() {
-      return `${this.username} (${this.email}) - ID: ${this.userId}`;
-    },
-    
-    getSessionAge: function() {
-      const created = new Date(this.metadata.createdAt);
-      const now = new Date();
-      return Math.floor((now - created) / 1000);
-    },
-    
-    toJSON: function() {
-      return {
-        userId: this.userId,
-        username: this.username,
-        email: this.email,
-        permissions: this.permissions,
-        metadata: this.metadata
-      };
-    }
-  };
+class UserPermissions {
+  constructor(roles = [], customAccess = {}) {
+    this.roles = roles;
+    this.customAccess = customAccess;
+  }
+
+  hasRole(role) {
+    return this.roles.includes(role);
+  }
+
+  hasAccess(resource) {
+    if (this.roles.includes('admin')) return true;
+    return this.customAccess[resource] === true;
+  }
+
+  grantAccess(resource) {
+    this.customAccess[resource] = true;
+  }
+
+  revokeAccess(resource) {
+    delete this.customAccess[resource];
+  }
+
+  getAllPermissions() {
+    return {
+      roles: this.roles,
+      customAccess: this.customAccess
+    };
+  }
+}
+
+class UserSession {
+  constructor(userId, username, email, permissions, metadata = {}) {
+    this._userId = userId;
+    this._username = username;
+    this._email = email;
+    this._permissions = permissions instanceof UserPermissions 
+      ? permissions 
+      : new UserPermissions(permissions.roles, permissions.customAccess);
+    this._metadata = {
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      lastAccessed: metadata.lastAccessed || new Date().toISOString(),
+      ipAddress: metadata.ipAddress || null,
+      userAgent: metadata.userAgent || null,
+      ...metadata
+    };
+  }
+
+  get userId() {
+    return this._userId;
+  }
+
+  get username() {
+    return this._username;
+  }
+
+  set username(value) {
+    this._username = value;
+  }
+
+  get email() {
+    return this._email;
+  }
+
+  set email(value) {
+    this._email = value;
+  }
+
+  get permissions() {
+    return this._permissions;
+  }
+
+  get metadata() {
+    return this._metadata;
+  }
+
+  get isActive() {
+    const lastAccessed = new Date(this._metadata.lastAccessed);
+    const now = new Date();
+    const diffMinutes = (now - lastAccessed) / (1000 * 60);
+    return diffMinutes < 30;
+  }
+
+  get sessionAge() {
+    const created = new Date(this._metadata.createdAt);
+    const now = new Date();
+    return Math.floor((now - created) / 1000);
+  }
+
+  updateLastAccessed() {
+    this._metadata.lastAccessed = new Date().toISOString();
+  }
+
+  hasPermission(resource) {
+    return this._permissions.hasAccess(resource);
+  }
+
+  isAdmin() {
+    return this._permissions.hasRole('admin');
+  }
+
+  getSessionInfo() {
+    return {
+      userId: this._userId,
+      username: this._username,
+      email: this._email,
+      isActive: this.isActive,
+      sessionAge: this.sessionAge,
+      permissions: this._permissions.getAllPermissions()
+    };
+  }
+
+  toJSON() {
+    return {
+      _userId: this._userId,
+      _username: this._username,
+      _email: this._email,
+      _permissions: {
+        roles: this._permissions.roles,
+        customAccess: this._permissions.customAccess
+      },
+      _metadata: this._metadata
+    };
+  }
 }
 
 function serializeSession(sessionObject) {
-  return serialize.serialize(sessionObject);
+  const serialized = serialize.serialize(sessionObject);
+  return serialized;
 }
 
 function deserializeSession(serializedData) {
-  if (!serializedData || typeof serializedData !== 'string') {
+  if (!serializedData) {
     return null;
   }
-  
+
   try {
     const deserialized = serialize.unserialize(serializedData);
     
-    if (deserialized && typeof deserialized === 'object') {
-      deserialized.updateLastAccess();
+    if (deserialized._userId && deserialized._username && deserialized._email) {
+      const permissions = new UserPermissions(
+        deserialized._permissions.roles,
+        deserialized._permissions.customAccess
+      );
+      
+      const session = new UserSession(
+        deserialized._userId,
+        deserialized._username,
+        deserialized._email,
+        permissions,
+        deserialized._metadata
+      );
+      
+      return session;
     }
     
     return deserialized;
@@ -92,94 +168,25 @@ function deserializeSession(serializedData) {
   }
 }
 
-function encodeSessionCookie(sessionObject, secret) {
-  const serialized = serializeSession(sessionObject);
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(serialized);
-  const signature = hmac.digest('hex');
-  
-  const cookieValue = Buffer.from(JSON.stringify({
-    data: serialized,
-    signature: signature
-  })).toString('base64');
-  
-  return cookieValue;
+function createSessionFromCookie(cookieValue) {
+  return deserializeSession(cookieValue);
 }
 
-function decodeSessionCookie(cookieValue, secret) {
-  if (!cookieValue) {
-    return null;
-  }
-  
-  try {
-    const decoded = Buffer.from(cookieValue, 'base64').toString('utf8');
-    const parsed = JSON.parse(decoded);
-    
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(parsed.data);
-    const expectedSignature = hmac.digest('hex');
-    
-    if (parsed.signature !== expectedSignature) {
-      console.error('Invalid session signature');
-      return null;
-    }
-    
-    return deserializeSession(parsed.data);
-  } catch (error) {
-    console.error('Cookie decode error:', error);
-    return null;
-  }
+function sessionToCookie(sessionObject) {
+  return serializeSession(sessionObject);
 }
 
-function setSessionCookie(res, sessionObject, secret, options = {}) {
-  const cookieValue = encodeSessionCookie(sessionObject, secret);
-  
-  const cookieOptions = {
-    httpOnly: true,
-    secure: options.secure !== false,
-    maxAge: options.maxAge || 86400000,
-    sameSite: options.sameSite || 'strict',
-    path: options.path || '/'
-  };
-  
-  const cookieString = Object.entries(cookieOptions)
-    .map(([key, value]) => {
-      if (typeof value === 'boolean') {
-        return value ? key : '';
-      }
-      return `${key}=${value}`;
-    })
-    .filter(Boolean)
-    .join('; ');
-  
-  res.setHeader('Set-Cookie', `session=${cookieValue}; ${cookieString}`);
-}
-
-function getSessionFromCookie(req, secret) {
-  const cookies = req.headers.cookie;
-  
-  if (!cookies) {
-    return null;
-  }
-  
-  const sessionCookie = cookies.split(';')
-    .map(c => c.trim())
-    .find(c => c.startsWith('session='));
-  
-  if (!sessionCookie) {
-    return null;
-  }
-  
-  const cookieValue = sessionCookie.split('=')[1];
-  return decodeSessionCookie(cookieValue, secret);
+function createNewSession(userId, username, email, roles = [], customAccess = {}, metadata = {}) {
+  const permissions = new UserPermissions(roles, customAccess);
+  return new UserSession(userId, username, email, permissions, metadata);
 }
 
 module.exports = {
-  createUserSession,
+  UserSession,
+  UserPermissions,
   serializeSession,
   deserializeSession,
-  encodeSessionCookie,
-  decodeSessionCookie,
-  setSessionCookie,
-  getSessionFromCookie
+  createSessionFromCookie,
+  sessionToCookie,
+  createNewSession
 };

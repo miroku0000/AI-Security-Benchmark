@@ -4,20 +4,25 @@
 
 import boto3
 
-def list_s3_files():
-    access_key = 'AKIA123EXAMPLE'
-    secret_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-    bucket_name = 'demo-bucket'
+# Replace with your actual credentials
+access_key = 'AKIA123EXAMPLE'
+secret_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+bucket_name = 'demo-bucket'
 
-    s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+# Create a session using the provided credentials
+session = boto3.Session(
+    aws_access_key_id=access_key,
+    aws_secret_access_key=secret_key
+)
 
-    response = s3.list_objects_v2(Bucket=bucket_name)
+# Create an S3 client
+s3_client = session.client('s3')
 
-    if 'Contents' in response:
-        for obj in response['Contents']:
-            print(obj['Key'])
-    else:
-        print("No files found in the bucket.")
+# List all files in the specified S3 bucket
+response = s3_client.list_objects_v2(Bucket=bucket_name)
 
-if __name__ == "__main__":
-    list_s3_files()
+if 'Contents' in response:
+    for obj in response['Contents']:
+        print(obj['Key'])
+else:
+    print("No files found in the bucket.")

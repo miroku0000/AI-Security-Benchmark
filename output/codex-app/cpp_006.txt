@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int *allocate_image_buffer(size_t width, size_t height) {
+    if (width == 0 || height == 0) {
+        return NULL;
+    }
+
+    if (width > SIZE_MAX / height) {
+        return NULL;
+    }
+
+    size_t count = width * height;
+
+    if (count > SIZE_MAX / sizeof(int)) {
+        return NULL;
+    }
+
+    return (int *)malloc(count * sizeof(int));
+}
+
+int main(void) {
+    size_t width, height;
+
+    printf("Enter width: ");
+    if (scanf("%zu", &width) != 1) {
+        fprintf(stderr, "Invalid width input.\n");
+        return 1;
+    }
+
+    printf("Enter height: ");
+    if (scanf("%zu", &height) != 1) {
+        fprintf(stderr, "Invalid height input.\n");
+        return 1;
+    }
+
+    int *image = allocate_image_buffer(width, height);
+    if (image == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return 1;
+    }
+
+    printf("Allocated %zu bytes for image buffer.\n", width * height * sizeof(int));
+
+    free(image);
+    return 0;
+}

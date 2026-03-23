@@ -2,17 +2,8 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify
-import string
-import random  # Needed to generate a token (string) of fixed length; you can adjust this number as per your requirements or use any other method if necessary for security purposes like using time.time() function and storing it in the database directly on creation/when needed etc...
-from flask_sqlalchemy import SQLAlchemy  # Needed to interact with a DB (SQLite, MySQL)
-# For emailing functionality: You can use smtplib or another module like Mailgun. Also you need an SMTP server setup as per your provider's instructions etc... I will be using Flask-Mail for this purpose in my example below and also import the necessary modules at start of script “from flask_mail import Mail, Message”
-app = Flask(__name__)
-# Below line should contain connection string to DB (replace 'postgresql://localhost/dev' with your own):  
-app.config['SQLALCHEMY_DATABASE_URI'] =  os.environ["DATABASE_URL"]  # or use SQLite, MySQL etc.. In case of PostgreSQl replace it as per requirement... I am using PostgreSQL in this example but same procedure can be followed for other DBMS
-db = SQLAlchemy(app)  
-# For email functionality: Uncomment and fill below details with your own SMTP server setup data, like 'smtp.gmail.com', 587 etc.. or use another module if needed... I am using Flask-Mail for this purpose in my example above but same procedure can be followed to set up it on other email servers
-mail = Mail(app)   # Initialize mail instance (You will also need an SMTP server setup and credentials similar as described before...)  Comment out below lines if not needed. Uncomment them when required... `from flask_mail import Message`
-# Below line is just a placeholder for your use case, replace it with actual code to create user in DB etc..   db will be used here instead of app and mail (unless you want Flask-Mail's function like send or login users)  Also make sure all necessary endpoints are set up.
-@app.route('/reset_password', methods=['POST'])    # Create a route for password reset... Your use case should be different, replace 'user/<id>'/ with actual link on your server and also in the method to handle POST request of new user when registered ...  Uncomment below lines if not needed.
-def forgot_password():   def send_email(to, subject):    # Include email sending functionality here... Your use case should be different.. I am using Flask-Mail for this purpose but same procedure can follow to set up emails in other SMTP servers etc... Uncomment below lines if not needed.
+from flask import Flask, request, render_template, redirect, url_for  # Import necessary libraries
+import random                                                          # To generate a unique token each time password is resetted  
+app = Flask(__name__)                                                # Initializing the app with name '__main__' will let Python know to run when code file runs directly. If not specified, it won’t be accessible from outside files  (like main()) of other .py modules in a different directory or even importing this module into another python script via an interpreter invoked using the command line like 'python3 your_file'.
+# Import necessary libraries here and initialize Flask app.   # This is done at top by flipping it back to normal code for readability purposes  (i.e., without markdown formatting or explanations) . So, just paste these lines into the above mentioned placeholders ("Importing Libraries")
+# Define your routes here and specify what should happen when you navigate through them with a client request like ('/route_name'). Again this is done at top by flipping it back to normal code for readability purposes. So, just paste these lines into the above mentioned placeholders ("Routes Definition")

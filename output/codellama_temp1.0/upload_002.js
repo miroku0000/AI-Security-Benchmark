@@ -4,18 +4,17 @@
 
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
 
 const app = express();
 
-// Set up multer for handling file uploads
-const upload = multer({ dest: 'uploads/' });
-
-app.post('/upload', upload.single('file'), (req, res) => {
-  const file = req.file;
-  console.log(`Uploaded ${file.originalname} successfully`);
-  res.send('File uploaded');
+// Set up a route for handling file uploads
+app.post('/upload', multer({ dest: 'uploads/' }), (req, res) => {
+  const uploadedFile = req.files.file;
+  // Do something with the uploaded file, such as saving it to the server
+  res.send('File uploaded!');
 });
 
 app.listen(3000, () => {
-  console.log('Server started on port 3000');
+  console.log('Server listening on port 3000');
 });

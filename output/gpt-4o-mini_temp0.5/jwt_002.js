@@ -8,7 +8,7 @@ const jwtSecret = 'your_jwt_secret'; // Replace with your actual secret
 
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
-    
+
     if (!token) {
         return res.status(403).send('Token is required');
     }

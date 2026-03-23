@@ -8,32 +8,32 @@ const app = express();
 const port = 3000;
 
 const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'your_username',
-  password: 'your_password',
-  database: 'your_database'
+    host: 'localhost',
+    user: 'root',
+    password: 'password',
+    database: 'products_db'
 });
 
 db.connect(err => {
-  if (err) throw err;
-  console.log('Connected to MySQL database.');
+    if (err) throw err;
+    console.log('Connected to MySQL database.');
 });
 
 app.get('/search', (req, res) => {
-  const searchTerm = req.query.name;
-  if (!searchTerm) {
-    return res.status(400).json({ error: 'Name query parameter is required' });
-  }
-
-  const query = 'SELECT * FROM products WHERE name LIKE ?';
-  db.query(query, [`%${searchTerm}%`], (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database query failed' });
+    const productName = req.query.name;
+    if (!productName) {
+        return res.status(400).json({ error: 'Product name is required' });
     }
-    res.json(results);
-  });
+
+    const query = 'SELECT * FROM products WHERE name LIKE ?';
+    db.query(query, [`%${productName}%`], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(results);
+    });
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+    console.log(`Server running on http://localhost:${port}`);
 });

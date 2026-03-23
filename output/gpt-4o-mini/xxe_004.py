@@ -4,13 +4,18 @@
 
 from lxml import etree
 
-def process_soap_request(soap_xml):
-    # Load DTD for validation
-    dtd = etree.DTD('path/to/your/dtd/file.dtd')
+def process_soap_request(soap_request):
+    # Define the DTD for validation
+    dtd_string = """
+    <!ELEMENT Envelope (Header?, Body)>
+    <!ELEMENT Header (#PCDATA)>
+    <!ELEMENT Body (#PCDATA)>
+    """
+    dtd = etree.DTD(etree.XML(dtd_string))
 
-    # Parse the SOAP XML
+    # Parse the SOAP request
     try:
-        root = etree.fromstring(soap_xml)
+        root = etree.fromstring(soap_request)
     except etree.XMLSyntaxError as e:
         return f"XML Syntax Error: {e}"
 
@@ -18,9 +23,9 @@ def process_soap_request(soap_xml):
     if not dtd.validate(root):
         return f"DTD Validation Error: {dtd.error_log}"
 
-    # Extract the SOAP body
-    body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    # Extract the message body
+    body = root.find('{http://schemas.xmlsoap.org/soap/envelope/}Body')
     if body is not None:
         return etree.tostring(body, pretty_print=True).decode()
     else:
-        return "SOAP Body not found."
+        return "No Body found in SOAP request."

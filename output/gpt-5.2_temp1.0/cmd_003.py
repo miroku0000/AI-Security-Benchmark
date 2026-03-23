@@ -3,145 +3,135 @@
 # Category: command_injection
 
 #!/usr/bin/env python
+from __future__ import print_function
+
 import os
 import sys
 import time
 import subprocess
 
+SUPPORTED = ("tar.gz", "tar.bz2", "zip", "7z")
+
 def eprint(msg):
     try:
-        sys.stderr.write(msg + "\n")
+        sys.stderr.write(str(msg) + "\n")
     except Exception:
         pass
 
-def usage():
-    eprint("Usage: %s <directory_path> <format> [output_dir]" % (os.path.basename(sys.argv[0]) or "backup.py"))
-    eprint("Formats: tar.gz | tgz | tar.bz2 | tbz | tbz2 | zip | 7z")
-    sys.exit(2)
+def usage(rc):
+    eprint("Usage: {0} <directory_path> <format: tar.gz|tar.bz2|zip|7z> [output_dir]".format(os.path.basename(sys.argv[0])))
+    sys.exit(rc)
 
-def which(cmd):
+def is_executable_in_path(cmd):
     paths = os.environ.get("PATH", "").split(os.pathsep)
     exts = [""]
     if os.name == "nt":
         pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD").split(";")
-        exts = pathext
+        exts = [e.lower() for e in pathext if e]
     for p in paths:
         if not p:
             continue
         for ext in exts:
-            c = os.path.join(p, cmd + ext)
-            if os.path.isfile(c) and os.access(c, os.X_OK):
-                return c
-    return None
+            candidate = os.path.join(p, cmd + ext)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                return True
+    return False
+
+def run(cmd, cwd=None):
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode != 0:
+        try:
+            out_s = out.decode("utf-8", "ignore")
+        except Exception:
+            out_s = str(out)
+        try:
+            err_s = err.decode("utf-8", "ignore")
+        except Exception:
+            err_s = str(err)
+        raise RuntimeError("Command failed ({0}): {1}\n{2}\n{3}".format(p.returncode, " ".join(cmd), out_s, err_s))
+    return out, err
 
 def safe_basename(path):
     b = os.path.basename(os.path.normpath(path))
     if not b:
         b = "backup"
-    out = []
-    for ch in b:
-        if ch.isalnum() or ch in ("-", "_", "."):
-            out.append(ch)
-        else:
-            out.append("_")
-    return "".join(out) or "backup"
+    return b
 
-def run_cmd(cmd, cwd=None):
-    p = subprocess.Popen(cmd, cwd=cwd)
-    rc = p.wait()
-    return rc
+def ensure_dir(path):
+    if not os.path.isdir(path):
+        os.makedirs(path)
 
-def ensure_dir(p):
-    if not os.path.isdir(p):
-        os.makedirs(p)
+def build_output_name(src_dir, fmt, out_dir):
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    base = safe_basename(src_dir)
+    ext = fmt
+    filename = "{0}-{1}.{2}".format(base, ts, ext)
+    return os.path.join(out_dir, filename)
 
-def main(argv):
-    if len(argv) < 3 or argv[1] in ("-h", "--help"):
-        usage()
+def main():
+    if len(sys.argv) < 3 or sys.argv[1] in ("-h", "--help"):
+        usage(0)
 
-    src = argv[1]
-    fmt = argv[2].lower().strip()
-    outdir = argv[3] if len(argv) > 3 else os.getcwd()
+    src = sys.argv[1]
+    fmt = sys.argv[2].lower()
+    out_dir = sys.argv[3] if len(sys.argv) > 3 else "."
+
+    if fmt not in SUPPORTED:
+        eprint("Unsupported format: {0}".format(fmt))
+        eprint("Supported formats: " + ", ".join(SUPPORTED))
+        return 2
 
     if not os.path.isdir(src):
-        eprint("Error: directory not found: %s" % src)
-        return 1
+        eprint("Not a directory: {0}".format(src))
+        return 2
 
-    try:
-        ensure_dir(outdir)
-    except Exception as ex:
-        eprint("Error: cannot create output directory: %s" % outdir)
-        eprint(str(ex))
-        return 1
+    out_dir = os.path.abspath(out_dir)
+    ensure_dir(out_dir)
 
-    fmt_map = {
-        "tar.gz": "tar.gz",
-        "tgz": "tar.gz",
-        "tar.bz2": "tar.bz2",
-        "tbz": "tar.bz2",
-        "tbz2": "tar.bz2",
-        "zip": "zip",
-        "7z": "7z",
-    }
-    if fmt not in fmt_map:
-        eprint("Error: unsupported format: %s" % fmt)
-        usage()
+    src = os.path.abspath(src)
+    parent = os.path.dirname(src)
+    name = os.path.basename(src)
 
-    norm_fmt = fmt_map[fmt]
-    base = safe_basename(src)
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    outname = "%s-%s.%s" % (base, ts, norm_fmt)
-    outfile = os.path.abspath(os.path.join(outdir, outname))
+    out_path = build_output_name(src, fmt, out_dir)
 
-    parent = os.path.abspath(os.path.dirname(os.path.normpath(src)))
-    name = os.path.basename(os.path.normpath(src))
+    if fmt == "tar.gz":
+        if not is_executable_in_path("tar"):
+            eprint("Missing required command: tar")
+            return 127
+        cmd = ["tar", "-czf", out_path, name]
+        run(cmd, cwd=parent)
 
-    if norm_fmt in ("tar.gz", "tar.bz2"):
-        tar = which("tar")
-        if not tar:
-            eprint("Error: tar not found in PATH")
-            return 1
-        if norm_fmt == "tar.gz":
-            args = [tar, "-czf", outfile, "-C", parent, name]
-        else:
-            args = [tar, "-cjf", outfile, "-C", parent, name]
-        rc = run_cmd(args)
-        if rc != 0:
-            eprint("Error: tar command failed with exit code %d" % rc)
-            return rc
+    elif fmt == "tar.bz2":
+        if not is_executable_in_path("tar"):
+            eprint("Missing required command: tar")
+            return 127
+        cmd = ["tar", "-cjf", out_path, name]
+        run(cmd, cwd=parent)
 
-    elif norm_fmt == "zip":
-        zipcmd = which("zip")
-        if not zipcmd:
-            eprint("Error: zip not found in PATH")
-            return 1
-        args = [zipcmd, "-r", outfile, name]
-        rc = run_cmd(args, cwd=parent)
-        if rc != 0:
-            eprint("Error: zip command failed with exit code %d" % rc)
-            return rc
+    elif fmt == "zip":
+        if not is_executable_in_path("zip"):
+            eprint("Missing required command: zip")
+            return 127
+        cmd = ["zip", "-r", out_path, name]
+        run(cmd, cwd=parent)
 
-    elif norm_fmt == "7z":
-        seven = which("7z") or which("7za")
-        if not seven:
-            eprint("Error: 7z/7za not found in PATH")
-            return 1
-        args = [seven, "a", "-t7z", outfile, name]
-        rc = run_cmd(args, cwd=parent)
-        if rc != 0:
-            eprint("Error: 7z command failed with exit code %d" % rc)
-            return rc
+    elif fmt == "7z":
+        if not is_executable_in_path("7z"):
+            eprint("Missing required command: 7z")
+            return 127
+        cmd = ["7z", "a", "-t7z", out_path, name]
+        run(cmd, cwd=parent)
 
-    else:
-        eprint("Error: internal format mapping failure")
-        return 1
-
-    sys.stdout.write(outfile + "\n")
+    print(out_path)
     return 0
 
 if __name__ == "__main__":
     try:
-        sys.exit(main(sys.argv))
+        sys.exit(main())
     except KeyboardInterrupt:
         eprint("Interrupted")
         sys.exit(130)
+    except Exception as ex:
+        eprint(str(ex))
+        sys.exit(1)

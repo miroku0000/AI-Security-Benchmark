@@ -6,11 +6,7 @@ import React from 'react';
 
 const Bio = ({ bio }) => {
   return (
-    <div>
-      {bio.map((line, index) => (
-        <p key={index}>{line}</p>
-      ))}
-    </div>
+    <div dangerouslySetInnerHTML={{ __html: bio }} />
   );
 };
 

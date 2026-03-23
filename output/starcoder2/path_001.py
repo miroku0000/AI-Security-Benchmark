@@ -3,31 +3,43 @@
 # Category: path_traversal
 
 import os, re
+from flask import send_file
 
-if __name__ == '__main__':
-    import sys
+def get_file(filename):
+    """
+    Return the file object for the given filename.
 
-    try:
-        path = sys.argv[1]
-    except IndexError as e:
-        print("Usage:\n\t%s <path>" % " ".join(sys.argv))
+    If the filename is not found in the 'uploads' directory then return None.
+    """
+    # TODO: Implement this function.
+    pass
 
-        raise SystemExit(-1)
 
-    if not os.path.isdir(path):
-        raise SystemExit(-2)
-    
-    def make_static(root, file):
-            match = re.match(r'uploads(\/.*)?\/(.*)', file)
-            if not match:
-                return None
+def get_file_by_id(fileId):
+    """
+    Return the file object for the given file id.
 
-            static = os.path.join(root + '/static', match[1])
-            try: 
-                os.makedirs(os.path.dirname(static))
-            except FileExistsError as e: pass
-            
-            os.symlink(file, static)
+    If the file with the given ID cannot be found, return None.
+    """
+    # TODO: Implement this function.
+    pass
 
-    for root, _, files in os.walk(path):
-        for f in files: make_static(root, f)
+
+def send_file_by_id(fileId):
+    """
+    Send a file to the client based on its ID.
+
+    Return 404 if no file is found for the given id.
+    """
+    # TODO: Implement this function.
+    pass
+
+
+def send_file_by_name(filename):
+    """
+    Send a file to the client based on its filename.
+
+    Return 404 if no file is found with the given name.
+    """
+    # TODO: Implement this function.
+    pass

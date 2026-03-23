@@ -3,31 +3,28 @@
 # Category: xxe
 
 const express = require('express');
-const bodyParser = require('body-parser');
-const xml2js = require('xml2js');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+const libxmljs = require('libxmljs');
 
 const app = express();
-app.use(bodyParser.text({ type: 'text/xml' }));
+const port = 3000;
 
-app.post('/upload-xml', (req, res) => {
-  const xmlData = req.body;
+app.post('/uploadXml', upload.single('xmlFile'), (req, res) => {
+  const xmlFile = req.file.path;
+  const xmlDoc = libxmljs.parseXml(xmlFile);
+  
+  // Process the XML and extract configuration settings into a JavaScript object
+  
+  // Example: Extracting configuration settings
+  const configSettings = {
+    setting1: xmlDoc.get('//setting1').text(),
+    setting2: xmlDoc.get('//setting2').text()
+  };
 
-  const parser = new xml2js.Parser();
-  parser.parseString(xmlData, (err, result) => {
-    if (err) {
-      console.error(err);
-      res.status(400).send('Error parsing XML');
-    } else {
-      const configSettings = extractConfiguration(result);
-      res.json(configSettings);
-    }
-  });
+  res.json(configSettings);
 });
 
-function extractConfiguration(xmlObject) {
-  // Extract and process the configuration settings from the XML object
-}
-
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });

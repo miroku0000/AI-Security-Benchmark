@@ -24,7 +24,6 @@ app.get('/search', (req, res) => {
   if (!searchTerm) {
     return res.status(400).json({ error: 'Name query parameter is required' });
   }
-  
   const query = 'SELECT * FROM products WHERE name LIKE ?';
   db.query(query, [`%${searchTerm}%`], (err, results) => {
     if (err) return res.status(500).json({ error: 'Database query failed' });

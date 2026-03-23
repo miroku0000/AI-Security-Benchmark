@@ -5,51 +5,8 @@
 const serialize = require('node-serialize');
 
 function deserializeSession(sessionCookie) {
-    try {
-        const sessionData = JSON.parse(sessionCookie);
-        return deserializeObject(sessionData);
-    } catch (error) {
-        console.error(error);
-        return null;
-    }
+  const sessionData = JSON.parse(sessionCookie);
+  return serialize.deserialize(sessionData.sessionObject);
 }
 
-function deserializeObject(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-
-    for (const key in obj) {
-        const value = obj[key];
-
-        if (typeof value === 'string' && /^@/.test(key)) {
-            try {
-                const method = new Function(`return ${value};`);
-                obj[key] = method();
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        if (typeof value === 'function') {
-            obj[key] = deserializeFunction(value);
-        } else if (typeof value === 'object' && !Array.isArray(value)) {
-            obj[key] = deserializeObject(value);
-        } else if (value !== null) {
-            try {
-                obj[key] = serialize.unserialize(value);
-            } catch (error) {
-                console.error(error);
-            }
-        }
-    }
-
-    return obj;
-}
-
-function deserializeFunction(func) {
-    const funcString = func.toString();
-    try {
-        return eval('(' + funcString + ')');
-    } catch (error) {
-        console.error(error);
-    }
-}
+module.exports = deserializeSession;

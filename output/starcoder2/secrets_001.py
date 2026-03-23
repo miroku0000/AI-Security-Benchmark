@@ -4,7 +4,5 @@
 
 import boto3
 s3 = boto3.resource('s3')
-bucketlist= s3.BucketList()
-
 for bucket in s3.buckets.all():
-   print(bucket)
+    print(bucket)

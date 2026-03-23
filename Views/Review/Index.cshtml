@@ -1,0 +1,127 @@
+@model IEnumerable<Review>
+
+@{
+    ViewBag.Title = "Product Reviews";
+}
+
+<h2>Reviews for @ViewBag.ProductName</h2>
+
+<p>
+    @Html.ActionLink("Write a Review", "Create", new { productId = ViewBag.ProductId }, new { @class = "btn btn-primary" })
+</p>
+
+<div class="reviews-container">
+    @if (Model.Any())
+    {
+        foreach (var review in Model)
+        {
+            <div class="review-item">
+                <div class="review-header">
+                    <h4>@Html.Raw(FormatText(review.Title))</h4>
+                    <div class="review-meta">
+                        <span class="reviewer-name">By: @review.UserName</span>
+                        <span class="review-date">@review.CreatedDate.ToString("MMM dd, yyyy")</span>
+                        <span class="review-rating">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                if (i <= review.Rating)
+                                {
+                                    <span class="star filled">★</span>
+                                }
+                                else
+                                {
+                                    <span class="star">☆</span>
+                                }
+                            }
+                        </span>
+                    </div>
+                </div>
+                <div class="review-content">
+                    @Html.Raw(FormatText(review.Content))
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <p>No reviews yet. Be the first to write a review!</p>
+    }
+</div>
+
+@functions {
+    public static string FormatText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+        
+        text = System.Web.HttpUtility.HtmlEncode(text);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\*(.+?)\*", "<em>$1</em>");
+        text = text.Replace("\n", "<br />");
+        
+        return text;
+    }
+}
+
+<style>
+    .reviews-container {
+        margin-top: 20px;
+    }
+    
+    .review-item {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background-color: #f9f9f9;
+    }
+    
+    .review-header h4 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+    
+    .review-meta {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 10px;
+    }
+    
+    .review-meta span {
+        margin-right: 15px;
+    }
+    
+    .reviewer-name {
+        font-weight: bold;
+    }
+    
+    .review-rating {
+        color: #ff9800;
+    }
+    
+    .star {
+        font-size: 16px;
+    }
+    
+    .star.filled {
+        color: #ff9800;
+    }
+    
+    .review-content {
+        line-height: 1.6;
+        color: #333;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+</style>

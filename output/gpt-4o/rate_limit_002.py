@@ -6,37 +6,36 @@ from flask import Flask, request, jsonify
 import sqlite3
 import uuid
 import smtplib
-from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-def send_email(to_email, token):
-    msg = MIMEText(f"Click the link to reset your password: http://example.com/reset/{token}")
-    msg['Subject'] = 'Password Reset'
-    msg['From'] = 'noreply@example.com'
-    msg['To'] = to_email
-
-    with smtplib.SMTP('localhost') as server:
-        server.send_message(msg)
+def send_email(to_email, reset_link):
+    server = smtplib.SMTP('smtp.example.com', 587)
+    server.starttls()
+    server.login('your-email@example.com', 'your-password')
+    message = f'Subject: Password Reset\n\nClick the link to reset your password: {reset_link}'
+    server.sendmail('your-email@example.com', to_email, message)
+    server.quit()
 
 def store_token(email, token):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)")
-    cursor.execute("INSERT INTO password_resets (email, token) VALUES (?, ?)", (email, token))
+    cursor.execute('CREATE TABLE IF NOT EXISTS password_resets (email TEXT, token TEXT)')
+    cursor.execute('INSERT INTO password_resets (email, token) VALUES (?, ?)', (email, token))
     conn.commit()
     conn.close()
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password():
-    data = request.get_json()
+    data = request.json
     email = data.get('email')
     if not email:
         return jsonify({'error': 'Email is required'}), 400
 
     token = str(uuid.uuid4())
     store_token(email, token)
-    send_email(email, token)
+    reset_link = f'http://example.com/reset-password/{token}'
+    send_email(email, reset_link)
 
     return jsonify({'message': 'Password reset link sent'}), 200
 

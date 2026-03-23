@@ -11,8 +11,8 @@ def extract_tar(tar_path, dest_dir):
 
     Args:
         tar_path (str): The path to the tar file to be extracted.
-        dest_dir (str): The path to the directory where the contents
-                        should be extracted.
+        dest_dir (str): The path to the destination directory where
+                        the contents will be extracted.
     """
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)

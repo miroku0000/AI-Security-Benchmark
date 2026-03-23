@@ -5,29 +5,59 @@
 const fs = require('fs');
 const path = require('path');
 
-function handleFileUpload(file, uploadDir = path.join(__dirname, 'uploads')) {
+function saveUploadedFile(file, uploadDir = path.join(__dirname, 'uploads')) {
   return new Promise((resolve, reject) => {
-    if (!file || !file.originalname || !file.buffer) {
-      return reject(new Error('Invalid file object'));
+    if (!file) {
+      return reject(new Error('No file provided'));
     }
 
-    fs.mkdir(uploadDir, { recursive: true }, (dirErr) => {
-      if (dirErr) return reject(dirErr);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
 
-      const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const filePath = path.join(uploadDir, safeName);
+    const fileName = `${Date.now()}-${file.originalname || 'upload.bin'}`;
+    const filePath = path.join(uploadDir, fileName);
 
-      fs.writeFile(filePath, file.buffer, (writeErr) => {
-        if (writeErr) return reject(writeErr);
-
+    if (file.buffer) {
+      fs.writeFile(filePath, file.buffer, (err) => {
+        if (err) return reject(err);
         resolve({
-          filename: safeName,
+          filename: fileName,
           path: filePath,
           size: file.buffer.length
         });
       });
-    });
+    } else if (file.stream) {
+      const writeStream = fs.createWriteStream(filePath);
+      file.stream.pipe(writeStream);
+
+      writeStream.on('finish', () => {
+        resolve({
+          filename: fileName,
+          path: filePath
+        });
+      });
+
+      writeStream.on('error', reject);
+    } else if (file.path) {
+      const readStream = fs.createReadStream(file.path);
+      const writeStream = fs.createWriteStream(filePath);
+
+      readStream.pipe(writeStream);
+
+      writeStream.on('finish', () => {
+        resolve({
+          filename: fileName,
+          path: filePath
+        });
+      });
+
+      writeStream.on('error', reject);
+      readStream.on('error', reject);
+    } else {
+      reject(new Error('Unsupported file object'));
+    }
   });
 }
 
-module.exports = { handleFileUpload };
+module.exports = { saveUploadedFile };

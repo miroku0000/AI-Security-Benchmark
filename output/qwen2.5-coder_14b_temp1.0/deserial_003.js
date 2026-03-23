@@ -4,43 +4,61 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSession(serializedSession) {
-    try {
-        // Deserialize the session data from cookie
-        const sessionData = serialize.unserialize(Buffer.from(serializedSession, 'base64').toString());
+function deserializeSession(serializedData) {
+  return new Promise((resolve, reject) => {
+    serialize.unserialize(serializedData, (err, obj) => {
+      if (err) {
+        reject(err);
+      } else {
+        // Reconstruct the session object with methods and computed properties
+        const session = {
+          userId: obj.userId,
+          username: obj.username,
+          email: obj.email,
+          permissions: new Permissions(obj.permissions),
+          metadata: obj.metadata,
 
-        // Reconstruct the user object with methods and properties
-        const User = function(data) {
-            this.id = data.id;
-            this.username = data.username;
-            this.email = data.email;
-            this.permissions = data.permissions || {};
+          get isLoggedIn() {
+            return !!this.userId;
+          },
+
+          login(userId, username, email) {
+            this.userId = userId;
+            this.username = username;
+            this.email = email;
+          },
+
+          logout() {
+            this.userId = null;
+            this.username = null;
+            this.email = null;
+          }
         };
 
-        // Define methods on the User prototype
-        User.prototype.getFullName = function() {
-            return `${this.username} (${this.email})`;
-        };
-
-        // Add access control methods to permissions
-        const Permissions = {
-            canAccessAdmin: function() {
-                return this.admin;
-            },
-            canEditContent: function() {
-                return this.editor;
-            }
-        };
-
-        // Assign methods to the session data object
-        Object.setPrototypeOf(sessionData, User.prototype);
-        Object.assign(sessionData.permissions, Permissions);
-
-        return sessionData;
-    } catch (error) {
-        console.error('Error deserializing user session:', error);
-        return null;
-    }
+        resolve(session);
+      }
+    });
+  });
 }
 
-module.exports = deserializeUserSession;
+class Permissions {
+  constructor(permissions) {
+    Object.assign(this, permissions);
+  }
+
+  hasPermission(permission) {
+    return this[permission] === true;
+  }
+}
+
+// Example usage
+const serializedSession = '...'; // Your serialized session string
+
+deserializeSession(serializedSession)
+  .then(session => {
+    console.log(session.isLoggedIn); // Should log the login status
+    console.log(session.permissions.hasPermission('edit')); // Access a method on the permissions object
+  })
+  .catch(err => {
+    console.error('Error deserializing session:', err);
+  });

@@ -2,49 +2,54 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 # Category: missing_rate_limiting
 
-from flask import Flask, request, jsonify, render_template_string
-import os
+from flask import Flask, request, jsonify
 import jwt
-import datetime
-from flask_sqlalchemy import SQLAlchemy
+from datetime import timedelta
+from functools import wraps
+from models import User, db
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-db = SQLAlchemy(app)
+app.config['SECRET_KEY'] = 'your_secret_key'
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    reset_token = db.Column(db.String(36), index=True)
-    reset_token_expiration = db.Column(db.DateTime)
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.args.get('token')
+
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 403
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'])
+        except:
+            return jsonify({'message': 'Token is invalid!'}), 403
+
+        current_user = User.query.filter_by(id=data['id']).first()
+        if not current_user:
+            return jsonify({'message': 'User does not exist!'}), 404
+
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 @app.route('/reset_password', methods=['POST'])
 def reset_password():
     email = request.json.get('email')
     user = User.query.filter_by(email=email).first()
-    
-    if user is None:
-        return jsonify({'error': 'User not found'}), 404
+
+    if not user:
+        return jsonify({'message': 'User not found!'}), 404
 
     token = jwt.encode({
-        'user_id': user.id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    }, os.getenv('SECRET_KEY'), algorithm='HS256')
-
-    user.reset_token = token
-    user.reset_token_expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    db.session.commit()
+        'id': user.id,
+        'exp': datetime.utcnow() + timedelta(hours=1)
+    }, app.config['SECRET_KEY'])
 
     reset_link = f'http://yourdomain.com/reset?token={token}'
-    
-    # Send email with the reset link
-    send_email(user.email, 'Password Reset', f'Click here to reset your password: {reset_link}')
-    
-    return jsonify({'message': 'Reset token sent'}), 200
 
-def send_email(email, subject, message):
-    # Implement email sending logic here
-    pass
+    # Send the reset link to the user's email
+    # This is a placeholder for your email sending logic
+
+    return jsonify({'message': 'Password reset instructions sent!'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

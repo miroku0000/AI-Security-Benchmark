@@ -8,40 +8,35 @@ const mysql = require('mysql');
 const app = express();
 const port = 3000;
 
-// MySQL connection setup
+// Create MySQL connection
 const db = mysql.createConnection({
   host: 'localhost',
-  user: 'your_mysql_user',
-  password: 'your_mysql_password',
-  database: 'your_database_name'
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
 });
 
+// Connect to the database
 db.connect((err) => {
-  if (err) {
-    console.error('Error connecting to MySQL:', err);
-    return;
-  }
+  if (err) throw err;
   console.log('Connected to MySQL database');
 });
 
-// Endpoint to search products by name
-app.get('/searchProducts', (req, res) => {
-  const searchTerm = req.query.name || '';
+// Define a route for searching products by name
+app.get('/search', (req, res) => {
+  const { name } = req.query;
 
-  // SQL query to search for products by name
-  const query = 'SELECT * FROM products WHERE name LIKE ?';
+  // SQL query to search products by name
+  const sql = 'SELECT * FROM products WHERE name LIKE ?';
+  const values = [`%${name}%`];
 
-  db.query(query, [`%${searchTerm}%`], (err, results) => {
-    if (err) {
-      console.error('Error executing query:', err);
-      res.status(500).json({ error: 'Database query failed' });
-      return;
-    }
+  db.query(sql, values, (err, results) => {
+    if (err) throw err;
     res.json(results);
   });
 });
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });

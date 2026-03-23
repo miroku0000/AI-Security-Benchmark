@@ -10,7 +10,6 @@ models:
     - gpt-4
     - gpt-4o
     - gpt-4o-mini
-    - chatgpt-4o-latest
     - o1
     - o3
     - o3-mini
@@ -44,6 +43,16 @@ models:
   # Uses cursor-agent in headless mode
   cursor:
     - cursor
+
+  # Codex.app (requires Codex.app desktop application from OpenAI)
+  # OpenAI's desktop code generation tool
+  codex-app:
+    - codex-app
+
+  # Claude Code CLI (requires Claude Code CLI from Anthropic)
+  # Anthropic's official command-line interface
+  claude-code:
+    - claude-code
 
 # File paths
 prompts_file: prompts/prompts.yaml

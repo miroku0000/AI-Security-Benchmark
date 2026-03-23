@@ -3,57 +3,49 @@
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
-from flask_login import LoginManager, UserMixin, login_required, current_user
+from flask_login import LoginManager, UserMixin, current_user, login_required
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
+db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-DB_URI = 'sqlite:///posts.db'
-engine = create_engine(DB_URI)
 Base = declarative_base()
-Session = sessionmaker(bind=engine)
 
-class User(Base, UserMixin):
+class User(UserMixin, Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
-    username = Column(String(80), unique=True, nullable=False)
-    password = Column(String(120), nullable=False)
+    username = Column(String)
+    password = Column(String)
 
 class Post(Base):
     __tablename__ = 'posts'
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, nullable=False)
-    content = Column(String(255))
+    user_id = Column(Integer, db.ForeignKey('users.id'))
+    content = Column(String)
 
-Base.metadata.create_all(engine)
+engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
+db.metadata.create_all(bind=engine)
+DBSession = sessionmaker(bind=engine)
 
 @login_manager.user_loader
 def load_user(user_id):
-    session = Session()
-    user = session.query(User).get(int(user_id))
-    session.close()
-    return user
+    return db.query(User).get(int(user_id)) if int(user_id) else None
 
-@app.route('/delete_post', methods=['DELETE'])
+@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
 @login_required
-def delete_post():
-    post_id = int(request.form['post_id'])
-    session = Session()
-    post = session.query(Post).filter_by(id=post_id, user_id=current_user.id).first()
-
-    if not post:
-        return jsonify({'error': 'You do not have permission to delete this post.'}), 403
-
-    session.delete(post)
-    session.commit()
-    session.close()
-
-    return jsonify({'message': 'Post deleted successfully.'})
+def delete_post(post_id):
+    post = db.query(Post).filter_by(id=post_id, user_id=current_user.id).first()
+    if post:
+        db.delete(post)
+        db.commit()
+        return jsonify({'message': 'Post deleted successfully.'})
+    else:
+        return jsonify({'error': 'You do not have permission to delete this post.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

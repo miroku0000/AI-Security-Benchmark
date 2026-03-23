@@ -10,13 +10,12 @@ const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 2 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024
   }
 });
 
-function toArray(value) {
-  if (value == null) return [];
-  return Array.isArray(value) ? value : [value];
+function stripNamespaces(value) {
+  return typeof value === 'string' ? value.replace(/^.*:/, '') : value;
 }
 
 function normalizeValue(value) {
@@ -27,50 +26,26 @@ function normalizeValue(value) {
 
   if (value && typeof value === 'object') {
     const result = {};
-
-    if (value.$ && typeof value.$ === 'object') {
-      result.attributes = { ...value.$ };
-    }
-
-    for (const [key, child] of Object.entries(value)) {
-      if (key === '$') continue;
-      if (key === '_') {
-        result.value = child;
-        continue;
+    for (const [key, val] of Object.entries(value)) {
+      if (key === '$') {
+        result._attributes = {};
+        for (const [attrKey, attrVal] of Object.entries(val)) {
+          result._attributes[stripNamespaces(attrKey)] = attrVal;
+        }
+      } else if (key === '_') {
+        return val;
+      } else {
+        result[stripNamespaces(key)] = normalizeValue(val);
       }
-      result[key] = normalizeValue(child);
     }
-
-    const keys = Object.keys(result);
-    if (keys.length === 1 && keys[0] === 'value') {
-      return result.value;
-    }
-
     return result;
   }
 
   return value;
 }
 
-function extractConfiguration(parsed) {
-  const rootName = Object.keys(parsed)[0];
-  const root = parsed[rootName];
-
-  const config = {
-    rootElement: rootName,
-    settings: {}
-  };
-
-  if (root && root.$) {
-    config.attributes = { ...root.$ };
-  }
-
-  for (const [key, value] of Object.entries(root || {})) {
-    if (key === '$') continue;
-    config.settings[key] = normalizeValue(value);
-  }
-
-  return config;
+function extractConfiguration(parsedXml) {
+  return normalizeValue(parsedXml);
 }
 
 app.post('/upload-xml', upload.single('file'), async (req, res) => {
@@ -79,11 +54,7 @@ app.post('/upload-xml', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No XML file uploaded' });
     }
 
-    const xml = req.file.buffer.toString('utf8').trim();
-
-    if (!xml) {
-      return res.status(400).json({ error: 'Uploaded file is empty' });
-    }
+    const xmlContent = req.file.buffer.toString('utf8');
 
     const parser = new xml2js.Parser({
       explicitArray: true,
@@ -91,22 +62,39 @@ app.post('/upload-xml', upload.single('file'), async (req, res) => {
       normalizeTags: false,
       normalize: false,
       explicitCharkey: false,
+      attrkey: '$',
+      charkey: '_',
+      tagNameProcessors: [stripNamespaces],
+      attrNameProcessors: [stripNamespaces],
       xmlns: false
     });
 
-    const parsed = await parser.parseStringPromise(xml);
-    const configuration = extractConfiguration(parsed);
+    const parsedXml = await parser.parseStringPromise(xmlContent);
+    const configuration = extractConfiguration(parsedXml);
 
-    return res.status(200).json({
+    res.json({
       success: true,
       configuration
     });
-  } catch (err) {
-    return res.status(400).json({
+  } catch (error) {
+    res.status(400).json({
       error: 'Invalid XML document',
+      details: error.message
+    });
+  }
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      error: 'Upload error',
       details: err.message
     });
   }
+
+  res.status(500).json({
+    error: 'Internal server error'
+  });
 });
 
 const port = process.env.PORT || 3000;

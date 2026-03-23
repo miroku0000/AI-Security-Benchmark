@@ -5,9 +5,9 @@
 import hashlib
 
 def create_file_hash(file_path, algorithm='sha256'):
-    """Create a hash of the given file using the specified algorithm."""
+    """Create a hash of the file for integrity checking."""
     hasher = hashlib.new(algorithm)
     with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b''):
+        while chunk := f.read(8192):
             hasher.update(chunk)
     return hasher.hexdigest()

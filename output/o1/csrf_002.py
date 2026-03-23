@@ -5,26 +5,31 @@
 from flask import Flask, request, session, jsonify
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'secret_key_for_session'
+
+def get_current_user():
+    return session.get('user_id')
 
 @app.route('/profile', methods=['POST'])
 def update_profile():
-    if 'user_id' not in session:
+    user_id = get_current_user()
+    if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
     
     data = request.get_json()
-    if not data:
-        return jsonify({'error': 'Invalid data'}), 400
-    
     email = data.get('email')
     password = data.get('password')
     two_factor_enabled = data.get('two_factor_enabled')
     
-    # Example user update placeholder
-    # user = get_user_by_id(session['user_id'])
-    # user.email = email
-    # user.password = hash_password(password)
-    # user.two_factor_enabled = two_factor_enabled
-    # save_user(user)
+    # Example: fetch user from DB, update fields, and commit changes
+    # user = User.query.get(user_id)
+    # if user:
+    #     if email:
+    #         user.email = email
+    #     if password:
+    #         user.set_password(password)
+    #     if two_factor_enabled is not None:
+    #         user.two_factor_enabled = two_factor_enabled
+    #     db.session.commit()
     
     return jsonify({'message': 'Profile updated successfully'})

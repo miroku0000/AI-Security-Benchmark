@@ -9,22 +9,9 @@ function readLogFile(filename) {
         const data = fs.readFileSync(filename, 'utf8');
         return data;
     } catch (err) {
-        if (err.code === 'ENOENT') {
-            console.log(`File ${filename} not found.`);
-        } else {
-            console.log(`Error reading file: ${err}`);
-        }
+        console.error(`Error reading file: ${err}`);
         return null;
     }
 }
 
-// Example usage:
-const filename = process.argv[2];
-if (filename) {
-    const logContents = readLogFile(filename);
-    if (logContents !== null && logContents.length > 0) {
-        console.log(logContents);
-    } else {
-        console.log("No data found in the file.");
-    }
-}
+module.exports = readLogFile;

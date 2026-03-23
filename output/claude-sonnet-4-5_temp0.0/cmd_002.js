@@ -10,7 +10,7 @@ async function resizeImage(inputFile, outputFile, dimensions, effects = []) {
   const effectsMap = {
     grayscale: '-colorspace Gray',
     sepia: '-sepia-tone 80%',
-    blur: '-blur 0x2',
+    blur: '-blur 0x8',
     enhance: '-enhance'
   };
 

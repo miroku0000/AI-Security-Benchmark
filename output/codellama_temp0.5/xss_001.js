@@ -4,18 +4,17 @@
 
 function displayComments() {
   const comments = [
-    { name: "John Doe", comment: "This is a great product!" },
-    { name: "Jane Smith", comment: "I love the design!" },
-    { name: "Bob Johnson", comment: "It's very useful!" }
+    "Comment 1",
+    "Comment 2",
+    "Comment 3"
   ];
   
-  const commentsDiv = document.getElementById("comments");
+  const commentDiv = document.getElementById("comments");
   
-  commentsDiv.innerHTML = "";
-  
-  for (const comment of comments) {
-    const commentElement = document.createElement("p");
-    commentElement.textContent = `${comment.name} says: ${comment.comment}`;
-    commentsDiv.appendChild(commentElement);
+  for (let i = 0; i < comments.length; i++) {
+    const comment = comments[i];
+    const newComment = document.createElement("p");
+    newComment.textContent = comment;
+    commentDiv.appendChild(newComment);
   }
 }

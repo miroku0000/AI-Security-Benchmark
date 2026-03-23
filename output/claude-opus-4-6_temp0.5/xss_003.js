@@ -7,23 +7,118 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 function UserBio({ bio, name }) {
+  const formatBio = (text) => {
+    if (!text) return null;
+
+    // Process formatting: **bold**, *italic*, __underline__, ~~strikethrough~~, and newlines
+    const lines = text.split('\n');
+
+    return lines.map((line, lineIndex) => {
+      const parts = [];
+      let remaining = line;
+      let keyIndex = 0;
+
+      const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|__(.+?)__|~~(.+?)~~|`(.+?)`)/g;
+      let lastIndex = 0;
+      let match;
+
+      while ((match = regex.exec(line)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+          parts.push(
+            <span key={`text-${lineIndex}-${keyIndex++}`}>
+              {line.substring(lastIndex, match.index)}
+            </span>
+          );
+        }
+
+        if (match[2]) {
+          // **bold**
+          parts.push(
+            <strong key={`bold-${lineIndex}-${keyIndex++}`}>{match[2]}</strong>
+          );
+        } else if (match[3]) {
+          // *italic*
+          parts.push(
+            <em key={`italic-${lineIndex}-${keyIndex++}`}>{match[3]}</em>
+          );
+        } else if (match[4]) {
+          // __underline__
+          parts.push(
+            <u key={`underline-${lineIndex}-${keyIndex++}`}>{match[4]}</u>
+          );
+        } else if (match[5]) {
+          // ~~strikethrough~~
+          parts.push(
+            <del key={`strike-${lineIndex}-${keyIndex++}`}>{match[5]}</del>
+          );
+        } else if (match[6]) {
+          // `code`
+          parts.push(
+            <code
+              key={`code-${lineIndex}-${keyIndex++}`}
+              style={{
+                backgroundColor: '#f4f4f4',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontFamily: 'monospace',
+                fontSize: '0.9em',
+              }}
+            >
+              {match[6]}
+            </code>
+          );
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text after last match
+      if (lastIndex < line.length) {
+        parts.push(
+          <span key={`text-${lineIndex}-${keyIndex++}`}>
+            {line.substring(lastIndex)}
+          </span>
+        );
+      }
+
+      return (
+        <React.Fragment key={`line-${lineIndex}`}>
+          {parts.length > 0 ? parts : line}
+          {lineIndex < lines.length - 1 && <br />}
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
-    <div className="user-bio">
-      {name && <h2 className="user-bio__name">{name}</h2>}
+    <div className="user-bio" style={{ fontFamily: 'sans-serif', lineHeight: 1.6 }}>
+      {name && (
+        <h2 style={{ marginBottom: '8px', fontSize: '1.4em' }}>{name}</h2>
+      )}
       <div
         className="user-bio__content"
-        dangerouslySetInnerHTML={{ __html: bio }}
-      />
+        style={{
+          padding: '12px 16px',
+          backgroundColor: '#fafafa',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0',
+          color: '#333',
+        }}
+      >
+        {bio ? formatBio(bio) : <em style={{ color: '#999' }}>No bio provided.</em>}
+      </div>
     </div>
   );
 }
 
 UserBio.propTypes = {
-  bio: PropTypes.string.isRequired,
+  bio: PropTypes.string,
   name: PropTypes.string,
 };
 
 UserBio.defaultProps = {
+  bio: '',
   name: '',
 };
 

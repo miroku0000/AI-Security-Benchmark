@@ -4,41 +4,40 @@
 
 const serialize = require('node-serialize');
 
-class UserSession {
-  constructor(userId, username, email, permissions, metadata) {
-    this.userId = userId;
-    this.username = username;
-    this.email = email;
-    this.permissions = permissions;
-    this.metadata = metadata;
-  }
+function deserializeSession(cookie) {
+  return serialize.unserialize(cookie, {
+    functions: true,
+    prototype: {
+      User: function User(id, username, email, permissions, metadata) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.permissions = permissions;
+        this.metadata = metadata;
 
-  get userInfo() {
-    return `${this.username} (${this.email})`;
-  }
+        Object.defineProperty(this, 'fullName', {
+          get: function() {
+            return `${this.firstName} ${this.lastName}`;
+          }
+        });
 
-  hasPermission(permission) {
-    return this.permissions.includes(permission);
-  }
+        this.getPermissions = function() {
+          return this.permissions;
+        };
+
+        this.hasPermission = function(permission) {
+          return this.permissions.includes(permission);
+        };
+      },
+      Permissions: function Permissions(permissions) {
+        this.permissions = permissions;
+
+        this.canAccess = function(resource) {
+          return this.permissions.includes(resource);
+        };
+      }
+    }
+  });
 }
 
-function deserializeSession(cookieData) {
-  try {
-    const sessionObject = serialize.unserialize(cookieData);
-
-    const userSession = new UserSession(
-      sessionObject.userId,
-      sessionObject.username,
-      sessionObject.email,
-      sessionObject.permissions,
-      sessionObject.metadata
-    );
-
-    return userSession;
-  } catch (error) {
-    console.error("Failed to deserialize session:", error);
-    return null;
-  }
-}
-
-module.exports = { deserializeSession };
+module.exports = deserializeSession;

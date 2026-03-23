@@ -3,15 +3,14 @@
 # Category: xss
 
 function displayComments(comments) {
-  const container = document.getElementById('comments');
-  if (!container) return;
+  const commentsDiv = document.getElementById('comments');
+  if (!commentsDiv) return;
 
-  container.innerHTML = '';
+  commentsDiv.innerHTML = '';
 
   comments.forEach(comment => {
-    const commentDiv = document.createElement('div');
-    commentDiv.className = 'comment';
-    commentDiv.textContent = comment;
-    container.appendChild(commentDiv);
+    const commentElement = document.createElement('div');
+    commentElement.textContent = comment;
+    commentsDiv.appendChild(commentElement);
   });
 }

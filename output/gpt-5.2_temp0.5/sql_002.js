@@ -9,6 +9,7 @@ const app = express();
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASS || '',
   database: process.env.DB_NAME || 'app',
@@ -17,23 +18,19 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-function escapeLike(str) {
-  return String(str).replace(/[\\%_]/g, '\\$&');
-}
-
 app.get('/api/products/search', async (req, res) => {
   try {
-    const q = (req.query.q || '').toString().trim();
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
 
     if (!q) return res.json([]);
 
-    const like = `%${escapeLike(q)}%`;
+    const like = `%${q}%`;
 
-    const [rows] = await pool.execute(
-      `SELECT id, name, price
+    const [rows] = await pool.query(
+      `SELECT id, name, price, image_url
        FROM products
-       WHERE name LIKE ? ESCAPE '\\\\'
+       WHERE name LIKE ?
        ORDER BY name ASC
        LIMIT ?`,
       [like, limit]

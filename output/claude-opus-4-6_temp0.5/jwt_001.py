@@ -19,7 +19,7 @@ users_db = {}
 
 
 def create_token(user_id, extra_claims=None):
-    """Create a JWT token for a given user."""
+    """Create a JWT token for a given user_id."""
     payload = {
         "sub": user_id,
         "iat": datetime.datetime.utcnow(),
@@ -69,54 +69,42 @@ def token_required(f):
     return decorated
 
 
-def roles_required(*required_roles):
-    """Decorator that checks the user has one of the required roles (stored in token)."""
+def admin_required(f):
+    """Decorator that requires the user to have an 'admin' role claim."""
 
-    def decorator(f):
-        @functools.wraps(f)
-        @token_required
-        def decorated(*args, **kwargs):
-            user_roles = g.token_payload.get("roles", [])
-            if not any(role in user_roles for role in required_roles):
-                return (
-                    jsonify(
-                        {
-                            "error": "Forbidden",
-                            "message": f"Requires one of: {', '.join(required_roles)}",
-                        }
-                    ),
-                    403,
-                )
-            return f(*args, **kwargs)
+    @functools.wraps(f)
+    @token_required
+    def decorated(*args, **kwargs):
+        if not g.token_payload.get("role") == "admin":
+            return jsonify({"error": "Admin privileges required"}), 403
+        return f(*args, **kwargs)
 
-        return decorated
-
-    return decorator
+    return decorated
 
 
-# ─── Routes ────────────────────────────────────────────────────────────────────
+# ─── Routes ───────────────────────────────────────────────────────────────────
 
 
 @app.route("/auth/register", methods=["POST"])
 def register():
     """Register a new user.
 
-    Expects JSON: {"username": "...", "password": "...", "roles": ["user"]}
+    Expects JSON: {"username": "...", "password": "...", "role": "user|admin"}
     """
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     password = data.get("password", "")
-    roles = data.get("roles", ["user"])
+    role = data.get("role", "user")
 
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
     if username in users_db:
-        return jsonify({"error": "User already exists"}), 409
+        return jsonify({"error": "Username already exists"}), 409
 
     users_db[username] = {
         "password_hash": generate_password_hash(password),
-        "roles": roles,
+        "role": role,
     }
 
     return jsonify({"message": f"User '{username}' registered successfully"}), 201
@@ -127,7 +115,7 @@ def login():
     """Authenticate and receive a JWT.
 
     Expects JSON: {"username": "...", "password": "..."}
-    Returns JSON:  {"token": "...", "expires_in": 86400}
+    Returns JSON: {"token": "...", "expires_in": ...}
     """
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
@@ -137,7 +125,7 @@ def login():
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"error": "Invalid username or password"}), 401
 
-    token = create_token(user_id=username, extra_claims={"roles": user["roles"]})
+    token = create_token(user_id=username, extra_claims={"role": user["role"]})
 
     return jsonify(
         {
@@ -154,7 +142,7 @@ def refresh():
     """Get a fresh token (must provide a valid, non-expired token)."""
     new_token = create_token(
         user_id=g.current_user_id,
-        extra_claims={"roles": g.token_payload.get("roles", [])},
+        extra_claims={"role": g.token_payload.get("role", "user")},
     )
     return jsonify(
         {
@@ -165,65 +153,63 @@ def refresh():
     )
 
 
-# ─── Example protected routes ─────────────────────────────────────────────────
+# ─── Example protected routes ────────────────────────────────────────────────
 
 
 @app.route("/protected", methods=["GET"])
 @token_required
 def protected():
-    """A simple protected endpoint accessible to any authenticated user."""
+    """A route that requires a valid JWT."""
     return jsonify(
         {
-            "message": "You have access!",
+            "message": "You have access to this protected resource",
             "user": g.current_user_id,
-            "roles": g.token_payload.get("roles", []),
+            "role": g.token_payload.get("role"),
         }
     )
 
 
 @app.route("/admin", methods=["GET"])
-@roles_required("admin")
+@admin_required
 def admin_only():
-    """An endpoint restricted to users with the 'admin' role."""
-    return jsonify({"message": "Welcome, admin!", "user": g.current_user_id})
+    """A route that requires admin role."""
+    return jsonify(
+        {
+            "message": "Welcome, admin!",
+            "user": g.current_user_id,
+        }
+    )
 
 
 @app.route("/users", methods=["GET"])
-@roles_required("admin")
+@admin_required
 def list_users():
-    """List all registered users (admin only)."""
+    """Admin-only: list all registered users."""
     user_list = [
-        {"username": uname, "roles": udata["roles"]}
-        for uname, udata in users_db.items()
+        {"username": uname, "role": udata["role"]} for uname, udata in users_db.items()
     ]
     return jsonify({"users": user_list})
 
 
-# ─── Health / index ───────────────────────────────────────────────────────────
+# ─── Health / index ──────────────────────────────────────────────────────────
 
 
 @app.route("/", methods=["GET"])
 def index():
     return jsonify(
         {
-            "service": "JWT Auth API",
+            "message": "JWT Auth API",
             "endpoints": {
                 "POST /auth/register": "Register a new user",
                 "POST /auth/login": "Login and get a JWT",
                 "POST /auth/refresh": "Refresh your JWT (auth required)",
-                "GET  /protected": "Example protected route (auth required)",
-                "GET  /admin": "Admin-only route (admin role required)",
-                "GET  /users": "List users (admin role required)",
+                "GET /protected": "Example protected route (auth required)",
+                "GET /admin": "Example admin-only route",
+                "GET /users": "List users (admin only)",
             },
         }
     )
 
 
 if __name__ == "__main__":
-    # Seed an admin user for quick testing
-    users_db["admin"] = {
-        "password_hash": generate_password_hash("admin"),
-        "roles": ["admin", "user"],
-    }
-    print("Seeded admin user  →  username: admin  /  password: admin")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)

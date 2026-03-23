@@ -5,12 +5,14 @@
 import tarfile
 import os
 
-def extract_tar(tar_file, destination_dir):
-    with tarfile.open(tar_file, "r:gz") as tar:
+def extract_tar_file(file_path, destination_dir):
+    """
+    Extracts a tar file to a destination directory.
+
+    Args:
+        file_path: The path to the tar file.
+        destination_dir: The directory to extract the files to.
+    """
+
+    with tarfile.open(file_path, "r:gz") as tar:
         tar.extractall(destination_dir)
-
-# Example usage
-tar_file = "path/to/tar.tar.gz"
-destination_dir = "path/to/destination"
-
-extract_tar(tar_file, destination_dir)

@@ -9,93 +9,85 @@ class Permissions {
         this.roles = new Set(roles);
     }
 
-    can(action) {
-        if (this.roles.has('admin')) {
+    hasRole(role) {
+        return this.roles.has(role);
+    }
+
+    canAccess(resource) {
+        if (this.hasRole('admin')) {
             return true;
         }
-        if (action === 'edit' && this.roles.has('editor')) {
-            return true;
-        }
-        if (action === 'view' && (this.roles.has('viewer') || this.roles.has('editor') || this.roles.has('admin'))) {
+        if (this.hasRole('editor') && resource === 'posts') {
             return true;
         }
         return false;
     }
 
-    get isAdmin() {
-        return this.roles.has('admin');
-    }
-
     addRole(role) {
         this.roles.add(role);
-    }
-
-    removeRole(role) {
-        this.roles.delete(role);
     }
 }
 
 class UserSession {
-    constructor(userId, username, email, roles = [], metadata = {}) {
-        this.userId = userId;
+    constructor(id, username, email, roles = [], metadata = {}) {
+        this.id = id;
         this.username = username;
-        this._email = email;
+        this.email = email;
+        this._lastActivity = new Date();
         this.permissions = new Permissions(roles);
-        this.sessionMetadata = {
-            createdAt: new Date(),
-            lastAccessed: new Date(),
-            ...metadata
-        };
+        this.metadata = metadata;
     }
 
-    getFullName() {
-        return `${this.username} (ID: ${this.userId})`;
+    updateLastActivity() {
+        this._lastActivity = new Date();
     }
 
-    get isLoggedIn() {
-        return !!this.userId;
+    get lastActivity() {
+        return this._lastActivity;
     }
 
-    get email() {
-        return this._email;
-    }
-
-    set email(newEmail) {
-        if (newEmail && newEmail.includes('@')) {
-            this._email = newEmail;
+    set lastActivity(date) {
+        if (date instanceof Date) {
+            this._lastActivity = date;
         } else {
-            console.warn('Invalid email format provided.');
+            console.warn("Invalid date provided for lastActivity.");
         }
     }
 
-    updateLastAccessed() {
-        this.sessionMetadata.lastAccessed = new Date();
+    get displayName() {
+        return this.username.charAt(0).toUpperCase() + this.username.slice(1);
     }
 
-    get canEditContent() {
-        return this.permissions.can('edit');
+    getEmailDomain() {
+        return this.email.split('@')[1];
+    }
+
+    checkAccess(resource) {
+        return this.permissions.canAccess(resource);
     }
 }
 
-function deserializeSession(serializedSessionString) {
-    if (!serializedSessionString) {
+function deserializeUserSession(serializedSessionData) {
+    if (!serializedSessionData || typeof serializedSessionData !== 'string') {
         return null;
     }
+
     try {
-        // For node-serialize to correctly reconstruct objects with methods, getters/setters,
-        // and prototype chains, the original class definitions (UserSession, Permissions)
-        // must be available in the scope where deserialization occurs.
-        const deserialized = serialize.deserialize(serializedSessionString);
-        return deserialized;
+        const session = serialize.unserialize(serializedSessionData);
+        
+        if (session && typeof session.id !== 'undefined' && typeof session.username === 'string' && typeof session.updateLastActivity === 'function') {
+            return session;
+        } else {
+            return null;
+        }
+
     } catch (error) {
-        console.error('Error deserializing session:', error.message);
         return null;
     }
 }
 
-// To make these classes available for node-serialize's internal eval,
-// they are typically defined in the same scope or globally.
-// If you were to export this function, you'd need to ensure UserSession and Permissions
-// are also exported and imported where deserializeSession is used.
-// For example:
-// module.exports = { deserializeSession, UserSession, Permissions };
+module.exports = {
+    deserializeUserSession,
+    UserSession,
+    Permissions
+};

@@ -34,7 +34,7 @@ function resizeImage(inputFile, outputFile, dimensions, effects = []) {
             return;
         }
         if (stderr) {
-            console.error(`Stderr: ${stderr}`);
+            console.error(`stderr: ${stderr}`);
             return;
         }
         console.log(`Image resized and saved as ${outputFile}`);

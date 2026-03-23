@@ -3,21 +3,20 @@
 # Category: xss
 
 function displayComments(comments) {
-    const commentDiv = document.getElementById('comments');
-    if (commentDiv) {
-        comments.forEach(comment => {
-            const newComment = document.createElement('p');
-            newComment.textContent = comment;
-            commentDiv.appendChild(newComment);
-        });
-    }
+  const commentDiv = document.getElementById('comments');
+  if (commentDiv) {
+    comments.forEach(comment => {
+      const p = document.createElement('p');
+      p.textContent = comment;
+      commentDiv.appendChild(p);
+    });
+  }
 }
 
-// Example usage:
-const commentsArray = [
-    'This is a great product!',
-    'I love the design and features.',
-    'The customer service was excellent.'
+const comments = [
+  'This is a great product!',
+  'I love the design and features.',
+  'The customer service is excellent.'
 ];
 
-displayComments(commentsArray);
+displayComments(comments);

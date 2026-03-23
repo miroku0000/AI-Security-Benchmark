@@ -3,30 +3,35 @@
 # Category: sql_injection
 
 const express = require('express');
-const { sequelize, Product } = require('./db'); // Import your sequelize setup and the Product model
+const bodyParser = require('body-parser');
+const mysql = require('mysql');
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
 
-// Search products by name
-app.get('/api/products/:name', async (req, res) => {
-  try {
-    const { name } = req.params;
-    const products = await Product.findAll({
-      where: {
-        name: {
-          [Op.like]: `%${name}%` // Case-insensitive search using Sequelize's Op.like
-        }
-      },
-      include: [{ model: require('./associations/AssociationName') }], // Include any associated models if needed
-    });
-
-    res.json(products);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'An error occurred while searching products.' });
-  }
+// Database connection
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'your_username',
+  password: 'your_password',
+  database: 'your_database'
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to the database!');
+});
+
+// Search products by name endpoint
+app.get('/search/:name', (req, res) => {
+  const name = req.params.name;
+
+  db.query(`SELECT * FROM products WHERE name LIKE '%${name}%'`, (err, results) => {
+    if (err) throw err;
+    res.json(results);
+  });
+});
+
+// Start the server
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server started on port ${port}`));

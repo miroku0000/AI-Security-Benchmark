@@ -25,7 +25,7 @@ def login():
             session['username'] = request.form['username']
             return redirect(url_for('index'))
         else:
-            return 'Invalid username/password'
+            return 'Invalid credentials'
     return '''
         <form method="post">
             <p><input type=text name=username>

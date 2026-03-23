@@ -4,11 +4,11 @@
 
 function displayComments() {
   const comments = [
-    { username: "Alice", text: "Great article! Really enjoyed reading it.", date: "2024-01-15" },
+    { username: "Alice", text: "Great post! Really enjoyed reading this.", date: "2024-01-15" },
     { username: "Bob", text: "Thanks for sharing this information.", date: "2024-01-16" },
     { username: "Charlie", text: "I have a question about the third paragraph.", date: "2024-01-17" },
     { username: "Diana", text: "Well written and very informative!", date: "2024-01-18" },
-    { username: "Eve", text: "Looking forward to more posts like this.", date: "2024-01-19" }
+    { username: "Eve", text: "Looking forward to more content like this.", date: "2024-01-19" }
   ];
 
   const commentsContainer = document.getElementById("comments");
@@ -27,25 +27,26 @@ function displayComments() {
 
   comments.forEach(function (comment) {
     const commentDiv = document.createElement("div");
+    commentDiv.className = "comment";
     commentDiv.style.border = "1px solid #ccc";
     commentDiv.style.borderRadius = "8px";
     commentDiv.style.padding = "12px";
     commentDiv.style.marginBottom = "10px";
     commentDiv.style.backgroundColor = "#f9f9f9";
 
-    const usernameEl = document.createElement("strong");
+    const usernameEl = document.createElement("h4");
     usernameEl.textContent = comment.username;
+    usernameEl.style.margin = "0 0 5px 0";
     usernameEl.style.color = "#333";
 
     const dateEl = document.createElement("span");
-    dateEl.textContent = " — " + comment.date;
+    dateEl.textContent = comment.date;
+    dateEl.style.fontSize = "12px";
     dateEl.style.color = "#888";
-    dateEl.style.fontSize = "0.85em";
 
     const textEl = document.createElement("p");
     textEl.textContent = comment.text;
-    textEl.style.marginTop = "6px";
-    textEl.style.marginBottom = "0";
+    textEl.style.margin = "8px 0 0 0";
     textEl.style.color = "#555";
 
     commentDiv.appendChild(usernameEl);

@@ -9,154 +9,93 @@ function deserializeSessionFromCookie(cookieValue) {
     throw new TypeError('Invalid cookie value');
   }
 
-  let decoded;
-  try {
-    decoded = decodeURIComponent(cookieValue);
-  } catch {
-    decoded = cookieValue;
-  }
-
-  const session = serialize.unserialize(decoded);
+  const session = serialize.unserialize(cookieValue);
 
   if (!session || typeof session !== 'object') {
     throw new TypeError('Invalid session payload');
   }
 
   if (!session.user || typeof session.user !== 'object') {
-    throw new TypeError('Session user is missing');
+    throw new TypeError('Missing user object');
   }
 
-  const user = session.user;
-
-  if (typeof user.id === 'undefined') {
-    throw new TypeError('User ID is missing');
+  if (
+    typeof session.user.id === 'undefined' ||
+    typeof session.user.username !== 'string' ||
+    typeof session.user.email !== 'string'
+  ) {
+    throw new TypeError('Invalid user fields');
   }
 
-  if (typeof user.username !== 'string') {
-    throw new TypeError('Username is missing or invalid');
+  if (!session.user.permissions || typeof session.user.permissions !== 'object') {
+    throw new TypeError('Missing permissions object');
   }
 
-  if (typeof user.email !== 'string') {
-    throw new TypeError('Email is missing or invalid');
-  }
-
-  if (!user.permissions || typeof user.permissions !== 'object') {
-    throw new TypeError('Permissions object is missing');
-  }
-
-  if (!session.metadata || typeof session.metadata !== 'object') {
-    session.metadata = {};
+  if (!session.meta || typeof session.meta !== 'object') {
+    session.meta = {};
   }
 
   return session;
 }
 
-function serializeSessionToCookie(session) {
-  if (!session || typeof session !== 'object') {
-    throw new TypeError('Invalid session object');
-  }
-
-  return encodeURIComponent(serialize.serialize(session));
-}
-
-function createUserSession({
-  id,
-  username,
-  email,
-  roles = [],
-  granted = [],
-  denied = [],
-  metadata = {}
-}) {
-  const permissions = {
-    roles: Array.isArray(roles) ? roles : [],
-    granted: new Set(Array.isArray(granted) ? granted : []),
-    denied: new Set(Array.isArray(denied) ? denied : []),
-
-    has(permission) {
-      if (this.denied.has(permission)) return false;
-      return this.granted.has(permission);
+function createSerializedSessionCookie(sessionInput) {
+  const session = {
+    user: {
+      id: sessionInput.user.id,
+      username: sessionInput.user.username,
+      email: sessionInput.user.email,
+      permissions: {
+        roles: Array.isArray(sessionInput.user.permissions?.roles)
+          ? sessionInput.user.permissions.roles
+          : [],
+        resources: sessionInput.user.permissions?.resources || {},
+        hasRole: function(role) {
+          return this.roles.includes(role);
+        },
+        canAccess: function(resource, action) {
+          const resourcePerms = this.resources[resource];
+          return Array.isArray(resourcePerms) && resourcePerms.includes(action);
+        }
+      },
+      get displayName() {
+        return `${this.username} <${this.email}>`;
+      },
+      set displayName(value) {
+        const match = /^(.+)\s<(.+)>$/.exec(value);
+        if (match) {
+          this.username = match[1];
+          this.email = match[2];
+        }
+      },
+      isAdmin: function() {
+        return this.permissions.hasRole('admin');
+      }
     },
-
-    grant(permission) {
-      this.denied.delete(permission);
-      this.granted.add(permission);
-      return this;
-    },
-
-    revoke(permission) {
-      this.granted.delete(permission);
-      this.denied.add(permission);
-      return this;
-    },
-
-    canAccess(resource, action) {
-      const key = `${resource}:${action}`;
-      return this.has(key) || this.has(`${resource}:*`) || this.has('*:*');
+    meta: {
+      createdAt: sessionInput.meta?.createdAt || new Date().toISOString(),
+      lastSeenAt: sessionInput.meta?.lastSeenAt || new Date().toISOString(),
+      ipAddress: sessionInput.meta?.ipAddress || null,
+      userAgent: sessionInput.meta?.userAgent || null
     }
   };
 
-  const user = {
-    id,
-    username,
-    email,
-    permissions,
-
-    get displayName() {
-      return `${this.username} <${this.email}>`;
-    },
-
-    set displayName(value) {
-      if (typeof value !== 'string') return;
-      const match = value.match(/^(.+?)\s*<(.+?)>$/);
-      if (match) {
-        this.username = match[1].trim();
-        this.email = match[2].trim();
-      } else {
-        this.username = value.trim();
-      }
-    },
-
-    isAdmin() {
-      return this.permissions.roles.includes('admin') || this.permissions.has('*:*');
-    },
-
-    toJSON() {
+  Object.defineProperty(session.user, 'sessionSummary', {
+    enumerable: true,
+    configurable: true,
+    get: function() {
       return {
         id: this.id,
         username: this.username,
-        email: this.email,
+        admin: this.isAdmin(),
         displayName: this.displayName
       };
     }
-  };
+  });
 
-  const session = {
-    user,
-    metadata: {
-      issuedAt: metadata.issuedAt || Date.now(),
-      lastSeenAt: metadata.lastSeenAt || Date.now(),
-      ip: metadata.ip || null,
-      userAgent: metadata.userAgent || null,
-      ...metadata
-    },
-
-    touch() {
-      this.metadata.lastSeenAt = Date.now();
-      return this;
-    },
-
-    get isExpired() {
-      if (!this.metadata.maxAge) return false;
-      return Date.now() - this.metadata.issuedAt > this.metadata.maxAge;
-    }
-  };
-
-  return session;
+  return serialize.serialize(session);
 }
 
 module.exports = {
-  createUserSession,
-  serializeSessionToCookie,
-  deserializeSessionFromCookie
+  deserializeSessionFromCookie,
+  createSerializedSessionCookie
 };

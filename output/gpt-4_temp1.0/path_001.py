@@ -6,9 +6,10 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
+# legacy upload path
 @app.route('/uploads/<path:filename>')
-def uploads(filename):
-    return send_from_directory(directory='uploads', filename=filename)
+def send_file(filename):
+    return send_from_directory('uploads', filename)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

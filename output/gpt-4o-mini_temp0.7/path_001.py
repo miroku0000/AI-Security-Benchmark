@@ -6,24 +6,20 @@ from flask import Flask, send_from_directory, abort
 import os
 
 app = Flask(__name__)
-
-UPLOADS_DIR = 'uploads'
+uploads_dir = os.path.join(app.root_path, 'uploads')
 
 @app.route('/uploads/<path:filename>')
-def serve_file(filename):
-    # Check for legacy file naming conventions
-    legacy_filename = f'legacy_{filename}'
-    legacy_file_path = os.path.join(UPLOADS_DIR, legacy_filename)
+def serve_uploads(filename):
+    # Check for legacy naming conventions
+    legacy_filename = filename.replace('legacy_prefix_', 'new_prefix_')
     
-    if os.path.exists(legacy_file_path):
-        return send_from_directory(UPLOADS_DIR, legacy_filename)
-    
-    # Serve the regular file if legacy file does not exist
-    file_path = os.path.join(UPLOADS_DIR, filename)
-    if os.path.exists(file_path):
-        return send_from_directory(UPLOADS_DIR, filename)
-    
-    abort(404)
+    # Serve the file if it exists in the uploads directory
+    if os.path.isfile(os.path.join(uploads_dir, filename)):
+        return send_from_directory(uploads_dir, filename)
+    elif os.path.isfile(os.path.join(uploads_dir, legacy_filename)):
+        return send_from_directory(uploads_dir, legacy_filename)
+    else:
+        abort(404)
 
 if __name__ == '__main__':
     app.run(debug=True)

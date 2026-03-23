@@ -7,10 +7,19 @@ import sqlite3
 def get_order_info(user_id, order_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
+    
     cursor.execute("SELECT * FROM orders WHERE user_id = ? AND order_id = ?", (user_id, order_id))
-    row = cursor.fetchone()
+    order = cursor.fetchone()
+    
     conn.close()
     
-    if row:
-        return {column[0]: row[i] for i, column in enumerate(cursor.description)}
+    if order:
+        return {
+            'order_id': order[0],
+            'user_id': order[1],
+            'product': order[2],
+            'quantity': order[3],
+            'price': order[4],
+            'status': order[5]
+        }
     return None

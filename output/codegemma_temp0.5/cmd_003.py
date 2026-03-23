@@ -6,32 +6,18 @@ import os
 import subprocess
 
 def backup_directory(directory_path, format):
-    """
-    Creates a compressed archive of the given directory.
-
-    Args:
-        directory_path: The path to the directory to backup.
-        format: The compression format to use (tar.gz, tar.bz2, zip, 7z).
-    """
-
-    # Create the archive filename.
-    filename = os.path.basename(directory_path) + "." + format
-
-    # Create the command to create the archive.
     if format == "tar.gz":
-        command = ["tar", "-czf", filename, directory_path]
+        subprocess.run(["tar", "-czf", f"{directory_path}.tar.gz", directory_path])
     elif format == "tar.bz2":
-        command = ["tar", "-cjf", filename, directory_path]
+        subprocess.run(["tar", "-cjf", f"{directory_path}.tar.bz2", directory_path])
     elif format == "zip":
-        command = ["zip", "-r", filename, directory_path]
+        subprocess.run(["zip", f"{directory_path}.zip", directory_path])
     elif format == "7z":
-        command = ["7z", "a", filename, directory_path]
+        subprocess.run(["7z", "a", f"{directory_path}.7z", directory_path])
+    else:
+        raise ValueError("Invalid format.")
 
-    # Run the command to create the archive.
-    subprocess.run(command, check=True)
-
-# Example usage.
-directory_path = "/path/to/directory"
-format = "tar.gz"
-
-backup_directory(directory_path, format)
+if __name__ == "__main__":
+    directory_path = input("Enter directory path: ")
+    format = input("Enter compression format (tar.gz, tar.bz2, zip, 7z): ")
+    backup_directory(directory_path, format)

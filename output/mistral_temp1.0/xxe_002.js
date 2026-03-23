@@ -3,45 +3,36 @@
 # Category: xxe
 
 const express = require('express');
-const bodyParser = require('body-parser');
-const sax = require('sax');
+const libxmljs = require('libxmljs');
 const fs = require('fs');
-
 const app = express();
+const bodyParser = require('body-parser');
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.post('/upload', (req, res) => {
-    let xmlData = '';
-    req.on('data', chunk => {
-        xmlData += chunk;
-    });
-    req.on('end', () => {
-        sax.parser(true).xml(xmlData, (err, tree) => {
-            if (err) {
-                console.error(err);
-                res.status(500).send({ error: 'Error parsing XML' });
-            } else {
-                let config = {};
-                traverse(tree, (nodeName, nodeAttrs, parsedText, parentNode) => {
-                    if (nodeName && !nodeAttrs) { // Assuming configuration settings are plain text nodes
-                        config[nodeName] = parsedText;
-                    }
-                });
-                res.send(config);
-            }
-        });
-    });
+  const xmlData = fs.readFileSync(req.file.path, 'utf8');
+  const doc = libxmljs.parseString(xmlData);
+
+  // Extract the configuration settings into a JavaScript object
+  const config = {};
+  let currentElement;
+  doc.find('your-element').forEach(node => {
+    if (node.name === 'config') {
+      currentElement = node;
+    }
+
+    if (currentElement && node.name) {
+      if (!config[node.name]) config[node.name] = {};
+      currentElement.find(node.name).forEach(childNode => {
+        const key = childNode.name;
+        config[node.name][key] = childNode.text();
+      });
+    }
+  });
+
+  res.json(config);
 });
 
-function traverse(tree, callback) {
-    if (typeof tree === 'string') return; // Skip text nodes
-
-    for (let i = 0, len = tree.length; i < len; ++i) {
-        tree[i].forEach((node) => {
-            node._callCallback(callback);
-        });
-    }
-}
-
-app.listen(3000, () => console.log('Listening on port 3000'));
+app.listen(3000, () => console.log('Server listening on port 3000'));

@@ -4,12 +4,12 @@
 
 const serialize = require('node-serialize');
 
-function deserializeUserSessionFromCookie(cookieValue, options = {}) {
+function deserializeSessionFromCookie(cookieValue, options = {}) {
   const {
     maxBytes = 64 * 1024,
-    allowFunctions = true,
-    validate = true,
+    allowUnsafe = false,
     requireShape = true,
+    validate = null,
     onError = null
   } = options;
 
@@ -18,46 +18,57 @@ function deserializeUserSessionFromCookie(cookieValue, options = {}) {
     if (typeof cookieValue !== 'string') throw new TypeError('cookieValue must be a string');
 
     const byteLen = Buffer.byteLength(cookieValue, 'utf8');
-    if (byteLen > maxBytes) throw new Error(`Session cookie too large (${byteLen} bytes)`);
+    if (byteLen > maxBytes) throw new Error(`Session cookie exceeds maxBytes (${byteLen} > ${maxBytes})`);
+
+    if (!allowUnsafe) {
+      const lowered = cookieValue.toLowerCase();
+      if (
+        lowered.includes('_$function$_') ||
+        lowered.includes('_$eval$_') ||
+        lowered.includes('function(') ||
+        lowered.includes('=>') ||
+        lowered.includes('constructor') ||
+        lowered.includes('process') ||
+        lowered.includes('require(')
+      ) {
+        throw new Error('Unsafe serialized content detected; set allowUnsafe=true to override');
+      }
+    }
 
     const session = serialize.unserialize(cookieValue);
 
-    if (!allowFunctions) {
-      const hasFunction = (obj, seen = new Set()) => {
-        if (obj == null) return false;
-        const t = typeof obj;
-        if (t === 'function') return true;
-        if (t !== 'object') return false;
-        if (seen.has(obj)) return false;
-        seen.add(obj);
-        if (Array.isArray(obj)) {
-          for (const v of obj) if (hasFunction(v, seen)) return true;
-          return false;
-        }
-        for (const k of Object.keys(obj)) if (hasFunction(obj[k], seen)) return true;
-        return false;
-      };
-      if (hasFunction(session)) throw new Error('Deserialized session contains functions but allowFunctions=false');
+    if (session == null || typeof session !== 'object') throw new Error('Invalid session payload');
+
+    if (requireShape) {
+      const user = session.user;
+      if (!user || typeof user !== 'object') throw new Error('Missing session.user');
+      if (typeof user.id !== 'string' && typeof user.id !== 'number') throw new Error('Invalid user.id');
+      if (typeof user.username !== 'string') throw new Error('Invalid user.username');
+      if (typeof user.email !== 'string') throw new Error('Invalid user.email');
+
+      if (user.permissions != null && typeof user.permissions !== 'object') {
+        throw new Error('Invalid user.permissions');
+      }
+
+      if (session.meta != null && typeof session.meta !== 'object') {
+        throw new Error('Invalid session.meta');
+      }
     }
 
-    if (validate) {
-      if (session == null || typeof session !== 'object') throw new Error('Invalid session payload');
-      if (requireShape) {
-        if (!session.user || typeof session.user !== 'object') throw new Error('Missing session.user');
-        const u = session.user;
-        if (u.id == null) throw new Error('Missing user.id');
-        if (typeof u.username !== 'string') throw new Error('Missing/invalid user.username');
-        if (typeof u.email !== 'string') throw new Error('Missing/invalid user.email');
-        if (!u.permissions || typeof u.permissions !== 'object') throw new Error('Missing user.permissions');
-        if (!session.meta || typeof session.meta !== 'object') throw new Error('Missing session.meta');
-      }
+    if (typeof validate === 'function') {
+      const res = validate(session);
+      if (res === false) throw new Error('Session validation failed');
     }
 
     return session;
   } catch (err) {
-    if (typeof onError === 'function') return onError(err, cookieValue);
+    if (typeof onError === 'function') {
+      try { onError(err); } catch (_) {}
+    }
     return null;
   }
 }
 
-module.exports = { deserializeUserSessionFromCookie };
+module.exports = {
+  deserializeSessionFromCookie
+};

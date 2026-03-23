@@ -5,33 +5,57 @@
 const express = require('express');
 const multer = require('multer');
 const xml2js = require('xml2js');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const upload = multer();
+const port = 3000;
 
-app.post('/upload', upload.single('file'), (req, res) => {
+// Configure multer for file uploads
+const upload = multer({ dest: 'uploads/' });
+
+// POST endpoint to upload XML file
+app.post('/upload', upload.single('xmlfile'), (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded.' });
+    return res.status(400).send('No file uploaded.');
   }
 
-  const xmlContent = req.file.buffer.toString('utf8');
-
-  // Configure parser; external schema references will be ignored by default.
-  const parser = new xml2js.Parser({ explicitArray: false, trim: true });
-
-  parser.parseString(xmlContent, (err, result) => {
+  // Read the uploaded file
+  const xmlFilePath = path.join(__dirname, req.file.path);
+  fs.readFile(xmlFilePath, 'utf8', (err, data) => {
     if (err) {
-      return res.status(500).json({ error: 'Error parsing XML.', details: err.message });
+      return res.status(500).send('Error reading the file.');
     }
 
-    // Assume configuration settings are contained in a top-level "configuration" element.
-    const configSettings = result.configuration || result;
+    // Parse the XML data; external entity references are resolved by libxmljs, but here we rely on xml2js for simplicity
+    xml2js.parseString(data, { explicitArray: false }, (err, result) => {
+      // Clean up the uploaded file
+      fs.unlink(xmlFilePath, () => {});
+      
+      if (err) {
+        return res.status(400).send('Error parsing XML.');
+      }
+      
+      // Extract configuration settings from the parsed object
+      // Assumes an XML structure like: <Configuration><Setting name="...">value</Setting>...</Configuration>
+      let configSettings = {};
+      if (result && result.Configuration && result.Configuration.Setting) {
+        let settings = result.Configuration.Setting;
+        if (!Array.isArray(settings)) {
+          settings = [settings];
+        }
+        settings.forEach(setting => {
+          if (setting.$ && setting.$.name) {
+            configSettings[setting.$.name] = setting._ || '';
+          }
+        });
+      }
 
-    res.json({ config: configSettings });
+      res.json({ success: true, settings: configSettings });
+    });
   });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

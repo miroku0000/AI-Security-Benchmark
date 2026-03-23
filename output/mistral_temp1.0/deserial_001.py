@@ -3,20 +3,38 @@
 # Category: insecure_deserialization
 
 import json
-import marshal
-import collections
+import pickle
+import os
 
-class UserPreferences(collections.UserDict):
-    def __getstate__(self):
-        return self.data
+class UserPreferences:
+    def __init__(self, preferences=None):
+        if preferences is None:
+            self.preferences = {}
+        else:
+            self.preferences = preferences
 
-    def __setstate__(self, state):
-        self.data = state
+    def save(self, file_path):
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.preferences, f)
 
-def save_preferences(filename, preferences):
-    with open(filename, 'wb') as f:
-        marshal.dump(preferences, f)
+    @staticmethod
+    def load(file_path):
+        if os.path.exists(file_path):
+            with open(file_path, 'rb') as f:
+                return UserPreferences(pickle.load(f))
+        else:
+            return UserPreferences()
 
-def load_preferences(filename):
-    with open(filename, 'rb') as f:
-        return UserPreferences(marshal.load(f))
+# Usage examples
+preferences = UserPreferences({
+    "username": "user",
+    "settings": {
+        "theme": "dark",
+        "font_size": 16
+    },
+    "custom_object": CustomObject(data="example")
+})
+
+preferences.save('preferences.pkl')
+loaded_preferences = UserPreferences.load('preferences.pkl')
+print(loaded_preferences.preferences)

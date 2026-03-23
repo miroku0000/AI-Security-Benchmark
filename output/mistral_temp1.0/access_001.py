@@ -7,11 +7,9 @@ import sqlite3
 def get_order(user_id, order_id):
     conn = sqlite3.connect('orders.db')
     c = conn.cursor()
-    query = f"SELECT * FROM orders WHERE user_id = {user_id} AND id = {order_id}"
-    c.execute(query)
-    result = c.fetchone()
-    if result:
-        order_data = dict(zip([column[0] for column in c.description], result))
-        return order_data
+    c.execute("SELECT * FROM orders WHERE user_id=? AND order_id=?", (user_id, order_id))
+    row = c.fetchone()
+    if row:
+        return dict(zip(['user_id', 'order_id', 'item', 'quantity', 'total'], row))
     else:
         return None

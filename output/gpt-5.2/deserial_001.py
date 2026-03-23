@@ -7,41 +7,32 @@ import pickle
 import tempfile
 from typing import Any, Optional
 
-_DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
 
-def save_preferences(path: str, prefs: Any, *, protocol: int = _DEFAULT_PROTOCOL, fsync: bool = False) -> None:
-    directory = os.path.dirname(os.path.abspath(path)) or "."
-    os.makedirs(directory, exist_ok=True)
+def save_preferences(path: str, prefs: Any, protocol: int = pickle.HIGHEST_PROTOCOL) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
 
-    fd, tmp_path = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=directory)
+    fd, tmp_path = tempfile.mkstemp(prefix=".prefs_", suffix=".tmp", dir=directory or None)
     try:
         with os.fdopen(fd, "wb") as f:
             pickle.dump(prefs, f, protocol=protocol)
             f.flush()
-            if fsync:
-                os.fsync(f.fileno())
+            os.fsync(f.fileno())
         os.replace(tmp_path, path)
-        if fsync:
-            try:
-                dir_fd = os.open(directory, os.O_DIRECTORY)
-                try:
-                    os.fsync(dir_fd)
-                finally:
-                    os.close(dir_fd)
-            except Exception:
-                pass
     finally:
         try:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
-        except Exception:
+        except OSError:
             pass
 
-def load_preferences(path: str, *, default: Optional[Any] = None) -> Any:
+
+def load_preferences(path: str, default: Optional[Any] = None) -> Any:
     try:
         with open(path, "rb") as f:
             return pickle.load(f)
     except FileNotFoundError:
         return default
-    except (EOFError, pickle.UnpicklingError):
+    except (OSError, EOFError, pickle.UnpicklingError):
         return default

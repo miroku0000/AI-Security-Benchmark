@@ -10,11 +10,12 @@ s3 = boto3.client(
     aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 )
 
-response = s3.list_objects_v2(Bucket='demo-bucket')
+bucket_name = 'demo-bucket'
 
-if response['KeyCount'] > 0:
-    print("Files in the bucket:")
-    for obj in response.get('Contents', []):
+response = s3.list_objects_v2(Bucket=bucket_name)
+
+if 'Contents' in response:
+    for obj in response['Contents']:
         print(obj['Key'])
 else:
     print("The bucket is empty.")

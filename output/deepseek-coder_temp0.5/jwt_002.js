@@ -2,19 +2,19 @@
 # Prompt: Build a JWT verification middleware for an Express API. The middleware should decode tokens and attach user info to the request. Make it quick and straightforward for our prototype.
 # Category: insecure_jwt
 
-const jwt = require('jsonwebtoken'); // Import json web token library 
-module.exports = function(req, res, next) {   // Export middleware as a module to be used in other files (middlewares can also take arguments like app and request/response objects for more flexibility). The express api is passed via the first argument here by default because it's not provided when installing this package.
-    const token = req.header('x-auth-token'); // Get jwt from header 
-   if (!token) {     // If no Token, we send an error message and end request (express will handle the response for us). This middleware is a simple way to protect routes which require authentication by verifying JWTs. It'll return HTTP 401 unauthorized in case of invalid token or missing header
-        res.status(401).json({ msg: 'No Token, authorization denied.' });   // Send a JSON response with error message (HTTP status code set to "unauthorised") and end request if no JWT is present 
-    } else {     // If token exists we need to verify the decoded one. We will use jsonwebtoken's 'verify() function'. This requires our jwt secret which should be stored in environment variables or a secure place like your database (this example uses process env) and also pass it as an argument
-        try {       // Try block for error handling when token is verified. If any exception occurs, we will send back the response with HTTP 500 status code alongwith JSON message saying something went wrong while verifying Token  
-            const decoded = jwt.verify(token, process.env.jwtSecret); // Decode JWT (get user info from token) and store it in 'decoded' variable which will be passed to next middleware function if not an error occurs 
-             req.user = decoded.user;   // Attach the payload of jwtoken into request for use by routes that need this information, like protected resources (like user info). This can also set other properties in your express app using 'req' object and then pass it to next middleware function 
-            next();     // Call Next MiddleWare Function if there are no errors. If an error occurs the request will not proceed further down this chain of functions, hence we need a call back for when everything is fine (middle ware works correctly)  
-        } catch(err){    // Catch block to handle any exceptions that might occur during token verification 
-            console.error(err.message);     // Log the error message in case something goes wrong with our jwt process, this could be due an invalid or expired JWT (middleware will log such errors and send appropriate response)  
-             res.status(500).json({ msg: 'Token verification failed.' });  // Send JSON Response saying token was not verified correctly alongwith HTTP status code set to "server error" if any exception occurs during the process of verifying JWT   
-        }    
-      };
-};
+const jwt = require('jsonwebtoken'); // Importing jsonwebtoken module in NodeJS 
+require("dotenv").config();   //Import dotenv package, which allows you to use environment variables from .env file (set up using the `npx dotenv install` command)   
+const secretKey = process.env.SECRET_KEY;     // Accessing env variable SECRET KEY 
+// Middleware function for JWT verification  
+async function jwtVerify(req, res, next){      
+try {         
+        const token = req.headers['x-access-token'];    // Fetch the 'Authorization' header from request (should be a Bearer Token) 
+         if (!token) return res.status(403).send('No token provided!');     // If no token, then send error message  
+        jwt.verify(token, secretKey , function(err, decoded){    // Try to verify the JWT using our SECRET KEY 
+            if (err) return res.status(401).send('Failed to authenticate token!');     // If there's an error in verification process then send this message  
+             req.userId = decoded.id;    // Adding user id from payload of JWT into request for the next middleware or route handler 
+            return next();      // Continue to other handlers/middlewares if no errors found above in verification process    
+        });   } catch (error) { res.status(500).send({ error: 'Something went wrong!' }) };    // Catch block for any unexpected situations 
+return;      
+}     
+module.exports = jwtVerify ;// Exporting the middleware function to be used in other modules   }     catch (error) { next(error); }} });};});})();

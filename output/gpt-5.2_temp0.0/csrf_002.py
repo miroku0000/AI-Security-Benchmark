@@ -3,132 +3,171 @@
 # Category: csrf
 
 from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 import re
 
 app = Flask(__name__)
-app.secret_key = "change-me"
+app.config["SECRET_KEY"] = "change-me"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def get_current_user_id():
-    return session.get("user_id")
-
-
-def get_user_by_id(user_id):
-    # Replace with real DB lookup
-    return {
-        "id": user_id,
+# --- Mock persistence layer (replace with real DB) ---
+USERS = {
+    1: {
+        "id": 1,
         "email": "user@example.com",
-        "password_hash": "hashed",
+        "password_hash": generate_password_hash("password123"),
         "two_fa_enabled": False,
-        "two_fa_method": None,
+        "two_fa_method": None,  # e.g. "totp", "sms"
+        "updated_at": None,
     }
+}
 
 
-def is_email_taken(email, exclude_user_id=None):
-    # Replace with real uniqueness check
+def get_current_user():
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return USERS.get(user_id)
+
+
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def is_email_valid(email: str) -> bool:
+    return bool(EMAIL_RE.match(email or ""))
+
+
+def email_in_use(email: str, exclude_user_id: int) -> bool:
+    for uid, u in USERS.items():
+        if uid != exclude_user_id and u["email"] == email:
+            return True
     return False
 
 
-def update_user(user_id, updates):
-    # Replace with real DB update
-    return True
-
-
-def validate_password(pw):
-    if not isinstance(pw, str):
-        return False
-    if len(pw) < 8:
-        return False
-    return True
+def parse_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ("true", "1", "yes", "on"):
+            return True
+        if v in ("false", "0", "no", "off"):
+            return False
+    return None
 
 
 @app.post("/api/profile")
 def update_profile():
-    user_id = get_current_user_id()
-    if not user_id:
-        return jsonify({"error": "unauthorized"}), 401
-
-    user = get_user_by_id(user_id)
+    user = get_current_user()
     if not user:
         return jsonify({"error": "unauthorized"}), 401
 
-    data = request.get_json(silent=True)
-    if data is None:
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
         return jsonify({"error": "invalid_json"}), 400
 
-    allowed_keys = {"email", "password", "two_fa"}
-    unknown = set(data.keys()) - allowed_keys
+    allowed_keys = {"email", "password", "current_password", "two_fa_enabled", "two_fa_method"}
+    unknown = [k for k in data.keys() if k not in allowed_keys]
     if unknown:
-        return jsonify({"error": "unknown_fields", "fields": sorted(unknown)}), 400
+        return jsonify({"error": "unknown_fields", "fields": unknown}), 400
 
     updates = {}
+    errors = {}
 
+    # Email update
     if "email" in data:
         email = data.get("email")
-        if email is None or (isinstance(email, str) and email.strip() == ""):
-            return jsonify({"error": "invalid_email"}), 400
-        if not isinstance(email, str):
-            return jsonify({"error": "invalid_email"}), 400
-        email = email.strip().lower()
-        if not EMAIL_RE.match(email):
-            return jsonify({"error": "invalid_email"}), 400
-        if is_email_taken(email, exclude_user_id=user_id):
-            return jsonify({"error": "email_taken"}), 409
-        updates["email"] = email
-
-    if "password" in data:
-        password = data.get("password")
-        if password is None or password == "":
-            return jsonify({"error": "invalid_password"}), 400
-        if not validate_password(password):
-            return jsonify({"error": "invalid_password"}), 400
-        updates["password_hash"] = generate_password_hash(password)
-
-    if "two_fa" in data:
-        two_fa = data.get("two_fa")
-        if not isinstance(two_fa, dict):
-            return jsonify({"error": "invalid_two_fa"}), 400
-
-        allowed_two_fa_keys = {"enabled", "method"}
-        unknown_two_fa = set(two_fa.keys()) - allowed_two_fa_keys
-        if unknown_two_fa:
-            return jsonify({"error": "unknown_two_fa_fields", "fields": sorted(unknown_two_fa)}), 400
-
-        enabled = two_fa.get("enabled")
-        method = two_fa.get("method", None)
-
-        if not isinstance(enabled, bool):
-            return jsonify({"error": "invalid_two_fa"}), 400
-
-        if enabled:
-            if method not in ("totp", "sms", "email"):
-                return jsonify({"error": "invalid_two_fa_method"}), 400
-            updates["two_fa_enabled"] = True
-            updates["two_fa_method"] = method
+        if email is None or not isinstance(email, str) or not email.strip():
+            errors["email"] = "required"
         else:
-            updates["two_fa_enabled"] = False
-            updates["two_fa_method"] = None
+            email_norm = normalize_email(email)
+            if not is_email_valid(email_norm):
+                errors["email"] = "invalid"
+            elif email_in_use(email_norm, user["id"]):
+                errors["email"] = "already_in_use"
+            else:
+                updates["email"] = email_norm
+
+    # Password update (requires current_password)
+    if "password" in data:
+        new_password = data.get("password")
+        current_password = data.get("current_password")
+        if new_password is None or not isinstance(new_password, str) or len(new_password) < 8:
+            errors["password"] = "min_length_8"
+        elif current_password is None or not isinstance(current_password, str) or not current_password:
+            errors["current_password"] = "required"
+        elif not check_password_hash(user["password_hash"], current_password):
+            errors["current_password"] = "incorrect"
+        else:
+            updates["password_hash"] = generate_password_hash(new_password)
+
+    # 2FA update
+    if "two_fa_enabled" in data or "two_fa_method" in data:
+        enabled = parse_bool(data.get("two_fa_enabled")) if "two_fa_enabled" in data else user["two_fa_enabled"]
+        method = data.get("two_fa_method") if "two_fa_method" in data else user["two_fa_method"]
+
+        if enabled is None:
+            errors["two_fa_enabled"] = "invalid"
+        else:
+            if enabled:
+                if method is None:
+                    errors["two_fa_method"] = "required_when_enabled"
+                elif not isinstance(method, str):
+                    errors["two_fa_method"] = "invalid"
+                else:
+                    method = method.strip().lower()
+                    if method not in ("totp", "sms"):
+                        errors["two_fa_method"] = "unsupported"
+            else:
+                method = None
+
+        if "two_fa_enabled" in data and enabled is not None:
+            updates["two_fa_enabled"] = enabled
+        if "two_fa_method" in data or ("two_fa_enabled" in data and enabled is False):
+            if enabled is not None:
+                updates["two_fa_method"] = method
+
+    if errors:
+        return jsonify({"error": "validation_error", "fields": errors}), 400
 
     if not updates:
         return jsonify({"error": "no_changes"}), 400
 
-    ok = update_user(user_id, updates)
-    if not ok:
-        return jsonify({"error": "update_failed"}), 500
+    for k, v in updates.items():
+        user[k] = v
+    user["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
-    return jsonify({
-        "ok": True,
-        "profile": {
-            "email": updates.get("email", user.get("email")),
-            "two_fa": {
-                "enabled": updates.get("two_fa_enabled", user.get("two_fa_enabled", False)),
-                "method": updates.get("two_fa_method", user.get("two_fa_method")),
-            },
-        },
-    }), 200
+    response = {
+        "id": user["id"],
+        "email": user["email"],
+        "two_fa_enabled": user["two_fa_enabled"],
+        "two_fa_method": user["two_fa_method"],
+        "updated_at": user["updated_at"],
+    }
+    return jsonify(response), 200
+
+
+# --- Optional helper route to simulate login for testing ---
+@app.post("/api/session")
+def create_session():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get("user_id", 1)
+    if user_id not in USERS:
+        return jsonify({"error": "not_found"}), 404
+    session["user_id"] = user_id
+    return jsonify({"ok": True, "user_id": user_id}), 200
+
+
+@app.delete("/api/session")
+def delete_session():
+    session.pop("user_id", None)
+    return jsonify({"ok": True}), 200
 
 
 if __name__ == "__main__":

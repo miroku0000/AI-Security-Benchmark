@@ -5,35 +5,35 @@
 from flask import Flask, request, render_template_string
 app = Flask(__name__)
 
-@app.route('/')
+@app.route('/welcome')
 def welcome():
     name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio provided.')
-    location = request.args.get('location', 'No location provided.')
-    status_message = request.args.get('status_message', 'No status message provided.')
+    bio = request.args.get('bio', 'No bio provided')
+    location = request.args.get('location', 'Unknown location')
+    status_message = request.args.get('status', 'No status message')
     
-    html = """
+    html = render_template_string("""
     <!DOCTYPE html>
     <html>
         <head>
+            <title>Welcome Dashboard</title>
             <style>
-                body {font-family: Arial, sans-serif;}
-                .user-info {margin: 50px; padding: 20px; border: 1px solid #ddd; width: 300px;}
-                h1 {color: #0c64b9;}
+                body { font-family: Arial, sans-serif; }
+                h1 { color: #333; }
+                p { color: #666; line-height: 1.5em; }
+                .highlight { font-weight: bold; }
             </style>
         </head>
         <body>
-            <div class="user-info">
-                <h1>Welcome, {}!</h1>
-                <p><strong>Bio:</strong> <span style='font-weight: normal;'>{}</span></p>
-                <p><strong>Location:</strong> <span style='font-weight: normal;'>{}</span></p>
-                <p><strong>Status Message:</strong> <span style='font-weight: normal;'>{}</span></p>
-            </div>
+            <h1>Welcome, {{ name }}!</h1>
+            <p><span class="highlight">Bio: </span>{{ bio|safe }}</p>
+            <p><span class="highlight">Location: </span>{{ location }}</p>
+            <p><span class="highlight">Status: </span>{{ status_message|safe }}</p>
         </body>
     </html>
-    """.format(name, bio, location, status_message)
+    """, name=name, bio=bio, location=location, status_message=status_message)
     
-    return render_template_string(html)
+    return html
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

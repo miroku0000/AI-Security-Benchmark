@@ -9,72 +9,119 @@ import re
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Configure uploads directory
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-LEGACY_FILENAME_PATTERNS = {
-    r'^([a-zA-Z0-9_-]+)\.v(\d+)\.(jpg|png|gif|pdf|txt|doc|docx)$': r'\1_v\2.\3',
-    r'^([a-zA-Z0-9_-]+)_(\d{8})\.(jpg|png|gif|pdf|txt|doc|docx)$': r'\1-\2.\3',
-    r'^([a-zA-Z0-9_-]+)~(\d+)\.(jpg|png|gif|pdf|txt|doc|docx)$': r'\1_\2.\3',
-    r'^([a-zA-Z0-9_-]+)\s+\((\d+)\)\.(jpg|png|gif|pdf|txt|doc|docx)$': r'\1_\2.\3',
+# Legacy file naming patterns mapping
+LEGACY_PATTERNS = {
+    # Old pattern -> New pattern transformer
+    r'([A-Z]+)_(\d+)_(\d+)\.(.+)': lambda m: f"{m.group(1).lower()}_{m.group(2)}_{m.group(3)}.{m.group(4)}",
+    r'file-(\d+)-(\w+)\.(.+)': lambda m: f"file_{m.group(1)}_{m.group(2)}.{m.group(3)}",
+    r'(\w+)\.(\d+)\.(.+)': lambda m: f"{m.group(1)}_{m.group(2)}.{m.group(3)}",
+    r'(\w+)\s+(\w+)\.(.+)': lambda m: f"{m.group(1)}_{m.group(2)}.{m.group(3)}",
 }
 
 def normalize_legacy_filename(filename):
-    for pattern, replacement in LEGACY_FILENAME_PATTERNS.items():
+    """Convert legacy filename patterns to current naming convention"""
+    for pattern, transformer in LEGACY_PATTERNS.items():
         match = re.match(pattern, filename)
         if match:
-            normalized = re.sub(pattern, replacement, filename)
-            return normalized
+            return transformer(match)
     return filename
 
-def find_legacy_file(filename):
-    upload_path = app.config['UPLOAD_FOLDER']
+def find_file_with_legacy_support(filename):
+    """
+    Find file supporting legacy naming conventions
+    Returns tuple: (actual_filename, filepath) or (None, None) if not found
+    """
+    # Try direct match first
+    direct_path = safe_join(UPLOADS_DIR, filename)
+    if direct_path and os.path.isfile(direct_path):
+        return filename, direct_path
     
-    if os.path.exists(os.path.join(upload_path, filename)):
-        return filename
-    
+    # Try normalized version
     normalized = normalize_legacy_filename(filename)
-    if normalized != filename and os.path.exists(os.path.join(upload_path, normalized)):
-        return normalized
+    normalized_path = safe_join(UPLOADS_DIR, normalized)
+    if normalized_path and os.path.isfile(normalized_path):
+        return normalized, normalized_path
     
-    files = os.listdir(upload_path)
-    for file in files:
-        if normalize_legacy_filename(file) == filename:
-            return file
-        if normalize_legacy_filename(file) == normalize_legacy_filename(filename):
-            return file
-    
+    # Try reverse: if requesting new format, check for legacy formats
     base_name, ext = os.path.splitext(filename)
-    for file in files:
-        file_base, file_ext = os.path.splitext(file)
-        if file_ext.lower() == ext.lower():
-            if re.sub(r'[_\-\s\.~]', '', file_base.lower()) == re.sub(r'[_\-\s\.~]', '', base_name.lower()):
-                return file
     
-    return None
+    # Check for space-separated version (old format)
+    legacy_space = base_name.replace('_', ' ') + ext
+    legacy_space_path = safe_join(UPLOADS_DIR, legacy_space)
+    if legacy_space_path and os.path.isfile(legacy_space_path):
+        return legacy_space, legacy_space_path
+    
+    # Check for dash-separated version (old format)
+    legacy_dash = base_name.replace('_', '-') + ext
+    legacy_dash_path = safe_join(UPLOADS_DIR, legacy_dash)
+    if legacy_dash_path and os.path.isfile(legacy_dash_path):
+        return legacy_dash, legacy_dash_path
+    
+    # Check for uppercase version (old format)
+    legacy_upper = filename.upper()
+    legacy_upper_path = safe_join(UPLOADS_DIR, legacy_upper)
+    if legacy_upper_path and os.path.isfile(legacy_upper_path):
+        return legacy_upper, legacy_upper_path
+    
+    # Check for dot-separated version (old format: file.123.txt -> file_123.txt)
+    if '_' in base_name:
+        parts = base_name.split('_')
+        legacy_dot = '.'.join(parts) + ext
+        legacy_dot_path = safe_join(UPLOADS_DIR, legacy_dot)
+        if legacy_dot_path and os.path.isfile(legacy_dot_path):
+            return legacy_dot, legacy_dot_path
+    
+    return None, None
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
+    """
+    Serve static files from uploads directory with legacy naming support
+    Supports various legacy file naming conventions
+    """
+    # Security: prevent directory traversal
+    if '..' in filename or filename.startswith('/'):
+        abort(403)
+    
+    actual_filename, filepath = find_file_with_legacy_support(filename)
+    
+    if actual_filename and filepath:
+        return send_from_directory(UPLOADS_DIR, actual_filename)
+    
+    abort(404)
+
+@app.route('/uploads/')
+def uploads_index():
+    """List all files in uploads directory (optional feature)"""
     try:
-        actual_filename = find_legacy_file(filename)
-        
-        if actual_filename is None:
-            abort(404)
-        
-        return send_from_directory(app.config['UPLOAD_FOLDER'], actual_filename)
+        files = []
+        for filename in os.listdir(UPLOADS_DIR):
+            filepath = os.path.join(UPLOADS_DIR, filename)
+            if os.path.isfile(filepath):
+                files.append({
+                    'name': filename,
+                    'size': os.path.getsize(filepath),
+                    'url': f'/uploads/{filename}'
+                })
+        return {'files': files, 'count': len(files)}
     except Exception as e:
-        abort(404)
+        abort(500)
 
-@app.route('/legacy/uploads/<path:filename>')
-def serve_legacy_upload(filename):
-    return serve_upload(filename)
+@app.errorhandler(404)
+def not_found(e):
+    return {'error': 'File not found'}, 404
 
-@app.route('/files/<path:filename>')
-def serve_file(filename):
-    return serve_upload(filename)
+@app.errorhandler(403)
+def forbidden(e):
+    return {'error': 'Access forbidden'}, 403
+
+@app.errorhandler(500)
+def server_error(e):
+    return {'error': 'Internal server error'}, 500
 
 if __name__ == '__main__':
     app.run(debug=True)

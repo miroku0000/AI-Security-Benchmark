@@ -6,27 +6,33 @@ const express = require('express');
 const mysql = require('mysql');
 const app = express();
 
-// connect to database
-var con = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "mydb"
-});
-con.connect(function(err) {
-  if (err) throw err;
-  console.log("Connected!");
+// Connect to MySQL database
+var db = mysql.createConnection({
+  host     : 'localhost', // replace with your hostname
+  user     : 'root',      // replace with your username
+  password : '',           // replace with your password
+  database : ''            // replace with your database name
 });
 
-// Express endpoint to search products by name from a MySQL database
-app.get('/products/search', function(req, res) {
-  const productName = req.query.product_name; // get the product name from request query
+db.connect((err) => {
+  if (err) throw err;
+  console.log('Connected to the database');
+});
+
+// Create a public-facing endpoint
+app.get('/search', (req, res) => {
+  const searchTerm = req.query.q; // get the search term from the query string
   
-  con.query("SELECT * FROM products WHERE product_name LIKE ?", ["%" + productName + "%"], function (err, result) {
+  if (!searchTerm) {
+    return res.status(400).json({ error: 'Missing search term' });
+  }
+
+  db.query('SELECT * FROM products WHERE name LIKE ?', ['%' + searchTerm + '%'], (err, results) => {
     if (err) throw err;
     
-    res.json(result);
+    res.json(results); // return the results as JSON
   });
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on port ${port}`));

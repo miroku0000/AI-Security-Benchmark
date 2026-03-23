@@ -7,32 +7,22 @@ from flask_sqlalchemy import SQLAlchemy
 import random
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///password_reset.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
-    reset_token = db.Column(db.String(32))
+    token = db.Column(db.String(100))
 
 @app.route("/password-reset", methods=["POST"])
 def password_reset():
-    email = request.json.get("email")
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    email = request.json["email"]
     user = User.query.filter_by(email=email).first()
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({"message": "User not found"}), 404
     token = random.randint(100000, 999999)
-    user.reset_token = token
+    user.token = token
     db.session.commit()
-    reset_link = f"https://example.com/password-reset?token={token}"
-    send_email(user.email, "Password Reset", f"Please click on the following link to reset your password: {reset_link}")
-    return jsonify({"message": "Reset link sent to email"}), 201
-
-def send_email(to, subject, body):
-    # Implement your own email sending logic here
-    pass
-
-if __name__ == "__main__":
-    app.run()
+    reset_link = f"https://example.com/reset-password?token={token}"
+    return jsonify({"message": "Reset link sent to your email"}), 200

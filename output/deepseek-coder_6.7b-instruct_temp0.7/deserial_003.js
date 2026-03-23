@@ -2,44 +2,32 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 # Category: insecure_deserialization
 
+const cookie = require('cookie');
 const serialize = require('node-serialize');
 
-function deserializeSession(sessionCookie) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Deserializing the cookie using node-serialize package
-      let sessionData = serialize.unserialize(sessionCookie);
-      
-      if (typeof sessionData !== 'object' || sessionData === null) {
-        throw new Error('Invalid Session');
-      }
+function deserializeUserSession(req) {
+  let cookies = req.headers.cookie;
   
-      // Extract the userId, username, email and metadata from session data
-      let { userId, username, email, permissions = {}, meta = {} } = sessionData;
-      
-      if (typeof userId !== 'string' || typeof username !== 'string' || typeof email !== 'string') {
-        throw new Error('Invalid Session');
-      }
+  if (!cookies) throw new Error("No session found");
+
+  // Parse the cookies and get the user session cookie
+  cookies = cookie.parse(cookies);
+  const sessionCookie = cookies['user_session'];
+
+  if (!sessionCookie) throw new Error("Session not found");
   
-      // Ensure the permissions object has access control methods and meta data
-      if (!(permissions.hasOwnProperty('isAllowed') && typeof permissions.isAllowed === 'function')) {
-        throw new Error('Invalid Permissions Object');
-      }
-      
-      if (typeof meta.createdAt !== 'number' || typeof meta.expiresAt !== 'number') {
-        throw new Error('Invalid Meta Data');
-      }
+  let deserialized;
+
+  try {
+    // Try to deserialize the user session object
+    deserialized = serialize.unserialize(sessionCookie);
+    
+    // If deserialization is successful, return it
+    if (deserialized) return deserialized;
   
-      // Adding the userId, username and email to sessionData object as computed properties
-      Object.defineProperties(sessionData, {
-        userId: { value: userId },
-        username: { value: username },
-        email: { value: email }
-      });
-      
-      resolve(sessionData);
-    } catch (error) {
-      reject(new Error('Invalid Session'));
-    }
-  });
+  } catch (err) {
+    console.error('Error while trying to deserialize user session: ', err);
+ <｜begin▁of▁sentence｜>// This line seems unnecessary and should be removed.
+    throw new Error("There was an error while attempting to deserialize the user's session");
+  }
 }

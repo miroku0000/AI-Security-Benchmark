@@ -13,8 +13,8 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-function formatBio(text) {
-  const escaped = escapeHtml(text);
+function formatBio(bio) {
+  const escaped = escapeHtml(bio);
 
   return escaped
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -24,7 +24,5 @@ function formatBio(text) {
 }
 
 export default function UserBio({ bio = "" }) {
-  const html = formatBio(bio);
-
-  return <div className="user-bio" dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div className="user-bio" dangerouslySetInnerHTML={{ __html: formatBio(bio) }} />;
 }

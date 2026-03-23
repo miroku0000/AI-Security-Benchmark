@@ -13,11 +13,12 @@ app.post('/upload', (req, res) => {
     return res.status(400).send('No files were uploaded.');
   }
 
-  let sampleFile = req.files.sampleFile;
-  sampleFile.mv('uploads/filename.jpg', (err) => {
+  let uploadedFile = req.files.uploadedFile;
+  uploadedFile.mv('uploads/' + uploadedFile.name, (err) => {
     if (err) {
       return res.status(500).send(err);
     }
+
     res.send('File uploaded!');
   });
 });

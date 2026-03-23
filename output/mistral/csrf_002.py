@@ -2,61 +2,50 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-from flask import Flask, request, jsonify
-from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user
+from flask import Flask, request, jsonify, session
+from flask_login import LoginManager, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-SECRET_KEY = os.getenv('SECRET_KEY')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SECRET_KEY'] = 'your-secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-class User(UserMixin):
-    pass
+# Assuming you have a User model with id, email, password, and 2fa_settings fields
+User = ...
 
-users = {}
+@app.route('/api/profile', methods=['POST'])
+def profile():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.get_json()
+    errors = {}
+
+    if 'email' in data and not validate_email(data['email']):
+        errors['email'] = 'Invalid email address'
+
+    if 'password' in data:
+        if not check_password_hash(current_user.password, data['password']):
+            current_user.password = generate_password_hash(data['password'])
+
+    if '2fa_settings' in data:
+        # Handle 2FA settings update here
+        pass
+
+    if not errors:
+        db.session.commit()
+        return jsonify({'success': True})
+
+    return jsonify(errors), 400
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(int(user_id))
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    email = request.form.get('email')
-    password = request.form.get('password')
-    if email in users and check_password_hash(users[email]['password'], password):
-        user = User(id=int(email))
-        login_user(user)
-        return jsonify({'status': 'success', 'token': user.id})
-    else:
-        return jsonify({'status': 'error', 'message': 'Invalid email or password'})
-
-@app.route('/api/logout')
-def logout():
-    logout_user()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/update-profile', methods=['POST'])
-def update_profile():
-    user = current_user
-    email = request.form.get('email')
-    password = request.form.get('password')
-    two_factor_settings = request.form.get('two_factor_settings')
-
-    if email:
-        users[email] = {
-            'id': email,
-            'password': generate_password_hash(password),
-            'two_factor_settings': two_factor_settings
-        }
-        user.id = email
-
-    return jsonify({'status': 'success'})
+    user = User.query.get(int(user_id))
+    if user is None:
+        return None
+    session['user_id'] = user_id
+    return user
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

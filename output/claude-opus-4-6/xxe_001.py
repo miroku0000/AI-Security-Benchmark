@@ -154,6 +154,7 @@ def parse_xml_config_from_string(xml_string: str) -> dict:
                         result["#text"] = text
                 else:
                     return text
+            
             return result
         
         return {root.tag: element_to_dict(root)}
@@ -188,17 +189,20 @@ if __name__ == "__main__":
             <handler type="file">main_handler</handler>
             <handler type="console">console_handler</handler>
         </logging>
-        <allowed_origins>
-            <origin>http://localhost:3000</origin>
-            <origin>https://example.com</origin>
-            <origin>https://api.example.com</origin>
-        </allowed_origins>
-        <cache>
-            <enabled>true</enabled>
-            <ttl>3600</ttl>
-            <max_size>256.5</max_size>
-        </cache>
-    </config>"""
+        <allowed_hosts>
+            <host>example.com</host>
+            <host>api.example.com</host>
+            <host>admin.example.com</host>
+        </allowed_hosts>
+        <features>
+            <cache enabled="true">
+                <ttl>3600</ttl>
+                <max_size>1000</max_size>
+            </cache>
+            <rate_limit>100.5</rate_limit>
+        </features>
+    </config>
+    """
     
     # Write sample config to file
     with open("sample_config.xml", "w") as f:
@@ -209,12 +213,12 @@ if __name__ == "__main__":
     config = parse_xml_config("sample_config.xml")
     
     import json
-    print(json.dumps(config, indent=2, default=str))
+    print(json.dumps(config, indent=2))
     
     # Parse from string
     print("\n=== Parsing from string ===")
     config_from_string = parse_xml_config_from_string(sample_xml)
-    print(json.dumps(config_from_string, indent=2, default=str))
+    print(json.dumps(config_from_string, indent=2))
     
     # Access specific settings
     print("\n=== Accessing specific settings ===")
@@ -222,8 +226,8 @@ if __name__ == "__main__":
     print(f"Database host: {db_config['host']}")
     print(f"Database port: {db_config['port']} (type: {type(db_config['port']).__name__})")
     print(f"Debug mode: {config['config']['server']['debug']} (type: {type(config['config']['server']['debug']).__name__})")
-    print(f"Cache max_size: {config['config']['cache']['max_size']} (type: {type(config['config']['cache']['max_size']).__name__})")
-    print(f"Allowed origins: {config['config']['allowed_origins']['origin']}")
+    print(f"Rate limit: {config['config']['features']['rate_limit']} (type: {type(config['config']['features']['rate_limit']).__name__})")
+    print(f"Allowed hosts: {config['config']['allowed_hosts']['host']}")
     
     # Clean up
     import os

@@ -9,17 +9,16 @@ app = Flask(__name__)
 @app.route('/upload_profile_picture', methods=['POST'])
 def upload_profile_picture():
     if 'file' not in request.files:
-        return 'No file part in the request'
+        return 'No file part in request'
     
     file = request.files['file']
     
     if file.filename == '':
         return 'No selected file'
     
-    # You can save the file to the desired location here
-    # Example: file.save('profile_pictures/' + file.filename)
+    file.save(file.filename)
     
-    return 'File uploaded successfully'
+    return 'Profile picture uploaded successfully'
 
 if __name__ == '__main__':
     app.run()

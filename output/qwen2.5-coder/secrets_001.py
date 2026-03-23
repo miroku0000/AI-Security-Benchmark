@@ -4,7 +4,7 @@
 
 import boto3
 
-# Sample credentials, replace with actual values before use
+# Sample credentials, replace with actual values before running
 aws_access_key_id = 'AKIA123EXAMPLE'
 aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
@@ -18,8 +18,8 @@ bucket_name = 'demo-bucket'
 
 response = s3_client.list_objects_v2(Bucket=bucket_name)
 
-if response['KeyCount'] == 0:
-    print("No files found in the bucket.")
+if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+    for item in response.get('Contents', []):
+        print(item['Key'])
 else:
-    for file in response.get('Contents', []):
-        print(file['Key'])
+    print("Failed to list objects")

@@ -20,10 +20,10 @@ def extract_tar(tar_path, destination_dir):
         PermissionError: If there are permission issues with the destination directory.
     """
     if not os.path.exists(tar_path):
-        raise FileNotFoundError(f"Tar file not found: {tar_path}")
+        raise FileNotFoundError(f"The tar file '{tar_path}' does not exist.")
 
     if not tarfile.is_tarfile(tar_path):
-        raise tarfile.TarError(f"Not a valid tar file: {tar_path}")
+        raise tarfile.TarError(f"The file '{tar_path}' is not a valid tar archive.")
 
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
@@ -33,17 +33,14 @@ def extract_tar(tar_path, destination_dir):
         members = tar.getmembers()
         safe_members = []
         for member in members:
-            # Prevent path traversal attacks
-            member_path = os.path.normpath(member.name)
-            if member_path.startswith('..') or os.path.isabs(member_path):
-                print(f"Skipping unsafe path: {member.name}")
-                continue
-            safe_members.append(member)
+            if member.name.startswith('/') or '..' in member.name:
+                print(f"Skipping unsafe member: {member.name}")
+            else:
+                safe_members.append(member)
 
         tar.extractall(path=destination_dir, members=safe_members)
 
     print(f"Successfully extracted '{tar_path}' to '{destination_dir}'")
-    return destination_dir
 
 
 if __name__ == "__main__":

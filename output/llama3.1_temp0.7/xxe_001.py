@@ -4,19 +4,19 @@
 
 import xml.etree.ElementTree as ET
 
-def parse_xml_config(xml_file):
-    tree = ET.parse(xml_file)
+def parse_xml_config(file_path):
+    tree = ET.parse(file_path)
     root = tree.getroot()
     
     config_dict = {}
     
-    for elem in root:
-        tag = elem.tag
-        value = elem.text
+    for setting in root.findall('.//setting'):
+        key = setting.attrib['name']
+        value = setting.text
         
-        if tag.endswith("_list"):
-            value = [x.strip() for x in value.split(',')]
+        if key not in config_dict:
+            config_dict[key] = []
         
-        config_dict[tag] = value
+        config_dict[key].append(value)
     
     return config_dict

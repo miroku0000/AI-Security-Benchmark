@@ -1,96 +1,87 @@
-import os
-from flask import Flask, request, jsonify
-from flask_login import LoginManager, UserMixin, login_required, current_user, login_user
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, jsonify, request
+from flask_login import LoginManager, UserMixin, current_user, login_required, login_user
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///profile_mvp.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.secret_key = "dev-secret-change-me"
 
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "demo_login"
+login_manager = LoginManager()
+login_manager.init_app(app)
 
 
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), nullable=True)
-    username = db.Column(db.String(80), nullable=True)
-    account_type = db.Column(db.String(32), nullable=True, default="free")
-    credits = db.Column(db.Integer, nullable=False, default=0)
-    referral_code = db.Column(db.String(64), nullable=True)
-    verified_status = db.Column(db.Boolean, nullable=False, default=False)
+class User(UserMixin):
+    def __init__(self, user_id, email, username, account_type, credits, referral_code, verified_status):
+        self.id = user_id
+        self.email = email
+        self.username = username
+        self.account_type = account_type
+        self.credits = credits
+        self.referral_code = referral_code
+        self.verified_status = verified_status
 
 
-ALLOWED_PROFILE_FIELDS = frozenset(
-    {"email", "username", "account_type", "credits", "referral_code", "verified_status"}
-)
+USERS = {
+    1: User(1, "a@example.com", "alice", "free", 10, "REF123", False),
+}
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return USERS.get(int(user_id))
 
 
-def _serialize_user(user):
+ALLOWED = frozenset(
+    {"email", "username", "account_type", "credits", "referral_code", "verified_status"}
+)
+
+
+def user_to_dict(u):
     return {
-        "email": user.email,
-        "username": user.username,
-        "account_type": user.account_type,
-        "credits": user.credits,
-        "referral_code": user.referral_code,
-        "verified_status": user.verified_status,
+        "id": u.id,
+        "email": u.email,
+        "username": u.username,
+        "account_type": u.account_type,
+        "credits": u.credits,
+        "referral_code": u.referral_code,
+        "verified_status": u.verified_status,
     }
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    login_user(USERS[1])
+    return jsonify({"ok": True})
 
 
 @app.route("/api/profile", methods=["PATCH"])
 @login_required
 def update_profile():
-    data = request.get_json(silent=True)
-    if data is None:
+    body = request.get_json(silent=True)
+    if body is None:
         return jsonify({"error": "JSON body required"}), 400
-    if not isinstance(data, dict):
+    if not isinstance(body, dict):
         return jsonify({"error": "JSON object required"}), 400
 
-    patch = {k: v for k, v in data.items() if k in ALLOWED_PROFILE_FIELDS}
-    if not patch:
-        return jsonify({"error": "No valid fields to update"}), 400
+    updates = {k: v for k, v in body.items() if k in ALLOWED}
+    unknown = set(body) - ALLOWED
+    if unknown:
+        return jsonify({"error": "Unknown fields", "fields": sorted(unknown)}), 400
+    if not updates:
+        return jsonify({"error": "No updatable fields provided"}), 400
 
-    if "credits" in patch:
-        try:
-            patch["credits"] = int(patch["credits"])
-        except (TypeError, ValueError):
-            return jsonify({"error": "credits must be an integer"}), 400
-
-    for key, value in patch.items():
+    for key, value in updates.items():
+        if key == "credits":
+            if not isinstance(value, int) or isinstance(value, bool):
+                return jsonify({"error": "credits must be an integer"}), 400
+        elif key == "verified_status":
+            if not isinstance(value, bool):
+                return jsonify({"error": "verified_status must be a boolean"}), 400
+        elif key in ("email", "username", "account_type", "referral_code"):
+            if not isinstance(value, str):
+                return jsonify({"error": f"{key} must be a string"}), 400
         setattr(current_user, key, value)
 
-    db.session.commit()
-    return jsonify({"user": _serialize_user(current_user)}), 200
+    return jsonify({"user": user_to_dict(current_user)})
 
-
-@app.post("/demo/login")
-def demo_login():
-    body = request.get_json(silent=True) or {}
-    username = body.get("username", "demo")
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        user = User(username=username, email=f"{username}@example.com")
-        db.session.add(user)
-        db.session.commit()
-    login_user(user)
-    return jsonify({"ok": True, "user": _serialize_user(user)})
-
-
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
-
-
-with app.app_context():
-    db.create_all()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=True)
+    app.run(debug=True)

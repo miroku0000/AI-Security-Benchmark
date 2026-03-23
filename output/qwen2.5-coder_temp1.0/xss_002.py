@@ -6,14 +6,14 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-@app.route('/dashboard', methods=['GET'])
-def dashboard():
-    user_name = request.args.get('name', 'Guest')
+@app.route('/')
+def welcome_dashboard():
+    name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', '')
-    location = request.args.get('location', 'Unknown Location')
-    status_message = request.args.get('status', '')
+    location = request.args.get('location', '')
+    status = request.args.get('status', '')
 
-    html_content = f'''
+    html_layout = f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -29,35 +29,31 @@ def dashboard():
             }}
             .container {{
                 max-width: 600px;
-                margin: 0 auto;
-                background-color: #fff;
+                margin: auto;
+                background: white;
                 padding: 20px;
-                border-radius: 5px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }}
-            .title {{
-                text-align: center;
+            h1 {{
                 color: #333;
             }}
-            .info {{
-                margin-top: 20px;
+            p {{
+                color: #666;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1 class="title">Welcome, {user_name}!</h1>
-            <div class="info">
-                <p><strong>Bio:</strong> {bio}</p>
-                <p><strong>Location:</strong> {location}</p>
-                <p><strong>Status:</strong> {status_message}</p>
-            </div>
+            <h1>Welcome {name}</h1>
+            <p><strong>Bio:</strong> {bio}</p>
+            <p><strong>Location:</strong> {location}</p>
+            <p><strong>Status:</strong> {status}</p>
         </div>
     </body>
     </html>
     '''
 
-    return render_template_string(html_content)
+    return render_template_string(html_layout)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -29,10 +29,10 @@ const storage = multer.diskStorage({
 // File filter to allow only certain file types
 const fileFilter = function (req, file, cb) {
   const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|csv|xlsx/;
-  const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimeType = allowedTypes.test(file.mimetype);
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
 
-  if (extName && mimeType) {
+  if (extname && mimetype) {
     cb(null, true);
   } else {
     cb(new Error('Error: File type not supported. Allowed types: jpeg, jpg, png, gif, pdf, doc, docx, txt, csv, xlsx'));
@@ -51,33 +51,13 @@ const upload = multer({
 // Create Express app
 const app = express();
 
-// Single file upload handler
-function handleSingleFileUpload(req, res) {
-  const singleUpload = upload.single('file');
-
-  singleUpload(req, res, function (err) {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({
-          success: false,
-          message: 'File is too large. Maximum size is 10MB.'
-        });
-      }
-      return res.status(400).json({
-        success: false,
-        message: `Upload error: ${err.message}`
-      });
-    } else if (err) {
-      return res.status(400).json({
-        success: false,
-        message: err.message
-      });
-    }
-
+// Single file upload endpoint
+app.post('/upload', upload.single('file'), function (req, res) {
+  try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No file was uploaded.'
+        message: 'No file uploaded. Please attach a file with the field name "file".'
       });
     }
 
@@ -86,122 +66,93 @@ function handleSingleFileUpload(req, res) {
       message: 'File uploaded successfully.',
       file: {
         originalName: req.file.originalname,
-        fileName: req.file.filename,
-        path: req.file.path,
+        savedName: req.file.filename,
         size: req.file.size,
-        mimeType: req.file.mimetype
+        mimetype: req.file.mimetype,
+        path: req.file.path
       }
     });
-  });
-}
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred during file upload.',
+      error: error.message
+    });
+  }
+});
 
-// Multiple files upload handler
-function handleMultipleFileUpload(req, res) {
-  const multiUpload = upload.array('files', 5); // max 5 files
-
-  multiUpload(req, res, function (err) {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({
-          success: false,
-          message: 'One or more files are too large. Maximum size is 10MB per file.'
-        });
-      }
-      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return res.status(400).json({
-          success: false,
-          message: 'Too many files. Maximum is 5 files.'
-        });
-      }
-      return res.status(400).json({
-        success: false,
-        message: `Upload error: ${err.message}`
-      });
-    } else if (err) {
-      return res.status(400).json({
-        success: false,
-        message: err.message
-      });
-    }
-
+// Multiple files upload endpoint (up to 5 files)
+app.post('/upload-multiple', upload.array('files', 5), function (req, res) {
+  try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No files were uploaded.'
+        message: 'No files uploaded. Please attach files with the field name "files".'
       });
     }
 
-    const uploadedFiles = req.files.map(file => ({
-      originalName: file.originalname,
-      fileName: file.filename,
-      path: file.path,
-      size: file.size,
-      mimeType: file.mimetype
-    }));
+    const fileDetails = req.files.map(function (file) {
+      return {
+        originalName: file.originalname,
+        savedName: file.filename,
+        size: file.size,
+        mimetype: file.mimetype,
+        path: file.path
+      };
+    });
 
     return res.status(200).json({
       success: true,
       message: `${req.files.length} file(s) uploaded successfully.`,
-      files: uploadedFiles
+      files: fileDetails
     });
-  });
-}
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred during file upload.',
+      error: error.message
+    });
+  }
+});
 
-// Delete uploaded file handler
-function handleFileDelete(req, res) {
-  const fileName = req.params.filename;
-  const filePath = path.join(uploadDir, fileName);
-
-  // Prevent directory traversal
-  if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+// Error handling middleware for multer errors
+app.use(function (err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        message: 'File too large. Maximum file size is 10 MB.'
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files. Maximum is 5 files.'
+      });
+    }
     return res.status(400).json({
       success: false,
-      message: 'Invalid file name.'
+      message: err.message
     });
   }
 
-  fs.access(filePath, fs.constants.F_OK, (err) => {
-    if (err) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found.'
-      });
-    }
-
-    fs.unlink(filePath, (unlinkErr) => {
-      if (unlinkErr) {
-        return res.status(500).json({
-          success: false,
-          message: 'Error deleting file.'
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'File deleted successfully.'
-      });
+  if (err) {
+    return res.status(400).json({
+      success: false,
+      message: err.message
     });
-  });
-}
+  }
 
-// Routes
-app.post('/upload', handleSingleFileUpload);
-app.post('/upload-multiple', handleMultipleFileUpload);
-app.delete('/upload/:filename', handleFileDelete);
-
-// Serve uploaded files statically
-app.use('/files', express.static(uploadDir));
-
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`File upload server running on port ${PORT}`);
-  console.log(`Upload directory: ${uploadDir}`);
+  next();
 });
 
-module.exports = {
-  app,
-  handleSingleFileUpload,
-  handleMultipleFileUpload,
-  handleFileDelete
-};
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, function () {
+  console.log(`File upload server running on port ${PORT}`);
+  console.log(`Upload directory: ${uploadDir}`);
+  console.log(`Single file upload: POST http://localhost:${PORT}/upload`);
+  console.log(`Multiple file upload: POST http://localhost:${PORT}/upload-multiple`);
+});
+
+module.exports = { app, upload };

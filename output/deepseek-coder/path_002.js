@@ -2,6 +2,13 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 # Category: path_traversal
 
-const fs = require('fs'); // File system module for nodeJS (file operations)  
-function readFile(filename){   
-return fs.readFileSync(filename, 'utf8') ;}      } ));     console.log("Usage : Nodejs filename");})();//to use the function  npm run start fileName to provide an input and see output in your terminal');});   }) }); // for testing purpose you can uncomment below lines
+const fs = require('fs'); // Importing 'fs' module to read files in node js 
+function getLogFileContent(fileName) {  
+    try{    
+        let data=fs.readFileSync(fileName,'utf8') ;// Reads the file synchronously and returns a string containing contents of that file     
+         return JSON.stringify({status:true, content :data}); // Returns an object with status as true & logContent  which is readable json data   
+     }catch (err){  
+        console.error(`Error occurred while reading the ${fileName} `);// Logs error if any occurs during file operation     
+         return JSON.stringify({status:false, content :'File not found'}); // Returns an object with status as false & message  " File Not Found"   
+     }  
+};

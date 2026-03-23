@@ -22,4 +22,4 @@ function readLogFile(filename) {
 // Example usage:
 readLogFile('example.log')
   .then(contents => console.log(contents))
-  .catch(err => console.error('Error reading file:', err));
+  .catch(error => console.error('Error reading file:', error));

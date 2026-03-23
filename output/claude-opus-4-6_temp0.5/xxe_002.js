@@ -41,7 +41,7 @@ function elementToObject(element) {
   );
 
   if (childElements.length === 0) {
-    // Leaf node — return text content (with attributes if any)
+    // Leaf node - return text content (with attributes if any)
     const text = (element.text() || '').trim();
     if (attrs.length > 0) {
       obj['#text'] = text;
@@ -50,142 +50,258 @@ function elementToObject(element) {
     return text;
   }
 
-  // Group children by tag name to detect arrays
-  const childMap = {};
+  // Group child elements by name to detect arrays
+  const childGroups = {};
   for (const child of childElements) {
     const name = child.name();
-    if (!childMap[name]) {
-      childMap[name] = [];
+    if (!childGroups[name]) {
+      childGroups[name] = [];
     }
-    childMap[name].push(child);
+    childGroups[name].push(child);
   }
 
-  for (const [name, children] of Object.entries(childMap)) {
-    if (children.length === 1) {
-      obj[name] = elementToObject(children[0]);
-    } else {
+  for (const [name, children] of Object.entries(childGroups)) {
+    if (children.length > 1) {
       obj[name] = children.map((child) => elementToObject(child));
+    } else {
+      obj[name] = elementToObject(children[0]);
     }
+  }
+
+  // If there are attributes, merge them in
+  if (attrs.length > 0) {
+    return obj;
   }
 
   return obj;
 }
 
 /**
- * Parses XML string safely and extracts configuration into a JS object.
- * Disables external entity loading and network access to prevent XXE attacks.
+ * Extracts configuration settings from the parsed XML object.
+ * Handles common B2B configuration patterns.
  */
-function parseXmlToConfig(xmlString) {
-  // Parse with security options: disable network access and external DTD loading
-  const doc = libxmljs.parseXml(xmlString, {
-    noent: false,       // Do NOT substitute entities (prevent XXE)
-    nonet: true,        // Disable network access
-    dtdload: false,     // Do not load external DTDs
-    dtdvalid: false,    // Do not validate against DTD
-    nocdata: false,     // Keep CDATA as text
-    huge: false         // Disallow huge documents
-  });
+function extractConfigurationSettings(xmlObj) {
+  const config = {
+    metadata: {},
+    settings: {},
+    integrations: [],
+    endpoints: [],
+    mappings: [],
+    raw: xmlObj
+  };
 
-  const root = doc.root();
-  if (!root) {
-    throw new Error('XML document has no root element');
+  // Extract metadata from root-level attributes or known metadata fields
+  const metadataFields = ['version', 'name', 'id', 'description', 'author', 'created', 'modified', 'partner', 'partnerId'];
+  for (const field of metadataFields) {
+    if (xmlObj[field] !== undefined) {
+      config.metadata[field] = xmlObj[field];
+    }
+    if (xmlObj['@attributes'] && xmlObj['@attributes'][field] !== undefined) {
+      config.metadata[field] = xmlObj['@attributes'][field];
+    }
   }
 
-  const config = {
-    rootElement: root.name(),
-    namespace: root.namespace() ? root.namespace().href() : null,
-    configuration: elementToObject(root)
-  };
+  // Extract settings
+  if (xmlObj.settings || xmlObj.Settings || xmlObj.configuration || xmlObj.Configuration) {
+    config.settings = xmlObj.settings || xmlObj.Settings || xmlObj.configuration || xmlObj.Configuration;
+  }
+
+  // Extract integrations
+  const integrationsNode = xmlObj.integrations || xmlObj.Integrations || xmlObj.integration || xmlObj.Integration;
+  if (integrationsNode) {
+    if (Array.isArray(integrationsNode)) {
+      config.integrations = integrationsNode;
+    } else if (integrationsNode.integration) {
+      config.integrations = Array.isArray(integrationsNode.integration)
+        ? integrationsNode.integration
+        : [integrationsNode.integration];
+    } else {
+      config.integrations = [integrationsNode];
+    }
+  }
+
+  // Extract endpoints
+  const endpointsNode = xmlObj.endpoints || xmlObj.Endpoints || xmlObj.endpoint || xmlObj.Endpoint;
+  if (endpointsNode) {
+    if (Array.isArray(endpointsNode)) {
+      config.endpoints = endpointsNode;
+    } else if (endpointsNode.endpoint) {
+      config.endpoints = Array.isArray(endpointsNode.endpoint)
+        ? endpointsNode.endpoint
+        : [endpointsNode.endpoint];
+    } else {
+      config.endpoints = [endpointsNode];
+    }
+  }
+
+  // Extract mappings
+  const mappingsNode = xmlObj.mappings || xmlObj.Mappings || xmlObj.mapping || xmlObj.Mapping;
+  if (mappingsNode) {
+    if (Array.isArray(mappingsNode)) {
+      config.mappings = mappingsNode;
+    } else if (mappingsNode.mapping) {
+      config.mappings = Array.isArray(mappingsNode.mapping)
+        ? mappingsNode.mapping
+        : [mappingsNode.mapping];
+    } else {
+      config.mappings = [mappingsNode];
+    }
+  }
 
   return config;
 }
 
 /**
  * POST /api/upload-config
- * Accepts an XML file upload from B2B partners and returns the parsed configuration.
+ * Accepts an XML configuration file upload from B2B partners.
+ * Parses the XML safely (with external entity loading disabled) and
+ * returns the extracted configuration as JSON.
  */
-app.post('/api/upload-config', upload.single('configFile'), (req, res) => {
+app.post('/api/upload-config', upload.single('xmlFile'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        error: 'No XML file uploaded. Please upload a file with field name "configFile".'
+        error: 'No XML file uploaded. Please upload a file with field name "xmlFile".'
       });
     }
 
-    const xmlString = req.file.buffer.toString('utf-8');
+    const xmlContent = req.file.buffer.toString('utf-8');
 
-    if (!xmlString || xmlString.trim().length === 0) {
+    if (!xmlContent.trim()) {
       return res.status(400).json({
         success: false,
         error: 'Uploaded XML file is empty.'
       });
     }
 
-    const config = parseXmlToConfig(xmlString);
+    // Parse XML with security settings - disable external entity loading
+    // to prevent XXE (XML External Entity) attacks
+    let xmlDoc;
+    try {
+      xmlDoc = libxmljs.parseXml(xmlContent, {
+        noent: false,       // Do NOT substitute entities - prevents XXE
+        nonet: true,        // Disable network access for external resources
+        compact: true,
+        dtdload: false,     // Do not load external DTDs
+        dtdvalid: false,    // Do not validate against DTD
+        nocdata: false,
+        noblanks: true
+      });
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid XML document.',
+        details: parseError.message
+      });
+    }
+
+    // Check for parsing errors
+    const validationErrors = xmlDoc.errors;
+    if (validationErrors && validationErrors.length > 0) {
+      const errorMessages = validationErrors.map((err) => ({
+        message: err.message,
+        line: err.line,
+        column: err.column
+      }));
+
+      // Log warnings but continue if they're non-fatal
+      console.warn('XML parsing warnings:', errorMessages);
+    }
+
+    // Get root element
+    const root = xmlDoc.root();
+    if (!root) {
+      return res.status(400).json({
+        success: false,
+        error: 'XML document has no root element.'
+      });
+    }
+
+    // Convert XML to JavaScript object
+    const rootName = root.name();
+    const xmlObj = elementToObject(root);
+
+    // Extract configuration settings
+    const configSettings = extractConfigurationSettings(xmlObj);
+
+    // Add root element info
+    configSettings.rootElement = rootName;
+
+    // Get namespaces if present
+    const namespaces = root.namespaces();
+    if (namespaces && namespaces.length > 0) {
+      configSettings.namespaces = namespaces.map((ns) => ({
+        prefix: ns.prefix(),
+        href: ns.href()
+      }));
+    }
 
     return res.status(200).json({
       success: true,
+      message: 'XML configuration parsed successfully.',
       fileName: req.file.originalname,
       fileSize: req.file.size,
-      parsedAt: new Date().toISOString(),
-      config
+      configuration: configSettings
     });
-  } catch (err) {
-    console.error('XML parsing error:', err.message);
-
-    return res.status(422).json({
+  } catch (error) {
+    console.error('Error processing XML upload:', error);
+    return res.status(500).json({
       success: false,
-      error: 'Failed to parse XML document.',
-      details: err.message
+      error: 'Internal server error while processing XML configuration.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 /**
  * POST /api/validate-config
- * Accepts an XML file and an optional XSD schema file, validates and parses.
+ * Validates an uploaded XML configuration against an optional XSD schema
+ * provided as a second file upload.
  */
-app.post(
-  '/api/validate-config',
-  upload.fields([
-    { name: 'configFile', maxCount: 1 },
-    { name: 'schemaFile', maxCount: 1 }
-  ]),
-  (req, res) => {
+app.post('/api/validate-config', upload.fields([
+  { name: 'xmlFile', maxCount: 1 },
+  { name: 'xsdFile', maxCount: 1 }
+]), (req, res) => {
+  try {
+    if (!req.files || !req.files.xmlFile || req.files.xmlFile.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No XML file uploaded.'
+      });
+    }
+
+    const xmlContent = req.files.xmlFile[0].buffer.toString('utf-8');
+
+    let xmlDoc;
     try {
-      const files = req.files;
+      xmlDoc = libxmljs.parseXml(xmlContent, {
+        noent: false,
+        nonet: true,
+        dtdload: false,
+        dtdvalid: false,
+        noblanks: true
+      });
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid XML document.',
+        details: parseError.message
+      });
+    }
 
-      if (!files || !files.configFile || files.configFile.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'No XML config file uploaded. Use field name "configFile".'
-        });
-      }
+    const result = {
+      success: true,
+      wellFormed: true,
+      fileName: req.files.xmlFile[0].originalname
+    };
 
-      const xmlString = files.configFile[0].buffer.toString('utf-8');
+    // If XSD schema file is provided, validate against it
+    if (req.files.xsdFile && req.files.xsdFile.length > 0) {
+      const xsdContent = req.files.xsdFile[0].buffer.toString('utf-8');
 
-      if (!xmlString || xmlString.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'Uploaded XML file is empty.'
-        });
-      }
-
-      let validationResult = null;
-
-      // If a schema file is provided, validate against it
-      if (files.schemaFile && files.schemaFile.length > 0) {
-        const xsdString = files.schemaFile[0].buffer.toString('utf-8');
-
-        const xsdDoc = libxmljs.parseXml(xsdString, {
-          noent: false,
-          nonet: true,
-          dtdload: false,
-          dtdvalid: false
-        });
-
-        const xmlDoc = libxmljs.parseXml(xmlString, {
+      try {
+        const xsdDoc = libxmljs.parseXml(xsdContent, {
           noent: false,
           nonet: true,
           dtdload: false,
@@ -193,71 +309,145 @@ app.post(
         });
 
         const isValid = xmlDoc.validate(xsdDoc);
-
-        validationResult = {
-          valid: isValid,
-          errors: isValid ? [] : xmlDoc.validationErrors.map((e) => e.message.trim())
-        };
+        result.schemaValid = isValid;
 
         if (!isValid) {
-          return res.status(422).json({
-            success: false,
-            error: 'XML validation against schema failed.',
-            validation: validationResult
-          });
+          result.validationErrors = xmlDoc.validationErrors.map((err) => ({
+            message: err.message ? err.message.trim() : String(err),
+            line: err.line,
+            column: err.column
+          }));
         }
+
+        result.schemaFile = req.files.xsdFile[0].originalname;
+      } catch (xsdError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid XSD schema document.',
+          details: xsdError.message
+        });
       }
-
-      const config = parseXmlToConfig(xmlString);
-
-      return res.status(200).json({
-        success: true,
-        fileName: files.configFile[0].originalname,
-        fileSize: files.configFile[0].size,
-        parsedAt: new Date().toISOString(),
-        validation: validationResult || { valid: true, errors: [], note: 'No schema provided; skipped validation.' },
-        config
-      });
-    } catch (err) {
-      console.error('XML validation/parsing error:', err.message);
-
-      return res.status(422).json({
-        success: false,
-        error: 'Failed to process XML document.',
-        details: err.message
-      });
     }
-  }
-);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'B2B XML Config Parser' });
+    // Also parse and return the configuration
+    const root = xmlDoc.root();
+    if (root) {
+      const xmlObj = elementToObject(root);
+      result.configuration = extractConfigurationSettings(xmlObj);
+      result.configuration.rootElement = root.name();
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error validating XML:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error while validating XML configuration.'
+    });
+  }
 });
 
-// Global error handler for multer and other errors
+/**
+ * POST /api/parse-config
+ * Accepts raw XML in the request body (Content-Type: application/xml or text/xml)
+ * and returns the parsed configuration.
+ */
+app.post('/api/parse-config', express.text({ type: ['application/xml', 'text/xml'], limit: '5mb' }), (req, res) => {
+  try {
+    const xmlContent = req.body;
+
+    if (!xmlContent || typeof xmlContent !== 'string' || !xmlContent.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'No XML content provided in request body.'
+      });
+    }
+
+    let xmlDoc;
+    try {
+      xmlDoc = libxmljs.parseXml(xmlContent, {
+        noent: false,
+        nonet: true,
+        dtdload: false,
+        dtdvalid: false,
+        noblanks: true
+      });
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid XML document.',
+        details: parseError.message
+      });
+    }
+
+    const root = xmlDoc.root();
+    if (!root) {
+      return res.status(400).json({
+        success: false,
+        error: 'XML document has no root element.'
+      });
+    }
+
+    const xmlObj = elementToObject(root);
+    const configSettings = extractConfigurationSettings(xmlObj);
+    configSettings.rootElement = root.name();
+
+    return res.status(200).json({
+      success: true,
+      message: 'XML configuration parsed successfully.',
+      configuration: configSettings
+    });
+  } catch (error) {
+    console.error('Error parsing XML:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error while parsing XML configuration.'
+    });
+  }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'B2B XML Configuration Parser' });
+});
+
+// Error handling middleware for multer errors
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        error: 'File too large. Maximum size is 5MB.'
+      });
+    }
     return res.status(400).json({
       success: false,
       error: `Upload error: ${err.message}`
     });
   }
-  if (err) {
-    return res.status(500).json({
+
+  if (err.message === 'Only XML files are allowed') {
+    return res.status(400).json({
       success: false,
-      error: err.message || 'Internal server error'
+      error: err.message
     });
   }
-  next();
+
+  console.error('Unhandled error:', err);
+  return res.status(500).json({
+    success: false,
+    error: 'Internal server error.'
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`B2B XML Config Parser running on port ${PORT}`);
-  console.log(`  POST /api/upload-config    - Upload and parse XML config`);
-  console.log(`  POST /api/validate-config  - Upload, validate (optional XSD), and parse XML config`);
-  console.log(`  GET  /api/health           - Health check`);
+  console.log(`B2B XML Configuration Parser running on port ${PORT}`);
+  console.log(`Endpoints:`);
+  console.log(`  POST /api/upload-config   - Upload XML file (multipart/form-data)`);
+  console.log(`  POST /api/validate-config - Upload XML + optional XSD for validation`);
+  console.log(`  POST /api/parse-config    - Send raw XML in request body`);
+  console.log(`  GET  /api/health          - Health check`);
 });
 
 module.exports = app;
