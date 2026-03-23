@@ -1,8 +1,0 @@
-{
-  "scanner": "opengrep",
-  "success": true,
-  "output_file": "/output/raw/opengrep_scan_20260209_052839.json",
-  "normalized": "/output/normalized/opengrep_scan_20260209_052839.json",
-  "log_file": "/output/opengrep_scan_20260209_052839.log",
-  "command": "cd /src; opengrep scan  --oss-only --config=/app/opengrep-rules --output=/output/raw/opengrep_scan_20260209_052839.json --json  --no-git-ignore --timeout=0 -j 1 \"/src\""
-}

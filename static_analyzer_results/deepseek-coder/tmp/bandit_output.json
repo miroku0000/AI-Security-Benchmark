@@ -1,1 +1,0 @@
-{"scanner": "bandit", "success": true, "output_file": "/output/raw/bandit_scan_20260209_051934.json", "log_file": "/output/bandit_scan_20260209_051934.log", "command": "bandit -r \"/src\" -f json -o \"/output/raw/bandit_scan_20260209_051934.json\" --exit-zero", "normalized": "/output/normalized/bandit_scan_20260209_051934.json"}

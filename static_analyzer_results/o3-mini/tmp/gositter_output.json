@@ -1,8 +1,0 @@
-{
-  "scanner": "gositter",
-  "success": true,
-  "output_file": "/output/raw/gositter-20260209_052659.json",
-  "normalized": "/output/normalized/gositter-20260209_052659.json",
-  "log_file": "/output/gositter.log",
-  "command": "gositter -j \"/src\" > \"/output/raw/gositter-20260209_052659.json\"\n"
-}
