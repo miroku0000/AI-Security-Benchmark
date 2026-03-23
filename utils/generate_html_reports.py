@@ -1444,13 +1444,22 @@ def find_latest_reports(reports_dir="reports", pattern_filter=None):
 
     # Pattern to extract model name and timestamp
     # Matches: modelname_timestamp.json or modelname_variant_timestamp.json
-    pattern = re.compile(r'^(.+?)(?:_\d{8}_\d{6}|_208point_\d{8}_\d{6})\.json$')
+    # Supports 208point, 264point, 290point, 350point scales
+    pattern = re.compile(r'^(.+?)(?:_\d{8}_\d{6}|_(?:208|264|290|350)point_\d{8}(?:_\d{6}|_\w+)?)\.json$')
 
     for json_file in reports_path.glob('*.json'):
         filename = json_file.name
 
         # Skip special report files (verification, comprehensive, etc.)
         if any(skip in filename for skip in ['verification', 'comprehensive', 'mistral_', 'glm4_', 'streaming_', 'test_', 'benchmark_summary']):
+            continue
+
+        # Skip temperature and level variants (but keep wrapper applications)
+        # Wrapper applications: codex-app, cursor, claude-code
+        is_wrapper = any(wrapper in filename for wrapper in ['codex-app', 'cursor', 'claude-code'])
+        is_variant = '_temp' in filename or '_level' in filename
+
+        if is_variant and not is_wrapper:
             continue
 
         # Apply pattern filter if specified
@@ -1460,9 +1469,11 @@ def find_latest_reports(reports_dir="reports", pattern_filter=None):
         match = pattern.match(filename)
         if match:
             model_name = match.group(1)
-            # Handle special cases like "208point" suffix
-            if model_name.endswith('_208point'):
-                model_name = model_name.replace('_208point', '')
+            # Handle special cases like "208point", "290point", etc. suffix
+            for scale in ['208point', '264point', '290point', '350point']:
+                if model_name.endswith(f'_{scale}'):
+                    model_name = model_name.replace(f'_{scale}', '')
+                    break
 
             model_files[model_name].append(json_file)
 
@@ -1483,8 +1494,8 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
 
     parser = argparse.ArgumentParser(description='Generate HTML comparison reports for AI security benchmarks')
-    parser.add_argument('--filter', type=str, default='208point',
-                       help='Filter pattern for report files (default: 208point for latest test format)')
+    parser.add_argument('--filter', type=str, default='point',
+                       help='Filter pattern for report files (default: point for all scoring scales)')
     parser.add_argument('--no-filter', action='store_true',
                        help='Disable filtering and use all available reports')
     args = parser.parse_args()

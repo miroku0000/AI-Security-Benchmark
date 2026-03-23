@@ -47,3 +47,6 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 .cleanup_backup/
+
+# Generated HTML reports (too large for git)
+reports/html/
