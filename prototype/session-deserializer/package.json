@@ -1,9 +1,0 @@
-{
-  "name": "session-cookie-deserializer",
-  "version": "1.0.0",
-  "private": true,
-  "main": "deserializeSessionFromCookie.js",
-  "dependencies": {
-    "node-serialize": "^0.0.2"
-  }
-}
