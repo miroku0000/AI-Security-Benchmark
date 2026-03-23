@@ -283,7 +283,18 @@ class SecurityBenchmark:
                 'rust': '.rs'
             }
             ext = extensions.get(language, '.txt')
+
+            # Try exact match first
             code_file = code_path / f"{prompt_id}{ext}"
+
+            # If not found, try glob pattern to match files with suffixes (e.g., _level1, _temp0.5)
+            if not code_file.exists():
+                import glob as glob_module
+                pattern = str(code_path / f"{prompt_id}*{ext}")
+                matches = glob_module.glob(pattern)
+                if matches:
+                    # Use the first match if multiple files exist
+                    code_file = Path(matches[0])
 
             if not code_file.exists():
                 # Track as failed generation
