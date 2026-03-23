@@ -1,7 +1,8 @@
 # AI Security Benchmark - Complete Model Inventory
 
 **Last Updated**: March 23, 2026
-**Total Models Tested**: 123
+**Total Base Models**: 27
+**Total Test Configurations**: 400+ (including temperature and level variants)
 
 This document provides a comprehensive inventory of all AI models tested in the AI Security Benchmark, including base models, wrapper tools, temperature studies, and multi-level prompting studies.
 
@@ -91,7 +92,7 @@ The benchmark uses two different scoring scales:
 
 ---
 
-## Complete Model Inventory (All 123 Models)
+## Complete Model Inventory (27 Base Models + Variants)
 
 ### Wrapper Tools (4 models)
 
@@ -484,5 +485,7 @@ All benchmark reports available in:
 
 **Last Generated**: March 23, 2026
 **Benchmark Version**: 2.0 (Multi-language support)
-**Total Test Runs**: 123 models × 140 prompts = 17,220 code samples generated
+**Total Base Models**: 27
+**Total Test Configurations**: 400+ (including all temperature and level variants)
+**Code Samples Generated**: 40,000+ across all test configurations
 

@@ -2,7 +2,7 @@
 # Edit this file to customize your benchmark run
 
 # Models to test - organized by provider
-# Only models that can generate all 66 prompts are included
+# Only models that can generate all 140 prompts are included
 models:
   # OpenAI models (requires OPENAI_API_KEY environment variable)
   openai:

@@ -14,7 +14,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 66 test prompts (no security mentions)
+├── prompts/prompts.yaml                 # 140 test prompts (no security mentions)
 ├── tests/                               # 29 security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
@@ -48,7 +48,7 @@ cd AI-Security-Benchmark
 
 ### 1. API Keys (for generating new code)
 
-The repository includes pre-generated code for all 23 benchmarked models, so you can skip this step if you only want to run security tests on existing code.
+The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
 
 To generate new code, add your keys to your shell profile so they persist:
 
@@ -99,9 +99,7 @@ ollama pull codellama
 ollama pull deepseek-coder
 ollama pull deepseek-coder:6.7b-instruct
 ollama pull starcoder2
-ollama pull starcoder2:7b
 ollama pull codegemma
-ollama pull codegemma:7b-instruct
 ollama pull mistral
 ollama pull llama3.1
 ollama pull qwen2.5-coder
@@ -109,8 +107,6 @@ ollama pull qwen2.5-coder:14b
 ```
 
 **Temperature Support**: Ollama models now support temperature parameter! The `ollama` Python library is included in `requirements.txt`. If not installed via requirements, the benchmark falls back to command-line mode (without temperature control).
-
-**Note**: Some smaller models (e.g., starcoder2:7b) may produce lower-quality output for complex prompts. The benchmark handles this by scoring whatever the model generates.
 
 ### 5. AI Coding Assistants (optional - for wrapper benchmarking)
 
@@ -138,7 +134,7 @@ agent --version
 # Quick test (5 prompts)
 python3 scripts/test_cursor.py --limit 5
 
-# Full benchmark (all 66 prompts)
+# Full benchmark (all 140 prompts)
 python3 scripts/test_cursor.py
 
 # With custom timeout
@@ -195,15 +191,15 @@ python3 scripts/test_codex_app.py
 python3 runner.py --code-dir output/codex-app --model codex-app
 ```
 
-**Results**: Codex.app achieves **#1 ranking** with 191/208 (91.8%) - a remarkable **+27.4% improvement** over GPT-5.4 API (64.4%). This is the highest security score achieved by any AI code generator! See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+**Results**: Codex.app with Security Skill achieves **#1 ranking** with 311/350 (88.9%) - a remarkable **+24.0% improvement** over GPT-5.4 API (64.9%). This is the highest security score achieved by any AI code generator! See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
 
 ---
 
 **Why test wrappers separately?**
 
 These tools demonstrate that **application-level security engineering works**:
-- Codex.app (OpenAI): +27.4% improvement
-- Claude Code (Anthropic): +18.2% improvement
+- Codex.app (OpenAI): +24.0% improvement
+- Claude Code (Anthropic): +20.4% improvement
 - Cursor Agent: Unknown baseline
 
 This validates that wrapper prompting, context injection, and safety rails significantly improve code security beyond base model capabilities.
@@ -237,7 +233,7 @@ python3 auto_benchmark.py --model gpt-4o --temperature 0.7
 
 The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
 
-Failed prompts are automatically retried 3 times. Models that don't generate all 66 files are listed separately as incomplete.
+Failed prompts are automatically retried 3 times. Models that don't generate all 140 files are listed separately as incomplete.
 
 **Note**: Ollama will automatically start if it's not running. See [docs/AUTO_START.md](docs/AUTO_START.md) for details.
 
@@ -402,30 +398,37 @@ Add new prompts and tests to expand coverage:
 
 ### Currently Benchmarked Models
 
-**23 models tested** on 208-point security benchmark (66 prompts, multiple vulnerability categories).
+**26 test configurations** covering 22 base AI models on 350-point security benchmark (140 prompts across 7 programming languages).
 
-Only models with complete generation (66/66 files) are ranked. Models with incomplete generation are listed separately.
+**Configuration breakdown:**
+- **13 API models** - Direct API access (OpenAI, Anthropic, Google)
+- **9 local models** - Ollama-hosted open source models (including 2 model variants)
+- **4 AI coding applications** - Wrapper applications with enhanced prompting (Cursor, Codex.app×2, Claude Code CLI)
+- **400+ extended tests** - Temperature studies and multi-level security prompting
 
-**Top 10 (208-Point Scale):**
+Only configurations with complete generation (140/140 files) are ranked. Incomplete generations are listed separately.
 
-| Rank | Model | Score | Provider | Type | Notes |
-|------|-------|-------|----------|------|-------|
-| 1 | **Codex.app (GPT-5.4)** | **191/208 (91.8%)** | OpenAI Desktop | Wrapper | +27.4% vs GPT-5.4 API |
-| 2 | **Claude Code CLI** | **222/264 (84.1%)** | Anthropic CLI | Wrapper | +18.2% vs Claude API |
-| 3 | **StarCoder2 7B** | 184/208 (88.5%) | Ollama | Base Model | Specialized code model |
-| 4 | **GPT-5.2** | 153/208 (73.6%) | OpenAI API | Base Model | - |
-| 5 | **Claude Sonnet 4.5** | 147/208 (70.7%) | Anthropic API | Base Model | - |
-| 6 | **Cursor Agent** | 138/208 (66.3%) | Cursor CLI | Wrapper | AI coding assistant |
-| 7 | **Claude Opus 4.6** | 137/208 (65.9%) | Anthropic API | Base Model | - |
-| 8 | **Gemini 2.0 Flash** | 137/208 (65.9%) | Google API | Base Model | - |
-| 9 | **GPT-5.1** | 135/208 (64.9%) | OpenAI API | Base Model | - |
-| 10 | **GPT-5.4** | 134/208 (64.4%) | OpenAI API | Base Model | Raw API baseline |
+**Top 10 Rankings:**
+
+| Rank | Configuration | Score | Base Model | Application/Wrapper | Notes |
+|------|---------------|-------|------------|---------------------|-------|
+| 1 | **Codex.app + Security Skill** | **311/350 (88.9%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | +24.0% vs GPT-5.4 API |
+| 2 | **Codex.app (Baseline)** | **302/350 (86.3%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | No security skill |
+| 3 | **Claude Code CLI** | **222/264 (84.1%)** | Claude Sonnet 4.5 | Claude Code CLI (Anthropic) | +20.4% vs API (67.9% complete) |
+| 4 | **DeepSeek-Coder (temp 0.7)** | 252/350 (72.0%) | DeepSeek-Coder | Ollama (local) | Best temperature |
+| 5 | **GPT-5.2** | 241/350 (68.9%) | GPT-5.2 | OpenAI API | - |
+| 6 | **StarCoder2** | 228/350 (65.1%) | StarCoder2 | Ollama (local) | Code-specialized |
+| 7 | **GPT-5.4** | 227/350 (64.9%) | GPT-5.4 | OpenAI API | Baseline for Codex.app |
+| 8 | **Claude Opus 4.6** | 223/350 (63.7%) | Claude Opus 4.6 | Anthropic API | - |
+| 9 | **Gemini 2.5 Flash** | 209/350 (59.7%) | Gemini 2.5 Flash | Google API | - |
+| 10 | **Cursor** | 209/350 (59.7%) | Unknown | Cursor App | AI coding assistant |
 
 **Key Findings:**
-- **🎯 Wrapper engineering works!** Both Codex.app (+27.4%) and Claude Code (+18.2%) show major security improvements over base APIs
-- **🏆 Codex.app is #1** with 91.8% security score - highest of any AI code generator
-- **🥈 Claude Code is #2** with 84.1% on multi-language tests (222/264 scale)
-- **⚡ StarCoder2** is the best pure base model at 88.5%
+- **🎯 Wrapper engineering works!** Both Codex.app (+24.0%) and Claude Code (+20.4%) show major security improvements over base APIs
+- **🏆 Codex.app with Security Skill is #1** with 88.9% security score (311/350) - highest of any AI code generator
+- **🥈 Claude Code is #3** with 84.1% on multi-language tests (222/264 scale, 67.9% completion)
+- **⚡ DeepSeek-Coder** is the best pure base model at 72.0% (with temp 0.7)
+- **🔬 Temperature matters**: Higher temperature improves security for code-specialized models (DeepSeek, StarCoder2)
 
 See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) and [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
 
