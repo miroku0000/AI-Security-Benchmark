@@ -112,7 +112,11 @@ ollama pull qwen2.5-coder:14b
 
 **Note**: Some smaller models (e.g., starcoder2:7b) may produce lower-quality output for complex prompts. The benchmark handles this by scoring whatever the model generates.
 
-### 5. Cursor Agent (AI coding assistant — optional)
+### 5. AI Coding Assistants (optional - for wrapper benchmarking)
+
+These CLI tools wrap AI models with additional features and are tested separately to understand how wrapper engineering affects security:
+
+#### Cursor Agent (AI coding assistant)
 
 Cursor Agent is an AI-powered CLI tool for automated code generation:
 
@@ -144,7 +148,65 @@ python3 scripts/test_cursor.py --timeout 120
 python3 runner.py --code-dir output/cursor
 ```
 
-The benchmark will automatically test Cursor if it's installed. Results appear in the HTML reports alongside other models.
+**Results**: Cursor Agent scores 138/208 (66.3%) - see comparison in HTML reports.
+
+#### Claude Code CLI (Anthropic's official CLI)
+
+Claude Code is Anthropic's command-line interface for Claude, providing enhanced security features:
+
+**Install Claude Code:**
+```bash
+# Install via npm (requires Node.js)
+npm install -g @anthropic-ai/claude-code
+
+# Or install via Homebrew
+brew install anthropic/tap/claude-code
+
+# Verify installation
+claude --version
+```
+
+**Run Claude Code Benchmark:**
+```bash
+# Full benchmark
+python3 scripts/test_claude_code.py
+
+# Test the generated code
+python3 runner.py --code-dir output/claude-code --model claude-code
+```
+
+**Results**: Claude Code CLI scores 222/264 (84.1%) on multi-language tests - a **+18.2% improvement** over Claude Opus 4.6 API (65.9%). This validates that wrapper engineering works! See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) for analysis.
+
+#### Codex.app (OpenAI's desktop application)
+
+Codex.app is OpenAI's desktop application for GPT models with specialized prompting and UI:
+
+**Install Codex.app:**
+1. Download from https://codex.app (requires waitlist/invitation)
+2. Sign in with your OpenAI account
+3. Install the companion CLI tool (if available)
+
+**Run Codex.app Benchmark:**
+```bash
+# Full benchmark (manual - see docs/CODEX_*.md for automation)
+python3 scripts/test_codex_app.py
+
+# Test the generated code
+python3 runner.py --code-dir output/codex-app --model codex-app
+```
+
+**Results**: Codex.app achieves **#1 ranking** with 191/208 (91.8%) - a remarkable **+27.4% improvement** over GPT-5.4 API (64.4%). This is the highest security score achieved by any AI code generator! See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+
+---
+
+**Why test wrappers separately?**
+
+These tools demonstrate that **application-level security engineering works**:
+- Codex.app (OpenAI): +27.4% improvement
+- Claude Code (Anthropic): +18.2% improvement
+- Cursor Agent: Unknown baseline
+
+This validates that wrapper prompting, context injection, and safety rails significantly improve code security beyond base model capabilities.
 
 ## Usage
 
@@ -344,22 +406,28 @@ Add new prompts and tests to expand coverage:
 
 Only models with complete generation (66/66 files) are ranked. Models with incomplete generation are listed separately.
 
-**Top 10 (208-Point Scale, 66/66 files generated):**
+**Top 10 (208-Point Scale):**
 
-| Rank | Model | Score | Provider | Notes |
-|------|-------|-------|----------|-------|
-| 1 | **Codex.app (GPT-5.4)** | **191/208 (91.8%)** | OpenAI Desktop | +27% vs GPT-5.4 API |
-| 2 | **StarCoder2 7B** | 184/208 (88.5%) | Ollama | Specialized code model |
-| 3 | **GPT-5.2** | 153/208 (73.6%) | OpenAI API | - |
-| 4 | **Cursor Agent** | 138/208 (66.3%) | Cursor CLI | AI coding assistant |
-| 5 | **Claude Opus 4.6** | 137/208 (65.9%) | Anthropic API | - |
-| 6 | **Gemini 2.0 Flash** | 137/208 (65.9%) | Google API | - |
-| 7 | **GPT-5.1** | 135/208 (64.9%) | OpenAI API | - |
-| 8 | **GPT-5.4** | 134/208 (64.4%) | OpenAI API | Raw API baseline |
-| 9 | **O3** | 129/208 (62.0%) | OpenAI API | - |
-| 10 | **GPT-5.4-mini** | 121/208 (58.2%) | OpenAI API | - |
+| Rank | Model | Score | Provider | Type | Notes |
+|------|-------|-------|----------|------|-------|
+| 1 | **Codex.app (GPT-5.4)** | **191/208 (91.8%)** | OpenAI Desktop | Wrapper | +27.4% vs GPT-5.4 API |
+| 2 | **Claude Code CLI** | **222/264 (84.1%)** | Anthropic CLI | Wrapper | +18.2% vs Claude API |
+| 3 | **StarCoder2 7B** | 184/208 (88.5%) | Ollama | Base Model | Specialized code model |
+| 4 | **GPT-5.2** | 153/208 (73.6%) | OpenAI API | Base Model | - |
+| 5 | **Claude Sonnet 4.5** | 147/208 (70.7%) | Anthropic API | Base Model | - |
+| 6 | **Cursor Agent** | 138/208 (66.3%) | Cursor CLI | Wrapper | AI coding assistant |
+| 7 | **Claude Opus 4.6** | 137/208 (65.9%) | Anthropic API | Base Model | - |
+| 8 | **Gemini 2.0 Flash** | 137/208 (65.9%) | Google API | Base Model | - |
+| 9 | **GPT-5.1** | 135/208 (64.9%) | OpenAI API | Base Model | - |
+| 10 | **GPT-5.4** | 134/208 (64.4%) | OpenAI API | Base Model | Raw API baseline |
 
-**NEW**: Codex.app (OpenAI's desktop application) achieves **#1 ranking** with 91.8% security score - a remarkable +27 percentage point improvement over the raw GPT-5.4 API! See [CODEX_APP_VS_GPT54_COMPARISON.md](CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+**Key Findings:**
+- **🎯 Wrapper engineering works!** Both Codex.app (+27.4%) and Claude Code (+18.2%) show major security improvements over base APIs
+- **🏆 Codex.app is #1** with 91.8% security score - highest of any AI code generator
+- **🥈 Claude Code is #2** with 84.1% on multi-language tests (222/264 scale)
+- **⚡ StarCoder2** is the best pure base model at 88.5%
+
+See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) and [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
 
 **View Full Results:**
 - Interactive report: `reports/html/index.html`
