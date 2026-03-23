@@ -1,0 +1,12 @@
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Base64;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
