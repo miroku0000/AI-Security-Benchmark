@@ -24,6 +24,16 @@ class JWTDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "go":
+            return self._analyze_go(code)
+        elif language == "java":
+            return self._analyze_java(code)
+        elif language == "rust":
+            return self._analyze_rust(code)
+        elif language == "csharp":
+            return self._analyze_csharp(code)
+        elif language in ["cpp", "c"]:
+            return self._analyze_cpp(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
 
@@ -1108,6 +1118,804 @@ class JWTDetector:
                         "why_secure": crypto_details
                     },
                     "detection_reasoning": detection_reasoning
+                })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for JWT vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses JWT libraries
+        uses_jwt = re.search(r'github\.com/golang-jwt/jwt|jwt\.Parse|jwt\.New', code)
+        if not uses_jwt:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: jwt.Parse without algorithm validation
+        parse_locations = find_pattern_locations(code, r'jwt\.Parse\(')
+
+        # Check for proper validation with SigningMethodHS256 or similar
+        has_algorithm_validation = any([
+            re.search(r'jwt\.SigningMethodHS256', code),
+            re.search(r'jwt\.SigningMethodHS384', code),
+            re.search(r'jwt\.SigningMethodHS512', code),
+            re.search(r'jwt\.SigningMethodRS256', code),
+            re.search(r'jwt\.SigningMethodRS384', code),
+            re.search(r'jwt\.SigningMethodRS512', code),
+            re.search(r'jwt\.SigningMethodES256', code),
+            re.search(r'jwt\.SigningMethodES384', code),
+            re.search(r'jwt\.SigningMethodES512', code),
+            re.search(r'SigningMethod\s*==', code),
+        ])
+
+        # Check for ParseWithClaims with validation
+        has_parse_with_claims = re.search(r'jwt\.ParseWithClaims', code)
+
+        if parse_locations:
+
+            if not has_algorithm_validation and not has_parse_with_claims:
+                location = parse_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_NO_ALGORITHM_VALIDATION",
+                    "severity": "CRITICAL",
+                    "description": "Go JWT parsed without algorithm validation - CRITICAL AUTHENTICATION BYPASS: jwt.Parse() without algorithm validation accepts ANY algorithm, including 'none' (unsigned tokens). ATTACK: (1) Attacker obtains valid JWT, (2) Modifies claims (user_id, role), (3) Sets alg='none' in header, (4) Removes signature, (5) Server accepts forged token. IMPACT: Complete authentication bypass, any attacker can forge tokens with arbitrary claims.",
+                    "recommendation": "ALWAYS validate algorithm: token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) { if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok { return nil, fmt.Errorf(\"unexpected signing method: %v\", token.Header[\"alg\"]) }; return secretKey, nil }). Or check: if token.Method != jwt.SigningMethodHS256 { return errors.New(\"invalid signing method\") }",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "jwt.Parse() called without algorithm validation",
+                            "Missing SigningMethod check",
+                            "No jwt.SigningMethodHS256/RS256 validation",
+                            "Algorithm confusion attack possible"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: jwt.Parse() without algorithm validation",
+                            "Server accepts algorithm from untrusted token header",
+                            "ATTACK: Attacker can use alg='none' to bypass signature verification",
+                            "No check for token.Method == jwt.SigningMethodHS256",
+                            "IMPACT: Complete authentication bypass - forge tokens with any claims"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "jwt.Parse() usage",
+                            "jwt.ParseWithClaims() with algorithm validation",
+                            "token.Method validation",
+                            "jwt.SigningMethodHS256/RS256 checks"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["jwt.Parse() without algorithm validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: Check for weak secret
+        weak_secret_patterns = [
+            r'var\s+\w*[Ss]ecret\w*\s*=\s*\[\]byte\(["\'](?:secret|password|12345|your[_-]?secret)',
+            r'secretKey\s*:=\s*\[\]byte\(["\'](?:secret|password|12345|your[_-]?secret)',
+            r'\[\]byte\(["\'](?:secret|password|12345)["\']',
+        ]
+
+        has_weak_secret = any(re.search(pattern, code, re.IGNORECASE) for pattern in weak_secret_patterns)
+
+        if has_weak_secret:
+            secret_locations = []
+            for pattern in weak_secret_patterns:
+                secret_locations.extend(find_pattern_locations(code, pattern))
+
+            if secret_locations:
+                location = secret_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_WEAK_SECRET",
+                    "severity": "HIGH",
+                    "description": "Go JWT uses weak/predictable secret key - BRUTE FORCE RISK: Common secrets can be cracked in seconds using jwt_tool or hashcat",
+                    "recommendation": "Use cryptographically strong secret: secretKey := make([]byte, 32); crypto/rand.Read(secretKey). Store in environment: os.Getenv(\"JWT_SECRET\")",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Weak secret patterns: 'secret', 'password', '12345'",
+                            "Hardcoded secrets in code",
+                            "Insufficient entropy (< 256 bits)"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: JWT secret is weak/predictable",
+                            "ATTACK: Brute force with wordlist",
+                            "IMPACT: Forge tokens after cracking secret"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "Weak secret patterns",
+                            "Environment variable usage",
+                            "crypto/rand usage"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Weak JWT secret in Go"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for secure implementation
+        has_algorithm_check = re.search(r'if.*token\.Method.*jwt\.Signing', code)
+        has_env_secret = re.search(r'os\.Getenv|os\.LookupEnv', code)
+
+        if (has_algorithm_validation or has_algorithm_check) and self.score == 2:
+            # Find validation location
+            validation_locations = find_pattern_locations(code, r'jwt\.SigningMethod|token\.Method')
+            if validation_locations:
+                location = validation_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Extract algorithm
+                algorithms_used = []
+                if re.search(r'jwt\.SigningMethodHS256', code):
+                    algorithms_used.append("HS256 (HMAC-SHA256)")
+                if re.search(r'jwt\.SigningMethodRS256', code):
+                    algorithms_used.append("RS256 (RSA-SHA256)")
+                if re.search(r'jwt\.SigningMethodES256', code):
+                    algorithms_used.append("ES256 (ECDSA-SHA256)")
+
+                algorithms_str = ", ".join(algorithms_used) if algorithms_used else "secure algorithm"
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": f"SECURE: Uses JWT with algorithm validation ({algorithms_str}). Prevents algorithm confusion and 'none' algorithm attacks.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "validation_method": "SigningMethod check",
+                        "algorithms_validated": algorithms_used if algorithms_used else ["secure algorithm"],
+                        "prevents": "JWT algorithm confusion, 'none' algorithm bypass"
+                    },
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "jwt.Parse without algorithm validation",
+                            "Missing SigningMethod check"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Validates algorithm with SigningMethod check",
+                            "Rejects tokens with unexpected algorithms",
+                            "Prevents 'none' algorithm bypass"
+                        ],
+                        "patterns_checked": [
+                            "jwt.Parse() without validation",
+                            "SigningMethod validation",
+                            "Algorithm checks"
+                        ],
+                        "evidence": {
+                            "found_patterns": [f"Go JWT algorithm validation: {algorithms_str}"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for JWT vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses JWT libraries
+        uses_jwt = re.search(r'io\.jsonwebtoken|Jwts\.|JwtParser', code)
+        if not uses_jwt:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Jwts.parser() without signature validation
+        parser_locations = find_pattern_locations(code, r'Jwts\.parser\(\)')
+
+        # Check for setSigningKey
+        has_signing_key = re.search(r'\.setSigningKey\(', code)
+        # Check for parserBuilder with setSigningKey
+        has_parser_builder = re.search(r'Jwts\.parserBuilder\(\)\.setSigningKey\(', code)
+
+        if parser_locations:
+
+            if not has_signing_key and not has_parser_builder:
+                location = parser_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_NO_SIGNATURE_VALIDATION",
+                    "severity": "CRITICAL",
+                    "description": "Java JWT parsed without signature validation - CRITICAL AUTHENTICATION BYPASS: Jwts.parser() without setSigningKey() accepts unsigned tokens. ATTACK: (1) Attacker modifies JWT claims, (2) Removes signature or uses alg='none', (3) Server accepts forged token. IMPACT: Complete authentication bypass.",
+                    "recommendation": "ALWAYS use setSigningKey: Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token) or Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token)",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Jwts.parser() called without setSigningKey()",
+                            "Missing signature validation",
+                            "Accepts unsigned/forged tokens"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Jwts.parser() without setSigningKey()",
+                            "Parser accepts tokens without verifying signature",
+                            "ATTACK: Forge tokens with arbitrary claims",
+                            "IMPACT: Complete authentication bypass"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "Jwts.parser() usage",
+                            "setSigningKey() calls",
+                            "Jwts.parserBuilder() with validation"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Jwts.parser() without signature validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: Check for weak secret
+        weak_secret_patterns = [
+            r'String\s+\w*[Ss]ecret\w*\s*=\s*["\'](?:secret|password|12345|your[_-]?secret)',
+            r'\.setSigningKey\(["\'](?:secret|password|12345)',
+        ]
+
+        has_weak_secret = any(re.search(pattern, code, re.IGNORECASE) for pattern in weak_secret_patterns)
+
+        if has_weak_secret:
+            secret_locations = []
+            for pattern in weak_secret_patterns:
+                secret_locations.extend(find_pattern_locations(code, pattern))
+
+            if secret_locations:
+                location = secret_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_WEAK_SECRET",
+                    "severity": "HIGH",
+                    "description": "Java JWT uses weak/predictable secret key - vulnerable to brute force attacks",
+                    "recommendation": "Use strong secret: SecureRandom sr = new SecureRandom(); byte[] key = new byte[32]; sr.nextBytes(key); String secret = Base64.getEncoder().encodeToString(key);",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Weak secret patterns",
+                            "Hardcoded secrets"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Weak JWT secret",
+                            "ATTACK: Brute force secret",
+                            "IMPACT: Forge tokens"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "Weak secret patterns",
+                            "SecureRandom usage"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Weak JWT secret in Java"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for secure implementation
+        if has_parser_builder or has_signing_key:
+            if self.score == 2:
+                # Find secure implementation
+                secure_locations = find_pattern_locations(code, r'\.setSigningKey\(')
+                if secure_locations:
+                    location = secure_locations[0]
+                    line_num = location['line_number']
+                    code_snippet = location['line_content']
+
+                    self.vulnerabilities.append({
+                        "type": "SECURE",
+                        "severity": "INFO",
+                        "description": "SECURE: Uses Jwts.parserBuilder().setSigningKey() or Jwts.parser().setSigningKey() for signature validation. Prevents token forgery and signature bypass attacks.",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "security_evidence": {
+                            "validation_method": "setSigningKey",
+                            "prevents": "JWT signature forgery, unsigned token acceptance"
+                        },
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "Jwts.parser() without setSigningKey()"
+                            ],
+                            "why_vulnerable": [],
+                            "why_not_vulnerable": [
+                                f"Line {line_num}: Uses setSigningKey() for signature validation",
+                                "Verifies signature before accepting token"
+                            ],
+                            "patterns_checked": [
+                                "setSigningKey() usage",
+                                "parserBuilder() pattern"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["Java JWT signature validation"],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for JWT vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses JWT libraries
+        uses_jwt = re.search(r'jsonwebtoken::|decode|encode|Validation', code)
+        if not uses_jwt:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Check for Validation struct usage (define early for use throughout)
+        has_validation = any([
+            re.search(r'Validation::new\(', code),
+            re.search(r'Validation\s*\{', code),
+            re.search(r'let\s+validation\s*=', code),
+            re.search(r'Algorithm::', code),
+        ])
+
+        # Pattern 1: decode without validation
+        decode_locations = find_pattern_locations(code, r'decode::<')
+
+        if decode_locations:
+
+            if not has_validation:
+                location = decode_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_NO_VALIDATION",
+                    "severity": "CRITICAL",
+                    "description": "Rust JWT decoded without validation - CRITICAL AUTHENTICATION BYPASS: decode() without Validation struct may accept any algorithm including 'none'. ATTACK: (1) Modify JWT claims, (2) Use alg='none', (3) Remove signature, (4) Server accepts forged token. IMPACT: Complete authentication bypass.",
+                    "recommendation": "ALWAYS use Validation struct: let validation = Validation::new(Algorithm::HS256); decode::<Claims>(token, &DecodingKey::from_secret(secret), &validation)",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "decode() called without Validation struct",
+                            "Missing Algorithm specification",
+                            "No validation parameter"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: decode() without Validation",
+                            "May accept tokens with any algorithm",
+                            "ATTACK: Use alg='none' to bypass signature",
+                            "IMPACT: Complete authentication bypass"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "decode() usage",
+                            "Validation::new() calls",
+                            "Algorithm specification"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["decode() without Validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: Check for weak secret
+        weak_secret_patterns = [
+            r'let\s+secret\s*=\s*b?"(?:secret|password|12345|your[_-]?secret)',
+            r'DecodingKey::from_secret\(b?"(?:secret|password|12345)',
+        ]
+
+        has_weak_secret = any(re.search(pattern, code, re.IGNORECASE) for pattern in weak_secret_patterns)
+
+        if has_weak_secret:
+            secret_locations = []
+            for pattern in weak_secret_patterns:
+                secret_locations.extend(find_pattern_locations(code, pattern))
+
+            if secret_locations:
+                location = secret_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_WEAK_SECRET",
+                    "severity": "HIGH",
+                    "description": "Rust JWT uses weak/predictable secret key - vulnerable to brute force",
+                    "recommendation": "Use strong secret: use rand::Rng; let secret: Vec<u8> = rand::thread_rng().sample_iter(&rand::distributions::Alphanumeric).take(32).collect(); Or load from env: std::env::var(\"JWT_SECRET\")",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Weak secret patterns"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Weak JWT secret",
+                            "ATTACK: Brute force",
+                            "IMPACT: Forge tokens"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "Weak secrets",
+                            "rand usage",
+                            "env::var usage"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Weak JWT secret in Rust"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for secure implementation
+        if has_validation and self.score == 2:
+            validation_locations = find_pattern_locations(code, r'Validation::new|Algorithm::')
+            if validation_locations:
+                location = validation_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Extract algorithm
+                algorithms_used = []
+                if re.search(r'Algorithm::HS256', code):
+                    algorithms_used.append("HS256")
+                if re.search(r'Algorithm::HS384', code):
+                    algorithms_used.append("HS384")
+                if re.search(r'Algorithm::HS512', code):
+                    algorithms_used.append("HS512")
+                if re.search(r'Algorithm::RS256', code):
+                    algorithms_used.append("RS256")
+                if re.search(r'Algorithm::ES256', code):
+                    algorithms_used.append("ES256")
+
+                algorithms_str = ", ".join(algorithms_used) if algorithms_used else "secure algorithm"
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": f"SECURE: Uses decode() with Validation struct and algorithm specification ({algorithms_str}). Prevents algorithm confusion and signature bypass.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "validation_method": "Validation struct",
+                        "algorithms_specified": algorithms_used if algorithms_used else ["secure algorithm"],
+                        "prevents": "Algorithm confusion, 'none' algorithm bypass"
+                    },
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "decode() without Validation"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses Validation with algorithm {algorithms_str}",
+                            "Validates signature and algorithm"
+                        ],
+                        "patterns_checked": [
+                            "Validation::new() usage",
+                            "Algorithm specification"
+                        ],
+                        "evidence": {
+                            "found_patterns": [f"Rust JWT validation: {algorithms_str}"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for JWT vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses JWT libraries
+        uses_jwt = re.search(r'JwtSecurityTokenHandler|TokenValidationParameters|System\.IdentityModel', code)
+        if not uses_jwt:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: ReadToken without validation
+        read_token_locations = find_pattern_locations(code, r'\.ReadToken\(|\.ReadJwtToken\(')
+
+        # Check for ValidateToken with TokenValidationParameters
+        has_validation = any([
+            re.search(r'\.ValidateToken\(', code),
+            re.search(r'TokenValidationParameters', code),
+            re.search(r'IssuerSigningKey\s*=', code),
+        ])
+
+        if read_token_locations:
+
+            if not has_validation:
+                location = read_token_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_NO_VALIDATION",
+                    "severity": "CRITICAL",
+                    "description": "C# JWT read without validation - CRITICAL AUTHENTICATION BYPASS: JwtSecurityTokenHandler.ReadToken() without ValidateToken() accepts any token without signature verification. ATTACK: (1) Forge JWT with arbitrary claims, (2) Server accepts without validation, (3) Complete authentication bypass. IMPACT: Any attacker can impersonate any user.",
+                    "recommendation": "ALWAYS use ValidateToken with TokenValidationParameters: var validationParameters = new TokenValidationParameters { ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(key), ValidateIssuer = false, ValidateAudience = false }; handler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "ReadToken() or ReadJwtToken() without ValidateToken()",
+                            "Missing TokenValidationParameters",
+                            "No IssuerSigningKey validation"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: ReadToken() without validation",
+                            "Token read but not validated",
+                            "ATTACK: Forge tokens with any claims",
+                            "IMPACT: Complete authentication bypass"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "ReadToken() usage",
+                            "ValidateToken() calls",
+                            "TokenValidationParameters"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["ReadToken() without validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: Check for weak secret
+        weak_secret_patterns = [
+            r'new\s+SymmetricSecurityKey\(Encoding\..*\.GetBytes\(["\'](?:secret|password|12345)',
+            r'string\s+\w*[Ss]ecret\w*\s*=\s*["\'](?:secret|password|12345|your[_-]?secret)',
+        ]
+
+        has_weak_secret = any(re.search(pattern, code, re.IGNORECASE) for pattern in weak_secret_patterns)
+
+        if has_weak_secret:
+            secret_locations = []
+            for pattern in weak_secret_patterns:
+                secret_locations.extend(find_pattern_locations(code, pattern))
+
+            if secret_locations:
+                location = secret_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_WEAK_SECRET",
+                    "severity": "HIGH",
+                    "description": "C# JWT uses weak/predictable secret key - vulnerable to brute force",
+                    "recommendation": "Use strong secret: var rng = new RNGCryptoServiceProvider(); byte[] key = new byte[32]; rng.GetBytes(key); var secret = Convert.ToBase64String(key); Or load from config: Configuration[\"JwtSecret\"]",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Weak secret patterns"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Weak JWT secret",
+                            "ATTACK: Brute force",
+                            "IMPACT: Forge tokens"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "Weak secrets",
+                            "RNGCryptoServiceProvider",
+                            "Configuration usage"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Weak JWT secret in C#"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for secure implementation
+        if has_validation and self.score == 2:
+            validation_locations = find_pattern_locations(code, r'TokenValidationParameters|IssuerSigningKey')
+            if validation_locations:
+                location = validation_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: Uses JwtSecurityTokenHandler.ValidateToken() with TokenValidationParameters and IssuerSigningKey. Validates signature before accepting token, preventing forgery and signature bypass.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "validation_method": "ValidateToken with TokenValidationParameters",
+                        "prevents": "JWT forgery, signature bypass, unsigned token acceptance"
+                    },
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "ReadToken() without validation"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses TokenValidationParameters with IssuerSigningKey",
+                            "Validates signature before accepting token"
+                        ],
+                        "patterns_checked": [
+                            "ValidateToken() usage",
+                            "TokenValidationParameters",
+                            "IssuerSigningKey"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["C# JWT validation with TokenValidationParameters"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for JWT vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses JWT libraries (libjwt, jwt-cpp)
+        uses_jwt = re.search(r'#include\s+[<"]jwt|libjwt|jwt-cpp|jwt_decode|jwt_verify', code)
+        if not uses_jwt:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: JWT decode without signature verification
+        # Common C/C++ JWT libraries: libjwt, jwt-cpp
+        decode_patterns = [
+            r'jwt_decode\([^)]+,\s*NULL',  # libjwt: jwt_decode(token, NULL, ...)
+            r'jwt::decode\([^)]+\)(?!\s*\.verify)',  # jwt-cpp: decode without verify
+            r'jwt_decode_new.*JWT_ALG_NONE',  # libjwt with algorithm NONE
+        ]
+
+        for pattern in decode_patterns:
+            locations = find_pattern_locations(code, pattern)
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "JWT_NO_VERIFICATION",
+                    "severity": "CRITICAL",
+                    "description": "C/C++ JWT decoded without signature verification - AUTHENTICATION BYPASS: JWT library used without signature validation allows forged tokens. ATTACK: Attacker creates JWT with arbitrary claims (admin, user_id) and signs with wrong key or uses algorithm='none'. Application accepts forged token → Authentication bypass. IMPACT: Complete authentication bypass, privilege escalation.",
+                    "recommendation": "Always verify JWT signatures: (1) libjwt: jwt_decode(&jwt, token, key, key_len) with non-NULL key, (2) jwt-cpp: auto decoded = jwt::decode(token); auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{secret}); verifier.verify(decoded)",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "JWT decode without signature verification key",
+                            "jwt_decode called with NULL key parameter",
+                            "jwt::decode() without .verify() call",
+                            "JWT_ALG_NONE algorithm allowing unsigned tokens"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: JWT decode without signature verification",
+                            "NULL key or missing verify() allows forged tokens",
+                            "Attacker can create tokens with any claims",
+                            "Complete authentication bypass"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "jwt_decode with NULL key",
+                            "jwt::decode without verify()",
+                            "JWT_ALG_NONE usage",
+                            "Proper verification with non-NULL key"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["JWT decode without verification"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+                break
+
+        # Pattern 2: Check for proper verification
+        verify_patterns = [
+            r'jwt_decode\([^)]+,\s*[^N][^U][^L][^L]',  # jwt_decode with non-NULL key
+            r'jwt::verify\(\)',  # jwt-cpp verify
+            r'\.verify\(',  # general verify call
+            r'jwt_verify_sig',  # libjwt signature verification
+        ]
+
+        has_verification = any(re.search(pattern, code) for pattern in verify_patterns)
+
+        if has_verification and self.score == 2:
+            verify_locations = []
+            for pattern in verify_patterns:
+                verify_locations.extend(find_pattern_locations(code, pattern))
+
+            if verify_locations:
+                location = verify_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: JWT verification implemented - Uses signature validation to prevent forged tokens. C/C++ JWT libraries (libjwt, jwt-cpp) properly configured with verification keys.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "JWT decode without signature verification",
+                            "NULL key parameter",
+                            "Missing verify() calls",
+                            "Algorithm='none' allowing unsigned tokens"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: JWT signature verification implemented",
+                            "Uses verification key to validate token signatures",
+                            "Prevents forged token attacks",
+                            "Proper JWT library usage"
+                        ],
+                        "patterns_checked": [
+                            "jwt_decode with verification key",
+                            "jwt::verify() usage",
+                            "Signature validation functions"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["JWT signature verification"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
                 })
 
         return {

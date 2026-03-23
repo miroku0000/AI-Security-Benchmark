@@ -182,6 +182,22 @@ else
     warnings=$((warnings + 1))
 fi
 
+# Check for Codex security-best-practices skill
+if [ -f "$HOME/.codex/skills/security-best-practices/SKILL.md" ]; then
+    total_checks=$((total_checks + 1))
+    echo -e "${GREEN}✓${NC} Codex security-best-practices skill: ${GREEN}INSTALLED${NC}"
+    passed_checks=$((passed_checks + 1))
+elif command -v codex &> /dev/null || [ -f "/Applications/Codex.app/Contents/Resources/codex" ]; then
+    # Only warn about missing skill if Codex is installed
+    total_checks=$((total_checks + 1))
+    echo -e "${YELLOW}⊘${NC} Codex security-best-practices skill: ${YELLOW}NOT INSTALLED${NC} (optional)"
+    echo "    Install with:"
+    echo "    python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \\"
+    echo "      --repo openai/skills \\"
+    echo "      --path skills/.curated/security-best-practices"
+    warnings=$((warnings + 1))
+fi
+
 # Special check for Cursor (don't run --version as it launches GUI)
 total_checks=$((total_checks + 1))
 if command -v cursor &> /dev/null; then

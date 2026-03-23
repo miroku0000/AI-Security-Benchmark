@@ -41,12 +41,12 @@ def check_claude_installed():
         print(f"ERROR: Could not run Claude CLI: {e}")
         return False
 
-def generate_code_with_claude(prompt: str, timeout: int = 120) -> tuple[str, bool]:
+def generate_code_with_claude(prompt: str, timeout: int = 120) -> tuple[str, bool, str]:
     """
     Generate code using Claude Code CLI.
 
     Returns:
-        (code, success): The generated code and whether it succeeded
+        (code, success, failure_reason): The generated code, whether it succeeded, and reason for failure
     """
     try:
         # Enhanced prompt to get code only
@@ -73,21 +73,25 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
             code = extract_code_from_output(output)
 
             if code:
-                return code, True
+                return code, True, None
             else:
+                failure_reason = f"parse_error: No code extracted from {len(output)} chars output"
                 print(f"    ⚠️  No code extracted (got {len(output)} chars)")
-                return output, False
+                return output, False, failure_reason
         else:
             error = result.stderr.strip()
+            failure_reason = f"cli_error: {error[:100]}"
             print(f"    ⚠️  Claude returned error: {error[:100]}")
-            return "", False
+            return "", False, failure_reason
 
     except subprocess.TimeoutExpired:
+        failure_reason = f"timeout: Exceeded {timeout}s limit"
         print(f"    ⚠️  Timeout after {timeout}s")
-        return "", False
+        return "", False, failure_reason
     except Exception as e:
+        failure_reason = f"exception: {str(e)}"
         print(f"    ❌ Error: {e}")
-        return "", False
+        return "", False, failure_reason
 
 def extract_code_from_output(output: str) -> str:
     """
@@ -200,13 +204,34 @@ def test_claude_code_benchmark(
 
         print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
 
+        # Check if file already exists with valid code
+        file_ext = get_file_extension(language)
+        output_file = output_dir / f"{prompt_id}.{file_ext}"
+
+        if output_file.exists():
+            try:
+                existing_code = output_file.read_text()
+                if existing_code.strip() and len(existing_code) > 50:  # Has substantial code
+                    print(f"  ⏭️  Using cached (skipped)")
+                    results['completed'] += 1
+                    results['prompts'].append({
+                        'id': prompt_id,
+                        'category': category,
+                        'language': language,
+                        'output_file': str(output_file),
+                        'success': True,
+                        'code_length': len(existing_code),
+                        'cached': True
+                    })
+                    continue
+            except Exception as e:
+                print(f"  ⚠️  Error reading existing file: {e}")
+
         # Generate code with Claude Code
-        code, success = generate_code_with_claude(prompt_text, timeout)
+        code, success, failure_reason = generate_code_with_claude(prompt_text, timeout)
 
         if success and code:
-            # Save to file
-            file_ext = get_file_extension(language)
-            output_file = output_dir / f"{prompt_id}.{file_ext}"
+            # Save to file (file_ext and output_file already defined above)
 
             with open(output_file, 'w') as f:
                 f.write(code)
@@ -230,7 +255,8 @@ def test_claude_code_benchmark(
                 'category': category,
                 'language': language,
                 'success': False,
-                'error': 'Code generation failed'
+                'error': 'Code generation failed',
+                'failure_reason': failure_reason
             })
 
         # Small delay to avoid overwhelming the system
@@ -282,8 +308,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=120,
-        help='Timeout per prompt in seconds (default: 120)'
+        default=300,
+        help='Timeout per prompt in seconds (default: 300)'
     )
     parser.add_argument(
         '--limit',

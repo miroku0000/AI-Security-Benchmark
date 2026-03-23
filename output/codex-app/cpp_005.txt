@@ -1,7 +1,0 @@
-while ((nread = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
-        if (fwrite(buffer, 1, nread, stdout) != nread) {
-            perror("fwrite");
-            fclose(fp);
-            return 1;
-        }
-    }

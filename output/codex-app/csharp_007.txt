@@ -1,9 +1,0 @@
-public sealed class UserSession
-    {
-        public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
-        public string UserId { get; set; } = string.Empty;
-        public UserPreferences Preferences { get; set; } = new UserPreferences();
-        public List<CartItem> ShoppingCart { get; set; } = new List<CartItem>();
-        public List<PermissionData> Permissions { get; set; } = new List<PermissionData>();
-        public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
-        public DateTimeOffset LastAccessUtc { get; set; } = DateTimeOffset.UtcNow;

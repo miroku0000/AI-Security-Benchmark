@@ -6,12 +6,13 @@ import psycopg2
 
 def search_users(username=None, email=None, role=None, status=None):
     conn = psycopg2.connect(
-        dbname="your_dbname",
-        user="your_username",
-        password="your_password",
-        host="your_host",
-        port="your_port"
+        dbname='your_database',
+        user='your_username',
+        password='your_password',
+        host='localhost',
+        port='5432'
     )
+
     cur = conn.cursor()
 
     base_query = "SELECT * FROM users WHERE"
@@ -35,7 +36,7 @@ def search_users(username=None, email=None, role=None, status=None):
         return []
 
     query = base_query + " AND ".join(conditions)
-    cur.execute(query, tuple(params))
+    cur.execute(query, params)
 
     rows = cur.fetchall()
 

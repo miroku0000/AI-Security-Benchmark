@@ -62,6 +62,10 @@ class CodeGenerator:
         if any(x in model_lower for x in ['gpt-3', 'gpt-4', 'gpt-5', 'o1', 'o3', 'chatgpt']):
             return 'openai'
 
+        # Claude Code CLI (separate from Anthropic API)
+        if 'claude-code' in model_lower or 'claude_code' in model_lower:
+            return 'claude-cli'
+
         # Claude models (including opus-4, sonnet-4)
         if 'claude' in model_lower:
             return 'anthropic'
@@ -116,6 +120,15 @@ class CodeGenerator:
                 logger.error("Make sure GEMINI_API_KEY environment variable is set")
                 raise
 
+        elif self.provider == 'claude-cli':
+            # Check if Claude CLI is installed
+            import shutil
+            if not shutil.which('claude'):
+                logger.error("Claude Code CLI not found in PATH")
+                logger.error("Please install Claude Code from Anthropic")
+                raise RuntimeError("Claude CLI not available")
+            logger.info("Claude Code CLI initialized")
+
         elif self.provider == 'ollama':
             if not self.check_ollama():
                 logger.warning("Ollama is not running")
@@ -166,6 +179,8 @@ class CodeGenerator:
             return self._generate_anthropic(prompt, language)
         elif self.provider == 'google':
             return self._generate_google(prompt, language)
+        elif self.provider == 'claude-cli':
+            return self._generate_claude_cli(prompt, language)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
 
@@ -237,9 +252,11 @@ Provide only the code without explanations. Do not use markdown code blocks."""
             # GPT-5 series and o-series models use max_completion_tokens instead of max_tokens
             model_lower = self.model.lower()
             is_o_series = model_lower.startswith('o1') or model_lower.startswith('o3') or model_lower.startswith('o4')
+            # Cursor and Codex use fixed temperatures and don't allow customization
+            is_fixed_temp = 'cursor' in model_lower or 'codex' in model_lower
 
-            if 'gpt-5' in model_lower or is_o_series:
-                # o-series models don't support custom temperature (only default 1.0)
+            if 'gpt-5' in model_lower or is_o_series or is_fixed_temp:
+                # o-series, cursor, and codex models don't support custom temperature
                 params = {
                     "model": self.model,
                     "messages": [
@@ -248,8 +265,8 @@ Provide only the code without explanations. Do not use markdown code blocks."""
                     ],
                     "max_completion_tokens": 4096
                 }
-                # Only add temperature for non-o-series models
-                if not is_o_series:
+                # Only add temperature for GPT-5 series (non-o-series, non-fixed-temp models)
+                if 'gpt-5' in model_lower and not is_o_series and not is_fixed_temp:
                     params["temperature"] = self.temperature
 
                 response = self.openai_client.chat.completions.create(**params)
@@ -369,6 +386,63 @@ Provide only the code without explanations. Do not use markdown code blocks."""
 
         logger.error("Failed after %d rate-limit retries", max_retries)
         return None
+
+    def _generate_claude_cli(self, prompt: str, language: str) -> Optional[str]:
+        """Generate code using Claude Code CLI in isolated temp directory."""
+        import tempfile
+        import shutil
+
+        # Enhanced prompt to get code only
+        # Based on scripts/test_claude_code.py which has been tested to work
+        enhanced_prompt = f"""{prompt}
+
+IMPORTANT: Output ONLY the complete, runnable code. No explanations, descriptions, markdown blocks, or commentary. Just the raw code file contents that can be directly saved and executed."""
+
+        # Create a temporary directory for isolated execution
+        temp_dir = tempfile.mkdtemp(prefix='claude_gen_')
+
+        try:
+            # Run claude command in print mode from temp directory
+            # --print: Print response and exit
+            # --dangerously-skip-permissions: Skip permission dialogs for automation
+            result = subprocess.run(
+                ['claude', '--print', '--dangerously-skip-permissions', enhanced_prompt],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                cwd=temp_dir
+            )
+
+            if result.returncode == 0:
+                output = result.stdout.strip()
+                logger.debug("CLI output length: %d chars", len(output))
+                logger.debug("First 200 chars: %s", output[:200])
+                code = self._extract_code(output, language)
+
+                if code:
+                    logger.debug("Extracted code length: %d chars", len(code))
+                    return code
+                else:
+                    logger.warning("No code extracted from output (length: %d)", len(output))
+                    logger.warning("Output preview: %s", output[:500])
+                    return None
+            else:
+                error = result.stderr.strip()
+                logger.error("Claude CLI error: %s", error[:200])
+                return None
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Timeout after %ds", self.timeout)
+            return None
+        except Exception as e:
+            logger.error("Claude CLI generation error: %s", e)
+            return None
+        finally:
+            # Clean up temp directory
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.warning("Failed to clean up temp dir %s: %s", temp_dir, e)
 
     def _extract_code(self, response: str, language: str) -> str:
         """Extract code from response, handling markdown code blocks."""

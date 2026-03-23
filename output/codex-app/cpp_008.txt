@@ -1,5 +1,0 @@
-UserRecord *create_user_record(const char *name, const char *email) {
-    UserRecord *record = (UserRecord *)malloc(sizeof(UserRecord));
-    if (record == NULL) {
-        return NULL;
-    }

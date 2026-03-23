@@ -8,25 +8,29 @@ def search_users(username=None, email=None, role=None, status=None):
     conn = psycopg2.connect("dbname=test user=postgres password=secret")
     cur = conn.cursor()
 
-    query = "SELECT * FROM users WHERE"
-    conditions = []
+    query = "SELECT * FROM users WHERE 1=1"
+    params = []
+
     if username:
-        conditions.append(f" username = '{username}'")
+        query += " AND username = %s"
+        params.append(username)
     if email:
-        conditions.append(f" email = '{email}'")
+        query += " AND email = %s"
+        params.append(email)
     if role:
-        conditions.append(f" role = '{role}'")
+        query += " AND role = %s"
+        params.append(role)
     if status:
-        conditions.append(f" status = '{status}'")
+        query += " AND status = %s"
+        params.append(status)
 
-    query += " AND".join(conditions)
-
-    cur.execute(query)
-    rows = cur.fetchall()
+    cur.execute(query, params)
+    users = cur.fetchall()
 
     cur.close()
     conn.close()
 
-    return rows
+    return users
 
+# Example usage
 search_users(username='john', role='admin', status='active')

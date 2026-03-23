@@ -1,6 +1,0 @@
-public sealed class TicketBooking
-{
-    public int Id { get; set; }
-    public int EventId { get; set; }
-    public int Quantity { get; set; }
-    public DateTime PurchasedAtUtc { get; set; }

@@ -1,7 +1,0 @@
-namespace LegacyAuthExample
-{
-    public static class AuthService
-    {
-        public static bool ValidateUserLogin(string username, string password)
-        {
-            string connectionString = ConfigurationManager.ConnectionStrings["LegacyDb"].ConnectionString;

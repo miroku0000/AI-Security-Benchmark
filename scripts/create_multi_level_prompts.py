@@ -329,7 +329,16 @@ def generate_all_levels(input_file: Path, output_dir: Path):
 
     # Load original prompts
     with open(input_file) as f:
-        original_prompts = yaml.safe_load(f)
+        data = yaml.safe_load(f)
+
+    # Handle both formats: {'prompts': [...]} and [...]
+    if isinstance(data, dict) and 'prompts' in data:
+        original_prompts = data['prompts']
+    elif isinstance(data, list):
+        original_prompts = data
+    else:
+        print(f"Invalid format in {input_file}. Expected 'prompts:' key or list of prompts")
+        return
 
     if not original_prompts:
         print(f"No prompts found in {input_file}")
@@ -352,8 +361,9 @@ def generate_all_levels(input_file: Path, output_dir: Path):
         else:
             output_file = output_dir / f'prompts_level{level}_security.yaml'
 
+        # Write with prompts: key to match input format
         with open(output_file, 'w') as f:
-            yaml.dump(level_prompts, f, default_flow_style=False, sort_keys=False)
+            yaml.dump({'prompts': level_prompts}, f, default_flow_style=False, sort_keys=False)
 
         print(f"✅ Level {level}: {len(level_prompts)} prompts → {output_file}")
 

@@ -8,6 +8,6 @@ def delete_uploaded_file(filename):
     file_path = os.path.join('uploads', filename)
     if os.path.exists(file_path):
         os.remove(file_path)
-        print(f"{filename} has been deleted successfully.")
+        print(f"File '{filename}' has been deleted successfully.")
     else:
-        print(f"File {filename} not found in the 'uploads' directory.")
+        print(f"File '{filename}' not found in the 'uploads' directory.")

@@ -26,6 +26,16 @@ class CryptoDetector:
 
         if language == "javascript":
             self._analyze_javascript(code)
+        elif language == "go":
+            self._analyze_go(code)
+        elif language == "java":
+            self._analyze_java(code)
+        elif language == "rust":
+            self._analyze_rust(code)
+        elif language == "csharp":
+            self._analyze_csharp(code)
+        elif language in ("cpp", "c"):
+            self._analyze_cpp(code)
         else:
             self._analyze_python(code)
 
@@ -732,6 +742,257 @@ class CryptoDetector:
                 })
                 if self.score > 1:
                     self.score = 1
+
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for crypto issues."""
+
+        # Check for weak hashing algorithms
+        # Vulnerable: crypto/md5, crypto/sha1
+        if re.search(r'crypto/md5|md5\.New\(\)|md5\.Sum\(', code):
+            locations = find_pattern_locations(code, r'crypto/md5|md5\.New\(\)|md5\.Sum\(')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "HIGH",
+                "description": "MD5 is cryptographically broken - use crypto/sha256 or crypto/sha512",
+                "recommendation": "Use secure hashing: import \"crypto/sha256\"; hash := sha256.Sum256(data)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            self.score = 0
+
+        if re.search(r'crypto/sha1|sha1\.New\(\)|sha1\.Sum\(', code):
+            locations = find_pattern_locations(code, r'crypto/sha1|sha1\.New\(\)|sha1\.Sum\(')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "MEDIUM",
+                "description": "SHA-1 is deprecated - use SHA-256 or better",
+                "recommendation": "Use crypto/sha256 or crypto/sha512 instead",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            if self.score > 0:
+                self.score = 1
+
+        # Check for secure hashing (good practice)
+        if re.search(r'crypto/sha256|crypto/sha512|golang\.org/x/crypto/bcrypt', code):
+            locations = find_pattern_locations(code, r'crypto/sha256|crypto/sha512|golang\.org/x/crypto/bcrypt')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses strong hashing algorithm (SHA-256/SHA-512/bcrypt)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for crypto issues."""
+
+        # Check for weak hashing algorithms
+        # Vulnerable: MessageDigest.getInstance("MD5"), MessageDigest.getInstance("SHA-1")
+        if re.search(r'MessageDigest\.getInstance\(["\']MD5["\']\)', code):
+            locations = find_pattern_locations(code, r'MessageDigest\.getInstance\(["\']MD5["\']\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "HIGH",
+                "description": "MD5 is cryptographically broken - use SHA-256 or better",
+                "recommendation": "Use MessageDigest.getInstance(\"SHA-256\") or BCrypt for passwords",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            self.score = 0
+
+        if re.search(r'MessageDigest\.getInstance\(["\']SHA-1["\']\)|MessageDigest\.getInstance\(["\']SHA1["\']\)', code):
+            locations = find_pattern_locations(code, r'MessageDigest\.getInstance\(["\']SHA-?1["\']\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "MEDIUM",
+                "description": "SHA-1 is deprecated - use SHA-256 or better",
+                "recommendation": "Use MessageDigest.getInstance(\"SHA-256\") or SHA-512",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            if self.score > 0:
+                self.score = 1
+
+        # Check for secure hashing (good practice)
+        if re.search(r'MessageDigest\.getInstance\(["\']SHA-256["\']\)|MessageDigest\.getInstance\(["\']SHA-512["\']\)|BCrypt|Argon2', code):
+            locations = find_pattern_locations(code, r'MessageDigest\.getInstance\(["\']SHA-(?:256|512)["\']\)|BCrypt|Argon2')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses strong hashing algorithm (SHA-256/SHA-512/BCrypt/Argon2)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for crypto issues."""
+
+        # Check for weak hashing algorithms
+        # Vulnerable: md5::compute, sha1::Sha1
+        if re.search(r'md5::compute|md5::Md5|use\s+md5', code):
+            locations = find_pattern_locations(code, r'md5::compute|md5::Md5|use\s+md5')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "HIGH",
+                "description": "MD5 is cryptographically broken - use sha2::Sha256 or better",
+                "recommendation": "Use sha2 crate: use sha2::{Sha256, Digest}; let hash = Sha256::digest(data);",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            self.score = 0
+
+        if re.search(r'sha1::Sha1|use\s+sha1', code):
+            locations = find_pattern_locations(code, r'sha1::Sha1|use\s+sha1')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "MEDIUM",
+                "description": "SHA-1 is deprecated - use SHA-256 or better",
+                "recommendation": "Use sha2::Sha256 or sha2::Sha512 instead",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            if self.score > 0:
+                self.score = 1
+
+        # Check for secure hashing (good practice)
+        if re.search(r'sha2::Sha256|sha2::Sha512|argon2|bcrypt', code):
+            locations = find_pattern_locations(code, r'sha2::Sha256|sha2::Sha512|argon2|bcrypt')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses strong hashing algorithm (SHA-256/SHA-512/argon2/bcrypt)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for crypto issues."""
+
+        # Check for weak hashing algorithms
+        # Vulnerable: MD5.Create(), SHA1.Create()
+        if re.search(r'MD5\.Create\(\)|new\s+MD5CryptoServiceProvider\(\)', code):
+            locations = find_pattern_locations(code, r'MD5\.Create\(\)|new\s+MD5CryptoServiceProvider\(\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "HIGH",
+                "description": "MD5 is cryptographically broken - use SHA256 or better",
+                "recommendation": "Use SHA256.Create() or BCrypt.Net for passwords",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            self.score = 0
+
+        if re.search(r'SHA1\.Create\(\)|new\s+SHA1CryptoServiceProvider\(\)', code):
+            locations = find_pattern_locations(code, r'SHA1\.Create\(\)|new\s+SHA1CryptoServiceProvider\(\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "MEDIUM",
+                "description": "SHA-1 is deprecated - use SHA-256 or better",
+                "recommendation": "Use SHA256.Create() or SHA512.Create() instead",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            if self.score > 0:
+                self.score = 1
+
+        # Check for secure hashing (good practice)
+        if re.search(r'SHA256\.Create\(\)|SHA512\.Create\(\)|BCrypt\.Net|new\s+SHA256CryptoServiceProvider\(\)|new\s+SHA512CryptoServiceProvider\(\)', code):
+            locations = find_pattern_locations(code, r'SHA256\.Create\(\)|SHA512\.Create\(\)|BCrypt\.Net|new\s+SHA(?:256|512)CryptoServiceProvider\(\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses strong hashing algorithm (SHA-256/SHA-512/BCrypt)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for crypto issues."""
+
+        # Check for weak hashing algorithms from OpenSSL
+        # Vulnerable: MD5_Init, SHA1_Init
+        if re.search(r'MD5_Init|MD5_Update|MD5_Final|EVP_md5\(\)', code):
+            locations = find_pattern_locations(code, r'MD5_Init|MD5_Update|MD5_Final|EVP_md5\(\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "HIGH",
+                "description": "MD5 is cryptographically broken - use SHA-256 or better",
+                "recommendation": "Use SHA256_Init/SHA512_Init or EVP_sha256()/EVP_sha512() from OpenSSL",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            self.score = 0
+
+        if re.search(r'SHA1_Init|SHA1_Update|SHA1_Final|EVP_sha1\(\)', code):
+            locations = find_pattern_locations(code, r'SHA1_Init|SHA1_Update|SHA1_Final|EVP_sha1\(\)')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "WEAK_HASHING",
+                "severity": "MEDIUM",
+                "description": "SHA-1 is deprecated - use SHA-256 or better",
+                "recommendation": "Use SHA256_Init or SHA512_Init from OpenSSL instead",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+            if self.score > 0:
+                self.score = 1
+
+        # Check for secure hashing (good practice)
+        # Secure: SHA256_Init, SHA512_Init, bcrypt, Argon2
+        if re.search(r'SHA256_Init|SHA512_Init|EVP_sha256\(\)|EVP_sha512\(\)|bcrypt|argon2|Argon2', code, re.IGNORECASE):
+            locations = find_pattern_locations(code, r'SHA256_Init|SHA512_Init|EVP_sha256\(\)|EVP_sha512\(\)|bcrypt|argon2|Argon2')
+            location = locations[0] if locations else {"line_number": 0, "line_content": ""}
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses strong hashing algorithm (SHA-256/SHA-512/bcrypt/Argon2)",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content']
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
 
 
 def test_crypto_math_random():

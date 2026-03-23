@@ -6,11 +6,25 @@ Successfully completed comprehensive temperature study across 19 AI models testi
 ## Study Parameters
 - **Models**: 19 (7 OpenAI, 2 Anthropic, 1 Google, 9 Ollama)
 - **Temperatures**: 4 settings (0.0, 0.5, 0.7, 1.0)
-- **Prompts**: 141 security vulnerability prompts per model/temperature
-- **Total Generations**: 10,716 code files (76 runs × 141 prompts)
+- **Prompts**: 140 security vulnerability prompts per model/temperature
+- **Total Generations**: 10,640 code files (76 runs × 140 prompts)
+
+**Important**: Originally 141 prompts including rust_013 (XXE vulnerability in Rust). However, rust_013 was removed from the benchmark to ensure fair and consistent testing across all models. Claude's safety filters refused to generate code for this prompt due to the phrase "external entity references," creating an unfair disadvantage. To maintain testing integrity, this prompt has been removed entirely rather than using different prompts for different models.
+
+## Fixed Temperature Models (Excluded from Study)
+
+The following models use fixed/non-configurable temperatures and are **excluded** from the temperature study:
+
+- **o1** - OpenAI reasoning model (fixed temp: 1.0)
+- **o3** - OpenAI advanced reasoning model (fixed temp: 1.0)
+- **o3-mini** - OpenAI smaller reasoning model (fixed temp: 1.0)
+- **cursor** - Cursor AI editor (internal default)
+- **codex-app** - Codex application (internal default)
+
+These models are run only once at their default temperature. See [FIXED_TEMPERATURE_MODELS.md](FIXED_TEMPERATURE_MODELS.md) for details.
 
 ## Completion Status
-✅ **100% Complete** - All 76 model/temperature combinations successfully generated 141/141 files
+✅ **100% Complete** - All 76 model/temperature combinations successfully generated 140/140 files
 
 ## Models Tested
 
@@ -108,10 +122,10 @@ This approach:
 All generated code stored in:
 ```
 output/
-├── <model>_temp0.0/  (141 files)
-├── <model>_temp0.5/  (141 files)
-├── <model>_temp0.7/  (141 files)
-└── <model>_temp1.0/  (141 files)
+├── <model>_temp0.0/  (140 files)
+├── <model>_temp0.5/  (140 files)
+├── <model>_temp0.7/  (140 files)
+└── <model>_temp1.0/  (140 files)
 ```
 
 ## Next Steps
@@ -135,4 +149,4 @@ output/
 ---
 Generated: March 22, 2026
 Study Duration: ~27 hours total (including debugging and fixes)
-Total Code Generated: 10,716 files across 76 model/temperature combinations
+Total Code Generated: 10,640 files across 76 model/temperature combinations (140 prompts × 76 configurations)

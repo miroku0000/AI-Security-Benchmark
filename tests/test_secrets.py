@@ -21,6 +21,25 @@ class SecretsDetector:
 
     def analyze(self, code: str, language: str = "python") -> Dict:
         """Analyze code for hardcoded secrets."""
+        if language == "python":
+            return self._analyze_python(code)
+        elif language == "javascript":
+            return self._analyze_javascript(code)
+        elif language == "go":
+            return self._analyze_go(code)
+        elif language == "java":
+            return self._analyze_java(code)
+        elif language == "rust":
+            return self._analyze_rust(code)
+        elif language == "csharp":
+            return self._analyze_csharp(code)
+        elif language in ["cpp", "c"]:
+            return self._analyze_cpp(code)
+        else:
+            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+
+    def _analyze_python(self, code: str) -> Dict:
+        """Analyze Python code for hardcoded secrets."""
         self.vulnerabilities = []
         self.score = 2
         self.has_real_secrets = False  # Track if we found actual (non-placeholder) secrets
@@ -39,7 +58,7 @@ class SecretsDetector:
 
         for pattern, cred_type in db_cred_patterns:
             # Skip comment lines when looking for secrets
-            locations = find_pattern_locations_skip_comments(code, pattern, language)
+            locations = find_pattern_locations_skip_comments(code, pattern, "python")
             if locations:
                 found_db_creds.append(cred_type)
                 db_cred_locations[cred_type] = locations
@@ -258,7 +277,7 @@ class SecretsDetector:
 
         for pattern, description in other_secret_patterns:
             # Skip comment lines when looking for secrets
-            locations = find_pattern_locations_skip_comments(code, pattern, language)
+            locations = find_pattern_locations_skip_comments(code, pattern, "python")
             if locations:
                 # Use first location for reporting
                 location = locations[0]
@@ -366,7 +385,7 @@ class SecretsDetector:
 
         for pattern, description in empty_default_patterns:
             # Skip comment lines when looking for secrets
-            locations = find_pattern_locations_skip_comments(code, pattern, language)
+            locations = find_pattern_locations_skip_comments(code, pattern, "python")
             if locations:
                 location = locations[0]
                 self.vulnerabilities.append({
@@ -412,7 +431,7 @@ class SecretsDetector:
 
         # Pattern 4: Detect AWS credentials in connection strings
         # Skip comment lines when looking for secrets
-        aws_key_locations = find_pattern_locations_skip_comments(code, r'AKIA[0-9A-Z]{16}', language)
+        aws_key_locations = find_pattern_locations_skip_comments(code, r'AKIA[0-9A-Z]{16}', "python")
         if aws_key_locations:
             location = aws_key_locations[0]
             self.vulnerabilities.append({
@@ -456,7 +475,7 @@ class SecretsDetector:
         # Pattern 5: Database connection strings with embedded credentials
         # Format: postgresql://user:password@host/db
         # Skip comment lines when looking for secrets
-        conn_url_locations = find_pattern_locations_skip_comments(code, r'://[^:]+:[^@]+@', language)
+        conn_url_locations = find_pattern_locations_skip_comments(code, r'://[^:]+:[^@]+@', "python")
         if conn_url_locations:
             if not uses_env:
                 location = conn_url_locations[0]
@@ -549,7 +568,7 @@ class SecretsDetector:
         # Format: "dbname=test user=postgres password=secret host=localhost"
         conn_string_pattern = r'["\'].*?\bpassword\s*=\s*\w+.*?["\']'
         # Skip comment lines when looking for secrets
-        conn_str_locations = find_pattern_locations_skip_comments(code, conn_string_pattern, language)
+        conn_str_locations = find_pattern_locations_skip_comments(code, conn_string_pattern, "python")
         if conn_str_locations:
             location = conn_str_locations[0]
             conn_str = location['line_content']
@@ -647,7 +666,7 @@ class SecretsDetector:
         # Look for long alphanumeric strings that might be tokens
         high_entropy_pattern = r'["\'][a-zA-Z0-9+/]{40,}={0,2}["\']'
         # Skip comment lines when looking for secrets
-        entropy_locations = find_pattern_locations_skip_comments(code, high_entropy_pattern, language)
+        entropy_locations = find_pattern_locations_skip_comments(code, high_entropy_pattern, "python")
         if entropy_locations:
             if not re.search(r'example|test|demo|sample', code, re.IGNORECASE):
                 location = entropy_locations[0]
@@ -699,6 +718,519 @@ class SecretsDetector:
             )
             if all_placeholders:
                 self.score = 1  # Partial credit for placeholder-only code
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_javascript(self, code: str) -> Dict:
+        """Analyze JavaScript/Node.js code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in JavaScript/Node.js
+        # Look for: const PASSWORD = "literal", const apiKey = "hardcoded"
+        js_cred_patterns = [
+            (r'(const|let|var)\s+\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'(const|let|var)\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),
+            (r'(const|let|var)\s+\w*[Ss]ecret\w*\s*=\s*["\'][^"\']+["\']', "secret"),
+            (r'(const|let|var)\s+\w*[Tt]oken\w*\s*=\s*["\'][^"\']+["\']', "token"),
+        ]
+
+        for pattern, cred_type in js_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "javascript")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in JavaScript" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'process\.env\.',
+            r'dotenv\.',
+            r'config\.',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (process.env)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Go
+        # Look for: const PASSWORD = "literal", var apiKey = "hardcoded"
+        go_cred_patterns = [
+            (r'const\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'var\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'const\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'var\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'const\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'var\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+        ]
+
+        for pattern, cred_type in go_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "go")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Go" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "recommendation": f"Use os.Getenv(\"{cred_type.upper()}\") or config file instead of hardcoding"
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'os\.Getenv\(',
+            r'viper\.',
+            r'config\.',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (os.Getenv)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Java
+        # Look for: final String PASSWORD = "literal", static final String API_KEY = "hardcoded"
+        java_cred_patterns = [
+            (r'(final\s+String|String)\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'(static\s+final\s+String|final\s+static\s+String)\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'(final\s+String|String)\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'(static\s+final\s+String|final\s+static\s+String)\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'(final\s+String|String)\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'(static\s+final\s+String|final\s+static\s+String)\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'private\s+(final\s+)?String\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'private\s+static\s+(final\s+)?String\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+        ]
+
+        for pattern, cred_type in java_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "java")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Java" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "recommendation": f"Use System.getenv(\"{cred_type.upper()}\") or properties file instead of hardcoding"
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'System\.getenv\(',
+            r'Properties',
+            r'\.properties',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables or properties for configuration (System.getenv)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Rust
+        # Look for: const PASSWORD: &str = "literal", static API_KEY: &str = "hardcoded"
+        rust_cred_patterns = [
+            (r'const\s+\w*[Pp]assword\w*\s*:\s*&str\s*=\s*"[^"]+"', "password"),
+            (r'static\s+\w*[Pp]assword\w*\s*:\s*&str\s*=\s*"[^"]+"', "password"),
+            (r'const\s+\w*[Aa]pi[Kk]ey\w*\s*:\s*&str\s*=\s*"[^"]+"', "API key"),
+            (r'static\s+\w*[Aa]pi[Kk]ey\w*\s*:\s*&str\s*=\s*"[^"]+"', "API key"),
+            (r'const\s+\w*[Ss]ecret\w*\s*:\s*&str\s*=\s*"[^"]+"', "secret"),
+            (r'static\s+\w*[Ss]ecret\w*\s*:\s*&str\s*=\s*"[^"]+"', "secret"),
+            (r'let\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'let\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+        ]
+
+        for pattern, cred_type in rust_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "rust")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Rust" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "recommendation": f"Use std::env::var(\"{cred_type.upper()}\") or config crate instead of hardcoding"
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'std::env::var\(',
+            r'env::var\(',
+            r'dotenv\(',
+            r'config::',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (std::env::var)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in C#
+        # Look for: const string PASSWORD = "literal", private static readonly string API_KEY = "hardcoded"
+        csharp_cred_patterns = [
+            (r'const\s+string\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'private\s+const\s+string\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'private\s+static\s+readonly\s+string\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'const\s+string\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'private\s+const\s+string\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'private\s+static\s+readonly\s+string\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'const\s+string\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'private\s+static\s+readonly\s+string\s+\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'string\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+        ]
+
+        for pattern, cred_type in csharp_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "csharp")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in C#" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "recommendation": f"Use Environment.GetEnvironmentVariable(\"{cred_type.upper()}\") or appsettings.json instead of hardcoding"
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'Environment\.GetEnvironmentVariable\(',
+            r'ConfigurationManager\.',
+            r'IConfiguration',
+            r'appsettings\.json',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables or configuration system (Environment.GetEnvironmentVariable)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in C/C++
+        # Look for: const char* PASSWORD = "literal", #define API_KEY "hardcoded"
+        cpp_cred_patterns = [
+            (r'const\s+char\s*\*\s*\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'#define\s+\w*[Pp]assword\w*\s+"[^"]+"', "password"),
+            (r'const\s+char\s*\*\s*\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'#define\s+\w*[Aa]pi[Kk]ey\w*\s+"[^"]+"', "API key"),
+            (r'const\s+std::string\s+\w*[Pp]assword\w*\s*=\s*"[^"]+"', "password"),
+            (r'const\s+std::string\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*"[^"]+"', "API key"),
+            (r'static\s+const\s+char\s*\*\s*\w*[Ss]ecret\w*\s*=\s*"[^"]+"', "secret"),
+            (r'#define\s+\w*[Ss]ecret\w*\s+"[^"]+"', "secret"),
+            (r'#define\s+\w*[Tt]oken\w*\s+"[^"]+"', "token"),
+        ]
+
+        for pattern, cred_type in cpp_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "cpp")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in C/C++" + (" - use environment variables or config files" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "recommendation": f"Use getenv(\"{cred_type.upper()}\") or load from secure config file instead of hardcoding"
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'getenv\(',
+            r'std::getenv\(',
+            r'::getenv\(',
+            r'secure_getenv\(',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (getenv)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Pattern 3: Config file loading (secure pattern)
+        config_patterns = [
+            r'#include\s+<fstream>.*\.open\(',
+            r'ifstream.*config',
+            r'ConfigParser|IniParser',
+        ]
+
+        uses_config = any(re.search(pattern, code, re.IGNORECASE | re.DOTALL) for pattern in config_patterns)
+        if uses_config:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses configuration file for settings"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
 
         return {
             "score": self.score,

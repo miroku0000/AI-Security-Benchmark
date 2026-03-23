@@ -25,6 +25,16 @@ class PathTraversalDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "go":
+            return self._analyze_go(code)
+        elif language == "java":
+            return self._analyze_java(code)
+        elif language == "rust":
+            return self._analyze_rust(code)
+        elif language == "csharp":
+            return self._analyze_csharp(code)
+        elif language in ("cpp", "c"):
+            return self._analyze_cpp(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -1118,6 +1128,650 @@ class PathTraversalDetector:
                 "detection_reasoning": detection_reasoning
             })
             self.score = 2
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses filepath or os packages
+        uses_file_ops = re.search(r'filepath\.|os\.Open|ioutil\.ReadFile|os\.Create|os\.Remove', code)
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: filepath.Join without filepath.Clean or validation
+        join_locations = find_pattern_locations(code, r'filepath\.Join\(')
+        uses_join = len(join_locations) > 0
+
+        # Pattern 2: os.Open with user input without validation
+        open_patterns = [
+            r'os\.Open\([^)]*\+',  # os.Open(path + userInput)
+            r'os\.Open\(.*filepath\.Join',  # os.Open(filepath.Join(...))
+            r'ioutil\.ReadFile\([^)]*\+',  # ioutil.ReadFile with concatenation
+            r'os\.Create\([^)]*\+',  # os.Create with concatenation
+        ]
+
+        open_locations = []
+        for pattern in open_patterns:
+            open_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_concat = len(open_locations) > 0 or uses_join
+
+        # Check for validation
+        uses_clean = re.search(r'filepath\.Clean\(', code)
+        validates_prefix = re.search(r'strings\.HasPrefix\(', code) or re.search(r'strings\.Contains\([^,]+,\s*["\']\.\.["\']', code)
+
+        has_validation = uses_clean and validates_prefix
+
+        if has_unsafe_concat and not has_validation:
+            if open_locations:
+                location = open_locations[0]
+            elif join_locations:
+                location = join_locations[0]
+            else:
+                location = {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "HIGH",
+                "description": "Go file path uses filepath.Join or string concatenation without validation - vulnerable to path traversal. ATTACK: User provides '../../../etc/passwd' → filepath.Join doesn't prevent traversal → reads sensitive files",
+                "recommendation": "Use filepath.Clean() and validate prefix: cleanPath := filepath.Clean(userPath); if !strings.HasPrefix(cleanPath, baseDir) { return errors.New(\"invalid path\") }",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "filepath.Join() or os.Open() with user input",
+                        "String concatenation in file paths",
+                        "Missing filepath.Clean() normalization",
+                        "No prefix validation with strings.HasPrefix()"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: File operation uses user input without validation",
+                        "filepath.Join() does NOT prevent path traversal",
+                        "User can provide '../../../etc/passwd' to escape directory",
+                        "No validation that resolved path is within allowed directory"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "filepath.Join() usage",
+                        "os.Open/Create/Remove with user input",
+                        "filepath.Clean() normalization",
+                        "strings.HasPrefix() validation"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["File operation without path validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+        elif has_validation:
+            if uses_clean:
+                clean_locations = find_pattern_locations(code, r'filepath\.Clean\(')
+                location = clean_locations[0] if clean_locations else {"line_number": 0, "line_content": ""}
+            else:
+                location = {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses filepath.Clean() for normalization + prefix validation with strings.HasPrefix(). This prevents path traversal by cleaning the path and ensuring it stays within the allowed directory.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "filepath.Join() without validation",
+                        "String concatenation in paths",
+                        "Missing path normalization"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses filepath.Clean() to normalize path",
+                        "Validates cleaned path with strings.HasPrefix()",
+                        "Prevents directory traversal attacks like '../../../etc/passwd'"
+                    ],
+                    "patterns_checked": [
+                        "filepath.Clean() usage",
+                        "strings.HasPrefix() validation",
+                        "filepath.Join() patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Go filepath.Clean + prefix validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses File or Path operations
+        uses_file_ops = re.search(r'new\s+File\(|Path\.of\(|Files\.read|Files\.write|Files\.delete', code)
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: new File(userInput) without validation
+        file_patterns = [
+            r'new\s+File\([^)]*\+',  # new File(path + userInput)
+            r'new\s+File\([a-zA-Z_][a-zA-Z0-9_]*\)',  # new File(userInput)
+            r'Path\.of\([^)]*\+',  # Path.of(path + userInput)
+            r'Paths\.get\([^)]*\+',  # Paths.get with concatenation
+        ]
+
+        file_locations = []
+        for pattern in file_patterns:
+            file_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_file_op = len(file_locations) > 0
+
+        # Check for validation
+        uses_normalize = re.search(r'\.normalize\(\)', code)
+        validates_prefix = re.search(r'\.startsWith\(', code) or re.search(r'\.contains\(["\']\.\.', code)
+
+        has_validation = uses_normalize and validates_prefix
+
+        if has_unsafe_file_op and not has_validation:
+            location = file_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "HIGH",
+                "description": "Java file path uses new File() or Path.of() with user input without validation - vulnerable to path traversal. ATTACK: User provides '../../../etc/passwd' → File operations access sensitive files outside intended directory",
+                "recommendation": "Use Path.normalize() and validate: Path normalizedPath = Paths.get(userInput).normalize(); if (!normalizedPath.startsWith(baseDir)) { throw new SecurityException(\"Invalid path\"); }",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "new File() or Path.of() with user input",
+                        "String concatenation in file paths",
+                        "Missing Path.normalize() normalization",
+                        "No prefix validation with startsWith()"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: File operation uses user input without validation",
+                        "new File() does NOT prevent path traversal",
+                        "User can provide '../../../etc/passwd' to escape directory",
+                        "No validation that path is within allowed directory"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "new File() usage with user input",
+                        "Path.of() and Paths.get() patterns",
+                        "Path.normalize() normalization",
+                        "startsWith() validation"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["File operation without path validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+        elif has_validation:
+            normalize_locations = find_pattern_locations(code, r'\.normalize\(\)')
+            location = normalize_locations[0] if normalize_locations else {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses Path.normalize() + startsWith() validation. This prevents path traversal by normalizing the path and ensuring it stays within the allowed directory.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "new File() without validation",
+                        "String concatenation in paths",
+                        "Missing path normalization"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses Path.normalize() to normalize path",
+                        "Validates normalized path with startsWith()",
+                        "Prevents directory traversal attacks like '../../../etc/passwd'"
+                    ],
+                    "patterns_checked": [
+                        "Path.normalize() usage",
+                        "startsWith() validation",
+                        "new File() patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Java Path.normalize + startsWith validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses PathBuf or File operations
+        uses_file_ops = re.search(r'PathBuf::|File::open|File::create|fs::|std::fs', code)
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: PathBuf::from without canonicalize
+        path_patterns = [
+            r'PathBuf::from\(',  # PathBuf::from(userInput)
+            r'File::open\([^)]*&',  # File::open(&userInput)
+            r'fs::read\([^)]*&',  # fs::read with user input
+            r'fs::write\([^)]*&',  # fs::write with user input
+        ]
+
+        path_locations = []
+        for pattern in path_patterns:
+            path_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_path_op = len(path_locations) > 0
+
+        # Check for validation
+        uses_canonicalize = re.search(r'\.canonicalize\(\)', code)
+        validates_prefix = re.search(r'\.starts_with\(', code) or re.search(r'\.contains\(["\']\.\.', code)
+
+        has_validation = uses_canonicalize and validates_prefix
+
+        if has_unsafe_path_op and not has_validation:
+            location = path_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "HIGH",
+                "description": "Rust path uses PathBuf::from or File::open without canonicalize - vulnerable to path traversal. ATTACK: User provides '../../../etc/passwd' → PathBuf doesn't prevent traversal → reads sensitive files",
+                "recommendation": "Use .canonicalize() and validate: let canonical = path.canonicalize()?; if !canonical.starts_with(&base_dir) { return Err(\"Invalid path\"); }",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "PathBuf::from() with user input",
+                        "File::open/create without validation",
+                        "Missing .canonicalize() normalization",
+                        "No prefix validation with .starts_with()"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: File operation uses user input without validation",
+                        "PathBuf::from() does NOT prevent path traversal",
+                        "User can provide '../../../etc/passwd' to escape directory",
+                        "No validation that resolved path is within allowed directory"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "PathBuf::from() usage",
+                        "File::open/create patterns",
+                        ".canonicalize() normalization",
+                        ".starts_with() validation"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Path operation without validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+        elif has_validation:
+            canonicalize_locations = find_pattern_locations(code, r'\.canonicalize\(\)')
+            location = canonicalize_locations[0] if canonicalize_locations else {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses .canonicalize() + .starts_with() validation. This prevents path traversal by resolving symlinks and ensuring the path stays within the allowed directory.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "PathBuf::from() without validation",
+                        "Missing path canonicalization"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses .canonicalize() to resolve symlinks and normalize path",
+                        "Validates canonical path with .starts_with()",
+                        "Prevents directory traversal and symlink attacks"
+                    ],
+                    "patterns_checked": [
+                        ".canonicalize() usage",
+                        ".starts_with() validation",
+                        "PathBuf::from() patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Rust .canonicalize + .starts_with validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses File or Path operations
+        uses_file_ops = re.search(r'File\.|Path\.|Directory\.|FileStream', code)
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Path.Combine without validation
+        path_patterns = [
+            r'Path\.Combine\([^)]*\+',  # Path.Combine with concatenation
+            r'File\.(ReadAllText|WriteAllText|Delete|Open)\([^)]*\+',  # File operations with concat
+            r'new\s+FileStream\([^)]*\+',  # FileStream with concatenation
+        ]
+
+        path_locations = []
+        for pattern in path_patterns:
+            path_locations.extend(find_pattern_locations(code, pattern))
+
+        # Also check for Path.Combine with user variables
+        combine_locations = find_pattern_locations(code, r'Path\.Combine\(')
+        has_unsafe_path_op = len(path_locations) > 0 or len(combine_locations) > 0
+
+        # Check for validation
+        uses_getfullpath = re.search(r'Path\.GetFullPath\(', code)
+        validates_prefix = re.search(r'\.StartsWith\(', code) or re.search(r'\.Contains\(["\']\.\.', code)
+
+        has_validation = uses_getfullpath and validates_prefix
+
+        if has_unsafe_path_op and not has_validation:
+            if path_locations:
+                location = path_locations[0]
+            elif combine_locations:
+                location = combine_locations[0]
+            else:
+                location = {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "HIGH",
+                "description": "C# file path uses Path.Combine or File operations without validation - vulnerable to path traversal. ATTACK: User provides '../../../Windows/System32/config/SAM' → Path.Combine doesn't prevent traversal → reads sensitive files",
+                "recommendation": "Use Path.GetFullPath() and validate: string fullPath = Path.GetFullPath(userPath); if (!fullPath.StartsWith(baseDir)) { throw new SecurityException(\"Invalid path\"); }",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Path.Combine() with user input",
+                        "File operations without validation",
+                        "Missing Path.GetFullPath() normalization",
+                        "No prefix validation with StartsWith()"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: File operation uses user input without validation",
+                        "Path.Combine() does NOT prevent path traversal",
+                        "User can provide '../../../Windows/System32/config/SAM' to escape directory",
+                        "No validation that path is within allowed directory"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "Path.Combine() usage",
+                        "File.ReadAllText/WriteAllText/Delete patterns",
+                        "Path.GetFullPath() normalization",
+                        "StartsWith() validation"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["File operation without path validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+        elif has_validation:
+            getfullpath_locations = find_pattern_locations(code, r'Path\.GetFullPath\(')
+            location = getfullpath_locations[0] if getfullpath_locations else {"line_number": 0, "line_content": ""}
+
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses Path.GetFullPath() + StartsWith() validation. This prevents path traversal by normalizing the path and ensuring it stays within the allowed directory.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Path.Combine() without validation",
+                        "String concatenation in paths",
+                        "Missing path normalization"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses Path.GetFullPath() to normalize path",
+                        "Validates full path with StartsWith()",
+                        "Prevents directory traversal attacks like '../../../Windows/System32'"
+                    ],
+                    "patterns_checked": [
+                        "Path.GetFullPath() usage",
+                        "StartsWith() validation",
+                        "Path.Combine() patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["C# Path.GetFullPath + StartsWith validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses file operations
+        uses_file_ops = re.search(r'fopen\(|open\(|FILE\s*\*|std::ifstream|std::ofstream|std::fstream', code)
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Vulnerable file operations without validation
+        # C-style file operations: fopen(), open()
+        # C++ style: std::ifstream, std::ofstream, std::fstream
+        vulnerable_patterns = [
+            r'fopen\([^)]*\+',  # fopen with string concatenation
+            r'fopen\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,',  # fopen(userInput, ...)
+            r'open\([^)]*\+',  # open with string concatenation
+            r'open\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,',  # open(userInput, ...)
+            r'std::ifstream\s+\w+\([^)]*\+',  # std::ifstream with concatenation
+            r'std::ofstream\s+\w+\([^)]*\+',  # std::ofstream with concatenation
+            r'std::fstream\s+\w+\([^)]*\+',  # std::fstream with concatenation
+        ]
+
+        vuln_locations = []
+        for pattern in vulnerable_patterns:
+            vuln_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_file_op = len(vuln_locations) > 0
+
+        # Also check for function parameters used directly in file operations
+        # Extract function parameters (improved pattern for C/C++)
+        function_params_patterns = [
+            r'(?:void|int|char\s*\*|std::string|const\s+\w+[\s*&]*)\s+(\w+)\s*\([^)]*\b(const\s+)?(?:char\s*\*|std::string[\s&]*)\s+(\w+)',  # function with string param
+            r'(?:void|int)\s+\w+\s*\(([^)]+)\)',  # generic function
+        ]
+
+        param_names = []
+        for pattern in function_params_patterns:
+            matches = re.finditer(pattern, code)
+            for match in matches:
+                # Get all groups and filter out None
+                groups = [g for g in match.groups() if g and g not in ('const', 'void', 'int', 'char', '*', '&')]
+                for g in groups:
+                    if g and not g.startswith('std::') and g not in ('const', 'void', 'int', 'char'):
+                        # Parse comma-separated params
+                        for p in g.split(','):
+                            p = p.strip()
+                            if p:
+                                # Extract parameter name (last word)
+                                words = re.sub(r'[*&]', ' ', p).split()
+                                if words:
+                                    param_names.append(words[-1])
+
+        # Check if any parameter is used in file operations without validation
+        for param in param_names:
+            # Check for direct usage in fopen, open, or C++ streams
+            if re.search(rf'\b(fopen|open)\s*\(\s*{re.escape(param)}\s*[,)]', code):
+                has_unsafe_file_op = True
+                break
+            # Check for C++ stream constructors
+            if re.search(rf'\b(ifstream|ofstream|fstream)\s+\w+\s*\(\s*{re.escape(param)}\s*\)', code):
+                has_unsafe_file_op = True
+                break
+
+        # Pattern 2: Check for validation
+        # Secure pattern: realpath() + prefix validation
+        uses_realpath = re.search(r'\brealpath\s*\(', code)
+        uses_canonicalize = re.search(r'\bcanonicalPath\(|canonical\(', code)  # C++ filesystem
+        validates_prefix = re.search(r'strncmp\(|strcmp\(.*==\s*0|\.compare\(|\.starts_with\(|\.find\(', code)
+
+        # Check for strstr to find ".."
+        checks_dotdot = re.search(r'strstr\([^)]*,\s*["\']\.\.["\']', code) or re.search(r'\.find\(["\']\.\.', code)
+
+        has_validation = (uses_realpath or uses_canonicalize) and validates_prefix
+
+        if has_unsafe_file_op and not has_validation:
+            location = vuln_locations[0] if vuln_locations else {"line_number": 0, "line_content": ""}
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "HIGH",
+                "description": "C/C++ file path uses fopen()/open() without realpath validation - vulnerable to path traversal. ATTACK: User provides '../../../etc/passwd' → file operations access sensitive files outside intended directory. Both C-style (fopen) and C++ style (std::ifstream) file operations are vulnerable without proper path validation.",
+                "recommendation": "Use realpath() and validate prefix: char resolved[PATH_MAX]; if (realpath(userPath, resolved) == NULL || strncmp(resolved, baseDir, strlen(baseDir)) != 0) { return -1; /* Invalid path */ }",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "fopen() or open() with user input (C-style)",
+                        "std::ifstream/ofstream/fstream with user input (C++ style)",
+                        "String concatenation in file paths",
+                        "Missing realpath() normalization and symlink resolution",
+                        "No prefix validation with strncmp() or string comparison"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: File operation uses user input without validation",
+                        "fopen()/open() do NOT prevent path traversal",
+                        "User can provide '../../../etc/passwd' to escape directory",
+                        "No validation that resolved path is within allowed directory",
+                        "Symbolic links are not resolved before file access"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "fopen() usage with user input",
+                        "open() system call patterns",
+                        "std::ifstream/ofstream/fstream usage",
+                        "realpath() normalization and symlink resolution",
+                        "strncmp() or string::compare() prefix validation"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["File operation without path validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+        elif has_validation:
+            # Find validation location
+            validation_locations = []
+            if uses_realpath:
+                validation_locations.extend(find_pattern_locations(code, r'\brealpath\s*\('))
+            if uses_canonicalize:
+                validation_locations.extend(find_pattern_locations(code, r'\bcanonicalPath\(|canonical\('))
+
+            location = validation_locations[0] if validation_locations else {"line_number": 0, "line_content": ""}
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses realpath() for path normalization + prefix validation with strncmp() or string comparison. This prevents path traversal by resolving symbolic links and ensuring the path stays within the allowed directory. realpath() resolves all symlinks and '..' references to an absolute path before validation.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "fopen()/open() without validation",
+                        "String concatenation in paths",
+                        "Missing path normalization"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses realpath() to resolve symlinks and normalize path",
+                        "Validates resolved path with strncmp() or string comparison for prefix matching",
+                        "Prevents directory traversal and symlink attacks like '../../../etc/passwd'",
+                        "realpath() returns absolute path with all symbolic links resolved"
+                    ],
+                    "patterns_checked": [
+                        "realpath() usage and validation",
+                        "strncmp() or string::compare() prefix validation",
+                        "fopen()/open() patterns",
+                        "std::filesystem::canonical() (C++17)"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["C/C++ realpath + prefix validation"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
 
         return {
             "score": self.score,

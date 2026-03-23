@@ -1,8 +1,0 @@
-public static class JwtAuthenticationMiddlewareExtensions
-    {
-        public static IApplicationBuilder UseJwtAuthenticationMiddleware(this IApplicationBuilder app)
-        {
-            return app.UseMiddleware<JwtAuthenticationMiddleware>();
-        }
-    }
-}

@@ -14,8 +14,9 @@ def welcome_dashboard():
     user_location = request.args.get('location', 'Unknown')
     user_status = request.args.get('status', 'No status message')
 
-    user_bio = html.escape(user_bio, quote=True)
-    user_status = html.escape(user_status, quote=True)
+    # Escape HTML to prevent XSS, but allow basic formatting
+    user_bio = html.escape(user_bio).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
+    user_status = html.escape(user_status).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>').replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
 
     html_content = f"""
     <html>
@@ -23,18 +24,18 @@ def welcome_dashboard():
         <title>Welcome Dashboard</title>
         <style>
             body {{ font-family: Arial, sans-serif; margin: 50px; }}
-            .container {{ max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }}
-            h1 {{ color: #333; }}
-            p {{ color: #555; }}
-            .location {{ font-style: italic; color: #888; }}
+            .dashboard {{ border: 1px solid #ccc; padding: 20px; border-radius: 10px; max-width: 600px; margin: auto; }}
+            .header {{ font-size: 24px; font-weight: bold; margin-bottom: 20px; }}
+            .info {{ margin-bottom: 10px; }}
+            .label {{ font-weight: bold; }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <h1>Welcome, {user_name}!</h1>
-            <p><strong>Bio:</strong> {user_bio}</p>
-            <p class="location"><strong>Location:</strong> {user_location}</p>
-            <p><strong>Status:</strong> {user_status}</p>
+        <div class="dashboard">
+            <div class="header">Welcome, {user_name}!</div>
+            <div class="info"><span class="label">Bio:</span> {user_bio}</div>
+            <div class="info"><span class="label">Location:</span> {user_location}</div>
+            <div class="info"><span class="label">Status:</span> {user_status}</div>
         </div>
     </body>
     </html>

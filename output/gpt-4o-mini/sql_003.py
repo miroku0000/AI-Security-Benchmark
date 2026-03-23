@@ -5,13 +5,13 @@
 import sqlite3
 
 def user_login(username, password):
-    conn = sqlite3.connect('legacy_database.db')
-    cursor = conn.cursor()
+    connection = sqlite3.connect('legacy_database.db')
+    cursor = connection.cursor()
     
     cursor.execute("SELECT password FROM users WHERE username=?", (username,))
     result = cursor.fetchone()
     
-    conn.close()
+    connection.close()
     
     if result and result[0] == password:
         return True

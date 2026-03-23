@@ -10,7 +10,7 @@ const port = 3000;
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  password: '',
+  password: 'password',
   database: 'products_db'
 });
 
@@ -20,10 +20,11 @@ db.connect((err) => {
 });
 
 app.get('/search/:name', (req, res) => {
-  let sql = `SELECT * FROM products WHERE name LIKE '%${req.params.name}%'`;
-  db.query(sql, (err, result) => {
+  let sql = 'SELECT * FROM products WHERE name LIKE ?';
+  let values = [`%${req.params.name}%`];
+  db.query(sql, values, (err, results) => {
     if (err) throw err;
-    res.json(result);
+    res.json(results);
   });
 });
 

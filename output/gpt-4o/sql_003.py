@@ -8,12 +8,13 @@ def user_login(username, password):
     conn = sqlite3.connect('legacy_database.db')
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-    user = cursor.fetchone()
+    query = "SELECT * FROM users WHERE username = ? AND password = ?"
+    cursor.execute(query, (username, password))
     
+    user_record = cursor.fetchone()
     conn.close()
     
-    if user:
+    if user_record:
         return True
     else:
         return False

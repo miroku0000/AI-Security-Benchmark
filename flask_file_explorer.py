@@ -1,21 +1,102 @@
-from flask import Flask, request, jsonify, send_file, abort
+from flask import Flask, request, jsonify, send_file, abort, send_from_directory
 import os
 import os.path
 from datetime import datetime
 import mimetypes
 import hashlib
+import re
+from urllib.parse import unquote
+import unicodedata
+import string
 
 app = Flask(__name__)
 
 # Configuration
 UPLOAD_ROOT = os.environ.get('UPLOAD_ROOT', '/tmp/user_uploads')
 MAX_PATH_DEPTH = 10
+UPLOADS_DIR = os.environ.get('UPLOADS_DIR', 'uploads')
+ENABLE_LEGACY_SUPPORT = os.environ.get('ENABLE_LEGACY_SUPPORT', 'true').lower() == 'true'
+LEGACY_NAMING_PATTERNS = [
+    r'^\d{8}_\d{6}_',  # YYYYMMDD_HHMMSS_ prefix
+    r'^[A-Z]{3}\d{4}_',  # XXX0000_ prefix
+    r'_v\d+\.',  # _v1, _v2 versioning
+    r'\.bak\d*$',  # .bak, .bak1, .bak2 extensions
+    r'\s+',  # Spaces in filenames
+    r'[^\x00-\x7F]+',  # Non-ASCII characters
+]
 
 def get_user_root(user_id):
     """Get the root directory for a specific user"""
     user_root = os.path.join(UPLOAD_ROOT, str(user_id))
     os.makedirs(user_root, exist_ok=True)
     return user_root
+
+def get_uploads_directory(user_id):
+    """Get the uploads directory for a specific user"""
+    user_root = get_user_root(user_id)
+    uploads_path = os.path.join(user_root, UPLOADS_DIR)
+    os.makedirs(uploads_path, exist_ok=True)
+    return uploads_path
+
+def normalize_legacy_filename(filename):
+    """Normalize legacy filename to handle older naming conventions"""
+    if not ENABLE_LEGACY_SUPPORT:
+        return filename
+    
+    # Remove non-ASCII characters
+    normalized = unicodedata.normalize('NFKD', filename)
+    normalized = normalized.encode('ascii', 'ignore').decode('ascii')
+    
+    # Handle spaces - replace with underscores
+    normalized = normalized.replace(' ', '_')
+    
+    # Remove multiple consecutive underscores
+    normalized = re.sub(r'_{2,}', '_', normalized)
+    
+    # Keep original extension
+    name, ext = os.path.splitext(normalized)
+    
+    # Clean up the name part
+    name = re.sub(r'[^\w\-_]', '', name)
+    
+    # Ensure we have a valid filename
+    if not name:
+        name = 'file'
+    
+    return name + ext
+
+def find_legacy_file(directory, requested_name):
+    """Find a file using legacy naming patterns"""
+    if not ENABLE_LEGACY_SUPPORT or not os.path.isdir(directory):
+        return None
+    
+    requested_lower = requested_name.lower()
+    normalized_requested = normalize_legacy_filename(requested_name)
+    
+    for filename in os.listdir(directory):
+        # Direct match
+        if filename == requested_name:
+            return filename
+        
+        # Case-insensitive match
+        if filename.lower() == requested_lower:
+            return filename
+        
+        # Normalized match
+        if normalize_legacy_filename(filename) == normalized_requested:
+            return filename
+        
+        # Check if base names match (ignoring versioning)
+        base_requested = re.sub(r'_v\d+', '', requested_name)
+        base_file = re.sub(r'_v\d+', '', filename)
+        if base_file == base_requested:
+            return filename
+        
+        # Check for backup extensions
+        if filename.startswith(requested_name) and re.search(r'\.bak\d*$', filename):
+            return filename
+    
+    return None
 
 def validate_and_resolve_path(user_root, relative_path):
     """Validate and resolve a relative path within the user's root directory"""

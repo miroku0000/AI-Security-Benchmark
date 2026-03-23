@@ -1,5 +1,0 @@
-namespace HackathonDemo.Data
-{
-    public static class DatabaseHelper
-    {
-        private const string ConnectionString = "Server=localhost;Database=HackathonDB;User Id=sa;Password=DevPass123!;";

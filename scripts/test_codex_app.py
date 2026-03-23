@@ -40,12 +40,12 @@ def check_codex_installed():
         print(f"ERROR: Could not run Codex CLI: {e}")
         return False
 
-def generate_code_with_codex(prompt: str, model: str = None, timeout: int = 120) -> tuple[str, bool]:
+def generate_code_with_codex(prompt: str, model: str = None, timeout: int = 120) -> tuple[str, bool, str]:
     """
     Generate code using Codex.app CLI.
 
     Returns:
-        (code, success): The generated code and whether it succeeded
+        (code, success, failure_reason): The generated code, whether it succeeded, and reason for failure
     """
     try:
         # Build command
@@ -53,23 +53,31 @@ def generate_code_with_codex(prompt: str, model: str = None, timeout: int = 120)
             CODEX_CLI,
             "exec",
             "--sandbox", "read-only",  # Safe mode - no file writes
+            "--skip-git-repo-check",  # Allow running from /tmp (needed for underscore bug workaround)
         ]
 
         # Add model if specified
         if model:
             cmd.extend(["-m", model])
 
-        # Enhanced prompt to get code only
-        enhanced_prompt = f"{prompt}\n\nIMPORTANT: Output ONLY the complete, runnable code. No explanations, descriptions, or markdown. Just the raw code file contents."
+        # Enhanced prompt - explicitly DISABLE security skill for baseline
+        # This ensures we're testing raw model capabilities without skill augmentation
+        enhanced_prompt = f"""Do not use the security-best-practices skill or any other skills.
+
+{prompt}
+
+IMPORTANT: Output ONLY the complete, runnable code. No explanations, descriptions, or markdown. Just the raw code file contents."""
         cmd.append(enhanced_prompt)
 
         # Run codex exec
+        # Use /tmp as working directory to avoid CLI bug with underscores in path
+        # (Codex v0.116.0-alpha.10 has a bug with underscore in directory names)
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd="."
+            cwd="/tmp"
         )
 
         if result.returncode == 0:
@@ -80,21 +88,25 @@ def generate_code_with_codex(prompt: str, model: str = None, timeout: int = 120)
             code = extract_code_from_output(output)
 
             if code:
-                return code, True
+                return code, True, None
             else:
+                failure_reason = f"parse_error: No code extracted from {len(output)} chars output"
                 print(f"    ⚠️  No code extracted (got {len(output)} chars)")
-                return output, False
+                return output, False, failure_reason
         else:
             error = result.stderr.strip()
+            failure_reason = f"cli_error: {error[:100]}"
             print(f"    ⚠️  Codex returned error: {error[:100]}")
-            return "", False
+            return "", False, failure_reason
 
     except subprocess.TimeoutExpired:
+        failure_reason = f"timeout: Exceeded {timeout}s limit"
         print(f"    ⚠️  Timeout after {timeout}s")
-        return "", False
+        return "", False, failure_reason
     except Exception as e:
+        failure_reason = f"exception: {str(e)}"
         print(f"    ❌ Error: {e}")
-        return "", False
+        return "", False, failure_reason
 
 def extract_code_from_output(output: str) -> str:
     """
@@ -141,8 +153,12 @@ def get_file_extension(language: str) -> str:
         'java': 'java',
         'go': 'go',
         'rust': 'rs',
+        'cpp': 'cpp',
+        'c++': 'cpp',
+        'csharp': 'cs',
+        'c#': 'cs',
     }
-    return extensions.get(language, 'txt')
+    return extensions.get(language.lower(), 'txt')
 
 def test_codex_app_benchmark(
     prompts_file: Path,
@@ -208,13 +224,34 @@ def test_codex_app_benchmark(
 
         print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
 
+        # Check if file already exists with valid code
+        file_ext = get_file_extension(language)
+        output_file = output_dir / f"{prompt_id}.{file_ext}"
+
+        if output_file.exists():
+            try:
+                existing_code = output_file.read_text()
+                if existing_code.strip() and len(existing_code) > 50:  # Has substantial code
+                    print(f"  ⏭️  Using cached (skipped)")
+                    results['completed'] += 1
+                    results['prompts'].append({
+                        'id': prompt_id,
+                        'category': category,
+                        'language': language,
+                        'output_file': str(output_file),
+                        'success': True,
+                        'code_length': len(existing_code),
+                        'cached': True
+                    })
+                    continue
+            except Exception as e:
+                print(f"  ⚠️  Error reading existing file: {e}")
+
         # Generate code with Codex.app
-        code, success = generate_code_with_codex(prompt_text, model, timeout)
+        code, success, failure_reason = generate_code_with_codex(prompt_text, model, timeout)
 
         if success and code:
-            # Save to file
-            file_ext = get_file_extension(language)
-            output_file = output_dir / f"{prompt_id}.{file_ext}"
+            # Save to file (file_ext and output_file already defined above)
 
             with open(output_file, 'w') as f:
                 f.write(code)
@@ -238,7 +275,8 @@ def test_codex_app_benchmark(
                 'category': category,
                 'language': language,
                 'success': False,
-                'error': 'Code generation failed'
+                'error': 'Code generation failed',
+                'failure_reason': failure_reason
             })
 
         # Small delay to avoid overwhelming the system
@@ -246,9 +284,11 @@ def test_codex_app_benchmark(
 
     elapsed = time.time() - start_time
 
-    # Save results
+    # Save results to reports directory (not in output_dir to avoid cluttering code directory)
     model_name = model or 'gpt-5.4'
-    results_file = output_dir / f'codex-app-{model_name.replace("/", "_")}_generation_results.json'
+    reports_dir = Path('reports')
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    results_file = reports_dir / f'codex-app-{model_name.replace("/", "_")}_generation_results.json'
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
 
@@ -296,8 +336,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=120,
-        help='Timeout per prompt in seconds (default: 120)'
+        default=300,
+        help='Timeout per prompt in seconds (default: 300)'
     )
     parser.add_argument(
         '--limit',

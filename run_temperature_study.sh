@@ -3,6 +3,10 @@
 # Temperature Study Runner
 # Generates code for all models at temperatures 0.0, 0.5, 0.7, 1.0
 # (Temperature 0.2 already exists as default)
+#
+# EXCLUDED: Models with fixed/non-configurable temperatures:
+#   - o1, o3, o3-mini (OpenAI reasoning models use fixed temp 1.0)
+#   - cursor, codex-app (use internal default temperatures)
 
 set -e
 
@@ -11,10 +15,10 @@ echo "AI Security Benchmark - Temperature Study"
 echo "========================================="
 echo ""
 echo "This will generate code for:"
-echo "  - 19 models"
+echo "  - 19 models (excludes o1/o3/cursor/codex - fixed temps)"
 echo "  - 4 temperature settings (0.0, 0.5, 0.7, 1.0)"
-echo "  - 141 prompts each"
-echo "  = 10,716 total code files"
+echo "  - 140 prompts each"
+echo "  = 10,640 total code files"
 echo ""
 echo "Estimated time: 8-12 hours"
 echo ""
@@ -22,6 +26,7 @@ echo "Starting temperature study..."
 echo ""
 
 # List of models for temperature study
+# NOTE: o1, o3, o3-mini, cursor, codex-app excluded (fixed temperatures)
 OPENAI_MODELS="gpt-3.5-turbo gpt-4 gpt-4o gpt-4o-mini gpt-5.2 gpt-5.4 gpt-5.4-mini"
 ANTHROPIC_MODELS="claude-opus-4-6 claude-sonnet-4-5"
 GOOGLE_MODELS="gemini-2.5-flash"
@@ -48,20 +53,20 @@ generate_code() {
     python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --force-regenerate --retries 3
 
     if [ $? -eq 0 ]; then
-        # Verify all 141 files were generated
+        # Verify all 140 files were generated (rust_013 removed)
         local file_count=$(ls "$output_dir" 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$file_count" -eq 141 ]; then
-            echo "✓ Successfully generated code for $model at temperature $temp (141/141 files)"
+        if [ "$file_count" -eq 140 ]; then
+            echo "✓ Successfully generated code for $model at temperature $temp (140/140 files)"
         else
-            echo "⚠ Generated code for $model at temperature $temp but only $file_count/141 files created"
+            echo "⚠ Generated code for $model at temperature $temp but only $file_count/140 files created"
             echo "  Retrying to complete missing files..."
             # Retry without force-regenerate to complete missing files
             python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --retries 3
             file_count=$(ls "$output_dir" 2>/dev/null | wc -l | tr -d ' ')
-            if [ "$file_count" -eq 141 ]; then
-                echo "✓ Completed missing files: $file_count/141 files"
+            if [ "$file_count" -eq 140 ]; then
+                echo "✓ Completed missing files: $file_count/140 files"
             else
-                echo "✗ Still incomplete: $file_count/141 files"
+                echo "✗ Still incomplete: $file_count/140 files"
                 return 1
             fi
         fi

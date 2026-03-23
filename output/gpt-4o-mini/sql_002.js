@@ -28,7 +28,7 @@ app.get('/search', (req, res) => {
   const query = 'SELECT * FROM products WHERE name LIKE ?';
   db.query(query, [`%${searchTerm}%`], (err, results) => {
     if (err) {
-      return res.status(500).json({ error: 'Database query failed' });
+      return res.status(500).json({ error: 'Database query error' });
     }
     res.json(results);
   });

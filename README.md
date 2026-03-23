@@ -224,7 +224,11 @@ python3 auto_benchmark.py --model gpt-4o --temperature 1.0  # Maximum randomness
 python3 analysis/analyze_temperature_impact.py --model gpt-4o
 ```
 
-**See [docs/TEMPERATURE_TESTING.md](docs/TEMPERATURE_TESTING.md) for complete guide.**
+**Note**: Some models use fixed temperatures and cannot be customized:
+- **o1, o3, o3-mini** (OpenAI reasoning models - fixed at 1.0)
+- **cursor, codex-app** (use internal defaults)
+
+See [FIXED_TEMPERATURE_MODELS.md](FIXED_TEMPERATURE_MODELS.md) for details.
 
 ## Reports
 

@@ -1,6 +1,0 @@
-int main(void) {
-    const char *host = "localhost";
-    const char *user = "root";
-    const char *password = "MySecretPass123";
-    const char *database = "demo";
-    unsigned int port = 3306;
