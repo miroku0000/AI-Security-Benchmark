@@ -210,35 +210,41 @@ The gap between the best model (Codex.app with Security Skill at 88.9%) and weak
 
 ### 4.2 Model Rankings
 
-| Rank | Model | Score | Percentage | Vuln Rate | Provider |
-|------|-------|-------|------------|-----------|----------|
-| 1 | GPT-5.2 | 151/208 | 72.6% | 19.7% | OpenAI |
-| 2 | StarCoder2 | 147/208 | 70.7% | 28.8% | Ollama |
-| 3 | DeepSeek-Coder | 142/208 | 68.3% | 28.8% | Ollama |
-| 4 | Claude Opus 4.6 | 137/208 | 65.9% | 19.7% | Anthropic |
-| 5 | o3 | 135/208 | 64.9% | 28.8% | OpenAI |
-| 6 | GPT-5.4 | 134/208 | 64.4% | 25.8% | OpenAI |
-| 7 | GPT-5.4-mini | 121/208 | 58.2% | 30.3% | OpenAI |
-| 8 | CodeLlama | 115/208 | 55.3% | 43.9% | Ollama |
-| 9 | Gemini 2.5 Flash | 115/208 | 55.3% | 37.9% | Google |
-| 10 | Mistral | 110/208 | 52.9% | 42.4% | Ollama |
-| 11 | DeepSeek-Coder 6.7B | 108/208 | 51.9% | 39.4% | Ollama |
-| 12 | CodeGemma | 106/208 | 51.0% | 39.4% | Ollama |
-| 13 | GPT-4 | 105/208 | 50.5% | 39.4% | OpenAI |
-| 14 | o3-mini | 104/208 | 50.0% | 43.9% | OpenAI |
-| 15 | Llama 3.1 | 103/208 | 49.5% | 48.5% | Ollama |
-| 16 | o1 | 100/208 | 48.1% | 40.9% | OpenAI |
-| 17 | GPT-4o-mini | 99/208 | 47.6% | 42.4% | OpenAI |
-| 18 | GPT-4o | 95/208 | 45.7% | 43.9% | OpenAI |
-| 19 | Claude Sonnet 4.5 | 92/208 | 44.2% | 43.9% | Anthropic |
-| 20 | GPT-3.5 Turbo | 92/208 | 44.2% | 53.0% | OpenAI |
-| 21 | Qwen2.5-Coder 14B | 90/208 | 43.3% | 47.0% | Ollama |
-| 22 | Qwen2.5-Coder | 86/208 | 41.3% | 54.5% | Ollama |
-| 23 | ChatGPT-4o-latest | 79/208 | 38.0% | 53.0% | OpenAI |
+The benchmark evaluated 22 base AI models across 122 configurations (including temperature variants and security-level prompting) on a 350-point security scale. Rankings reflect security scores on 140 prompts with comprehensive multi-language support (Python, JavaScript, Go, Java, Rust, C#, C, and C++).
 
-**Note**: The table above shows baseline 208-point results for comparison with prior research. Current 350-point scores (140 prompts across 7 languages) show Codex.app with Security Skill at #1 (311/350, 88.9%), followed by Codex.app baseline (302/350, 86.3%), and Claude Code CLI (222/264, 84.1%). Complete current rankings are available in the project repository's MODEL_INVENTORY.md.
+**Top 20 Configurations (350-point scale, March 23 2026):**
 
-The "Vuln Rate" column shows the percentage of each model's generated code samples that scored zero (fully vulnerable).
+| Rank | Configuration | Score | Security % | Notes |
+|------|---------------|-------|------------|-------|
+| 1 | Codex.app + Security Skill | 311/350 | 88.9% | Highest score achieved |
+| 2 | Codex.app (Baseline) | 302/350 | 86.3% | No security skill |
+| 3 | DeepSeek-Coder (temp 0.7) | 252/350 | 72.0% | Optimal temperature |
+| 4 | StarCoder2 (temp 1.0) | 248/350 | 70.9% | Optimal temperature |
+| 5 | DeepSeek-Coder (temp 1.0) | 248/350 | 70.9% | High temperature |
+| 6 | GPT-5.2 (default) | 241/350 | 68.9% | Best base OpenAI |
+| 7 | GPT-5.2 (temp 0.7) | 237/350 | 67.7% | - |
+| 8 | StarCoder2 (temp 0.7) | 237/350 | 67.7% | - |
+| 9 | DeepSeek-Coder (default) | 236/350 | 67.4% | Baseline config |
+| 10 | DeepSeek-Coder (Level 1) | 235/350 | 67.1% | Security prompting |
+| 11 | StarCoder2 (temp 0.5) | 234/350 | 66.9% | - |
+| 12 | DeepSeek-Coder (temp 0.5) | 234/350 | 66.9% | - |
+| 13 | GPT-5.2 (temp 0.0) | 233/350 | 66.6% | Deterministic |
+| 14 | GPT-5.2 (temp 0.5) | 233/350 | 66.6% | - |
+| 15 | DeepSeek-Coder (Level 2) | 233/350 | 66.6% | Security prompting |
+| 16 | GPT-5.2 (temp 1.0) | 232/350 | 66.3% | - |
+| 17 | DeepSeek-Coder (Level 3) | 230/350 | 65.7% | Security prompting |
+| 18 | Claude Opus 4.6 (temp 0.0) | 229/350 | 65.4% | Deterministic |
+| 19 | DeepSeek-Coder (Level 5) | 229/350 | 65.4% | Self-review |
+| 20 | DeepSeek-Coder (temp 0.0) | 228/350 | 65.1% | Deterministic |
+
+**Key Findings:**
+
+- **Wrapper engineering works**: Codex.app (+24.0% vs GPT-5.4 API at 64.9%), demonstrating that application-level security improvements significantly outperform base model APIs
+- **Temperature is a security parameter**: DeepSeek-Coder ranges from 65.1% (temp 0.0) to 72.0% (temp 0.7), a 6.9 percentage point difference
+- **Open-source models competitive**: DeepSeek-Coder and StarCoder2 outperform all base commercial APIs except GPT-5.2
+- **Configuration matters as much as model selection**: The gap between optimal and suboptimal temperature for the same model (6.9 pp for DeepSeek) rivals the gap between different model families
+
+Complete rankings for all 122 configurations, including incomplete generations, are available in `docs/MODEL_INVENTORY.md`.
 
 ### 4.3 Vulnerability Category Analysis
 
