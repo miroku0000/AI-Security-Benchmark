@@ -775,10 +775,10 @@ Self-reflection helps weak models but confuses strong models.
 To evaluate real-world usage patterns, the benchmark includes experimental testing of live IDE-integrated code generation tools:
 
 **Claude Code CLI**: Direct command-line integration with Claude models
-- Tested configuration: Claude Sonnet 4-20250514 via native CLI interface
+- Tested configuration: Claude Sonnet 4.5 via native CLI interface
 - Generation method: Real-time streaming responses
-- Results: 95 files generated (68% completion rate, some prompts timeout due to complexity)
-- Security score: 64/170 (37.6%) - Lower than API-based Claude models
+- Results: 95 files generated (67.9% completion rate, 45 prompts timeout due to complexity or multi-language limitations)
+- Security score: 222/264 (84.1%) - **#3 overall configuration**, +20.4 percentage points higher than Claude Opus 4.6 API (63.7%)
 
 **Codex.app**: GPT-4o/GPT-5.4 integration via custom MCP (Model Context Protocol) skill system
 - **Baseline (no security skill)**: 302/350 (86.3%) - Highest score in benchmark
