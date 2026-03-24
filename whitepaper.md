@@ -210,41 +210,50 @@ The gap between the best model (Codex.app with Security Skill at 88.9%) and weak
 
 ### 4.2 Model Rankings
 
-The benchmark evaluated 22 base AI models across 122 configurations (including temperature variants and security-level prompting) on a 350-point security scale. Rankings reflect security scores on 140 prompts with comprehensive multi-language support (Python, JavaScript, Go, Java, Rust, C#, C, and C++).
+The benchmark evaluated 22 base AI models across 26 baseline configurations on a 350-point security scale. Rankings shown below use default temperature settings for each model (typically 0.2 for API models, default for local models). Temperature variants, security-level prompting experiments, and other configuration studies are analyzed separately in Sections 4.6 and 4.8.
 
-**Top 20 Configurations (350-point scale, March 23 2026):**
+**Baseline Model Rankings (350-point scale, default temperatures, March 23 2026):**
 
-| Rank | Configuration | Score | Security % | Notes |
-|------|---------------|-------|------------|-------|
-| 1 | Codex.app + Security Skill | 311/350 | 88.9% | Highest score achieved |
-| 2 | Codex.app (Baseline) | 302/350 | 86.3% | No security skill |
-| 3 | DeepSeek-Coder (temp 0.7) | 252/350 | 72.0% | Optimal temperature |
-| 4 | StarCoder2 (temp 1.0) | 248/350 | 70.9% | Optimal temperature |
-| 5 | DeepSeek-Coder (temp 1.0) | 248/350 | 70.9% | High temperature |
-| 6 | GPT-5.2 (default) | 241/350 | 68.9% | Best base OpenAI |
-| 7 | GPT-5.2 (temp 0.7) | 237/350 | 67.7% | - |
-| 8 | StarCoder2 (temp 0.7) | 237/350 | 67.7% | - |
-| 9 | DeepSeek-Coder (default) | 236/350 | 67.4% | Baseline config |
-| 10 | DeepSeek-Coder (Level 1) | 235/350 | 67.1% | Security prompting |
-| 11 | StarCoder2 (temp 0.5) | 234/350 | 66.9% | - |
-| 12 | DeepSeek-Coder (temp 0.5) | 234/350 | 66.9% | - |
-| 13 | GPT-5.2 (temp 0.0) | 233/350 | 66.6% | Deterministic |
-| 14 | GPT-5.2 (temp 0.5) | 233/350 | 66.6% | - |
-| 15 | DeepSeek-Coder (Level 2) | 233/350 | 66.6% | Security prompting |
-| 16 | GPT-5.2 (temp 1.0) | 232/350 | 66.3% | - |
-| 17 | DeepSeek-Coder (Level 3) | 230/350 | 65.7% | Security prompting |
-| 18 | Claude Opus 4.6 (temp 0.0) | 229/350 | 65.4% | Deterministic |
-| 19 | DeepSeek-Coder (Level 5) | 229/350 | 65.4% | Self-review |
-| 20 | DeepSeek-Coder (temp 0.0) | 228/350 | 65.1% | Deterministic |
+| Rank | Model / Application | Score | Security % | Provider | Type |
+|------|---------------------|-------|------------|----------|------|
+| 1 | **Codex.app + Security Skill** | **311/350** | **88.9%** | OpenAI | Wrapper (GPT-5.4) |
+| 2 | **Codex.app (Baseline)** | **302/350** | **86.3%** | OpenAI | Wrapper (GPT-5.4) |
+| 3 | GPT-5.2 | 241/350 | 68.9% | OpenAI | API |
+| 4 | DeepSeek-Coder | 236/350 | 67.4% | Ollama | Local |
+| 5 | StarCoder2 | 228/350 | 65.1% | Ollama | Local |
+| 6 | GPT-5.4 | 227/350 | 64.9% | OpenAI | API |
+| 7 | Claude Opus 4.6 | 223/350 | 63.7% | Anthropic | API |
+| 8 | o3 | 216/350 | 61.7% | OpenAI | API |
+| 9 | Gemini 2.5 Flash | 209/350 | 59.7% | Google | API |
+| 10 | Cursor | 209/350 | 59.7% | Cursor Inc. | Application |
+| 11 | GPT-5.4-mini | 205/350 | 58.6% | OpenAI | API |
+| 12 | CodeLlama | 203/350 | 58.0% | Ollama | Local |
+| 13 | Llama 3.1 | 195/350 | 55.7% | Ollama | Local |
+| 14 | DeepSeek-Coder 6.7B | 193/350 | 55.1% | Ollama | Local |
+| 15 | o1 | 192/350 | 54.9% | OpenAI | API |
+| 16 | CodeGemma | 189/350 | 54.0% | Ollama | Local |
+| 17 | GPT-4o (multilang) | 183/350 | 52.3% | OpenAI | API |
+| 18 | Mistral | 183/350 | 52.3% | Ollama | Local |
+| 19 | GPT-3.5 Turbo | 182/350 | 52.0% | OpenAI | API |
+| 20 | o3-mini | 180/350 | 51.4% | OpenAI | API |
+| 21 | GPT-4o | 180/350 | 51.4% | OpenAI | API |
+| 22 | GPT-4 | 179/350 | 51.1% | OpenAI | API |
+| 23 | Claude Sonnet 4.5 | 179/350 | 51.1% | Anthropic | API |
+| 24 | GPT-4o-mini | 175/350 | 50.0% | OpenAI | API |
+| 25 | Qwen2.5-Coder | 173/350 | 49.4% | Ollama | Local |
+| 26 | Qwen2.5-Coder 14B | 172/350 | 49.1% | Ollama | Local |
 
 **Key Findings:**
 
-- **Wrapper engineering works**: Codex.app (+24.0% vs GPT-5.4 API at 64.9%), demonstrating that application-level security improvements significantly outperform base model APIs
-- **Temperature is a security parameter**: DeepSeek-Coder ranges from 65.1% (temp 0.0) to 72.0% (temp 0.7), a 6.9 percentage point difference
-- **Open-source models competitive**: DeepSeek-Coder and StarCoder2 outperform all base commercial APIs except GPT-5.2
-- **Configuration matters as much as model selection**: The gap between optimal and suboptimal temperature for the same model (6.9 pp for DeepSeek) rivals the gap between different model families
+- **Wrapper engineering works**: Codex.app with Security Skill achieves 88.9% (+24.0% vs GPT-5.4 API at 64.9%), demonstrating that application-level security improvements significantly outperform base model APIs
+- **Open-source models competitive**: DeepSeek-Coder (67.4%) and StarCoder2 (65.1%) outperform all commercial APIs except GPT-5.2
+- **Wide performance variance**: 37.8 percentage point gap between best configuration (Codex.app with skill, 88.9%) and weakest model (Qwen2.5-Coder 14B, 49.1%)
+- **Model size doesn't guarantee security**: Smaller specialized models (DeepSeek-Coder) outperform larger general-purpose models (GPT-4, Claude Sonnet 4.5)
 
-Complete rankings for all 122 configurations, including incomplete generations, are available in `docs/MODEL_INVENTORY.md`.
+**Extended Studies:**
+- Temperature variants (Section 4.6): 95 configurations show temperature can shift security scores by up to 9.6 percentage points
+- Security-level prompting (Section 4.8): 24 configurations demonstrate "Inverse Correlation Law" - security prompting helps weak models but harms strong models
+- Complete catalog of all 122+ tested configurations: `docs/MODEL_INVENTORY.md`
 
 ### 4.3 Vulnerability Category Analysis
 
