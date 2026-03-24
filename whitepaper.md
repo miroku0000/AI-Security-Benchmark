@@ -223,29 +223,32 @@ The benchmark evaluated 22 base AI models across 26 baseline configurations on a
 | 5 | StarCoder2 | 228/350 | 65.1% | Ollama | Local |
 | 6 | GPT-5.4 | 227/350 | 64.9% | OpenAI | API |
 | 7 | Claude Opus 4.6 | 223/350 | 63.7% | Anthropic | API |
-| 8 | o3 | 216/350 | 61.7% | OpenAI | API |
-| 9 | Gemini 2.5 Flash | 209/350 | 59.7% | Google | API |
-| 10 | Cursor | 209/350 | 59.7% | Cursor Inc. | Application |
-| 11 | GPT-5.4-mini | 205/350 | 58.6% | OpenAI | API |
-| 12 | CodeLlama | 203/350 | 58.0% | Ollama | Local |
-| 13 | Llama 3.1 | 195/350 | 55.7% | Ollama | Local |
-| 14 | DeepSeek-Coder 6.7B | 193/350 | 55.1% | Ollama | Local |
-| 15 | o1 | 192/350 | 54.9% | OpenAI | API |
-| 16 | CodeGemma | 189/350 | 54.0% | Ollama | Local |
-| 17 | GPT-4o (multilang) | 183/350 | 52.3% | OpenAI | API |
-| 18 | Mistral | 183/350 | 52.3% | Ollama | Local |
-| 19 | GPT-3.5 Turbo | 182/350 | 52.0% | OpenAI | API |
-| 20 | o3-mini | 180/350 | 51.4% | OpenAI | API |
-| 21 | GPT-4o | 180/350 | 51.4% | OpenAI | API |
-| 22 | GPT-4 | 179/350 | 51.1% | OpenAI | API |
-| 23 | Claude Sonnet 4.5 | 179/350 | 51.1% | Anthropic | API |
-| 24 | GPT-4o-mini | 175/350 | 50.0% | OpenAI | API |
-| 25 | Qwen2.5-Coder | 173/350 | 49.4% | Ollama | Local |
-| 26 | Qwen2.5-Coder 14B | 172/350 | 49.1% | Ollama | Local |
+| 8 | **Claude Code CLI** | **222/264** | **84.1%** | Anthropic | Wrapper (Sonnet 4.5) |
+| 9 | o3 | 216/350 | 61.7% | OpenAI | API |
+| 10 | Gemini 2.5 Flash | 209/350 | 59.7% | Google | API |
+| 11 | Cursor | 209/350 | 59.7% | Unknown | Wrapper |
+| 12 | GPT-5.4-mini | 205/350 | 58.6% | OpenAI | API |
+| 13 | CodeLlama | 203/350 | 58.0% | Ollama | Local |
+| 14 | Llama 3.1 | 195/350 | 55.7% | Ollama | Local |
+| 15 | DeepSeek-Coder 6.7B | 193/350 | 55.1% | Ollama | Local |
+| 16 | o1 | 192/350 | 54.9% | OpenAI | API |
+| 17 | CodeGemma | 189/350 | 54.0% | Ollama | Local |
+| 18 | GPT-4o (multilang) | 183/350 | 52.3% | OpenAI | API |
+| 19 | Mistral | 183/350 | 52.3% | Ollama | Local |
+| 20 | GPT-3.5 Turbo | 182/350 | 52.0% | OpenAI | API |
+| 21 | o3-mini | 180/350 | 51.4% | OpenAI | API |
+| 22 | GPT-4o | 180/350 | 51.4% | OpenAI | API |
+| 23 | GPT-4 | 179/350 | 51.1% | OpenAI | API |
+| 24 | Claude Sonnet 4.5 | 179/350 | 51.1% | Anthropic | API |
+| 25 | GPT-4o-mini | 175/350 | 50.0% | OpenAI | API |
+| 26 | Qwen2.5-Coder | 173/350 | 49.4% | Ollama | Local |
+| 27 | Qwen2.5-Coder 14B | 172/350 | 49.1% | Ollama | Local |
+
+**Note:** Claude Code CLI (rank #8) uses a 264-point scale (67.9% completion rate) rather than the 350-point scale used by other models, reflecting partial generation due to timeout limitations. Its 84.1% security percentage makes it the #3 highest-scoring configuration overall, demonstrating significant wrapper engineering benefits (+20.4 percentage points vs Claude Opus 4.6 API).
 
 **Key Findings:**
 
-- **Wrapper engineering works**: Codex.app with Security Skill achieves 88.9% (+24.0% vs GPT-5.4 API at 64.9%), demonstrating that application-level security improvements significantly outperform base model APIs
+- **Wrapper engineering works**: Codex.app with Security Skill achieves 88.9% (+24.0% vs GPT-5.4 API at 64.9%), Claude Code CLI achieves 84.1% (+20.4% vs Claude Opus 4.6 API at 63.7%), demonstrating that application-level security improvements significantly outperform base model APIs
 - **Open-source models competitive**: DeepSeek-Coder (67.4%) and StarCoder2 (65.1%) outperform all commercial APIs except GPT-5.2
 - **Wide performance variance**: 37.8 percentage point gap between best configuration (Codex.app with skill, 88.9%) and weakest model (Qwen2.5-Coder 14B, 49.1%)
 - **Model size doesn't guarantee security**: Smaller specialized models (DeepSeek-Coder) outperform larger general-purpose models (GPT-4, Claude Sonnet 4.5)
@@ -1034,9 +1037,11 @@ The findings establish that AI code generation security is not a binary property
 
 4. Tony, C., Mutas, M., Ferreyra, N.E.D., Scandariato, R. (2023). LLMSecEval: A Dataset of Natural Language Prompts for Security Evaluations. *IEEE/ACM International Conference on Mining Software Repositories (MSR)*.
 
-5. OWASP Foundation. (2021). OWASP Top 10:2021. https://owasp.org/Top10/
+5. GitHub, Inc. (2024). GitHub Copilot: The AI Pair Programmer. *GitHub Resources*. https://resources.github.com/learn/pathways/copilot/essentials/github-copilot-productivity-statistics/
 
-6. MITRE Corporation. (2024). CWE Top 25 Most Dangerous Software Weaknesses. https://cwe.mitre.org/top25/
+6. OWASP Foundation. (2021). OWASP Top 10:2021. https://owasp.org/Top10/
+
+7. MITRE Corporation. (2024). CWE Top 25 Most Dangerous Software Weaknesses. https://cwe.mitre.org/top25/
 
 ---
 
