@@ -249,6 +249,7 @@ The benchmark evaluated 22 base AI models across 26 baseline configurations on a
 **Key Findings:**
 
 - **Wrapper engineering works**: Codex.app with Security Skill achieves 88.9% (+24.0% vs GPT-5.4 API at 64.9%), Claude Code CLI achieves 84.1% (+20.4% vs Claude Opus 4.6 API at 63.7%), demonstrating that application-level security improvements significantly outperform base model APIs
+- **Even the best configuration still has vulnerabilities**: The 88.9% achieved by Codex.app with Security Skill represents the current state-of-the-art, but that still means **11.1% of code (39 out of 350 test cases) contained exploitable vulnerabilities** despite maximum security engineering efforts. No model achieves 100% security.
 - **Open-source models competitive**: DeepSeek-Coder (67.4%) and StarCoder2 (65.1%) outperform all commercial APIs except GPT-5.2
 - **Wide performance variance**: 37.8 percentage point gap between best configuration (Codex.app with skill, 88.9%) and weakest model (Qwen2.5-Coder 14B, 49.1%)
 - **Model size doesn't guarantee security**: Smaller specialized models (DeepSeek-Coder) outperform larger general-purpose models (GPT-4, Claude Sonnet 4.5)
@@ -663,6 +664,8 @@ A comprehensive investigation tested whether graduated security instruction impr
 #### Complete Results: The Inverse Correlation Law
 
 **Key Discovery:** Security prompting helps weak models but harms strong models. The effect of security prompting is inversely correlated with baseline model capability.
+
+**Critical Insight:** For strong models (>65% baseline), more explicit security guidance actually degraded security performance. This counterintuitive finding means that the most capable models perform best when given minimal security direction, relying instead on patterns learned during training.
 
 **deepseek-coder** (Strong Model - 67.4% baseline):
 
