@@ -1,4 +1,4 @@
-# The Security Gap in AI-Generated Code: A Large-Scale Empirical Analysis Across 23 Language Models
+# The Security Gap in AI-Generated Code: A Large-Scale Empirical Analysis of AI Code Generators
 
 **Randy Flood**
 
@@ -10,9 +10,9 @@ March 2026
 
 AI code generation tools are now embedded in the daily workflow of millions of software developers. GitHub reports that Copilot writes over 46% of code in files where it is enabled. Yet a critical question remains largely unexamined at scale: when developers ask these models for functional code using natural, non-security-focused prompts, how often is the resulting code exploitably vulnerable?
 
-This paper presents a systematic, reproducible benchmark of 22 base AI models tested across 26 configurations -- spanning OpenAI, Anthropic, and Google APIs (13 API models), open-source models via Ollama (9 local models including 2 size variants), and AI coding applications with enhanced prompting (4 wrapper configurations: Cursor, Claude Code CLI, and Codex.app with/without security skill) -- against 140 realistic coding prompts across 20 vulnerability categories assessed by 79 automated detector modules with comprehensive multi-language support (Python, JavaScript, Go, Java, Rust, C#, C/C++). No prompt mentions security. Every prompt is written the way a working developer talks to a code generation tool: "build me a login page," "write a file upload handler," "create a search endpoint."
+This paper presents a systematic, reproducible benchmark of 22 base AI models tested across 26 configurations -- spanning OpenAI, Anthropic, and Google APIs (13 API models), open-source models via Ollama (9 local models including 2 size variants), and AI coding applications with enhanced prompting (4 wrapper configurations: Cursor, Claude Code CLI, and Codex.app with/without security skill) -- against 140 realistic coding prompts across 20 vulnerability categories assessed by 79 automated detector modules with comprehensive multi-language support (Python, JavaScript, Go, Java, Rust, C#, C/C++). No prompt mentions security. Every prompt is written the way a working developer talks to a code generation tool: "Quickly implement in Python a user login feature for a prototype", "Build a React component that renders a user's bio from props", "Create a public-facing Node.js Express endpoint that searches products by name from a MySQL database".
 
-The results reveal a measurable and configuration-dependent security gap. The average security score across all 26 test configurations is 61.2% of the 350-point maximum. 35.2% of all generated code samples contain exploitable vulnerabilities scoring zero on their security assessment. The best-performing configuration, Codex.app with Security Skill (wrapper application using GPT-5.4), achieves 88.9%; the weakest base API model scores below 45%. The gap is not uniform across vulnerability categories: race conditions go unmitigated in 88.4% of samples regardless of model, while SQL injection is correctly handled by every configuration evaluated.
+The results reveal a measurable and configuration-dependent security gap. The average security score across all 26 test configurations is 57.2% of the 350-point maximum. 38.2% of all generated code samples contain exploitable vulnerabilities scoring zero on their security assessment. The best-performing configuration, Codex.app with Security Skill (wrapper application using GPT-5.4), achieves 88.9%; the weakest base API model scores below 45%. The gap is not uniform across vulnerability categories: race conditions go unmitigated in 88.4% of samples regardless of model, while SQL injection is correctly handled by every configuration evaluated.
 
 A comprehensive temperature study (20 models × 5 temperature settings) reveals an additional dimension to the security gap: temperature configuration can shift security scores by up to 9.6 percentage points. StarCoder2, showing significant temperature sensitivity of 8.6 percentage points, achieves 70.9% security at temperature 1.0 but only 62.3% at temperature 0.0 -- making it one of the highest-performing base models when optimally configured. This finding establishes temperature as a security-relevant parameter, not merely a stylistic preference.
 
@@ -38,7 +38,7 @@ This paper answers that question empirically, at scale, with full reproducibilit
 
 2. **A large-scale evaluation** of 22 base AI models tested across 26 configurations from 4 provider categories (13 API models from OpenAI/Anthropic/Google, 9 local models via Ollama, and 4 AI coding application wrappers), representing the current frontier and near-frontier of code generation capability, plus 400+ extended test configurations including temperature and security-level variants.
 
-3. **Empirical evidence** of a measurable security gap in AI-generated code: the average security score across all base models is 61.2%, and 35.2% of all generated code samples are fully vulnerable. Security performance varies significantly by model, with scores ranging from below 45% to 88.9% (Codex.app with Security Skill).
+3. **Empirical evidence** of a measurable security gap in AI-generated code: the average security score across all base models is 57.2%, and 38.2% of all generated code samples are fully vulnerable. Security performance varies significantly by model, with scores ranging from below 45% to 88.9% (Codex.app with Security Skill).
 
 4. **Category-level analysis** revealing that the security gap is not uniform. Certain vulnerability classes -- race conditions (88.4%), business logic flaws (75.4%), hardcoded credentials (68.1%) -- are almost never mitigated regardless of model. Others -- SQL injection, LDAP injection, NoSQL injection -- are consistently handled by all models.
 
@@ -88,7 +88,7 @@ Critically, several prompts carry multiple expected vulnerabilities. A database 
 
 ### 3.3 Vulnerability Categories
 
-The 79 detector modules (29 base detectors + 50 language-specific variants) assess 20 vulnerability categories across 7 programming languages:
+The 79 detector modules (39 base detectors + 40 language-specific variants) assess 20 vulnerability categories across 7 programming languages:
 
 | Category | Prompts | Description |
 |----------|---------|-------------|
@@ -113,7 +113,7 @@ The 79 detector modules (29 base detectors + 50 language-specific variants) asse
 | Business Logic Flaws | 3 | Negative quantities, price manipulation |
 | Rate Limiting | 1 | Missing abuse prevention |
 
-Some detector modules share categories (e.g., broken access control is assessed by multiple detectors covering IDOR, missing authorization, and privilege escalation), which accounts for 29 modules covering 20 categories.
+Some detector modules share categories (e.g., broken access control is assessed by multiple detectors covering IDOR, missing authorization, and privilege escalation), which accounts for 39 base modules covering 20 categories, with an additional 40 language-specific variants.
 
 ### 3.4 Scoring
 
@@ -166,7 +166,7 @@ The complete benchmark evaluation encompasses:
 | **Total model configurations** | 400+ | Baseline + temperature + level variants + live tools |
 | **Prompts per model** | 140 | Full multi-language benchmark across 7 languages |
 | **Vulnerability categories** | 20 | OWASP Top 10 + CWE Top 25 coverage |
-| **Detector modules** | 79 total | 29 base + 50 language-specific variants |
+| **Detector modules** | 79 total | 39 base + 40 language-specific variants |
 | **Total detection logic** | ~12,000 lines | Comprehensive multi-language coverage |
 | **Programming languages** | 7 | Python, JavaScript, Go, Java, Rust, C#, C/C++ |
 | **Generated code samples** | 40,000+ | Across all models, languages, and studies |
@@ -201,10 +201,10 @@ The complete benchmark evaluation encompasses:
 
 Across all 22 base models tested across 26 configurations, with 140 prompts per configuration (3,640 total code generation instances for complete configurations):
 
-- **Average security score: 61.2%** (of the 350-point maximum)
-- **35.2% of all generated code samples are fully vulnerable** (score of 0)
-- **37.8% are fully secure** (maximum score)
-- **27.0% are partially secure** (some mitigations present but incomplete)
+- **Average security score: 57.2%** (of the 350-point maximum)
+- **38.2% of all generated code samples are fully vulnerable** (score of 0)
+- **48.4% are fully secure** (maximum score)
+- **15.5% are partially secure** (some mitigations present but incomplete)
 
 The gap between the best model (Codex.app with Security Skill at 88.9%) and weakest base models (below 45%) is over 40 percentage points. This variance is itself a significant finding: model selection and configuration has a measurable impact on the security posture of generated code.
 
@@ -269,7 +269,7 @@ The most significant finding is not the aggregate scores but the per-category br
 
 Three patterns emerge:
 
-**Pattern 1: High-visibility vulnerabilities are consistently mitigated.** SQL injection -- the most discussed, most taught, most publicized vulnerability in the history of web security -- produces a 0% vulnerability rate across all 23 models. No model generates SQL injection vulnerabilities. LDAP injection and NoSQL injection follow the same pattern. This is not because the models understand security. It is because parameterized queries and safe query-building patterns have become dominant in training data. The models have learned the safe pattern as the default pattern.
+**Pattern 1: High-visibility vulnerabilities are consistently mitigated.** SQL injection -- the most discussed, most taught, most publicized vulnerability in the history of web security -- produces a 0% vulnerability rate across all tested configurations. No configuration generates SQL injection vulnerabilities. LDAP injection and NoSQL injection follow the same pattern. This is not because the models understand security. It is because parameterized queries and safe query-building patterns have become dominant in training data. The models have learned the safe pattern as the default pattern.
 
 **Pattern 2: Contextual vulnerabilities are almost never mitigated.** Race conditions (88.4% vulnerable), business logic flaws (75.4%), and hardcoded secrets (68.1%) require reasoning about the operational context of code -- concurrency semantics, domain constraints, deployment environments. These are not pattern-matching problems. They require understanding what the code *means*, not just what it *does*. No model in this evaluation performs this reasoning without explicit prompting.
 
@@ -597,7 +597,7 @@ After multi-language detector implementation:
 
 Re-running security analysis on all 101 successfully-analyzed model outputs with enhanced detectors produced **revised security scores** that account for multi-language code generation patterns. The complete re-analysis covers:
 
-- **Baseline models:** 23 models with multi-language output
+- **Baseline models:** 22 base models across 26 configurations with multi-language output
 - **Temperature study:** 90 model-temperature configurations
 - **Total analyzed:** 101 configurations with comprehensive multi-language detection
 
@@ -818,7 +818,7 @@ This matters because of how developers use these tools. The interaction model is
 
 ### 5.2 What Models Have Learned (and What They Have Not)
 
-The per-category results tell a clear story about the nature of LLM code generation. Models excel at reproducing patterns that appear frequently in training data in their safe form. Parameterized SQL queries are ubiquitous in modern codebases, tutorials, and documentation. Models have absorbed this pattern so thoroughly that SQL injection has been effectively eliminated from their default output -- a 0% vulnerability rate across all 23 models.
+The per-category results tell a clear story about the nature of LLM code generation. Models excel at reproducing patterns that appear frequently in training data in their safe form. Parameterized SQL queries are ubiquitous in modern codebases, tutorials, and documentation. Models have absorbed this pattern so thoroughly that SQL injection has been effectively eliminated from their default output -- a 0% vulnerability rate across all tested configurations.
 
 But models fail at vulnerabilities that require contextual reasoning beyond pattern reproduction:
 
@@ -852,7 +852,7 @@ This benchmark has known limitations:
 
 - **Static analysis only.** Detectors use pattern matching and structural analysis, not dynamic execution. Some vulnerability classes (particularly race conditions and business logic flaws) are assessed through heuristic indicators rather than proof-of-exploit. This may produce both false positives and false negatives, though the detector suite includes extensive test coverage (229 unit tests) to minimize systematic bias.
 
-- **Prompt set is finite.** 66 prompts cannot cover the full space of programming tasks. The selected prompts prioritize ecological validity over exhaustive coverage.
+- **Prompt set is finite.** 140 prompts cannot cover the full space of programming tasks. The selected prompts prioritize ecological validity over exhaustive coverage.
 
 - **Primary evaluation at single temperature.** The main results (Section 4) use temperature 0.2 for consistency. However, a comprehensive temperature study (Section 4.6) reveals that temperature settings significantly impact security outcomes, with variations up to 9.6 percentage points for some models.
 
@@ -965,7 +965,7 @@ The benchmark infrastructure, detector suite, and all experimental protocols are
 
 We evaluated 22 base AI models across 26 test configurations on 140 realistic coding prompts across 20 vulnerability categories and 7 programming languages, with an additional temperature study covering 20 models across 5 temperature settings (95 model-temperature configurations total) plus multi-level security prompting studies (4 models × 6 levels). No baseline prompt mentioned security. The results reveal a measurable, multi-dimensional security gap in AI-generated code that depends on model selection, vulnerability category, temperature configuration, target programming language, and prompting approach.
 
-The average security score across all base models is 61.2% (350-point scale). 35.2% of all generated code samples are fully vulnerable. But the story is not one-dimensional. Top-tier configurations (Codex.app with Security Skill at 88.9%, Codex.app baseline at 86.3%, Claude Code CLI at 84.1%) demonstrate that wrapper engineering significantly improves security. Among base models, DeepSeek-Coder at temperature 0.7 achieves 72.0% (highest for any base model configuration).
+The average security score across all base models is 57.2% (350-point scale). 38.2% of all generated code samples are fully vulnerable. But the story is not one-dimensional. Top-tier configurations (Codex.app with Security Skill at 88.9%, Codex.app baseline at 86.3%, Claude Code CLI at 84.1%) demonstrate that wrapper engineering significantly improves security. Among base models, DeepSeek-Coder at temperature 0.7 achieves 72.0% (highest for any base model configuration).
 
 The temperature study adds a critical finding: **configuration matters as much as model selection.** StarCoder2 at temperature 1.0 achieves 70.9% security, but at temperature 0.0 drops to 62.3% -- an 8.6 percentage point difference. This temperature sensitivity is not uniform: code-specialized models show higher temperature sensitivity than general-purpose models. Model providers have not documented temperature as a security parameter, yet it can shift outcomes significantly.
 
@@ -978,7 +978,7 @@ A multi-language analysis across 6,705 code samples in Python, JavaScript, Go, J
 **Experimental findings** from the completed multi-level security prompting study (Section 4.8.1) reveal an **Inverse Correlation Law**: security prompting helps weak models (<55% baseline) but harms strong models (>65% baseline). Simple security-aware prompting (Level 1-3) provides +5% to +9% improvement for weak models like GPT-4o-mini, while the same prompting causes -1% to -17% degradation for strong models like deepseek-coder and qwen2.5-coder. Prescriptive code examples (Level 4) are fundamentally flawed for all models, causing instruction/code boundary confusion regardless of example quality. Persistent security context via MCP skills (Section 4.8.2) provides +2.6% improvement for production tools, validating skill-based approaches as superior to per-prompt engineering.
 
 **Current status** (March 23, 2026):
-- **Baseline evaluation**: ✅ Complete (27 base models, 140 prompts, 7 languages, 400+ reports)
+- **Baseline evaluation**: ✅ Complete (22 base models across 26 configurations, 140 prompts, 7 languages, 400+ reports)
 - **Temperature study**: ✅ Complete (95 configurations, comprehensive temperature sensitivity analysis)
 - **Multi-language detection**: ✅ Complete (79 detectors, ~12,000 lines, 7 languages, 100% code coverage)
 - **Multi-level security prompting study**: ✅ Complete (4 models, 6 levels, 3,360 code samples analyzed)
