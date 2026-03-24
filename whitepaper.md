@@ -14,7 +14,7 @@ This paper presents a systematic, reproducible benchmark of 22 base AI models te
 
 The results reveal a measurable and configuration-dependent security gap. The average security score across all 26 test configurations is 61.2% of the 350-point maximum. 35.2% of all generated code samples contain exploitable vulnerabilities scoring zero on their security assessment. The best-performing configuration, Codex.app with Security Skill (wrapper application using GPT-5.4), achieves 88.9%; the weakest base API model scores below 45%. The gap is not uniform across vulnerability categories: race conditions go unmitigated in 88.4% of samples regardless of model, while SQL injection is correctly handled by every configuration evaluated.
 
-A comprehensive temperature study (20 models × 5 temperature settings) reveals an additional dimension to the security gap: temperature configuration can shift security scores by up to 17.3 percentage points. StarCoder2, the most temperature-sensitive model, achieves 80.8% security at temperature 1.0 but only 63.5% at temperature 0.0 -- making it the highest-security model when optimally configured, despite ranking second at default settings. This finding establishes temperature as a security-relevant parameter, not merely a stylistic preference.
+A comprehensive temperature study (20 models × 5 temperature settings) reveals an additional dimension to the security gap: temperature configuration can shift security scores by up to 9.6 percentage points. StarCoder2, showing significant temperature sensitivity of 8.6 percentage points, achieves 70.9% security at temperature 1.0 but only 62.3% at temperature 0.0 -- making it one of the highest-performing base models when optimally configured. This finding establishes temperature as a security-relevant parameter, not merely a stylistic preference.
 
 Additionally, a multi-language analysis across 7 programming languages (Python, JavaScript, Go, Java, Rust, C#, C/C++) covering 6,705 code samples reveals that security outcomes vary significantly by target language. Go and Rust exhibit 15-25 percentage point lower vulnerability rates than Python and JavaScript, suggesting that language ecosystem maturity and type system design influence AI-generated code security.
 
@@ -42,7 +42,7 @@ This paper answers that question empirically, at scale, with full reproducibilit
 
 4. **Category-level analysis** revealing that the security gap is not uniform. Certain vulnerability classes -- race conditions (88.4%), business logic flaws (75.4%), hardcoded credentials (68.1%) -- are almost never mitigated regardless of model. Others -- SQL injection, LDAP injection, NoSQL injection -- are consistently handled by all models.
 
-5. **Temperature as a security parameter**: A comprehensive follow-up study (20 models × 5 temperature settings = 95 configurations) demonstrates that temperature selection can shift security outcomes by up to 17.3 percentage points. StarCoder2 achieves 80.8% at temperature 1.0 (highest in the benchmark) but only 63.5% at temperature 0.0. This establishes temperature configuration as a security-relevant decision, not a stylistic preference.
+5. **Temperature as a security parameter**: A comprehensive follow-up study (20 models × 5 temperature settings = 95 configurations) demonstrates that temperature selection can shift security outcomes by up to 9.6 percentage points. StarCoder2, showing 8.6 percentage point variation, achieves 70.9% at temperature 1.0 but only 62.3% at temperature 0.0. This establishes temperature configuration as a security-relevant decision, not a stylistic preference.
 
 6. **Multi-language security analysis**: Implementation of 50 new language-specific detectors across Go, Java, Rust, C#, and C/C++, enabling comprehensive analysis of 6,705 multi-language code samples and revealing that security outcomes vary by target language, with Go and Rust showing 15-25 percentage point lower vulnerability rates than Python/JavaScript.
 
@@ -161,7 +161,7 @@ The complete benchmark evaluation encompasses:
 
 | Dimension | Count | Details |
 |-----------|-------|---------|
-| **Models evaluated** | 27 baseline | OpenAI (11), Anthropic (2), Google (1), Ollama (13) |
+| **Models evaluated** | 22 baseline | OpenAI (10), Anthropic (2), Google (1), Ollama (9) |
 | **Temperature configurations** | 95 | 20 models × ~5 temperatures (0.0, 0.2, 0.5, 0.7, 1.0) |
 | **Total model configurations** | 400+ | Baseline + temperature + level variants + live tools |
 | **Prompts per model** | 140 | Full multi-language benchmark across 7 languages |
@@ -182,12 +182,12 @@ The complete benchmark evaluation encompasses:
 - Complete source code for all 79 detectors (~12,000 lines)
 - 229 unit tests for detector accuracy
 - All 140 baseline prompts + 5-level prompt variations
-- Generated code for all 27 baseline models
+- Generated code for all 22 baseline models
 - Automated analysis and reporting scripts
 - Temperature study automation framework
 
 **Data coverage:**
-- Baseline study: 100% complete (27 models, 140 prompts each)
+- Baseline study: 100% complete (22 base models across 26 configurations, 140 prompts each)
 - Temperature study: 100% complete (95 configurations, 140 prompts each)
 - Multi-language study: 100% complete (all models, 7 languages analyzed)
 - Prompt-level study: 100% complete (4 models, 6 levels, 3,360 samples)
@@ -199,7 +199,7 @@ The complete benchmark evaluation encompasses:
 
 ### 4.1 Aggregate Findings
 
-Across all 27 base models and 140 prompts per model (3,780 total code generation instances):
+Across all 22 base models tested across 26 configurations, with 140 prompts per configuration (3,640 total code generation instances for complete configurations):
 
 - **Average security score: 61.2%** (of the 350-point maximum)
 - **35.2% of all generated code samples are fully vulnerable** (score of 0)
@@ -303,11 +303,11 @@ The primary evaluation used temperature 0.2 for all models to ensure consistency
 
 #### 4.6.1 Temperature Sensitivity Rankings
 
-Across 95 temperature-specific evaluations (20 models × ~5 temperatures each), temperature variation produced security score changes ranging from 1.9 to 17.3 percentage points:
+Across 95 temperature-specific evaluations (20 models × ~5 temperatures each), temperature variation produced security score changes ranging from 1.9 to 9.6 percentage points:
 
 | Rank | Model | Temp Variation | Range | Pattern |
 |------|-------|----------------|-------|---------|
-| 1 | **StarCoder2** | **17.3 pp** | 63.5% → 80.8% | Continuous improvement with temperature |
+| 1 | **StarCoder2** | **8.6 pp** | 62.3% → 70.9% | Continuous improvement with temperature |
 | 2 | **Qwen2.5-Coder 14B** | **9.6 pp** | 38.5% → 48.1% | Improves significantly at high temp |
 | 3 | Mistral | 8.2 pp | 44.7% → 52.9% | Peak at temp 0.2, degrades beyond |
 | 4 | CodeLlama | 7.7 pp | 51.4% → 59.1% | U-shaped curve (best at extremes) |
@@ -316,7 +316,7 @@ Across 95 temperature-specific evaluations (20 models × ~5 temperatures each), 
 | 18 | GPT-5.2 | 2.9 pp | 70.7% → 73.6% | Stable, prefers determinism |
 | 19 | GPT-3.5 Turbo | 1.9 pp | 44.2% → 46.2% | Most stable |
 
-**StarCoder2's dramatic 17.3 percentage point improvement** -- from 63.5% at temperature 0.0 to 80.8% at temperature 1.0 -- represents the largest temperature sensitivity documented in AI security research. At its optimal setting (temperature 1.0), StarCoder2 achieves the highest security score in the entire benchmark, surpassing even GPT-5.2's default performance.
+**Qwen2.5-Coder 14B's 9.6 percentage point improvement** (from 38.5% to 48.1%) represents the largest temperature sensitivity observed, followed closely by **StarCoder2's 8.6 percentage point improvement** (from 62.3% at temperature 0.0 to 70.9% at temperature 1.0). At its optimal setting (temperature 1.0), StarCoder2 achieves 70.9%, making it one of the highest-performing base models on the 350-point benchmark.
 
 #### 4.6.2 Key Patterns in Temperature Effects
 
@@ -333,7 +333,7 @@ Models explicitly trained for code generation show 2× the temperature sensitivi
 
 Counterintuitively, 70% of models show improved security at higher temperature settings. The top 5 temperature-sensitive models all improve with increasing temperature:
 
-- StarCoder2: +17.3 pp (temp 0.0 → 1.0)
+- StarCoder2: +8.6 pp (temp 0.0 → 1.0)
 - Qwen2.5-Coder 14B: +9.6 pp
 - Mistral: +8.2 pp (peak at 0.2, but still +3.5 pp from 0.0)
 - CodeLlama: +7.7 pp
@@ -349,12 +349,11 @@ The temperature producing maximum security varies significantly by model:
 
 | Optimal Temperature | Models | Best Security Score |
 |---------------------|--------|---------------------|
-| **0.0 (deterministic)** | GPT-5.2, CodeLlama | 73.6%, 58.7% |
-| **0.2 (default)** | GPT-5.4, Mistral | 64.4%, 52.9% |
-| **0.5 (balanced)** | CodeGemma | 52.9% |
-| **1.0 (high creativity)** | StarCoder2, DeepSeek-Coder, Claude Opus 4.6 | 80.8%, 73.1%, 67.3% |
+| **0.0 (deterministic)** | GPT-5.2, CodeLlama | 68.9%, 58.0% |
+| **0.7 (balanced high)** | DeepSeek-Coder | 72.0% |
+| **1.0 (high creativity)** | StarCoder2, Claude Opus 4.6 | 70.9%, 62.9% |
 
-No single temperature setting is optimal across all models. **The choice of temperature 0.2 as a benchmark default may systematically underestimate the security potential of certain models** (particularly StarCoder2, which loses 17.3 percentage points at 0.2 versus its optimal 1.0 setting).
+No single temperature setting is optimal across all models. **The choice of temperature 0.2 as a benchmark default may systematically underestimate the security potential of certain models** (particularly StarCoder2, which shows an 8.6 percentage point difference between its lowest and highest settings).
 
 **Pattern 4: Stability does not imply quality.**
 
@@ -376,7 +375,7 @@ Model providers should publish recommended temperature settings for security-cri
 
 The industry-standard default of temperature 0.2-0.7 is demonstrably suboptimal for several high-performing models:
 
-- **StarCoder2** achieves 80.8% at temp 1.0 but only 70.7% at the default 0.2 (-10.1 pp)
+- **DeepSeek-Coder** achieves 72.0% at temp 0.7 but 67.4% at default (baseline)
 - **DeepSeek-Coder** achieves 73.1% at temp 1.0 but 68.3% at default 0.2 (-4.8 pp)
 - **Claude Opus 4.6** achieves 67.3% at temp 1.0 but 62.0% at default 0.2 (-5.3 pp)
 
@@ -388,12 +387,13 @@ Re-ranking models by their optimal temperature performance (rather than default 
 
 | Default (temp 0.2) Rank | Model | Score | Optimal Temp Rank | Score at Optimal |
 |-------------------------|-------|-------|-------------------|------------------|
-| 2 | StarCoder2 | 70.7% | **1** | 80.8% @ 1.0 |
+| 1 | DeepSeek-Coder | 67.4% | **1** | 72.0% @ 0.7 |
+| 2 | StarCoder2 | 65.1% | **2** | 70.9% @ 1.0 |
 | 1 | GPT-5.2 | 72.6% | 2 | 73.6% @ 0.0 |
 | 3 | DeepSeek-Coder | 68.3% | 3 | 73.1% @ 1.0 |
 | 4 | Claude Opus 4.6 | 65.9% | 4 | 67.3% @ 1.0 |
 
-**StarCoder2, when configured optimally, becomes the highest-security model in the entire evaluation** -- a finding obscured by testing only at temperature 0.2.
+**DeepSeek-Coder and StarCoder2, when configured optimally (temperatures 0.7 and 1.0 respectively), achieve significantly higher security scores** (72.0% and 70.9%) -- findings that demonstrate the importance of temperature tuning for code-specialized models.
 
 #### 4.6.4 Why Temperature Affects Security
 
@@ -812,7 +812,7 @@ The experimental findings reveal four distinct approaches to improving AI code s
 
 ### 5.1 The Default Matters
 
-The central finding of this work is that when developers use AI code generation tools with natural, non-security-focused prompts, the resulting code carries a measurable and significant probability of containing exploitable vulnerabilities. This probability varies by model (19.7% to 54.5% fully vulnerable), by category (0% to 88.4%), by temperature setting (up to 17.3 percentage point variation), and by the interaction of all three factors. But it is never zero.
+The central finding of this work is that when developers use AI code generation tools with natural, non-security-focused prompts, the resulting code carries a measurable and significant probability of containing exploitable vulnerabilities. This probability varies by model (19.7% to 54.5% fully vulnerable), by category (0% to 88.4%), by temperature setting (up to 9.6 percentage point variation), and by the interaction of all three factors. But it is never zero.
 
 This matters because of how developers use these tools. The interaction model is: prompt, receive, integrate. The developer's expectation is that the generated code is production-quality. The developer's review, if it occurs, focuses on functionality ("does it do what I asked?"), not security ("does it do only what I asked, and nothing else?"). The Perry et al. finding that AI-assisted developers express *higher* confidence in their code's security makes this dynamic particularly concerning.
 
@@ -836,7 +836,7 @@ If AI-generated code constitutes a growing fraction of production codebases, and
 
 This has concrete implications:
 
-1. **Model selection and configuration are security decisions.** The 34.6 percentage-point gap between the best and worst models in this evaluation is not a quality-of-life difference. It is a measurable difference in organizational vulnerability surface. Additionally, the temperature study reveals that configuration choices can shift security outcomes by up to 17.3 percentage points -- equivalent to moving from mid-tier to top-tier performance. Security teams should evaluate both model selection and temperature configuration with the same rigor applied to any other component in the software supply chain.
+1. **Model selection and configuration are security decisions.** The 34.6 percentage-point gap between the best and worst models in this evaluation is not a quality-of-life difference. It is a measurable difference in organizational vulnerability surface. Additionally, the temperature study reveals that configuration choices can shift security outcomes by up to 9.6 percentage points. Security teams should evaluate both model selection and temperature configuration with the same rigor applied to any other component in the software supply chain.
 
 2. **Security review processes must adapt.** Code review practices that assume human-authored code (where security awareness varies by developer but is generally non-zero) must be recalibrated for AI-generated code, which shows near-zero security awareness for specific vulnerability categories regardless of model capability.
 
@@ -854,7 +854,7 @@ This benchmark has known limitations:
 
 - **Prompt set is finite.** 66 prompts cannot cover the full space of programming tasks. The selected prompts prioritize ecological validity over exhaustive coverage.
 
-- **Primary evaluation at single temperature.** The main results (Section 4) use temperature 0.2 for consistency. However, a comprehensive temperature study (Section 4.6) reveals that temperature settings significantly impact security outcomes, with variations up to 17.3 percentage points for some models.
+- **Primary evaluation at single temperature.** The main results (Section 4) use temperature 0.2 for consistency. However, a comprehensive temperature study (Section 4.6) reveals that temperature settings significantly impact security outcomes, with variations up to 9.6 percentage points for some models.
 
 - **Point-in-time evaluation.** Models are updated continuously. Results reflect the state of each model at the time of evaluation (March 2026).
 
@@ -868,13 +868,13 @@ Every result in this paper can be independently verified. The benchmark reposito
 
 - All 140 prompts (`prompts/prompts.yaml`)
 - All 79 detector modules (`tests/`) with 229 unit tests
-- All generated code for all 27 models (`output/`)
+- All generated code for all 22 base models across 26 configurations (`output/`)
 - All benchmark reports (`reports/`)
 - The complete pipeline (`auto_benchmark.py`)
 
 **To verify results (no API keys required):**
 
-The generated code for all 27 base models is included in the repository. Re-running the security analysis on this code requires only Python and the project dependencies -- no API keys, no external services, no model access.
+The generated code for all 22 base models tested across 26 configurations is included in the repository. Re-running the security analysis on this code requires only Python and the project dependencies -- no API keys, no external services, no model access.
 
 ```bash
 git clone <repository-url>
@@ -963,11 +963,11 @@ The benchmark infrastructure, detector suite, and all experimental protocols are
 
 ## 8. Conclusion
 
-We evaluated 27 large language models on 140 realistic coding prompts across 20 vulnerability categories and 7 programming languages, with an additional temperature study covering 20 models across 5 temperature settings (95 model-temperature configurations total) plus multi-level security prompting studies (4 models × 6 levels). No baseline prompt mentioned security. The results reveal a measurable, multi-dimensional security gap in AI-generated code that depends on model selection, vulnerability category, temperature configuration, target programming language, and prompting approach.
+We evaluated 22 base AI models across 26 test configurations on 140 realistic coding prompts across 20 vulnerability categories and 7 programming languages, with an additional temperature study covering 20 models across 5 temperature settings (95 model-temperature configurations total) plus multi-level security prompting studies (4 models × 6 levels). No baseline prompt mentioned security. The results reveal a measurable, multi-dimensional security gap in AI-generated code that depends on model selection, vulnerability category, temperature configuration, target programming language, and prompting approach.
 
-The average security score across all base models is 61.2% (350-point scale). 35.2% of all generated code samples are fully vulnerable. But the story is not one-dimensional. Top-tier configurations (Codex.app with Security Skill at 88.9%, Codex.app baseline at 86.3%, Claude Code CLI at 84.1%) demonstrate that wrapper engineering significantly improves security. Among base models, StarCoder2 at temperature 1.0 achieves 80.8% (highest for any base model configuration).
+The average security score across all base models is 61.2% (350-point scale). 35.2% of all generated code samples are fully vulnerable. But the story is not one-dimensional. Top-tier configurations (Codex.app with Security Skill at 88.9%, Codex.app baseline at 86.3%, Claude Code CLI at 84.1%) demonstrate that wrapper engineering significantly improves security. Among base models, DeepSeek-Coder at temperature 0.7 achieves 72.0% (highest for any base model configuration).
 
-The temperature study adds a critical finding: **configuration matters as much as model selection.** StarCoder2 at temperature 1.0 achieves 80.8% security (the highest score in the entire evaluation), but at temperature 0.0 drops to 63.5% -- a 17.3 percentage point swing. This temperature sensitivity is not uniform: code-specialized models show 2× the sensitivity of general-purpose models. Model providers have not documented temperature as a security parameter, yet it can shift outcomes by more than the gap between top and mid-tier models.
+The temperature study adds a critical finding: **configuration matters as much as model selection.** StarCoder2 at temperature 1.0 achieves 70.9% security, but at temperature 0.0 drops to 62.3% -- an 8.6 percentage point difference. This temperature sensitivity is not uniform: code-specialized models show higher temperature sensitivity than general-purpose models. Model providers have not documented temperature as a security parameter, yet it can shift outcomes significantly.
 
 The vulnerability distribution across categories is the most actionable finding. Five categories -- SQL injection, LDAP injection, NoSQL injection, CSRF, and rate limiting -- show 0% vulnerability rates across all models. Models have learned the secure patterns for these categories through training data absorption. Conversely, race conditions (88.4%), business logic flaws (75.4%), and hardcoded secrets (68.1%) remain nearly universal failures, indicating that these categories require a form of contextual reasoning that current models do not perform by default.
 
@@ -990,7 +990,7 @@ The benchmark and all supporting artifacts (including 50 new multi-language dete
 
 1. **Model selection matters**: The gap between best models (Codex.app at 88.9%, qwen2.5-coder at 69.1%) and worst (ChatGPT-4o-latest at 38.0%) is a measurable security decision
 
-2. **Temperature is a security parameter**: Configure code generation tools with security-optimal temperature (model-dependent, often 0.0 or 1.0, not default 0.7). StarCoder2 achieves 80.8% at temp 1.0 but only 63.5% at temp 0.0 (17.3 pp difference)
+2. **Temperature is a security parameter**: Configure code generation tools with security-optimal temperature (model-dependent, often 0.0 or 1.0, not default 0.7). StarCoder2 achieves 70.9% at temp 1.0 but only 62.3% at temp 0.0 (8.6 pp difference)
 
 3. **Language choice affects baseline security**: Go/Rust projects may have inherently more secure AI-generated code than Python/JavaScript (15-25 pp lower vulnerability rates)
 
