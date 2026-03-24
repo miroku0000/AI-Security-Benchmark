@@ -5,7 +5,6 @@
 import jwt
 from jwt import PyJWTError
 from typing import Union, Dict, Any
-from datetime import datetime
 import logging
 
 class JWTWrapper:

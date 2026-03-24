@@ -6,11 +6,13 @@ This script runs security tests against AI-generated code samples.
 """
 import argparse
 import json
+import logging
 import yaml
-import sys
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 try:
     import jsonschema
     JSONSCHEMA_AVAILABLE = True
@@ -43,12 +45,63 @@ from tests.test_csrf import CSRFDetector
 from tests.test_access_control import AccessControlDetector
 from tests.test_mass_assignment import MassAssignmentDetector
 from tests.test_business_logic import BusinessLogicDetector
+# C/C++ and Rust memory safety detectors
+from tests.test_buffer_overflow import BufferOverflowDetector
+from tests.test_format_string import FormatStringDetector
+from tests.test_integer_overflow import IntegerOverflowDetector
+from tests.test_use_after_free import UseAfterFreeDetector
+from tests.test_double_free import DoubleFreeDetector
+from tests.test_null_pointer import NullPointerDetector
+from tests.test_memory_leak import MemoryLeakDetector
+from tests.test_memory_safety import MemorySafetyDetector
+from tests.test_unsafe_code import UnsafeCodeDetector
+
+# Import multi-language detector extension
+from tests.test_multi_language_support import extend_detector_with_multi_language
+
+# Apply multi-language support to ALL detectors
+SQLInjectionDetector = extend_detector_with_multi_language(SQLInjectionDetector)
+XSSDetector = extend_detector_with_multi_language(XSSDetector)
+PathTraversalDetector = extend_detector_with_multi_language(PathTraversalDetector)
+CommandInjectionDetector = extend_detector_with_multi_language(CommandInjectionDetector)
+RaceConditionDetector = extend_detector_with_multi_language(RaceConditionDetector)
+CryptoDetector = extend_detector_with_multi_language(CryptoDetector)
+XXEDetector = extend_detector_with_multi_language(XXEDetector)
+DeserializationDetector = extend_detector_with_multi_language(DeserializationDetector)
+SecretsDetector = extend_detector_with_multi_language(SecretsDetector)
+SSRFDetector = extend_detector_with_multi_language(SSRFDetector)
+OpenRedirectDetector = extend_detector_with_multi_language(OpenRedirectDetector)
+FileUploadDetector = extend_detector_with_multi_language(FileUploadDetector)
+LDAPInjectionDetector = extend_detector_with_multi_language(LDAPInjectionDetector)
+NoSQLInjectionDetector = extend_detector_with_multi_language(NoSQLInjectionDetector)
+InsecureAuthDetector = extend_detector_with_multi_language(InsecureAuthDetector)
+MissingAuthDetector = extend_detector_with_multi_language(MissingAuthDetector)
+MissingAuthorizationDetector = extend_detector_with_multi_language(MissingAuthorizationDetector)
+InformationDisclosureDetector = extend_detector_with_multi_language(InformationDisclosureDetector)
+InputValidationDetector = extend_detector_with_multi_language(InputValidationDetector)
+ErrorHandlingDetector = extend_detector_with_multi_language(ErrorHandlingDetector)
+ResourceLeakDetector = extend_detector_with_multi_language(ResourceLeakDetector)
+RateLimitingDetector = extend_detector_with_multi_language(RateLimitingDetector)
+JWTDetector = extend_detector_with_multi_language(JWTDetector)
+CSRFDetector = extend_detector_with_multi_language(CSRFDetector)
+AccessControlDetector = extend_detector_with_multi_language(AccessControlDetector)
+MassAssignmentDetector = extend_detector_with_multi_language(MassAssignmentDetector)
+BusinessLogicDetector = extend_detector_with_multi_language(BusinessLogicDetector)
+BufferOverflowDetector = extend_detector_with_multi_language(BufferOverflowDetector)
+FormatStringDetector = extend_detector_with_multi_language(FormatStringDetector)
+IntegerOverflowDetector = extend_detector_with_multi_language(IntegerOverflowDetector)
+UseAfterFreeDetector = extend_detector_with_multi_language(UseAfterFreeDetector)
+DoubleFreeDetector = extend_detector_with_multi_language(DoubleFreeDetector)
+NullPointerDetector = extend_detector_with_multi_language(NullPointerDetector)
+MemoryLeakDetector = extend_detector_with_multi_language(MemoryLeakDetector)
+MemorySafetyDetector = extend_detector_with_multi_language(MemorySafetyDetector)
+UnsafeCodeDetector = extend_detector_with_multi_language(UnsafeCodeDetector)
 
 
 class SecurityBenchmark:
     """Main benchmark runner."""
 
-    def __init__(self, model_name: str = None):
+    def __init__(self, model_name: str = None, temperature: float = None):
         self.detectors = {
             'sql_injection': SQLInjectionDetector,
             'xss': XSSDetector,
@@ -77,11 +130,36 @@ class SecurityBenchmark:
             'broken_access_control': AccessControlDetector,
             'mass_assignment': MassAssignmentDetector,
             'business_logic_flaw': BusinessLogicDetector,
+            'buffer_overflow': BufferOverflowDetector,
+            'format_string': FormatStringDetector,
+            'integer_overflow': IntegerOverflowDetector,
+            'use_after_free': UseAfterFreeDetector,
+            'double_free': DoubleFreeDetector,
+            'null_pointer': NullPointerDetector,
+            'memory_leak': MemoryLeakDetector,
+            'memory_safety': MemorySafetyDetector,
+            'unsafe_code': UnsafeCodeDetector,
         }
         self.results = []
         self.failed_generations = []  # Track prompts where code generation failed
         self.code_dir = "generated"  # Track code directory for HTML report generation
         self.model_name = model_name or "Unknown"  # Track which AI model generated the code
+        self.temperature = temperature  # Track temperature setting used for code generation
+
+    def _detect_temperature_from_path(self, code_dir: str) -> float:
+        """
+        Detect temperature from code directory path.
+        Looks for pattern like: output/model_temp0.7
+        Returns detected temperature or None if not found.
+        """
+        import re
+        temp_match = re.search(r'_temp([\d.]+)', code_dir)
+        if temp_match:
+            try:
+                return float(temp_match.group(1))
+            except ValueError:
+                pass
+        return None
 
     def load_prompts(self, prompts_file: str = "prompts/prompts.yaml") -> List[Dict]:
         """Load test prompts from YAML file."""
@@ -90,10 +168,10 @@ class SecurityBenchmark:
                 data = yaml.safe_load(f)
                 return data.get('prompts', [])
         except FileNotFoundError:
-            print(f"Error: Prompts file not found: {prompts_file}")
+            logger.error("Prompts file not found: %s", prompts_file)
             return []
         except yaml.YAMLError as e:
-            print(f"Error parsing YAML file: {e}")
+            logger.error("Error parsing YAML file: %s", e)
             return []
 
     def analyze_code(self, code: str, prompt_info: Dict) -> Dict:
@@ -167,15 +245,23 @@ class SecurityBenchmark:
     def run_benchmark(self, code_dir: str = "generated", category: str = None, prompts_file: str = None) -> List[Dict]:
         """Run benchmark on all code samples."""
         self.code_dir = code_dir  # Store for later use in HTML report generation
+
+        # Auto-detect temperature from code directory path if not already set
+        if self.temperature is None:
+            detected_temp = self._detect_temperature_from_path(code_dir)
+            if detected_temp is not None:
+                self.temperature = detected_temp
+                logger.info("Detected temperature %.1f from code directory path", self.temperature)
+
         prompts = self.load_prompts(prompts_file or "prompts/prompts.yaml")
 
         if category:
             prompts = [p for p in prompts if p['category'] == category]
 
-        print(f"\n{'='*70}")
-        print(f"AI Code Generator Security Benchmark")
-        print(f"{'='*70}\n")
-        print(f"Total prompts to test: {len(prompts)}\n")
+        logger.info("=" * 70)
+        logger.info("AI Code Generator Security Benchmark")
+        logger.info("=" * 70)
+        logger.info("Total prompts to test: %d", len(prompts))
 
         results = []
         failed_generations = []  # Track failed code generations
@@ -186,9 +272,29 @@ class SecurityBenchmark:
             language = prompt_info.get('language', 'python')
 
             # Look for generated code file
-            extensions = {'python': '.py', 'javascript': '.js'}
+            extensions = {
+                'python': '.py',
+                'javascript': '.js',
+                'java': '.java',
+                'csharp': '.cs',
+                'cpp': '.cpp',
+                'c': '.c',
+                'go': '.go',
+                'rust': '.rs'
+            }
             ext = extensions.get(language, '.txt')
+
+            # Try exact match first
             code_file = code_path / f"{prompt_id}{ext}"
+
+            # If not found, try glob pattern to match files with suffixes (e.g., _level1, _temp0.5)
+            if not code_file.exists():
+                import glob as glob_module
+                pattern = str(code_path / f"{prompt_id}*{ext}")
+                matches = glob_module.glob(pattern)
+                if matches:
+                    # Use the first match if multiple files exist
+                    code_file = Path(matches[0])
 
             if not code_file.exists():
                 # Track as failed generation
@@ -204,7 +310,7 @@ class SecurityBenchmark:
                     "timestamp": datetime.now().isoformat()
                 }
                 failed_generations.append(failed_result)
-                print(f"🚫 {prompt_id}: Code generation failed (file not found)")
+                logger.warning("%s: Code generation failed (file not found)", prompt_id)
                 continue
 
             # Read generated code
@@ -223,30 +329,34 @@ class SecurityBenchmark:
             max_score = result.get('max_score', 2)
 
             if score == max_score:
-                status = "✅ SECURE"
+                status = "SECURE"
             elif score > 0:
-                status = "⚠️  PARTIAL"
+                status = "PARTIAL"
             else:
-                status = "❌ VULNERABLE"
+                status = "VULNERABLE"
 
-            print(f"{status} {prompt_id}: {prompt_info['category']} ({score}/{max_score})")
+            logger.info("%s %s: %s (%s/%s)", status, prompt_id, prompt_info['category'], score, max_score)
 
             # Show vulnerabilities
             if result.get('vulnerabilities'):
                 for vuln in result['vulnerabilities']:
+                    # Handle string vulnerabilities (shouldn't happen but defensive)
+                    if isinstance(vuln, str):
+                        logger.warning("    └─ [ERROR] Invalid vulnerability format: %s", vuln)
+                        continue
+
                     severity = vuln.get('severity', 'UNKNOWN')
                     desc = vuln.get('description', '')
                     line_info = vuln.get('line_number', '')
                     code_snippet = vuln.get('code_snippet', '')
 
-                    if vuln['type'] != 'SECURE':
-                        # Show line number if available
+                    if vuln.get('type') != 'SECURE':
                         if line_info:
-                            print(f"    └─ [{severity}] Line {line_info}: {desc}")
+                            logger.info("    └─ [%s] Line %s: %s", severity, line_info, desc)
                             if code_snippet:
-                                print(f"        Code: {code_snippet}")
+                                logger.info("        Code: %s", code_snippet)
                         else:
-                            print(f"    └─ [{severity}] {desc}")
+                            logger.info("    └─ [%s] %s", severity, desc)
 
         self.results = results
         self.failed_generations = failed_generations
@@ -255,12 +365,12 @@ class SecurityBenchmark:
     def _validate_report_schema(self, report: Dict) -> bool:
         """Validate report against JSON schema. Returns True if valid, False otherwise."""
         if not JSONSCHEMA_AVAILABLE:
-            print("⚠️  Warning: jsonschema not installed, skipping schema validation")
+            logger.warning("jsonschema not installed, skipping schema validation")
             return True
 
-        schema_path = Path("report_schema.json")
+        schema_path = Path("utils/report_schema.json")
         if not schema_path.exists():
-            print("⚠️  Warning: report_schema.json not found, skipping schema validation")
+            logger.warning("report_schema.json not found, skipping schema validation")
             return True
 
         try:
@@ -268,16 +378,16 @@ class SecurityBenchmark:
                 schema = json.load(f)
 
             jsonschema.validate(instance=report, schema=schema)
-            print("✅ Report passed schema validation")
+            logger.info("Report passed schema validation")
             return True
         except jsonschema.ValidationError as e:
-            print(f"❌ Schema validation FAILED:")
-            print(f"   Path: {' -> '.join(str(p) for p in e.path)}")
-            print(f"   Error: {e.message}")
-            print(f"   Failing value: {e.instance}")
+            logger.error("Schema validation FAILED:")
+            logger.error("   Path: %s", ' -> '.join(str(p) for p in e.path))
+            logger.error("   Error: %s", e.message)
+            logger.error("   Failing value: %s", e.instance)
             return False
         except Exception as e:
-            print(f"⚠️  Warning: Schema validation error: {e}")
+            logger.warning("Schema validation error: %s", e)
             return True  # Don't fail the whole report for schema issues
 
     def generate_report(self, output_file: str = "reports/benchmark_report.json", html: bool = True):
@@ -290,7 +400,7 @@ class SecurityBenchmark:
         total_prompts = total_tests + failed_count
 
         if total_prompts == 0:
-            print("\nNo test results to report.")
+            logger.warning("No test results to report.")
             return
 
         secure_count = sum(1 for r in self.results if r.get('score') == r.get('max_score'))
@@ -333,6 +443,7 @@ class SecurityBenchmark:
         report = {
             "benchmark_date": datetime.now().isoformat(),
             "model_name": self.model_name,
+            "temperature": self.temperature,  # Track temperature setting for research
             "summary": {
                 "total_prompts": total_prompts,
                 "completed_tests": total_tests,
@@ -351,7 +462,7 @@ class SecurityBenchmark:
 
         # Validate report against schema before saving
         if not self._validate_report_schema(report):
-            print("⚠️  Warning: Report failed schema validation but will still be saved")
+            logger.warning("Report failed schema validation but will still be saved")
 
         # Save JSON report
         with open(output_file, 'w') as f:
@@ -361,30 +472,33 @@ class SecurityBenchmark:
         if html:
             html_path = output_file.replace('.json', '.html')
             try:
-                from html_report import HTMLReportGenerator
+                from utils.html_report import HTMLReportGenerator
                 # Pass code_dir so HTML generator can find the code files
                 html_gen = HTMLReportGenerator(output_file, code_dir=self.code_dir)
                 html_gen.generate(html_path)
-                print(f"HTML report saved to: {html_path}")
+                logger.info("HTML report saved to: %s", html_path)
             except Exception as e:
-                print(f"Warning: Could not generate HTML report: {e}")
+                logger.warning("Could not generate HTML report: %s", e)
 
         # Display summary
-        print(f"\n{'='*70}")
-        print("BENCHMARK SUMMARY")
-        print(f"{'='*70}")
-        print(f"Total Prompts:   {total_prompts}")
-        print(f"Completed Tests: {total_tests} ({completion_rate:.1f}%)")
+        logger.info("=" * 70)
+        logger.info("BENCHMARK SUMMARY")
+        logger.info("=" * 70)
+        logger.info("Model: %s", self.model_name)
+        if self.temperature is not None:
+            logger.info("Temperature: %.1f", self.temperature)
+        logger.info("Total Prompts:   %d", total_prompts)
+        logger.info("Completed Tests: %d (%.1f%%)", total_tests, completion_rate)
         if failed_count > 0:
-            print(f"🚫 Failed Gen:   {failed_count} ({failed_count/total_prompts*100:.1f}%)")
-        print(f"\nSecurity Results (of completed tests):")
+            logger.warning("Failed Gen:   %d (%.1f%%)", failed_count, failed_count/total_prompts*100)
+        logger.info("Security Results (of completed tests):")
         if total_tests > 0:
-            print(f"✅ Secure:       {secure_count} ({secure_count/total_tests*100:.1f}%)")
-            print(f"⚠️  Partial:      {partial_count} ({partial_count/total_tests*100:.1f}%)")
-            print(f"❌ Vulnerable:   {vulnerable_count} ({vulnerable_count/total_tests*100:.1f}%)")
-            print(f"\nOverall Score:   {total_score}/{max_total_score} ({percentage:.1f}%)")
-        print(f"\nReport saved to: {output_file}")
-        print(f"{'='*70}\n")
+            logger.info("Secure:       %d (%.1f%%)", secure_count, secure_count/total_tests*100)
+            logger.warning("Partial:      %d (%.1f%%)", partial_count, partial_count/total_tests*100)
+            logger.error("Vulnerable:   %d (%.1f%%)", vulnerable_count, vulnerable_count/total_tests*100)
+            logger.info("Overall Score:   %d/%d (%.1f%%)", total_score, max_total_score, percentage)
+        logger.info("Report saved to: %s", output_file)
+        logger.info("=" * 70)
 
     def analyze_single_file(self, file_path: str, category: str, language: str):
         """Analyze a single code file."""
@@ -400,34 +514,44 @@ class SecurityBenchmark:
 
         result = self.analyze_code(code, prompt_info)
 
-        print(f"\n{'='*70}")
-        print(f"Analysis Results: {file_path}")
-        print(f"{'='*70}\n")
-        print(f"Category: {category}")
-        print(f"Language: {language}")
-        print(f"Score: {result['score']}/{result['max_score']}\n")
+        logger.info("=" * 70)
+        logger.info("Analysis Results: %s", file_path)
+        logger.info("=" * 70)
+        logger.info("Category: %s", category)
+        logger.info("Language: %s", language)
+        logger.info("Score: %s/%s", result['score'], result['max_score'])
 
         if result.get('vulnerabilities'):
-            print("Findings:")
+            logger.info("Findings:")
             for vuln in result['vulnerabilities']:
                 vtype = vuln['type']
                 severity = vuln.get('severity', 'UNKNOWN')
                 desc = vuln.get('description', '')
                 line_info = vuln.get('line_number', '')
                 code_snippet = vuln.get('code_snippet', '')
-                icon = "✅" if vtype == "SECURE" else "❌"
+                if vtype == "SECURE":
+                    log_fn = logger.info
+                    label = "SECURE"
+                else:
+                    log_fn = logger.error
+                    label = "VULN"
 
                 if line_info:
-                    print(f"{icon} [{severity}] Line {line_info}: {desc}")
+                    log_fn("[%s] [%s] Line %s: %s", label, severity, line_info, desc)
                     if code_snippet:
-                        print(f"    Code: {code_snippet}")
+                        log_fn("    Code: %s", code_snippet)
                 else:
-                    print(f"{icon} [{severity}] {desc}")
+                    log_fn("[%s] [%s] %s", label, severity, desc)
 
-        print(f"\n{'='*70}\n")
+        logger.info("=" * 70)
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)-8s %(message)s",
+    )
+
     parser = argparse.ArgumentParser(
         description="Run security benchmark on AI-generated code"
     )
@@ -482,10 +606,16 @@ def main():
         type=str,
         default='Unknown'
     )
+    parser.add_argument(
+        '--temperature',
+        help='Temperature used for code generation (0.0-1.0). Auto-detected from code_dir if not specified.',
+        type=float,
+        default=None
+    )
 
     args = parser.parse_args()
 
-    benchmark = SecurityBenchmark(model_name=args.model)
+    benchmark = SecurityBenchmark(model_name=args.model, temperature=args.temperature)
 
     if args.input:
         # Single file analysis

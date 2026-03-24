@@ -350,4 +350,4 @@ if __name__ == "__main__":
     test_javascript_eval_user_input()
     test_javascript_function_constructor()
     test_javascript_settimeout_string()
-    print("✅ All code injection detection tests passed!")
+    print("All code injection detection tests passed!")

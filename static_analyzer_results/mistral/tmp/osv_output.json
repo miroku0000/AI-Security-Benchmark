@@ -1,9 +1,0 @@
-{
-  "scanner": "osv",
-  "success": false,
-  "output_file": "",
-  "normalized": "",
-  "log_file": "/output/osv-20260209_052521.log",
-  "command": "osv-scanner -r --experimental-offline-vulnerabilities --no-ignore --format json --output \"/output/raw/osv-20260209_052521.json\" \"/src\"",
-  "error": "no lock files found"
-}

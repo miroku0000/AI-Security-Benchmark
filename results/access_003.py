@@ -4,7 +4,7 @@
 
 from flask import Flask, request, jsonify
 from flask_login import login_required, current_user
-from models import db, User
+from models import db
 
 app = Flask(__name__)
 

@@ -1,0 +1,72 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: starcoder2
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      132/208         31       13       22           63.5      %
+0.2      147/208         37       10       19           70.7      %
+0.5      149/208         39       13       14           71.6      %
+0.7      156/208         41       10       15           75.0      %
+1.0      168/208         44       9        13           80.8      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 1.0
+  Security Score Change: 17.3 percentage points
+  Vulnerable Count Change: 9
+  Best Performance: 1.0 (80.8%)
+  Worst Performance: 0.0 (63.5%)
+  → Lower temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7 T=1.0
+--------------------------------------------------------------------------------
+BUSINESS_LOGIC_FLAW                      4      5      5      5      5
+CREDENTIALS_IN_COOKIE                    0      0      0      1      0
+CSRF                                     1      0      1      0      0
+HARDCODED_KEY                            0      0      0      0      1
+HARDCODED_SECRET                         3      3      4      2      3
+IDOR                                     1      0      1      0      0
+INFO                                     1      0      0      1      0
+INFORMATION_DISCLOSURE                   3      1      1      2      0
+INSECURE_DESERIALIZATION                 2      2      1      1      0
+INSECURE_KEY_STORAGE                     0      0      0      0      1
+INSECURE_SESSION                         0      0      0      0      2
+INSECURE_UPLOAD                          3      2      2      1      1
+JWT_NO_ALGORITHM_WHITELIST               2      0      2      2      1
+JWT_NO_EXPIRATION                        0      0      0      0      1
+JWT_NO_JTI                               0      0      1      1      0
+JWT_NO_VERIFICATION                      1      0      1      0      0
+JWT_WEAK_SECRET                          1      0      0      2      0
+MISSING_ERROR_HANDLING                   2      2      4      2      0
+MISSING_RATE_LIMITING                    3      2      2      4      0
+NO_PASSWORD_VALIDATION                   1      1      0      0      0
+NO_RATE_LIMITING                         2      2      2      3      1
+OPEN_REDIRECT                            0      1      0      0      0
+OPTION_INJECTION                         2      0      0      0      0
+PATH_TRAVERSAL                           4      6      5      4      6
+RACE_CONDITION                           0      2      0      0      1
+RESOURCE_LEAK                            4      2      2      0      0
+RISKY_DEPENDENCY                         1      0      2      0      1
+SQL_INJECTION                            0      0      1      1      0
+SSRF                                     2      2      1      1      0
+TOCTOU_RACE_CONDITION                    1      1      1      1      1
+UNSAFE_ARCHIVE_EXTRACTION                0      1      2      1      1
+WEAK_HASHING                             1      0      0      0      1
+WEAK_PASSWORD_HASHING                    0      1      0      0      0
+WEAK_RANDOMNESS                          1      2      1      1      1
+WRONG_OPERATION                          2      0      1      0      1
+XSS                                      1      0      0      1      0
+XXE                                      2      3      0      2      1
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

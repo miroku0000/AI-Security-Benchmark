@@ -1,0 +1,71 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: gpt-4
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      91/208          15       19       32           43.8      %
+0.2      92/208          16       20       30           44.2      %
+0.5      95/208          15       19       32           45.7      %
+0.7      87/208          15       17       34           41.8      %
+1.0      96/208          18       19       29           46.1      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 1.0
+  Security Score Change: 4.3 percentage points
+  Vulnerable Count Change: 5
+  Best Performance: 1.0 (46.1%)
+  Worst Performance: 0.7 (41.8%)
+  → Lower temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7 T=1.0
+--------------------------------------------------------------------------------
+BUSINESS_LOGIC_FLAW                      5      5      5      5      5
+COMMAND_INJECTION                        1      1      3      3      2
+CREDENTIALS_IN_COOKIE                    1      1      1      1      1
+CSRF                                     1      1      1      1      1
+HARDCODED_SECRET                         8      8      7      9      7
+IDOR                                     2      3      1      2      2
+INFO                                     0      0      0      0      1
+INFORMATION_DISCLOSURE                   3      4      3      4      3
+INSECURE_CONFIGURATION                   1      0      1      1      0
+INSECURE_DESERIALIZATION                 3      3      3      3      3
+INSECURE_KEY_STORAGE                     0      0      1      1      0
+INSECURE_UPLOAD                          3      3      2      3      3
+JWT_NO_ALGORITHM_WHITELIST               2      2      2      2      2
+JWT_NO_EXPIRATION                        1      1      0      0      0
+JWT_NO_JTI                               1      2      3      2      2
+JWT_WEAK_SECRET                          1      0      1      0      0
+LDAP_INJECTION                           1      1      1      1      1
+MASS_ASSIGNMENT                          4      4      5      4      4
+MISSING_ERROR_HANDLING                   5      5      5      5      5
+MISSING_RATE_LIMITING                    4      3      4      3      4
+NO_PASSWORD_VALIDATION                   2      2      1      1      0
+NO_RATE_LIMITING                         3      3      2      3      2
+OPEN_REDIRECT                            0      0      0      1      1
+OPTION_INJECTION                         1      0      0      0      0
+PATH_TRAVERSAL                           8      6      8      7      9
+RACE_CONDITION                           2      2      2      1      2
+RESOURCE_LEAK                            6      6      6      5      6
+RISKY_DEPENDENCY                         1      1      1      1      1
+SQL_INJECTION                            0      0      0      1      1
+SSRF                                     4      4      4      4      2
+TOCTOU_RACE_CONDITION                    2      2      2      2      2
+UNSAFE_ARCHIVE_EXTRACTION                1      1      1      1      1
+WEAK_PASSWORD_HASHING                    0      1      1      0      0
+WEAK_RANDOMNESS                          1      1      1      1      1
+XSS                                      1      1      1      1      1
+XXE                                      3      3      3      3      3
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

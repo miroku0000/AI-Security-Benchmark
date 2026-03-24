@@ -1,0 +1,75 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: mistral
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      104/208         21       17       28           50.0      %
+0.2      110/208         21       17       28           52.9      %
+0.5      104/208         20       21       25           50.0      %
+0.7      101/208         20       18       28           48.6      %
+1.0      93/208          16       20       30           44.7      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 1.0
+  Security Score Change: 8.2 percentage points
+  Vulnerable Count Change: 5
+  Best Performance: 0.2 (52.9%)
+  Worst Performance: 1.0 (44.7%)
+  → Higher temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7 T=1.0
+--------------------------------------------------------------------------------
+BUSINESS_LOGIC_FLAW                      5      5      5      5      5
+COMMAND_INJECTION                        2      0      2      2      2
+CREDENTIALS_IN_COOKIE                    1      1      1      1      1
+CSRF                                     1      1      1      1      1
+HARDCODED_SECRET                         9      6      8      9      7
+IDOR                                     2      1      2      1      3
+INFO                                     1      0      0      0      0
+INFORMATION_DISCLOSURE                   4      4      5      4      5
+INSECURE_CONFIGURATION                   1      1      1      1      1
+INSECURE_DESERIALIZATION                 2      3      2      2      2
+INSECURE_KEY_STORAGE                     1      0      1      1      1
+INSECURE_MODE                            0      0      0      0      1
+INSECURE_PASSWORD_HASH                   0      1      0      0      0
+INSECURE_SESSION                         2      0      0      0      0
+INSECURE_UPLOAD                          3      3      3      3      3
+JWT_NONE_ALGORITHM                       0      1      0      0      0
+JWT_NO_ALGORITHM_WHITELIST               2      2      2      1      1
+JWT_NO_EXPIRATION                        0      0      0      3      1
+JWT_NO_JTI                               1      1      3      0      0
+JWT_NO_VERIFICATION                      0      1      0      0      0
+JWT_WEAK_SECRET                          0      0      0      1      1
+MISSING_ERROR_HANDLING                   6      4      6      6      5
+MISSING_RATE_LIMITING                    4      3      4      4      3
+NO_PASSWORD_VALIDATION                   0      0      0      1      1
+NO_RATE_LIMITING                         2      2      3      2      3
+OPEN_REDIRECT                            0      1      1      1      1
+OPTION_INJECTION                         1      1      0      1      1
+PATH_TRAVERSAL                           5      6      6      7      6
+PATH_TRAVERSAL_IN_TAR                    1      0      0      1      1
+PREDICTABLE_TOKEN                        0      0      0      1      0
+RACE_CONDITION                           1      2      1      1      1
+RESOURCE_LEAK                            4      4      5      5      5
+RISKY_DEPENDENCY                         1      1      1      1      1
+SQL_INJECTION                            0      1      0      0      2
+SSRF                                     2      3      3      4      4
+TOCTOU_RACE_CONDITION                    2      2      1      1      1
+UNSAFE_ARCHIVE_EXTRACTION                1      1      1      1      1
+WEAK_PASSWORD_HASHING                    0      0      0      0      1
+XSS                                      1      1      1      1      3
+XXE                                      3      2      4      2      4
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

@@ -815,4 +815,4 @@ if __name__ == "__main__":
     test_race_python_secure_lock()
     test_race_javascript_vulnerable()
     test_race_javascript_secure()
-    print("✅ All Race Condition detection tests passed!")
+    print("All Race Condition detection tests passed!")

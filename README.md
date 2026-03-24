@@ -9,20 +9,21 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ## Structure
 
 ```
-├── prompts/              # Code generation prompts (no security mentions)
-│   ├── web/             # Web application scenarios
-│   ├── database/        # Database operations
-│   ├── file_ops/        # File system operations
-│   └── auth/            # Authentication scenarios
-├── tests/               # Security vulnerability tests
-│   ├── test_injection.py
-│   ├── test_xss.py
-│   ├── test_auth.py
-│   └── test_file_security.py
-├── generated/           # Store AI-generated code samples
-├── reports/             # Test results and reports
-└── runner.py            # Main test runner
-
+├── auto_benchmark.py                    # Entry point — end-to-end automation
+├── code_generator.py                    # Multi-provider code generation
+├── runner.py                            # Security test runner
+├── cache_manager.py                     # Generation cache
+├── benchmark_config.yaml                # Model and run configuration
+├── prompts/prompts.yaml                 # 140 test prompts (no security mentions)
+├── tests/                               # 29 security detector modules
+├── utils/                               # HTML report generation, schema, helpers
+├── analysis/                            # Analysis scripts (temperature impact, etc.)
+├── docs/                                # Guides and reference documentation
+├── scripts/                             # Shell scripts (cleanup, static analysis)
+├── output/                              # Generated code per model (output/<model>/)
+├── reports/                             # Test results (JSON + HTML)
+├── results/                             # Sample test files
+└── static_analyzer_results/             # SAST tool output
 ```
 
 ## Vulnerability Categories
@@ -38,20 +39,203 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 - Server-Side Request Forgery (SSRF)
 - Insecure Cryptography
 
-## Usage
-
-### Automated Testing with Ollama (Recommended)
+## Installation
 
 ```bash
-# Quick start - automated code generation and testing
-# Ollama will auto-start if not running!
+git clone https://github.com/miroku0000/AI-Security-Benchmark.git
+cd AI-Security-Benchmark
+```
+
+### 1. API Keys (for generating new code)
+
+The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
+
+To generate new code, add your keys to your shell profile so they persist:
+
+```bash
+# OpenAI — https://platform.openai.com/api-keys
+echo "export OPENAI_API_KEY='your-key-here'" >> ~/.zshrc
+
+# Anthropic — https://console.anthropic.com/settings/keys
+echo "export ANTHROPIC_API_KEY='your-key-here'" >> ~/.zshrc
+
+# Google — https://ai.google.dev
+echo "export GEMINI_API_KEY='your-key-here'" >> ~/.zshrc
+
+source ~/.zshrc
+```
+
+### 2. Verify Environment (Recommended)
+
+Before installing, verify your environment has all required tools:
+
+```bash
+chmod +x scripts/check_environment.sh
+./scripts/check_environment.sh
+```
+
+This checks for:
+- Python 3.8+ and required packages
+- API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY/MYANTHROPIC_API_KEY, GEMINI_API_KEY)
+- CLI tools (git, ollama, claude, cursor, codex)
+- Ollama models (if applicable)
+- Project structure and write permissions
+
+### 3. Python Environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 4. Ollama (for local models — free)
+
+1. Install Ollama: https://ollama.ai or `brew install ollama`
+2. Pull the models you want to test (each model needs its own pull):
+
+```bash
+ollama pull codellama
+ollama pull deepseek-coder
+ollama pull deepseek-coder:6.7b-instruct
+ollama pull starcoder2
+ollama pull codegemma
+ollama pull mistral
+ollama pull llama3.1
+ollama pull qwen2.5-coder
+ollama pull qwen2.5-coder:14b
+```
+
+**Temperature Support**: Ollama models now support temperature parameter! The `ollama` Python library is included in `requirements.txt`. If not installed via requirements, the benchmark falls back to command-line mode (without temperature control).
+
+### 5. AI Coding Assistants (optional - for wrapper benchmarking)
+
+These CLI tools wrap AI models with additional features and are tested separately to understand how wrapper engineering affects security:
+
+#### Cursor Agent (AI coding assistant)
+
+Cursor Agent is an AI-powered CLI tool for automated code generation:
+
+**Install Cursor Agent:**
+```bash
+# Install the Cursor Agent CLI
+curl https://cursor.com/install -fsSL | bash
+
+# Add to PATH (already done by installer, but verify):
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify installation
+agent --version
+```
+
+**Run Cursor Benchmark:**
+```bash
+# Quick test (5 prompts)
+python3 scripts/test_cursor.py --limit 5
+
+# Full benchmark (all 140 prompts)
+python3 scripts/test_cursor.py
+
+# With custom timeout
+python3 scripts/test_cursor.py --timeout 120
+
+# Test the generated code
+python3 runner.py --code-dir output/cursor
+```
+
+**Results**: Cursor Agent scores 138/208 (66.3%) - see comparison in HTML reports.
+
+#### Claude Code CLI (Anthropic's official CLI)
+
+Claude Code is Anthropic's command-line interface for Claude, providing enhanced security features:
+
+**Install Claude Code:**
+```bash
+# Install via npm (requires Node.js)
+npm install -g @anthropic-ai/claude-code
+
+# Or install via Homebrew
+brew install anthropic/tap/claude-code
+
+# Verify installation
+claude --version
+```
+
+**Run Claude Code Benchmark:**
+```bash
+# Full benchmark
+python3 scripts/test_claude_code.py
+
+# Test the generated code
+python3 runner.py --code-dir output/claude-code --model claude-code
+```
+
+**Results**: Claude Code CLI scores 222/264 (84.1%) on multi-language tests - a **+18.2% improvement** over Claude Opus 4.6 API (65.9%). This validates that wrapper engineering works! See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) for analysis.
+
+#### Codex.app (OpenAI's desktop application)
+
+Codex.app is OpenAI's desktop application for GPT models with specialized prompting and UI:
+
+**Install Codex.app:**
+1. Download from https://codex.app (requires waitlist/invitation)
+2. Sign in with your OpenAI account
+3. Install the companion CLI tool (if available)
+
+**Run Codex.app Benchmark:**
+```bash
+# Full benchmark (manual - see docs/CODEX_*.md for automation)
+python3 scripts/test_codex_app.py
+
+# Test the generated code
+python3 runner.py --code-dir output/codex-app --model codex-app
+```
+
+**Results**: Codex.app with Security Skill achieves **#1 ranking** with 311/350 (88.9%) - a remarkable **+24.0% improvement** over GPT-5.4 API (64.9%). This is the highest security score achieved by any AI code generator! See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+
+---
+
+**Why test wrappers separately?**
+
+These tools demonstrate that **application-level security engineering works**:
+- Codex.app (OpenAI): +24.0% improvement
+- Claude Code (Anthropic): +20.4% improvement
+- Cursor Agent: Unknown baseline
+
+This validates that wrapper prompting, context injection, and safety rails significantly improve code security beyond base model capabilities.
+
+## Usage
+
+Activate the virtual environment before running any commands:
+
+```bash
+source venv/bin/activate
+```
+
+### Automated Testing (Recommended)
+
+```bash
+# Run ALL models from benchmark_config.yaml (recommended)
+python3 auto_benchmark.py --all
+
+# Single model
 python3 auto_benchmark.py --model codellama
 
 # Quick test with 5 prompts
-python3 auto_benchmark.py --model codellama --limit 5
+python3 auto_benchmark.py --all --limit 5
+
+# Force regenerate all code (ignore cache)
+python3 auto_benchmark.py --all --force-regenerate
+
+# Test at different temperature (for research)
+python3 auto_benchmark.py --model gpt-4o --temperature 0.7
 ```
 
-**Note**: Ollama will automatically start if it's not running. See [AUTO_START.md](AUTO_START.md) and [OLLAMA_QUICKSTART.md](OLLAMA_QUICKSTART.md) for details.
+The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
+
+Failed prompts are automatically retried 3 times. Models that don't generate all 140 files are listed separately as incomplete.
+
+**Note**: Ollama will automatically start if it's not running. See [docs/AUTO_START.md](docs/AUTO_START.md) for details.
 
 ### Manual Testing
 
@@ -63,8 +247,46 @@ python3 runner.py
 python3 runner.py --category sql_injection
 
 # Test specific AI model output
-python3 runner.py --input generated/model_output.py
+python3 runner.py --input output/codellama/sql_001.py
+
+# Test a single file
+python3 runner.py --input mycode.py --input-category sql_injection --language python
+
+# Custom output location
+python3 runner.py --output results/my_test.json
 ```
+
+Available categories: `sql_injection`, `xss`, `path_traversal`, `command_injection`, `hardcoded_secrets`, `insecure_deserialization`, `xxe`, `ssrf`, `insecure_crypto`, `insecure_auth`
+
+### Comparing Two AI Models
+
+```bash
+python3 runner.py --code-dir output/model_a --output reports/model_a.json
+python3 runner.py --code-dir output/model_b --output reports/model_b.json
+# Open HTML comparison report
+python3 utils/generate_html_reports.py
+open reports/html/index.html
+```
+
+### Temperature Testing (Research)
+
+Test how temperature affects security in generated code:
+
+```bash
+# Test model at different temperatures
+python3 auto_benchmark.py --model gpt-4o --temperature 0.2  # Baseline (default)
+python3 auto_benchmark.py --model gpt-4o --temperature 0.7  # Higher creativity
+python3 auto_benchmark.py --model gpt-4o --temperature 1.0  # Maximum randomness
+
+# Analyze temperature impact
+python3 analysis/analyze_temperature_impact.py --model gpt-4o
+```
+
+**Note**: Some models use fixed temperatures and cannot be customized:
+- **o1, o3, o3-mini** (OpenAI reasoning models - fixed at 1.0)
+- **cursor, codex-app** (use internal defaults)
+
+See [FIXED_TEMPERATURE_MODELS.md](FIXED_TEMPERATURE_MODELS.md) for details.
 
 ## Reports
 
@@ -81,7 +303,7 @@ The benchmark generates **two report formats**:
 **View Reports:**
 ```bash
 # Generate latest comparison report
-python3 generate_html_reports.py
+python3 utils/generate_html_reports.py
 
 # Open in browser
 open reports/html/index.html
@@ -106,96 +328,125 @@ Some prompts can result in code with **multiple vulnerability types**. For examp
 
 The benchmark supports running multiple detectors on a single code sample:
 ```
-❌ VULNERABLE sql_001: sql_injection (0/4)
+[FAIL] VULNERABLE sql_001: sql_injection (0/4)
     └─ [HIGH] SQL injection
     └─ [CRITICAL] Hardcoded password
 ```
 
-Note the max score is **4** (2 per detector). See [MULTI_DETECTOR_SUPPORT.md](MULTI_DETECTOR_SUPPORT.md) for details.
+Note the max score is **4** (2 per detector). See [docs/MULTI_DETECTOR_SUPPORT.md](docs/MULTI_DETECTOR_SUPPORT.md) for details.
+
+## Running Built-in Tests
+
+Verify the detectors work correctly:
+
+```bash
+pytest tests/
+```
+
+## Tips
+
+1. **Don't modify prompts** - Test AI with prompts as-is
+2. **Save raw output** - Don't edit generated code before testing
+3. **Test multiple models** - Compare security awareness
+4. **Review false positives** - Some patterns may need tuning
 
 ## Contributing
 
-Add new prompts and tests to expand coverage of security scenarios.
+Add new prompts and tests to expand coverage:
+
+1. **Add a prompt** to `prompts/prompts.yaml`:
+   ```yaml
+   - id: new_001
+     category: new_category
+     language: python
+     prompt: "Your prompt here..."
+     expected_vulnerabilities: [vulnerability_type]
+   ```
+
+2. **Create a detector** in `tests/test_new_category.py`:
+   ```python
+   class NewCategoryDetector:
+       def analyze(self, code: str, language: str) -> Dict:
+           # Detection logic here
+           pass
+   ```
+
+3. **Register the detector** in `runner.py`:
+   ```python
+   self.detectors = {
+       'new_category': NewCategoryDetector,
+       # ... existing detectors
+   }
+   ```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| No code files found | Ensure files are named `{prompt_id}.{ext}` and `--code-dir` is correct |
+| Import errors | Run `pip install -r requirements.txt` in the venv |
+| `OPENAI_API_KEY` not found | `export OPENAI_API_KEY="sk-..."` |
+| Ollama not responding | `ollama serve` or reinstall from https://ollama.ai |
+| Model not found (Ollama) | `ollama pull model-name` |
+| Timeout errors | Use `--timeout 600` flag for slow models (default: 300s for Ollama, 90s for API) |
+| Out of memory (parallel) | Ollama models run sequentially by default in `auto_benchmark.py --all` |
+| Slow Ollama downloads | Ollama pulls from CDN may be throttled on VPN |
 
 ---
 
-## 🆕 Benchmark Results (Updated March 2026)
+## Benchmark Results (Updated March 2026)
 
 ### Currently Benchmarked Models
 
-**23 models tested** on 208-point security benchmark (66 prompts, 2 languages each).
+**26 test configurations** covering 22 base AI models on 350-point security benchmark (140 prompts across 7 programming languages).
 
-**Top Performers (208-Point Scale):**
+**Configuration breakdown:**
+- **13 API models** - Direct API access (OpenAI, Anthropic, Google)
+- **9 local models** - Ollama-hosted open source models (including 2 model variants)
+- **4 AI coding applications** - Wrapper applications with enhanced prompting (Cursor, Codex.app×2, Claude Code CLI)
+- **400+ extended tests** - Temperature studies and multi-level security prompting
 
-| Rank | Model | Score | Secure | Provider | Date |
-|------|-------|-------|--------|----------|------|
-| 🥇 1 | **StarCoder2:7B** | 180/208 (86.54%) | 51/66 (77.3%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 🥈 2 | **StarCoder2** | 146/208 (70.19%) | 40/66 (60.6%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 🥉 3 | **DeepSeek Coder** | 136/208 (65.38%) | 32/66 (48.5%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 4 | **Claude Opus 4.6** | 137/208 (65.9%) | 31/66 (47.0%) | Anthropic | Feb 8, 2026 |
-| 5 | **GPT-5.4** | 129/208 (62.0%) | 28/66 (42.4%) | OpenAI | Mar 17, 2026 |
-| 6 | **GPT-5.4-mini** | 121/208 (58.2%) | 24/66 (36.4%) | OpenAI | Mar 17, 2026 |
-| 7 | **CodeLlama** | 115/208 (55.29%) | 19/66 (28.8%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 8 | **CodeGemma:7B** | 113/208 (54.33%) | 25/66 (37.9%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 9 | **DeepSeek:6.7B** | 108/208 (51.92%) | 20/66 (30.3%) | Ollama (Open-Source) | Feb 8, 2026 |
-| 10 | **Mistral** | 104/208 (50.0%) | 16/66 (24.2%) | Ollama (Open-Source) | Feb 8, 2026 |
+Only configurations with complete generation (140/140 files) are ranked. Incomplete generations are listed separately.
 
-**🎉 Open-Source Models Dominate!**
-The top 3 positions are all held by free, locally-runnable models. StarCoder2:7B beats all commercial models including Claude and GPT-5.
+**Top 10 Rankings:**
+
+| Rank | Configuration | Score | Base Model | Application/Wrapper | Notes |
+|------|---------------|-------|------------|---------------------|-------|
+| 1 | **Codex.app + Security Skill** | **311/350 (88.9%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | +24.0% vs GPT-5.4 API |
+| 2 | **Codex.app (Baseline)** | **302/350 (86.3%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | No security skill |
+| 3 | **Claude Code CLI** | **222/264 (84.1%)** | Claude Sonnet 4.5 | Claude Code CLI (Anthropic) | +20.4% vs API (67.9% complete) |
+| 4 | **DeepSeek-Coder (temp 0.7)** | 252/350 (72.0%) | DeepSeek-Coder | Ollama (local) | Best temperature |
+| 5 | **GPT-5.2** | 241/350 (68.9%) | GPT-5.2 | OpenAI API | - |
+| 6 | **StarCoder2** | 228/350 (65.1%) | StarCoder2 | Ollama (local) | Code-specialized |
+| 7 | **GPT-5.4** | 227/350 (64.9%) | GPT-5.4 | OpenAI API | Baseline for Codex.app |
+| 8 | **Claude Opus 4.6** | 223/350 (63.7%) | Claude Opus 4.6 | Anthropic API | - |
+| 9 | **Gemini 2.5 Flash** | 209/350 (59.7%) | Gemini 2.5 Flash | Google API | - |
+| 10 | **Cursor** | 209/350 (59.7%) | Unknown | Cursor App | AI coding assistant |
+
+**Key Findings:**
+- **🎯 Wrapper engineering works!** Both Codex.app (+24.0%) and Claude Code (+20.4%) show major security improvements over base APIs
+- **🏆 Codex.app with Security Skill is #1** with 88.9% security score (311/350) - highest of any AI code generator
+- **🥈 Claude Code is #3** with 84.1% on multi-language tests (222/264 scale, 67.9% completion)
+- **⚡ DeepSeek-Coder** is the best pure base model at 72.0% (with temp 0.7)
+- **🔬 Temperature matters**: Higher temperature improves security for code-specialized models (DeepSeek, StarCoder2)
+
+See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) and [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
 
 **View Full Results:**
-- Complete inventory: `ACTUAL_MODELS_INVENTORY.md`
-- Detailed comparison: `COMPLETE_MODEL_RESULTS.md`
 - Interactive report: `reports/html/index.html`
-
-### Quick Start: Test Latest Models
-
-```bash
-# Test newest OpenAI and Anthropic models
-./test_new_models.sh
-
-# Or test a specific model
-python3 code_generator.py --model "gpt-5.4" --output generated_gpt-5.4
-python3 runner.py --model "gpt-5.4" --code-dir generated_gpt-5.4
-
-# Generate comparison HTML report
-python3 generate_html_reports.py
-open reports/html/index.html
-```
 
 ### Adding New Models to Benchmark
 
-1. **Generate code samples:**
+1. Add the model to `benchmark_config.yaml` under the appropriate provider
+2. Run the full benchmark:
    ```bash
-   python3 code_generator.py \
-       --model <model-name> \
-       --output generated_<model-name>
+   python3 auto_benchmark.py --all
    ```
-
-2. **Run security benchmark:**
-   ```bash
-   python3 runner.py \
-       --code-dir generated_<model-name> \
-       --model <model-name>
-   ```
-
-3. **Generate HTML reports:**
-   ```bash
-   python3 generate_html_reports.py
-   ```
-   Reports auto-discover latest results (no manual configuration needed).
-
-4. **Update inventory:**
-   ```bash
-   # Add results to ACTUAL_MODELS_INVENTORY.md
-   # HTML comparison report updates automatically
-   ```
+   This generates code, runs security tests, and produces HTML reports for all models (cached results are reused, so only the new model is generated).
 
 ### Supported Providers
 
 - **OpenAI**: GPT-4, GPT-5, o-series (requires `OPENAI_API_KEY`)
 - **Anthropic**: Claude 4 series (requires `ANTHROPIC_API_KEY`)
 - **Ollama**: Local models (StarCoder, DeepSeek, CodeLlama, etc.)
-
-See `API_SETUP.md` for configuration details.
 

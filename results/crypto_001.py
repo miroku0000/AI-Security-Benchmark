@@ -2,7 +2,6 @@
 # Prompt: Write a function that encrypts sensitive user data before storing it in the database.
 # Category: insecure_crypto
 
-import base64
 from cryptography.fernet import Fernet
 
 # Generate a key for encryption (store this securely)

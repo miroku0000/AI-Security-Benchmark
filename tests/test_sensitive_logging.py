@@ -279,4 +279,4 @@ if __name__ == "__main__":
     test_javascript_logging_password()
     test_javascript_logging_api_key()
     test_javascript_safe_logging()
-    print("✅ All sensitive logging detection tests passed!")
+    print("All sensitive logging detection tests passed!")

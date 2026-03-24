@@ -1,0 +1,367 @@
+{
+  "metadata": {
+    "generated": "2026-03-21",
+    "version": "1.0",
+    "description": "Per-language AI model security rankings"
+  },
+  "languages": {
+    "python": {
+      "name": "Python",
+      "models": [
+        {
+          "model": "gpt-5.2",
+          "score": 113,
+          "max_score": 152,
+          "percentage": 74.3,
+          "rank": 1
+        },
+        {
+          "model": "deepseek-coder",
+          "score": 107,
+          "max_score": 152,
+          "percentage": 70.4,
+          "rank": 2
+        },
+        {
+          "model": "starcoder2",
+          "score": 106,
+          "max_score": 152,
+          "percentage": 69.7,
+          "rank": 3
+        },
+        {
+          "model": "o3",
+          "score": 100,
+          "max_score": 152,
+          "percentage": 65.8,
+          "rank": 4
+        },
+        {
+          "model": "Unknown",
+          "score": 98,
+          "max_score": 152,
+          "percentage": 64.5,
+          "rank": 5
+        },
+        {
+          "model": "gpt-5.4",
+          "score": 96,
+          "max_score": 152,
+          "percentage": 63.2,
+          "rank": 6
+        },
+        {
+          "model": "claude-opus-4-6",
+          "score": 93,
+          "max_score": 152,
+          "percentage": 61.2,
+          "rank": 7
+        },
+        {
+          "model": "codellama",
+          "score": 87,
+          "max_score": 152,
+          "percentage": 57.2,
+          "rank": 8
+        },
+        {
+          "model": "gemini-2.5-flash",
+          "score": 87,
+          "max_score": 152,
+          "percentage": 57.2,
+          "rank": 9
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "score": 87,
+          "max_score": 152,
+          "percentage": 57.2,
+          "rank": 10
+        },
+        {
+          "model": "llama3.1",
+          "score": 83,
+          "max_score": 152,
+          "percentage": 54.6,
+          "rank": 11
+        },
+        {
+          "model": "mistral",
+          "score": 81,
+          "max_score": 152,
+          "percentage": 53.3,
+          "rank": 12
+        },
+        {
+          "model": "gpt-3.5-turbo",
+          "score": 78,
+          "max_score": 152,
+          "percentage": 51.3,
+          "rank": 13
+        },
+        {
+          "model": "gpt-4o-mini",
+          "score": 78,
+          "max_score": 152,
+          "percentage": 51.3,
+          "rank": 14
+        },
+        {
+          "model": "codegemma",
+          "score": 77,
+          "max_score": 152,
+          "percentage": 50.7,
+          "rank": 15
+        },
+        {
+          "model": "deepseek-coder:6.7b-instruct",
+          "score": 77,
+          "max_score": 152,
+          "percentage": 50.7,
+          "rank": 16
+        },
+        {
+          "model": "o1",
+          "score": 73,
+          "max_score": 152,
+          "percentage": 48.0,
+          "rank": 17
+        },
+        {
+          "model": "gpt-4",
+          "score": 71,
+          "max_score": 152,
+          "percentage": 46.7,
+          "rank": 18
+        },
+        {
+          "model": "o3-mini",
+          "score": 71,
+          "max_score": 152,
+          "percentage": 46.7,
+          "rank": 19
+        },
+        {
+          "model": "gpt-4o",
+          "score": 69,
+          "max_score": 152,
+          "percentage": 45.4,
+          "rank": 20
+        },
+        {
+          "model": "qwen2.5-coder:14b",
+          "score": 65,
+          "max_score": 152,
+          "percentage": 42.8,
+          "rank": 21
+        },
+        {
+          "model": "claude-sonnet-4-5",
+          "score": 64,
+          "max_score": 152,
+          "percentage": 42.1,
+          "rank": 22
+        },
+        {
+          "model": "qwen2.5-coder",
+          "score": 62,
+          "max_score": 152,
+          "percentage": 40.8,
+          "rank": 23
+        },
+        {
+          "model": "chatgpt-4o-latest",
+          "score": 57,
+          "max_score": 152,
+          "percentage": 37.5,
+          "rank": 24
+        }
+      ],
+      "top_3": [
+        "gpt-5.2",
+        "deepseek-coder",
+        "starcoder2"
+      ],
+      "average_score": 54.3
+    },
+    "javascript": {
+      "name": "JavaScript",
+      "models": [
+        {
+          "model": "starcoder2",
+          "score": 41,
+          "max_score": 56,
+          "percentage": 73.2,
+          "rank": 1
+        },
+        {
+          "model": "gpt-5.2",
+          "score": 41,
+          "max_score": 56,
+          "percentage": 73.2,
+          "rank": 2
+        },
+        {
+          "model": "Unknown",
+          "score": 40,
+          "max_score": 56,
+          "percentage": 71.4,
+          "rank": 3
+        },
+        {
+          "model": "gpt-5.4",
+          "score": 39,
+          "max_score": 56,
+          "percentage": 69.6,
+          "rank": 4
+        },
+        {
+          "model": "deepseek-coder",
+          "score": 36,
+          "max_score": 56,
+          "percentage": 64.3,
+          "rank": 5
+        },
+        {
+          "model": "o3",
+          "score": 36,
+          "max_score": 56,
+          "percentage": 64.3,
+          "rank": 6
+        },
+        {
+          "model": "claude-opus-4-6",
+          "score": 36,
+          "max_score": 56,
+          "percentage": 64.3,
+          "rank": 7
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "score": 31,
+          "max_score": 56,
+          "percentage": 55.4,
+          "rank": 8
+        },
+        {
+          "model": "mistral",
+          "score": 29,
+          "max_score": 56,
+          "percentage": 51.8,
+          "rank": 9
+        },
+        {
+          "model": "codegemma",
+          "score": 29,
+          "max_score": 56,
+          "percentage": 51.8,
+          "rank": 10
+        },
+        {
+          "model": "gemini-2.5-flash",
+          "score": 27,
+          "max_score": 56,
+          "percentage": 48.2,
+          "rank": 11
+        },
+        {
+          "model": "gpt-4o",
+          "score": 26,
+          "max_score": 56,
+          "percentage": 46.4,
+          "rank": 12
+        },
+        {
+          "model": "o3-mini",
+          "score": 26,
+          "max_score": 56,
+          "percentage": 46.4,
+          "rank": 13
+        },
+        {
+          "model": "claude-sonnet-4-5",
+          "score": 25,
+          "max_score": 56,
+          "percentage": 44.6,
+          "rank": 14
+        },
+        {
+          "model": "deepseek-coder:6.7b-instruct",
+          "score": 25,
+          "max_score": 56,
+          "percentage": 44.6,
+          "rank": 15
+        },
+        {
+          "model": "o1",
+          "score": 24,
+          "max_score": 56,
+          "percentage": 42.9,
+          "rank": 16
+        },
+        {
+          "model": "qwen2.5-coder",
+          "score": 22,
+          "max_score": 56,
+          "percentage": 39.3,
+          "rank": 17
+        },
+        {
+          "model": "chatgpt-4o-latest",
+          "score": 22,
+          "max_score": 56,
+          "percentage": 39.3,
+          "rank": 18
+        },
+        {
+          "model": "gpt-4",
+          "score": 22,
+          "max_score": 56,
+          "percentage": 39.3,
+          "rank": 19
+        },
+        {
+          "model": "gpt-4o-mini",
+          "score": 22,
+          "max_score": 56,
+          "percentage": 39.3,
+          "rank": 20
+        },
+        {
+          "model": "llama3.1",
+          "score": 20,
+          "max_score": 56,
+          "percentage": 35.7,
+          "rank": 21
+        },
+        {
+          "model": "qwen2.5-coder:14b",
+          "score": 20,
+          "max_score": 56,
+          "percentage": 35.7,
+          "rank": 22
+        },
+        {
+          "model": "codellama",
+          "score": 19,
+          "max_score": 56,
+          "percentage": 33.9,
+          "rank": 23
+        },
+        {
+          "model": "gpt-3.5-turbo",
+          "score": 14,
+          "max_score": 56,
+          "percentage": 25.0,
+          "rank": 24
+        }
+      ],
+      "top_3": [
+        "starcoder2",
+        "gpt-5.2",
+        "Unknown"
+      ],
+      "average_score": 50.0
+    }
+  }
+}

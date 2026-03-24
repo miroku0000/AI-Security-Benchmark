@@ -4,62 +4,74 @@ Automated Security Benchmark
 
 Automatically generates code using AI models (Ollama, OpenAI, or Claude) and runs security tests.
 This is the main entry point for end-to-end automated testing.
+
+Usage:
+  python3 auto_benchmark.py --all --retries 3          # Run ALL models from config
+  python3 auto_benchmark.py --model codellama --retries 3  # Run a single model
+  python3 auto_benchmark.py --all --limit 5            # Quick test (5 prompts)
 """
 import argparse
+import logging
+import os
 import subprocess
 import sys
 import json
+import yaml
+import concurrent.futures
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class AutomatedBenchmark:
     """Automated code generation and security testing."""
 
     def __init__(self, model: str, output_dir: str, report_name: str = None,
-                 use_cache: bool = True, force_regenerate: bool = False):
+                 use_cache: bool = True, force_regenerate: bool = False,
+                 retries: int = 0, temperature: float = 0.2):
         self.model = model
         self.output_dir = output_dir
         self.report_name = report_name or f"{model.replace(':', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.use_cache = use_cache
         self.force_regenerate = force_regenerate
+        self.retries = retries
+        self.temperature = temperature
 
     def run_generation(self, limit: int = None) -> bool:
         """Run code generation step."""
-        print(f"\n{'='*70}")
-        print("STEP 1: CODE GENERATION")
-        print(f"{'='*70}\n")
+        logger.info("=" * 70)
+        logger.info("STEP 1: CODE GENERATION")
+        logger.info("=" * 70)
 
         cmd = [
             'python3', 'code_generator.py',
             '--model', self.model,
             '--output', self.output_dir,
+            '--temperature', str(self.temperature),
         ]
 
         if limit:
             cmd.extend(['--limit', str(limit)])
-
-        # Add cache flags
+        if self.retries > 0:
+            cmd.extend(['--retries', str(self.retries)])
         if not self.use_cache:
             cmd.append('--no-cache')
         if self.force_regenerate:
             cmd.append('--force-regenerate')
 
         try:
-            result = subprocess.run(cmd, timeout=600)
+            result = subprocess.run(cmd)
             return result.returncode == 0
-        except subprocess.TimeoutExpired:
-            print("Error: Code generation timed out")
-            return False
         except Exception as e:
-            print(f"Error running generation: {e}")
+            logger.error("Error running generation: %s", e)
             return False
 
-    def run_benchmark(self, html: bool = True) -> bool:
-        """Run security benchmark on generated code."""
-        print(f"\n{'='*70}")
-        print("STEP 2: SECURITY TESTING")
-        print(f"{'='*70}\n")
+    def run_benchmark(self, html: bool = True) -> dict:
+        """Run security benchmark on generated code. Returns summary dict or None."""
+        logger.info("=" * 70)
+        logger.info("STEP 2: SECURITY TESTING")
+        logger.info("=" * 70)
 
         report_path = f"reports/{self.report_name}.json"
 
@@ -67,7 +79,8 @@ class AutomatedBenchmark:
             'python3', 'runner.py',
             '--code-dir', self.output_dir,
             '--output', report_path,
-            '--model', self.model
+            '--model', self.model,
+            '--temperature', str(self.temperature)
         ]
 
         if not html:
@@ -77,115 +90,459 @@ class AutomatedBenchmark:
             result = subprocess.run(cmd)
 
             if result.returncode == 0:
-                # Load and display summary
-                self._display_summary(report_path)
-                return True
-            return False
+                summary = self._display_summary(report_path)
+                return summary
+            return None
         except Exception as e:
-            print(f"Error running benchmark: {e}")
-            return False
+            logger.error("Error running benchmark: %s", e)
+            return None
 
-    def _display_summary(self, report_path: str):
-        """Display benchmark summary."""
+    def _display_summary(self, report_path: str) -> dict:
+        """Display benchmark summary. Returns summary dict."""
         try:
             with open(report_path, 'r') as f:
                 report = json.load(f)
 
             summary = report.get('summary', {})
 
-            print(f"\n{'='*70}")
-            print("FINAL RESULTS")
-            print(f"{'='*70}")
-            print(f"Model: {self.model}")
-            print(f"Total Tests: {summary.get('total_tests', 0)}")
-            print(f"✅ Secure: {summary.get('secure', 0)}")
-            print(f"⚠️  Partial: {summary.get('partial', 0)}")
-            print(f"❌ Vulnerable: {summary.get('vulnerable', 0)}")
-            print(f"\nOverall Score: {summary.get('overall_score', 'N/A')}")
-            print(f"Percentage: {summary.get('percentage', 0):.1f}%")
-            print(f"\nJSON Report: {report_path}")
+            logger.info("=" * 70)
+            logger.info("FINAL RESULTS")
+            logger.info("=" * 70)
+            logger.info("Model: %s", self.model)
+            logger.info("Total Tests: %s", summary.get('total_tests', 0))
+            logger.info("Secure: %s", summary.get('secure', 0))
+            logger.info("Partial: %s", summary.get('partial', 0))
+            logger.info("Vulnerable: %s", summary.get('vulnerable', 0))
+            logger.info("Overall Score: %s", summary.get('overall_score', 'N/A'))
+            logger.info("Percentage: %.1f%%", summary.get('percentage', 0))
+            logger.info("JSON Report: %s", report_path)
 
-            # Check for HTML report
             html_path = report_path.replace('.json', '.html')
             if Path(html_path).exists():
-                print(f"HTML Report: {html_path}")
-                print(f"\nOpen in browser: file://{Path(html_path).absolute()}")
+                logger.info("HTML Report: %s", html_path)
 
-            print(f"{'='*70}\n")
+            logger.info("=" * 70)
+            return summary
 
         except Exception as e:
-            print(f"Error displaying summary: {e}")
+            logger.error("Error displaying summary: %s", e)
+            return {}
 
-    def run(self, limit: int = None) -> int:
-        """Run the full automated benchmark."""
-        print(f"\n{'='*70}")
-        print("AUTOMATED AI SECURITY BENCHMARK")
-        print(f"{'='*70}")
-        print(f"Model: {self.model}")
-        print(f"Output Directory: {self.output_dir}")
-        print(f"Report Name: {self.report_name}")
-        print(f"{'='*70}\n")
+    def _has_generated_code(self) -> bool:
+        """Check if generated code directory exists and has files."""
+        output_path = Path(self.output_dir)
+        if not output_path.exists():
+            return False
+        code_files = list(output_path.glob('*.py')) + list(output_path.glob('*.js'))
+        return len(code_files) > 0
 
-        # Step 1: Generate code
-        if not self.run_generation(limit):
-            print("❌ Code generation failed")
-            return 1
+    def run(self, limit: int = None) -> dict:
+        """Run the full automated benchmark. Returns summary dict or None on failure."""
+        start_time = datetime.now()
+        logger.info("=" * 70)
+        logger.info("AUTOMATED AI SECURITY BENCHMARK")
+        logger.info("=" * 70)
+        logger.info("Model: %s", self.model)
+        logger.info("Temperature: %.1f", self.temperature)
+        logger.info("Output Directory: %s", self.output_dir)
+        logger.info("Report Name: %s", self.report_name)
+        logger.info("Started: %s", start_time.strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("=" * 70)
+
+        # Step 1: Generate code (skip if code already exists and no forced regeneration)
+        if self._has_generated_code() and not self.force_regenerate and limit is None:
+            logger.info("Using existing code in %s/ (use --force-regenerate to regenerate)", self.output_dir)
+        elif not self.run_generation(limit):
+            logger.error("Code generation failed")
+            return None
+
+        # Check file count — skip benchmarking if incomplete
+        expected = limit or 66
+        output_path = Path(self.output_dir)
+        code_files = list(output_path.glob('*.py')) + list(output_path.glob('*.js')) if output_path.exists() else []
+        file_count = len(code_files)
+        if file_count < expected:
+            logger.warning("%s: Only %d/%d files generated -- skipping benchmark", self.model, file_count, expected)
+            logger.warning("Cannot compare against models with complete generation.")
+            return None
 
         # Step 2: Run security tests
-        if not self.run_benchmark():
-            print("❌ Security testing failed")
-            return 1
+        summary = self.run_benchmark()
+        if summary is None:
+            logger.error("Security testing failed")
+            return None
 
-        print("\n✅ Automated benchmark completed successfully!\n")
-        return 0
+        elapsed = datetime.now() - start_time
+        minutes = int(elapsed.total_seconds() // 60)
+        seconds = int(elapsed.total_seconds() % 60)
+        logger.info("Completed %s in %dm %ds", self.model, minutes, seconds)
+        return summary
+
+
+def _detect_provider(model: str) -> str:
+    """Detect provider from model name."""
+    model_lower = model.lower()
+    if 'codex-app' in model_lower or 'codex_app' in model_lower:
+        return 'codex-app'
+    if 'claude-code' in model_lower or 'claude_code' in model_lower:
+        return 'claude-code'
+    if 'cursor' in model_lower:
+        return 'cursor'
+    if any(x in model_lower for x in ['gpt-3', 'gpt-4', 'gpt-5', 'o1', 'o3', 'o4', 'chatgpt']):
+        return 'openai'
+    if 'claude' in model_lower:
+        return 'anthropic'
+    if 'gemini' in model_lower:
+        return 'google'
+    return 'ollama'
+
+
+def load_models_from_config(config_path: str = 'benchmark_config.yaml') -> dict:
+    """Load model lists from config, grouped by provider."""
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    models_config = config.get('models', {})
+    return {
+        'openai': models_config.get('openai', []),
+        'anthropic': models_config.get('anthropic', []),
+        'google': models_config.get('google', []),
+        'ollama': models_config.get('ollama', []),
+        'cursor': models_config.get('cursor', []),
+        'codex-app': models_config.get('codex-app', []),
+        'claude-code': models_config.get('claude-code', []),
+    }
+
+
+def run_all_models(args):
+    """Run benchmark for all models in config."""
+    models_by_provider = load_models_from_config()
+    all_results = {}
+
+    api_models = models_by_provider['openai'] + models_by_provider['anthropic'] + models_by_provider['google']
+    ollama_models = models_by_provider['ollama']
+    cursor_models = models_by_provider['cursor']
+    codex_models = models_by_provider['codex-app']
+    claude_code_models = models_by_provider['claude-code']
+
+    total = len(api_models) + len(ollama_models) + len(cursor_models) + len(codex_models) + len(claude_code_models)
+    run_start = datetime.now()
+    logger.info("=" * 70)
+    logger.info("FULL BENCHMARK: %d models", total)
+    logger.info("=" * 70)
+    logger.info("API models (parallel):      %d", len(api_models))
+    logger.info("Ollama models (sequential): %d", len(ollama_models))
+    logger.info("Cursor models:              %d", len(cursor_models))
+    logger.info("Codex.app models:           %d", len(codex_models))
+    logger.info("Claude Code models:         %d", len(claude_code_models))
+    logger.info("Started: %s", run_start.strftime('%Y-%m-%d %H:%M:%S'))
+    logger.info("=" * 70)
+
+    # Check API keys
+    has_openai = bool(os.getenv('OPENAI_API_KEY'))
+    has_anthropic = bool(os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY'))
+
+    if models_by_provider['openai'] and not has_openai:
+        logger.warning("OPENAI_API_KEY not set, skipping OpenAI models")
+        api_models = [m for m in api_models if _detect_provider(m) != 'openai']
+
+    if models_by_provider['anthropic'] and not has_anthropic:
+        logger.warning("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) not set, skipping Anthropic models")
+        api_models = [m for m in api_models if _detect_provider(m) != 'anthropic']
+
+    has_google = bool(os.getenv('GEMINI_API_KEY'))
+    if models_by_provider['google'] and not has_google:
+        logger.warning("GEMINI_API_KEY not set, skipping Google models")
+        api_models = [m for m in api_models if _detect_provider(m) != 'google']
+
+    def run_single_model(model):
+        """Run benchmark for a single model. Returns (model, summary, files_generated)."""
+        # Include temperature in output directory if non-default
+        temp_str = f"_temp{args.temperature}" if args.temperature != 0.2 else ""
+        output_dir = f"output/{model.replace(':', '_')}{temp_str}"
+        report_name = f"{model.replace(':', '_')}{temp_str}_208point_{datetime.now().strftime('%Y%m%d')}"
+        benchmark = AutomatedBenchmark(
+            model=model,
+            output_dir=output_dir,
+            report_name=report_name,
+            use_cache=not args.no_cache,
+            force_regenerate=args.force_regenerate,
+            retries=args.retries,
+            temperature=args.temperature,
+        )
+        summary = benchmark.run(limit=args.limit)
+        # Count actual generated files
+        out_path = Path(output_dir)
+        files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+        return model, summary, len(files)
+
+    # Run API models in parallel
+    if api_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 1: API MODELS (%d models in parallel)", len(api_models))
+        logger.info("=" * 70)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(run_single_model, m): m for m in api_models}
+            for future in concurrent.futures.as_completed(futures):
+                model, summary, files = future.result()
+                all_results[model] = (summary, files)
+
+    # Run Ollama models sequentially
+    if ollama_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 2: OLLAMA MODELS (%d models, sequential)", len(ollama_models))
+        logger.info("=" * 70)
+
+        for i, model in enumerate(ollama_models, 1):
+            logger.info(">>> Ollama model %d/%d: %s", i, len(ollama_models), model)
+            model_name, summary, files = run_single_model(model)
+            all_results[model_name] = (summary, files)
+
+    # Run Cursor models
+    if cursor_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 3: CURSOR MODELS (%d models)", len(cursor_models))
+        logger.info("=" * 70)
+
+        # Check if agent (Cursor CLI) is available
+        try:
+            subprocess.run(['agent', '--version'], capture_output=True, check=True)
+            has_cursor = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning("Cursor agent not found - skipping Cursor models")
+            logger.warning("Install Cursor Agent: curl https://cursor.com/install -fsSL | bash")
+            has_cursor = False
+
+        if has_cursor:
+            for model in cursor_models:
+                logger.info(">>> Running Cursor benchmark...")
+
+                # Run cursor generation script
+                output_dir = 'output/cursor'
+                result = subprocess.run([
+                    'python3', 'scripts/test_cursor.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '90'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on cursor output
+                    logger.info(">>> Running security tests on Cursor output...")
+                    report_name = f"cursor_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='cursor',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['cursor'] = (summary, len(files))
+                else:
+                    logger.error("Cursor generation failed")
+                    all_results['cursor'] = (None, 0)
+
+    # Run Codex.app models
+    if codex_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 4: CODEX.APP MODELS (%d models)", len(codex_models))
+        logger.info("=" * 70)
+
+        # Check if codex CLI is available
+        import shutil
+        codex_cli = shutil.which('codex')
+        if not codex_cli:
+            codex_cli = '/Applications/Codex.app/Contents/Resources/codex'
+
+        has_codex = Path(codex_cli).exists() if codex_cli else False
+
+        if not has_codex:
+            logger.warning("Codex CLI not found - skipping Codex.app models")
+            logger.warning("Install Codex.app from OpenAI")
+        else:
+            for model in codex_models:
+                logger.info(">>> Running Codex.app benchmark...")
+
+                # Run codex generation script
+                output_dir = 'output/codex-app'
+                result = subprocess.run([
+                    'python3', 'scripts/test_codex_app.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '120'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on codex output
+                    logger.info(">>> Running security tests on Codex.app output...")
+                    report_name = f"codex-app_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='codex-app',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['codex-app'] = (summary, len(files))
+                else:
+                    logger.error("Codex.app generation failed")
+                    all_results['codex-app'] = (None, 0)
+
+    # Run Claude Code models
+    if claude_code_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 5: CLAUDE CODE MODELS (%d models)", len(claude_code_models))
+        logger.info("=" * 70)
+
+        # Check if claude CLI is available
+        import shutil
+        has_claude = bool(shutil.which('claude'))
+
+        if not has_claude:
+            logger.warning("Claude Code CLI not found - skipping Claude Code models")
+            logger.warning("Install Claude Code from Anthropic")
+        else:
+            for model in claude_code_models:
+                logger.info(">>> Running Claude Code benchmark...")
+
+                # Run claude code generation script
+                output_dir = 'output/claude-code'
+                result = subprocess.run([
+                    'python3', 'scripts/test_claude_code.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '120'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on claude code output
+                    logger.info(">>> Running security tests on Claude Code output...")
+                    report_name = f"claude-code_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='claude-code',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['claude-code'] = (summary, len(files))
+                else:
+                    logger.error("Claude Code generation failed")
+                    all_results['claude-code'] = (None, 0)
+
+    # Generate HTML reports
+    logger.info("=" * 70)
+    logger.info("PHASE 6: GENERATING HTML REPORTS")
+    logger.info("=" * 70)
+
+    subprocess.run(['python3', 'utils/generate_html_reports.py'])
+
+    # Print final summary table
+    logger.info("=" * 70)
+    logger.info("FINAL RESULTS -- ALL MODELS")
+    logger.info("=" * 70)
+    logger.info("%-6s%-30s%-18s%-10s%-12s", "Rank", "Model", "Score", "Files", "Provider")
+    logger.info("-" * 76)
+
+    complete = []
+    incomplete = []
+    for model, (summary, files) in all_results.items():
+        provider = _detect_provider(model)
+        if summary is None:
+            incomplete.append((model, files, provider))
+        else:
+            score = summary.get('overall_score', '0/208')
+            pct = summary.get('percentage', 0)
+            complete.append((model, score, pct, files, provider))
+
+    complete.sort(key=lambda x: x[2], reverse=True)
+    incomplete.sort(key=lambda x: x[1], reverse=True)
+
+    rank = 1
+    for model, score, pct, files, provider in complete:
+        logger.info("%-6d%-30s%s (%.1f%%)   %d/66    %-12s", rank, model, score, pct, files, provider)
+        rank += 1
+
+    if incomplete:
+        logger.warning("--- Incomplete generation (not ranked, not benchmarked) ---")
+        for model, files, provider in incomplete:
+            logger.warning("%-6s%-30s%-18s%d/66    %-12s", "--", model, "N/A", files, provider)
+
+    logger.info("=" * 76)
+
+    total_elapsed = datetime.now() - run_start
+    total_min = int(total_elapsed.total_seconds() // 60)
+    total_sec = int(total_elapsed.total_seconds() % 60)
+    logger.info("Total time: %dm %ds", total_min, total_sec)
+    logger.info("Finished: %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    logger.info("=" * 70)
+
+    failed = [m for m, (s, _) in all_results.items() if s is None]
+    if failed:
+        return 1
+    return 0
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)-8s %(message)s",
+    )
+
     parser = argparse.ArgumentParser(
-        description="Automated AI code security benchmark using Ollama, OpenAI, or Claude",
+        description="Automated AI code security benchmark",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Test with Ollama models
-  python3 auto_benchmark.py --model codellama
-  python3 auto_benchmark.py --model deepseek-coder
+  # Run ALL models from benchmark_config.yaml (recommended)
+  python3 auto_benchmark.py --all --retries 3
 
-  # Test with latest OpenAI models (requires OPENAI_API_KEY)
-  export OPENAI_API_KEY='your-key-here'
-  python3 auto_benchmark.py --model gpt-4o
-  python3 auto_benchmark.py --model chatgpt-4o-latest
+  # Quick test (5 prompts only)
+  python3 auto_benchmark.py --all --retries 3 --limit 5
 
-  # Test with latest Claude models (requires ANTHROPIC_API_KEY)
-  export ANTHROPIC_API_KEY='your-key-here'
-  python3 auto_benchmark.py --model claude-opus-4
-  python3 auto_benchmark.py --model claude-sonnet-4
+  # Single model
+  python3 auto_benchmark.py --model codellama --retries 3
 
-  # Quick test with only 5 prompts
-  python3 auto_benchmark.py --model gpt-4o --limit 5
-
-  # Caching examples (by default, caching is enabled)
-  python3 auto_benchmark.py --model gpt-4o  # Uses cache, skips unchanged prompts
-  python3 auto_benchmark.py --model gpt-4o --force-regenerate  # Regenerate all, update cache
-  python3 auto_benchmark.py --model gpt-4o --no-cache  # Disable caching entirely
-
-  # Compare multiple models (cache makes this faster)
-  python3 auto_benchmark.py --model codellama
-  python3 auto_benchmark.py --model gpt-4o
-  python3 auto_benchmark.py --model claude-opus-4
+  # Force regenerate everything
+  python3 auto_benchmark.py --all --force-regenerate --retries 3
         """
     )
 
     parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Run all models from benchmark_config.yaml (API in parallel, Ollama sequential)'
+    )
+    parser.add_argument(
         '--model',
         type=str,
         default='codellama',
-        help='Model to use: Ollama (codellama, deepseek-coder, starcoder2), OpenAI (gpt-4o, chatgpt-4o-latest, o1, o3), or Claude (claude-opus-4, claude-sonnet-4)'
+        help='Single model to test (ignored if --all is used)'
     )
     parser.add_argument(
         '--output',
         type=str,
         default=None,
-        help='Output directory for generated code (default: generated_<model>)'
+        help='Output directory for generated code (default: output/<model>)'
     )
     parser.add_argument(
         '--report-name',
@@ -198,6 +555,12 @@ Examples:
         help='Limit number of prompts (for quick testing)'
     )
     parser.add_argument(
+        '--retries',
+        type=int,
+        default=3,
+        help='Number of times to retry failed prompts (default: 3)'
+    )
+    parser.add_argument(
         '--no-cache',
         action='store_true',
         help='Disable caching (regenerate all code)'
@@ -207,22 +570,34 @@ Examples:
         action='store_true',
         help='Force regenerate all code (ignore cache, but update it)'
     )
+    parser.add_argument(
+        '--temperature',
+        type=float,
+        default=0.2,
+        help='Temperature for code generation (default: 0.2). Higher = more random/creative'
+    )
     args = parser.parse_args()
 
-    # Determine output directory
-    output_dir = args.output or f"generated_{args.model.replace(':', '_')}"
+    if args.all:
+        return run_all_models(args)
 
-    # Create benchmark instance
+    # Single model mode
+    temp_str = f"_temp{args.temperature}" if args.temperature != 0.2 else ""
+    output_dir = args.output or f"output/{args.model.replace(':', '_')}{temp_str}"
+    report_name = args.report_name or f"{args.model.replace(':', '_')}{temp_str}_208point_{datetime.now().strftime('%Y%m%d')}"
+
     benchmark = AutomatedBenchmark(
         model=args.model,
         output_dir=output_dir,
-        report_name=args.report_name,
+        report_name=report_name,
         use_cache=not args.no_cache,
-        force_regenerate=args.force_regenerate
+        force_regenerate=args.force_regenerate,
+        retries=args.retries,
+        temperature=args.temperature,
     )
 
-    # Run automated benchmark
-    return benchmark.run(limit=args.limit)
+    summary = benchmark.run(limit=args.limit)
+    return 0 if summary else 1
 
 
 if __name__ == "__main__":

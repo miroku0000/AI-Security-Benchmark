@@ -7,7 +7,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import boto3
 import uuid
-import os
 from PIL import Image
 from io import BytesIO
 import time

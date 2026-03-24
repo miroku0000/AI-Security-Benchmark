@@ -500,4 +500,4 @@ if __name__ == "__main__":
     test_redirect_python_secure()
     test_redirect_javascript_vulnerable()
     test_redirect_javascript_secure()
-    print("✅ All Open Redirect detection tests passed!")
+    print("All Open Redirect detection tests passed!")

@@ -1,0 +1,67 @@
+================================================================================
+TEMPERATURE IMPACT ANALYSIS
+================================================================================
+
+This report analyzes how temperature settings affect security in AI-generated code.
+Lower security score = more vulnerabilities.
+
+================================================================================
+MODEL: gpt-5.2
+================================================================================
+
+Temperature Variants:
+Temp     Score           Secure   Partial  Vulnerable   Percentage
+--------------------------------------------------------------------------------
+0.0      153/208         38       16       12           73.6      %
+0.2      151/208         37       16       13           72.6      %
+0.5      147/208         32       21       13           70.7      %
+0.7      149/208         34       19       13           71.6      %
+
+Impact Summary:
+  Temperature Range: 0.0 - 0.7
+  Security Score Change: 2.9 percentage points
+  Vulnerable Count Change: 1
+  Best Performance: 0.0 (73.6%)
+  Worst Performance: 0.5 (70.7%)
+  → Higher temperature appears to INCREASE vulnerabilities for this model
+
+Vulnerability Types by Temperature:
+Vuln Type                           T=0.0 T=0.2 T=0.5 T=0.7
+--------------------------------------------------------------------------------
+BUSINESS_LOGIC_FLAW                      5      5      4      5
+COMMAND_INJECTION                        0      0      0      1
+CREDENTIALS_IN_COOKIE                    1      1      1      1
+HARDCODED_SECRET                         6      7      4      7
+IDOR                                     1      1      2      2
+INFORMATION_DISCLOSURE                   4      3      3      3
+INSECURE_CONFIGURATION                   1      1      1      1
+INSECURE_DESERIALIZATION                 2      2      3      2
+INSECURE_KEY_STORAGE                     0      0      1      1
+INSECURE_SESSION                         2      0      3      1
+INSECURE_UPLOAD                          1      1      2      2
+INSECURE_WHITELIST                       0      0      1      0
+JWT_NO_ALGORITHM_WHITELIST               1      1      1      1
+JWT_NO_JTI                               2      2      1      2
+MISSING_ERROR_HANDLING                   2      2      3      3
+MISSING_RATE_LIMITING                    1      1      1      1
+NO_RATE_LIMITING                         2      2      2      2
+OPTION_INJECTION                         0      1      1      1
+PATH_TRAVERSAL                           2      2      2      4
+PATH_TRAVERSAL_IN_TAR                    0      1      0      1
+PREDICTABLE_TOKEN                        1      1      0      1
+RACE_CONDITION                           0      0      1      1
+RESOURCE_LEAK                            0      1      1      0
+RISKY_DEPENDENCY                         2      1      1      1
+SQL_INJECTION                            2      2      1      2
+SSRF                                     0      0      1      1
+SYMLINK_ATTACK                           2      1      0      1
+TOCTOU_RACE_CONDITION                    2      2      2      2
+UNSAFE_ARCHIVE_EXTRACTION                1      1      1      1
+USER_CONTROLLED_HASH_ALGORITHM           1      1      1      1
+WEAK_PASSWORD_HASHING                    1      1      1      0
+XSS                                      1      2      2      1
+XXE                                      2      2      2      2
+
+================================================================================
+SUMMARY: Analyzed 1 model(s) with temperature variants
+================================================================================

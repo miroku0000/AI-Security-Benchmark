@@ -1,8 +1,0 @@
-{
-  "scanner": "trivy@0.69.1",
-  "success": true,
-  "output_file": "/output/raw/trivy_scan_20260209_052248.json",
-  "normalized": "/output/normalized/normalized_trivy_scan_20260209_052248.json",
-  "log_file": "/output/trivy.log",
-  "command": "trivy fs --offline-scan --skip-db-update --format json --output \"/output/raw/trivy_scan_20260209_052248.json\" \"/src\""
-}

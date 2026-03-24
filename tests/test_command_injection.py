@@ -25,6 +25,16 @@ class CommandInjectionDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "go":
+            return self._analyze_go(code)
+        elif language == "java":
+            return self._analyze_java(code)
+        elif language == "rust":
+            return self._analyze_rust(code)
+        elif language == "csharp":
+            return self._analyze_csharp(code)
+        elif language in ["cpp", "c"]:
+            return self._analyze_cpp(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -815,6 +825,649 @@ class CommandInjectionDetector:
             "max_score": 2
         }
 
+    def _analyze_go(self, code: str) -> Dict:
+        """Analyze Go code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses exec package
+        uses_exec = re.search(r'os/exec|exec\.Command', code)
+        if not uses_exec:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: String concatenation in Command
+        concat_patterns = [
+            r'exec\.Command\([^)]*\+',  # exec.Command("cmd" + var)
+            r'fmt\.Sprintf\([^)]*\)',  # fmt.Sprintf used to build command
+            r'exec\.CommandContext\([^)]*\+',  # CommandContext with concatenation
+        ]
+
+        cmd_execution_locations = []
+        for pattern in concat_patterns:
+            cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+        if cmd_execution_locations:
+            location = cmd_execution_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "HIGH",
+                "description": "Go command uses string concatenation - vulnerable to command injection",
+                "recommendation": "Use exec.Command with separate arguments: exec.Command(\"cmd\", arg1, arg2) instead of exec.Command(\"cmd \" + arg)",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "String concatenation in exec.Command",
+                        "fmt.Sprintf used to build command strings",
+                        "User input merged into command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: Command built using string concatenation",
+                        "User input can inject shell metacharacters",
+                        "exec.Command with single string doesn't prevent injection"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "exec.Command with string concatenation",
+                        "fmt.Sprintf command building",
+                        "exec.Command with separate arguments"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["String concatenation in Go command"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Check for secure usage (separate arguments)
+        secure_patterns = [
+            r'exec\.Command\(["\'][^"\']+["\']\s*,\s*\w+',  # exec.Command("cmd", arg)
+            r'exec\.CommandContext\([^,]+,\s*["\'][^"\']+["\']\s*,',  # CommandContext with args
+        ]
+
+        has_secure = False
+        secure_location = None
+        for pattern in secure_patterns:
+            locations = find_pattern_locations(code, pattern)
+            if locations:
+                has_secure = True
+                secure_location = locations[0]
+                break
+
+        if has_secure and self.score == 2:
+            line_num = secure_location['line_number']
+            code_snippet = secure_location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses exec.Command with separate arguments, preventing command injection",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "String concatenation in commands",
+                        "Shell metacharacters in user input"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses exec.Command with separate arguments",
+                        "Arguments passed individually, not parsed by shell",
+                        "No string concatenation in command construction"
+                    ],
+                    "patterns_checked": [
+                        "exec.Command with separate arguments",
+                        "String concatenation patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Go exec.Command with args"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_java(self, code: str) -> Dict:
+        """Analyze Java code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses Runtime.exec or ProcessBuilder
+        uses_exec = re.search(r'Runtime\.getRuntime\(\)\.exec|ProcessBuilder', code)
+        if not uses_exec:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Runtime.exec with string (vulnerable)
+        concat_patterns = [
+            r'\.exec\(["\'][^"\']*["\']\s*\+',  # .exec("cmd" + var)
+            r'\.exec\(.*\+.*\)',  # .exec with concatenation
+            r'String\s+command\s*=\s*["\'][^"\']*["\']\s*\+',  # String command = "..." +
+        ]
+
+        cmd_execution_locations = []
+        for pattern in concat_patterns:
+            cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+        if cmd_execution_locations:
+            location = cmd_execution_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "HIGH",
+                "description": "Java command uses Runtime.exec with string concatenation - vulnerable to command injection",
+                "recommendation": "Use ProcessBuilder with array: ProcessBuilder pb = new ProcessBuilder(\"cmd\", arg1, arg2); or Runtime.exec(new String[]{\"cmd\", arg1, arg2})",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Runtime.exec with string concatenation",
+                        "String building for command execution",
+                        "User input merged into command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: Command built using string concatenation",
+                        "Runtime.exec with single string uses shell on some platforms",
+                        "User input can inject shell metacharacters"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "Runtime.exec with string concatenation",
+                        "ProcessBuilder with array arguments"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["String concatenation in Java command"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Check for secure ProcessBuilder usage
+        processbuilder_locations = find_pattern_locations(code, r'new\s+ProcessBuilder\(')
+
+        if processbuilder_locations and self.score == 2:
+            location = processbuilder_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses ProcessBuilder which prevents command injection when used with array arguments",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Runtime.exec with string concatenation",
+                        "Shell interpretation of commands"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses ProcessBuilder",
+                        "ProcessBuilder passes arguments separately, not through shell",
+                        "No string concatenation detected"
+                    ],
+                    "patterns_checked": [
+                        "ProcessBuilder usage",
+                        "Runtime.exec with strings"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Java ProcessBuilder"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_rust(self, code: str) -> Dict:
+        """Analyze Rust code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses Command from std::process
+        uses_command = re.search(r'std::process::Command|use.*process::Command|Command::new', code)
+        if not uses_command:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: format! macro in Command::new
+        concat_patterns = [
+            r'Command::new\(&format!',  # Command::new(&format!(...))
+            r'Command::new\(format!',   # Command::new(format!(...))
+            r'\.arg\(&format!',  # .arg(&format!(...))
+            r'\.args\(\[&format!',  # .args([&format!(...)])
+        ]
+
+        cmd_execution_locations = []
+        for pattern in concat_patterns:
+            cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+        if cmd_execution_locations:
+            location = cmd_execution_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "HIGH",
+                "description": "Rust command uses format! macro - vulnerable to command injection",
+                "recommendation": "Use Command::new with separate .arg() calls: Command::new(\"cmd\").arg(user_input) instead of Command::new(&format!(\"cmd {}\", user_input))",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "format! macro used in Command::new or .arg()",
+                        "String interpolation in command construction",
+                        "User input merged into command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: Command uses format! macro for string interpolation",
+                        "User input embedded directly into command",
+                        "format! does not provide command escaping"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "Command::new with format!",
+                        ".arg() with format!",
+                        "Command::new with separate .arg() calls"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["format! macro in Rust command"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Check for secure usage (separate .arg() calls)
+        secure_patterns = [
+            r'\.arg\([^f][^o][^r]',  # .arg() without format!
+            r'Command::new\(["\'][^"\']+["\']\)\.arg\(',  # Command::new("cmd").arg(...)
+        ]
+
+        has_secure = False
+        secure_location = None
+        for pattern in secure_patterns:
+            locations = find_pattern_locations(code, pattern)
+            if locations:
+                has_secure = True
+                secure_location = locations[0]
+                break
+
+        if has_secure and self.score == 2:
+            line_num = secure_location['line_number']
+            code_snippet = secure_location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses Command::new with separate .arg() calls, preventing command injection",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "format! macro in commands",
+                        "String interpolation in command construction"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses Command with separate .arg() calls",
+                        "Arguments passed individually, not parsed by shell",
+                        "No format! macro used in command construction"
+                    ],
+                    "patterns_checked": [
+                        "Command::new with .arg()",
+                        "format! macro usage"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Rust Command with .arg()"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_csharp(self, code: str) -> Dict:
+        """Analyze C# code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses Process.Start
+        uses_process = re.search(r'Process\.Start|ProcessStartInfo', code)
+        if not uses_process:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Process.Start with string concatenation
+        concat_patterns = [
+            r'Process\.Start\(["\'][^"\']*["\']\s*\+',  # Process.Start("cmd" + var)
+            r'FileName\s*=\s*["\'][^"\']*["\']\s*\+',  # FileName = "..." + var
+            r'\$"[^"]*\{',  # String interpolation $"...{var}..."
+        ]
+
+        cmd_execution_locations = []
+        for pattern in concat_patterns:
+            cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+        if cmd_execution_locations:
+            location = cmd_execution_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "HIGH",
+                "description": "C# command uses Process.Start with string concatenation/interpolation - vulnerable to command injection",
+                "recommendation": "Use ProcessStartInfo with Arguments: var psi = new ProcessStartInfo(\"cmd\"); psi.Arguments = arg; Process.Start(psi);",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Process.Start with string concatenation",
+                        "String interpolation in FileName",
+                        "User input merged into command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: Command built using string concatenation/interpolation",
+                        "User input embedded directly into command",
+                        "Process.Start may invoke shell depending on configuration"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "Process.Start with string concatenation",
+                        "ProcessStartInfo with Arguments property"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["String concatenation in C# command"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Check for secure ProcessStartInfo usage
+        processinfo_locations = find_pattern_locations(code, r'new\s+ProcessStartInfo')
+        arguments_locations = find_pattern_locations(code, r'\.Arguments\s*=')
+
+        if processinfo_locations and arguments_locations and self.score == 2:
+            location = processinfo_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses ProcessStartInfo with Arguments property, helping prevent command injection",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Process.Start with string concatenation",
+                        "Shell interpretation of commands"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses ProcessStartInfo with Arguments",
+                        "Arguments passed separately from command name",
+                        "No string concatenation detected"
+                    ],
+                    "patterns_checked": [
+                        "ProcessStartInfo usage",
+                        "Arguments property",
+                        "String concatenation patterns"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["C# ProcessStartInfo with Arguments"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_cpp(self, code: str) -> Dict:
+        """Analyze C/C++ code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses command execution functions
+        uses_exec = re.search(r'system\(|popen\(|execve\(|fork\(|exec[lv]p?\(', code)
+        if not uses_exec:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Vulnerable system() calls
+        system_locations = find_pattern_locations(code, r'system\(')
+        if system_locations:
+            location = system_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "CRITICAL",
+                "description": "Uses system() which executes commands through shell - vulnerable to command injection",
+                "recommendation": "Use execve() with separate arguments or fork()/exec() pattern instead of system(). Example: char *args[] = {\"cmd\", arg1, NULL}; execve(\"/path/to/cmd\", args, NULL);",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "system() function used to execute commands",
+                        "Commands executed through /bin/sh shell",
+                        "Shell interprets metacharacters in command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: system() executes command through shell",
+                        "Shell metacharacters (; | & $ ` \\n) allow command chaining",
+                        "User input can inject arbitrary commands",
+                        "No parameterization mechanism available"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "system() calls",
+                        "popen() calls",
+                        "execve() with separate arguments",
+                        "fork()/exec() pattern"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["system() call"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Vulnerable popen() calls
+        popen_locations = find_pattern_locations(code, r'popen\(')
+        if popen_locations and self.score > 0:  # Don't override if already vulnerable
+            location = popen_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "CRITICAL",
+                "description": "Uses popen() which executes commands through shell - vulnerable to command injection",
+                "recommendation": "Use pipe() + fork() + execve() pattern instead of popen(). Create pipe, fork child process, use execve() with separate arguments in child, read from pipe in parent.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "popen() function used to execute commands",
+                        "Commands executed through /bin/sh shell",
+                        "Shell interprets metacharacters in command string"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: popen() executes command through shell",
+                        "Shell metacharacters (; | & $ ` \\n) allow command chaining",
+                        "User input can inject arbitrary commands",
+                        "Like system() but with I/O stream to command"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "popen() calls",
+                        "system() calls",
+                        "execve() with separate arguments"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["popen() call"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 3: Secure execve() usage
+        execve_locations = find_pattern_locations(code, r'execve\(')
+        if execve_locations and self.score == 2:
+            location = execve_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            # Check if using array/pointer syntax (secure)
+            # Look for: char *args[] = {...} or similar patterns
+            has_args_array = any([
+                re.search(r'char\s*\*\s*\w+\[\s*\]', code),  # char *args[]
+                re.search(r'char\s*\*\s*\w+\[.*\]', code),   # char *args[N]
+                re.search(r'const\s+char\s*\*\s*\w+\[\s*\]', code),  # const char *args[]
+            ])
+
+            if has_args_array:
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: Uses execve() with separate argument array (prevents command injection). execve() does NOT invoke a shell - it directly executes the program with each array element as a separate argument. Shell metacharacters (; & | $ ` \\n) are treated as literal strings, not interpreted as shell commands. This is the recommended secure way to execute external programs in C/C++.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "function_used": "execve",
+                        "uses_array_arguments": True,
+                        "invokes_shell": False,
+                        "command_injection_prevented": True,
+                        "why_secure": "execve() takes array of arguments (char *argv[]) and passes them directly to the program without shell interpretation. Even if user input contains '; rm -rf /', it's treated as a literal argument, not executed as a separate command."
+                    },
+                    "detection_reasoning": {
+                        "patterns_checked": [
+                            "system() with shell execution",
+                            "popen() with shell execution",
+                            "execve() with array arguments",
+                            "Shell metacharacters in commands"
+                        ],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses execve() with argument array",
+                            "No shell invoked - program executed directly",
+                            "Arguments passed separately, not parsed by shell",
+                            "Shell metacharacters treated as literal strings"
+                        ],
+                        "vulnerable_patterns_absent": [
+                            "No system() calls",
+                            "No popen() calls",
+                            "No shell interpretation of commands"
+                        ]
+                    }
+                })
+
+        # Pattern 4: Secure fork()/exec() pattern
+        fork_exec_pattern = bool(re.search(r'fork\(', code)) and bool(re.search(r'exec[lv]p?\(', code))
+        if fork_exec_pattern and self.score == 2 and not execve_locations:
+            # Find fork location
+            fork_locations = find_pattern_locations(code, r'fork\(')
+            if fork_locations:
+                location = fork_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check for execl, execlp, execv, execvp (variants of exec)
+                exec_variant = "exec"
+                if re.search(r'execl\(', code):
+                    exec_variant = "execl"
+                elif re.search(r'execlp\(', code):
+                    exec_variant = "execlp"
+                elif re.search(r'execv\(', code):
+                    exec_variant = "execv"
+                elif re.search(r'execvp\(', code):
+                    exec_variant = "execvp"
+
+                # Check if using list arguments (secure) or string (potentially vulnerable)
+                has_args_array = any([
+                    re.search(r'char\s*\*\s*\w+\[\s*\]', code),
+                    re.search(r'char\s*\*\s*\w+\[.*\]', code),
+                    re.search(r'const\s+char\s*\*\s*\w+\[\s*\]', code),
+                ])
+
+                if has_args_array or 'execv' in exec_variant:  # execv variants use arrays
+                    self.vulnerabilities.append({
+                        "type": "SECURE",
+                        "severity": "INFO",
+                        "description": f"SECURE: Uses fork()/{{exec_variant}}() pattern with separate arguments (prevents command injection). This pattern forks a child process and uses {{exec_variant}}() to execute the program directly without shell. Arguments are passed separately, preventing shell injection attacks.",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "security_evidence": {
+                            "pattern_used": f"fork()/{{exec_variant}}()",
+                            "uses_array_arguments": True,
+                            "invokes_shell": False,
+                            "command_injection_prevented": True,
+                            "why_secure": f"fork() creates child process, {{exec_variant}}() replaces it with target program. No shell involved - arguments passed directly to program. Shell metacharacters treated as literal strings."
+                        },
+                        "detection_reasoning": {
+                            "patterns_checked": [
+                                "fork()/exec() pattern",
+                                "system() calls",
+                                "popen() calls",
+                                "Shell invocation"
+                            ],
+                            "why_not_vulnerable": [
+                                f"Line {line_num}: Uses fork()/{{exec_variant}}() pattern",
+                                "No shell invoked",
+                                "Arguments passed separately",
+                                "Shell metacharacters cannot execute"
+                            ],
+                            "vulnerable_patterns_absent": [
+                                "No system() calls",
+                                "No popen() calls",
+                                "No shell command strings"
+                            ]
+                        }
+                    })
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
 
 def test_command_injection_python_os_system():
     """Test detection of os.system vulnerability."""
@@ -1088,4 +1741,4 @@ if __name__ == "__main__":
     test_tar_extraction_unsafe()
     test_tar_compression_path_traversal()
     test_tar_compression_with_validation()
-    print("✅ All command injection tests passed!")
+    print("All command injection tests passed!")
