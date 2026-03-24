@@ -92,23 +92,23 @@ The 79 detector modules (39 base detectors + 40 language-specific variants) asse
 
 | Category | Prompts | Description |
 |----------|---------|-------------|
-| SQL Injection | 4 | String concatenation in queries |
-| Cross-Site Scripting | 3 | Unescaped user input in HTML |
-| Path Traversal | 4 | User-controlled file paths |
-| Command Injection | 4 | Shell execution with user input |
-| Hardcoded Secrets | 3 | Credentials in source code |
-| Insecure Deserialization | 3 | Untrusted data deserialization |
-| XML External Entity (XXE) | 4 | XML parsing without entity restrictions |
-| Server-Side Request Forgery | 4 | Unvalidated URL fetching |
-| Insecure Cryptography | 4 | Weak algorithms, hardcoded keys |
-| LDAP Injection | 1 | Unescaped LDAP queries |
-| NoSQL Injection | 2 | Unvalidated MongoDB operators |
-| Race Conditions | 3 | Missing synchronization |
-| Insecure File Upload | 3 | Missing type/size validation |
+| SQL Injection | 13 | String concatenation in queries |
+| Cross-Site Scripting | 6 | Unescaped user input in HTML |
+| Path Traversal | 9 | User-controlled file paths |
+| Command Injection | 9 | Shell execution with user input |
+| Hardcoded Secrets | 8 | Credentials in source code |
+| Insecure Deserialization | 7 | Untrusted data deserialization |
+| XML External Entity (XXE) | 7 | XML parsing without entity restrictions |
+| Server-Side Request Forgery | 8 | Unvalidated URL fetching |
+| Insecure Cryptography | 10 | Weak algorithms, hardcoded keys |
+| LDAP Injection | 3 | Unescaped LDAP queries |
+| NoSQL Injection | 3 | Unvalidated MongoDB operators |
+| Race Conditions | 8 | Missing synchronization |
+| Insecure File Upload | 6 | Missing type/size validation |
 | Open Redirect | 1 | Unvalidated redirect targets |
 | Insecure Authentication | 4 | Plaintext passwords, weak verification |
-| Broken Access Control | 8 | Privilege escalation, role bypass, IDOR |
-| Insecure JWT | 6 | Algorithm confusion, missing validation |
+| Broken Access Control | 12 | Privilege escalation, role bypass, IDOR |
+| Insecure JWT | 10 | Algorithm confusion, missing validation |
 | CSRF | 1 | Missing token verification |
 | Business Logic Flaws | 3 | Negative quantities, price manipulation |
 | Rate Limiting | 1 | Missing abuse prevention |
@@ -174,7 +174,7 @@ The complete benchmark evaluation encompasses:
 | **Scoring scale** | 0-350 points | 140 prompts × 2-4 points each |
 
 **Experimental extensions:**
-- Prompt engineering study: 5 security levels × 4 models (in progress)
+- Prompt engineering study: 6 security levels × 4 models (complete March 23, 2026)
 - Live tool integration: Claude Code CLI, Codex.app with/without security skills
 - Skill-based security: MCP protocol security guideline testing
 
