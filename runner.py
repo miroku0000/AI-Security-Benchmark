@@ -327,7 +327,11 @@ class SecurityBenchmark:
                 'terraform': '.tf',
                 'dockerfile': '',  # Dockerfile has no extension
                 'yaml': '.yml',
-                'groovy': '.groovy'  # Jenkins pipeline
+                'groovy': '.groovy',  # Jenkins pipeline
+                'php': '.php',  # PHP/Laravel/WordPress
+                'ruby': '.rb',  # Ruby on Rails
+                'typescript': '.ts',  # TypeScript/Node.js
+                'bash': '.sh'  # Bash/Shell scripts
             }
             ext = extensions.get(language, '.txt')
 

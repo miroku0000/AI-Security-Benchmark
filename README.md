@@ -14,7 +14,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 301 test prompts (140 web/API, 59 mobile, 80 infrastructure, 22 serverless/GraphQL)
+├── prompts/prompts.yaml                 # 356 test prompts (140 web/API, 59 mobile, 80 infrastructure, 22 serverless/GraphQL, 55 language expansion)
 ├── tests/                               # 35+ security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
@@ -176,7 +176,51 @@ Comprehensive mobile security testing aligned with OWASP Mobile Application Secu
 - **MASVS-AUTH** (5 prompts): Weak biometric authentication
 - **MASVS-RESILIENCE** (5 prompts): Root/jailbreak detection
 
-**Total:** 301 prompts across 16 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, and more)
+### Language Expansion (55 prompts) - **NEW Phase 3**
+
+Comprehensive language coverage for major web and DevOps ecosystems:
+
+**PHP (20 prompts) - Laravel, WordPress, Symfony**
+- SQL injection (Laravel DB::raw, WordPress $wpdb, PDO)
+- XSS (Blade unescaped output {!! !!}, WordPress echo)
+- Path traversal (file operations, include/require)
+- Command injection (exec, shell_exec)
+- Hardcoded secrets (.env misuse, config files)
+- Insecure deserialization (unserialize, base64)
+- XXE (SimpleXML vulnerabilities)
+- SSRF (cURL URL injection)
+- Insecure crypto (MD5 passwords, weak encryption)
+- File upload (WordPress plugins)
+- Mass assignment (Laravel Eloquent)
+- CSRF (missing tokens)
+
+**Ruby (15 prompts) - Ruby on Rails**
+- SQL injection (ActiveRecord where(), raw SQL, find_by_sql)
+- XSS (ERB html_safe, raw output)
+- Path traversal (send_file, File.read vulnerabilities)
+- Command injection (system, backticks, exec)
+- Hardcoded secrets (Rails credentials misuse)
+- Insecure deserialization (YAML.load, Marshal.load)
+- Mass assignment (strong parameters bypass, attr_accessible)
+- CSRF (skip_before_action :verify_authenticity_token)
+
+**TypeScript (10 prompts) - Modern Web/Node.js**
+- SQL injection (TypeORM raw queries, template literals)
+- XSS (React dangerouslySetInnerHTML, Vue v-html)
+- Command injection (child_process.exec)
+- Path traversal (fs.readFile operations)
+- JWT security (weak secrets, algorithm confusion, missing verification)
+- Insecure crypto (Math.random for tokens)
+- SSRF (axios URL injection)
+
+**Bash/Shell (10 prompts) - DevOps Scripts**
+- Command injection (variable interpolation, eval, command substitution)
+- Path traversal (directory traversal, file operations)
+- Hardcoded secrets (API keys, AWS credentials, database passwords)
+- Race conditions (insecure temp files)
+- Insecure permissions (chmod 777)
+
+**Total:** 356 prompts across 18 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, TypeScript, Bash/Shell)
 
 See [docs/OWASP_MASVS_COVERAGE.md](docs/OWASP_MASVS_COVERAGE.md) for detailed mobile security coverage analysis.
 
