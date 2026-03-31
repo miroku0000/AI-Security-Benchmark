@@ -14,7 +14,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 356 test prompts (140 web/API, 59 mobile, 80 infrastructure, 22 serverless/GraphQL, 55 language expansion)
+├── prompts/prompts.yaml                 # 436 test prompts (140 web/API, 59 mobile, 125 infrastructure, 22 serverless/GraphQL, 55 language expansion, 35 multi-cloud)
 ├── tests/                               # 35+ security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
@@ -44,11 +44,11 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 - JWT Security, CSRF, Access Control
 - Business Logic Flaws
 
-### Infrastructure Security (80 prompts) - **UPDATED**
+### Infrastructure Security (125 prompts) - **PHASE 4 UPDATE**
 
-Comprehensive modern DevOps and cloud security testing covering:
+Comprehensive multi-cloud DevOps and cloud security testing covering AWS, Azure, and GCP:
 
-**Cloud Infrastructure as Code (25 prompts)**
+**Cloud Infrastructure as Code (70 prompts)**
 - **Terraform/HCL (15 prompts)**
   - Public S3 buckets and missing encryption
   - Overly permissive IAM policies (wildcard actions/resources)
@@ -69,6 +69,29 @@ Comprehensive modern DevOps and cloud security testing covering:
   - Disabled S3 versioning
   - Missing CloudWatch alarms
   - Cross-account trust misconfigurations
+
+- **Azure ARM Templates/YAML (15 prompts)** - **NEW Phase 4**
+  - Public Storage Accounts (blob access)
+  - Unrestricted Network Security Groups (RDP/SSH from 0.0.0.0/0)
+  - Public Azure SQL Database (firewall 0.0.0.0/0)
+  - Overly permissive RBAC (Contributor at subscription level)
+  - Unencrypted VM disks
+  - Missing diagnostics and activity logs
+  - Hardcoded secrets in template parameters
+  - No DDoS protection
+  - Managed Identity excessive permissions
+  - Public IP on VMs without Bastion
+
+- **GCP Deployment Manager/YAML (10 prompts)** - **NEW Phase 4**
+  - Public Cloud Storage buckets (allUsers access)
+  - Unrestricted firewall rules (0.0.0.0/0 ingress)
+  - Public Cloud SQL instances (authorized networks 0.0.0.0/0)
+  - Overly permissive service accounts (roles/owner)
+  - Unencrypted Compute Engine disks
+  - Disabled Cloud Logging and Monitoring
+  - Secrets in instance metadata
+  - Default VPC configurations
+  - Service account key creation (downloadable credentials)
 
 **Container Security (30 prompts)**
 - **Dockerfile (15 prompts)**
@@ -131,7 +154,7 @@ Comprehensive modern DevOps and cloud security testing covering:
   - Insecure artifact retrieval from user URLs
   - Arbitrary code execution (evaluate/load)
 
-### Serverless & Modern API Security (22 prompts) - **NEW Phase 2**
+### Serverless & Modern API Security (42 prompts) - **PHASE 4 UPDATE**
 
 **AWS Lambda/Serverless (12 prompts)**
 - Overly permissive IAM policies (wildcard actions/resources)
@@ -145,6 +168,30 @@ Comprehensive modern DevOps and cloud security testing covering:
 - CORS misconfigurations (allow * origin)
 - Missing Dead Letter Queues (DLQ)
 - Shared IAM roles across functions
+
+**Azure Functions (10 prompts)** - **NEW Phase 4**
+- Overly permissive Managed Identity (excessive Azure permissions)
+- Secrets in application settings
+- Anonymous HTTP triggers (missing authentication)
+- SQL injection in Azure SQL queries
+- Missing input validation (blob path injection)
+- Command injection via process execution
+- Open CORS policy (wildcard origins)
+- Insecure deserialization (pickle.loads)
+- Excessive timeout/resource allocation
+- Logging sensitive data (tokens, passwords)
+
+**GCP Cloud Functions (10 prompts)** - **NEW Phase 4**
+- Overly permissive service accounts (Storage Admin, roles/owner)
+- Hardcoded API credentials in function code
+- Unauthenticated functions (--allow-unauthenticated)
+- SQL injection in Cloud SQL queries
+- Command injection via subprocess
+- Missing input validation (GCS path injection)
+- Wildcard CORS origins
+- Insecure deserialization (pickle vulnerability)
+- Excessive memory/timeout limits
+- Verbose logging with sensitive data exposure
 
 **GraphQL API Security (10 prompts)**
 - Schema introspection enabled in production
@@ -220,7 +267,11 @@ Comprehensive language coverage for major web and DevOps ecosystems:
 - Race conditions (insecure temp files)
 - Insecure permissions (chmod 777)
 
-**Total:** 356 prompts across 18 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, TypeScript, Bash/Shell)
+**Total:** 436 prompts across 18 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, TypeScript, Bash/Shell)
+
+**Phase 4 Additions (80 prompts):**
+- **Multi-Cloud Expansion (45 prompts):** Azure ARM Templates (15), Azure Functions (10), GCP Deployment Manager (10), GCP Cloud Functions (10)
+- **Depth Enhancement (35 prompts):** Expanded 18 low-coverage categories from 1-2 prompts to 3-4 prompts each for improved statistical significance
 
 See [docs/OWASP_MASVS_COVERAGE.md](docs/OWASP_MASVS_COVERAGE.md) for detailed mobile security coverage analysis.
 
@@ -235,7 +286,7 @@ cd AI-Security-Benchmark
 
 The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
 
-**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The new 102 prompts (80 infrastructure security + 22 serverless/GraphQL) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, GitLab CI, Jenkins, AWS Lambda, and GraphQL APIs. These require code generation to test AI models on these critical domains.
+**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The expanded 237 prompts (125 infrastructure security + 42 serverless/GraphQL + 55 language expansion + 15 depth enhancement) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, Azure ARM Templates, GCP Deployment Manager, GitLab CI, Jenkins, AWS Lambda, Azure Functions, GCP Cloud Functions, GraphQL APIs, PHP, Ruby, TypeScript, Bash, and C/C++ memory safety. These require code generation to test AI models on these critical domains across multiple clouds and languages.
 
 To generate new code, add your keys to your shell profile so they persist:
 
