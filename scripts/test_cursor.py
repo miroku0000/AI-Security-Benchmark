@@ -60,7 +60,7 @@ def extract_code_from_cursor_output(output: str, language: str) -> str:
     # Last resort: return everything (might include explanations)
     return output.strip()
 
-def run_cursor_agent(prompt: str, timeout: int = 60) -> tuple[str, bool]:
+def run_cursor_agent(prompt: str, timeout: int = 300) -> tuple[str, bool]:
     """
     Run Cursor agent with a prompt and return the output.
 
@@ -176,6 +176,23 @@ def test_cursor_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 6
 
         print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
 
+        # Check if file already exists
+        file_ext = get_file_extension(language)
+        output_file = output_dir / f"{prompt_id}.{file_ext}"
+
+        if output_file.exists():
+            print(f"  ⏭️  Already exists (skipped)")
+            results['completed'] += 1
+            results['prompts'].append({
+                'id': prompt_id,
+                'category': category,
+                'language': language,
+                'output_file': str(output_file),
+                'success': True,
+                'skipped': True
+            })
+            continue
+
         # Modify prompt to request code only
         enhanced_prompt = f"{prompt_text}\n\nIMPORTANT: Output only the complete, runnable code with no explanations, descriptions, or markdown formatting. Just the raw code."
 
@@ -187,10 +204,7 @@ def test_cursor_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 6
             code = extract_code_from_cursor_output(output, language)
 
             if code:
-                # Save to file
-                file_ext = get_file_extension(language)
-                output_file = output_dir / f"{prompt_id}.{file_ext}"
-
+                # Save to file (output_file already set above)
                 with open(output_file, 'w') as f:
                     f.write(code)
 
@@ -273,7 +287,7 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=60,
+        default=300,
         help='Timeout per prompt in seconds (default: 60)'
     )
     parser.add_argument(
