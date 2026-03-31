@@ -14,7 +14,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 436 test prompts (140 web/API, 59 mobile, 125 infrastructure, 22 serverless/GraphQL, 55 language expansion, 35 multi-cloud)
+├── prompts/prompts.yaml                 # 452 test prompts (140 web/API, 59 mobile, 125 infrastructure, 58 serverless/edge, 55 language expansion, 15 emerging platforms)
 ├── tests/                               # 35+ security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
@@ -154,7 +154,7 @@ Comprehensive multi-cloud DevOps and cloud security testing covering AWS, Azure,
   - Insecure artifact retrieval from user URLs
   - Arbitrary code execution (evaluate/load)
 
-### Serverless & Modern API Security (42 prompts) - **PHASE 4 UPDATE**
+### Serverless & Edge Computing Security (58 prompts) - **PHASE 5 UPDATE**
 
 **AWS Lambda/Serverless (12 prompts)**
 - Overly permissive IAM policies (wildcard actions/resources)
@@ -204,6 +204,34 @@ Comprehensive multi-cloud DevOps and cloud security testing covering AWS, Azure,
 - IDOR in queries
 - Mass assignment in mutations
 - WebSocket subscription abuse
+
+**Emerging Edge Platforms (16 prompts)** - **NEW Phase 5**
+
+- **Cloudflare Workers (5 prompts)**
+  - Environment variable exposure (KV namespace secrets)
+  - CORS misconfigurations (wildcard origins)
+  - Cache poisoning via query parameters
+  - Hardcoded API keys in worker code
+  - Service binding vulnerabilities (worker-to-worker)
+
+- **Deno Deploy (3 prompts)**
+  - Permission model bypass (unrestricted net access)
+  - Dynamic import injection
+  - Deno KV injection (NoSQL patterns)
+
+- **Vercel Edge Functions (3 prompts)**
+  - Authentication bypass via query parameters
+  - Edge Config secret exposure
+  - Streaming response injection
+
+- **AWS Lambda@Edge (3 prompts)**
+  - Viewer request header injection
+  - Origin response tampering
+  - Edge SSRF via CloudFront
+
+- **Fastly Compute@Edge (2 prompts)**
+  - WASM memory safety (unsafe Rust)
+  - Backend configuration hardcoding
 
 ### Mobile Security (59 prompts) - **OWASP MASVS v2.0 Coverage**
 
@@ -267,11 +295,14 @@ Comprehensive language coverage for major web and DevOps ecosystems:
 - Race conditions (insecure temp files)
 - Insecure permissions (chmod 777)
 
-**Total:** 436 prompts across 18 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, TypeScript, Bash/Shell)
+**Total:** 452 prompts across 19 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, TypeScript, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, Bash/Shell, WASM/Rust)
 
 **Phase 4 Additions (80 prompts):**
 - **Multi-Cloud Expansion (45 prompts):** Azure ARM Templates (15), Azure Functions (10), GCP Deployment Manager (10), GCP Cloud Functions (10)
 - **Depth Enhancement (35 prompts):** Expanded 18 low-coverage categories from 1-2 prompts to 3-4 prompts each for improved statistical significance
+
+**Phase 5 Additions (16 prompts):**
+- **Emerging Edge Platforms (16 prompts):** Cloudflare Workers (5), Deno Deploy (3), Vercel Edge Functions (3), AWS Lambda@Edge (3), Fastly Compute@Edge (2)
 
 See [docs/OWASP_MASVS_COVERAGE.md](docs/OWASP_MASVS_COVERAGE.md) for detailed mobile security coverage analysis.
 
@@ -286,7 +317,7 @@ cd AI-Security-Benchmark
 
 The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
 
-**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The expanded 237 prompts (125 infrastructure security + 42 serverless/GraphQL + 55 language expansion + 15 depth enhancement) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, Azure ARM Templates, GCP Deployment Manager, GitLab CI, Jenkins, AWS Lambda, Azure Functions, GCP Cloud Functions, GraphQL APIs, PHP, Ruby, TypeScript, Bash, and C/C++ memory safety. These require code generation to test AI models on these critical domains across multiple clouds and languages.
+**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The expanded 253 prompts (125 infrastructure security + 58 serverless/edge + 55 language expansion + 15 depth enhancement) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, Azure ARM Templates, GCP Deployment Manager, GitLab CI, Jenkins, AWS Lambda, Azure Functions, GCP Cloud Functions, Cloudflare Workers, Deno Deploy, Vercel Edge Functions, Lambda@Edge, Fastly Compute@Edge, GraphQL APIs, PHP, Ruby, TypeScript, Bash, and C/C++ memory safety. These require code generation to test AI models on these critical domains across multiple clouds, edge platforms, and languages.
 
 To generate new code, add your keys to your shell profile so they persist:
 
