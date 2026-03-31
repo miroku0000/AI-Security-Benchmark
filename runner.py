@@ -55,6 +55,15 @@ from tests.test_null_pointer import NullPointerDetector
 from tests.test_memory_leak import MemoryLeakDetector
 from tests.test_memory_safety import MemorySafetyDetector
 from tests.test_unsafe_code import UnsafeCodeDetector
+# Mobile security detectors
+from tests.test_mobile_security import MobileSecurityDetector
+# Infrastructure security detectors
+from tests.test_cloud_iac import CloudIaCDetector
+from tests.test_container_security import ContainerSecurityDetector
+from tests.test_cicd_security import CICDSecurityDetector
+# Serverless and API security detectors
+from tests.test_serverless_security import ServerlessSecurityDetector
+from tests.test_graphql_security import GraphQLSecurityDetector
 
 # Import multi-language detector extension
 from tests.test_multi_language_support import extend_detector_with_multi_language
@@ -96,6 +105,12 @@ NullPointerDetector = extend_detector_with_multi_language(NullPointerDetector)
 MemoryLeakDetector = extend_detector_with_multi_language(MemoryLeakDetector)
 MemorySafetyDetector = extend_detector_with_multi_language(MemorySafetyDetector)
 UnsafeCodeDetector = extend_detector_with_multi_language(UnsafeCodeDetector)
+MobileSecurityDetector = extend_detector_with_multi_language(MobileSecurityDetector)
+CloudIaCDetector = extend_detector_with_multi_language(CloudIaCDetector)
+ContainerSecurityDetector = extend_detector_with_multi_language(ContainerSecurityDetector)
+CICDSecurityDetector = extend_detector_with_multi_language(CICDSecurityDetector)
+ServerlessSecurityDetector = extend_detector_with_multi_language(ServerlessSecurityDetector)
+GraphQLSecurityDetector = extend_detector_with_multi_language(GraphQLSecurityDetector)
 
 
 class SecurityBenchmark:
@@ -139,6 +154,31 @@ class SecurityBenchmark:
             'memory_leak': MemoryLeakDetector,
             'memory_safety': MemorySafetyDetector,
             'unsafe_code': UnsafeCodeDetector,
+            # Mobile security categories (Android & iOS)
+            'missing_ssl_pinning': MobileSecurityDetector,
+            'insecure_data_storage': MobileSecurityDetector,
+            'intent_hijacking': MobileSecurityDetector,
+            'insecure_webview': MobileSecurityDetector,
+            'missing_root_detection': MobileSecurityDetector,
+            'cleartext_network_traffic': MobileSecurityDetector,
+            'weak_biometric_auth': MobileSecurityDetector,
+            'insecure_deep_linking': MobileSecurityDetector,
+            'missing_jailbreak_detection': MobileSecurityDetector,
+            'ats_bypass': MobileSecurityDetector,
+            'insecure_universal_links': MobileSecurityDetector,
+            # Infrastructure security categories
+            'cloud_iam_misconfiguration': CloudIaCDetector,
+            'cloud_network_security': CloudIaCDetector,
+            'cloud_database_security': CloudIaCDetector,
+            'cloud_storage_security': CloudIaCDetector,
+            'cloud_compute_security': CloudIaCDetector,
+            'cloud_monitoring': CloudIaCDetector,
+            'cloud_secrets_management': CloudIaCDetector,
+            'container_security': ContainerSecurityDetector,
+            'cicd_security': CICDSecurityDetector,
+            # Serverless and modern API security categories
+            'serverless_security': ServerlessSecurityDetector,
+            'graphql_security': GraphQLSecurityDetector,
         }
         self.results = []
         self.failed_generations = []  # Track prompts where code generation failed
@@ -276,11 +316,18 @@ class SecurityBenchmark:
                 'python': '.py',
                 'javascript': '.js',
                 'java': '.java',
+                'kotlin': '.kt',
                 'csharp': '.cs',
                 'cpp': '.cpp',
                 'c': '.c',
                 'go': '.go',
-                'rust': '.rs'
+                'rust': '.rs',
+                'swift': '.swift',
+                'dart': '.dart',
+                'terraform': '.tf',
+                'dockerfile': '',  # Dockerfile has no extension
+                'yaml': '.yml',
+                'groovy': '.groovy'  # Jenkins pipeline
             }
             ext = extensions.get(language, '.txt')
 

@@ -14,8 +14,8 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 140 test prompts (no security mentions)
-├── tests/                               # 29 security detector modules
+├── prompts/prompts.yaml                 # 301 test prompts (140 web/API, 59 mobile, 80 infrastructure, 22 serverless/GraphQL)
+├── tests/                               # 35+ security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
 ├── docs/                                # Guides and reference documentation
@@ -28,6 +28,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 
 ## Vulnerability Categories
 
+### Web & API Security (140 prompts)
 - SQL Injection
 - Cross-Site Scripting (XSS)
 - Path Traversal
@@ -38,6 +39,146 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 - XML External Entity (XXE)
 - Server-Side Request Forgery (SSRF)
 - Insecure Cryptography
+- LDAP Injection, NoSQL Injection
+- Race Conditions, File Upload Vulnerabilities
+- JWT Security, CSRF, Access Control
+- Business Logic Flaws
+
+### Infrastructure Security (80 prompts) - **UPDATED**
+
+Comprehensive modern DevOps and cloud security testing covering:
+
+**Cloud Infrastructure as Code (25 prompts)**
+- **Terraform/HCL (15 prompts)**
+  - Public S3 buckets and missing encryption
+  - Overly permissive IAM policies (wildcard actions/resources)
+  - Unrestricted security groups (0.0.0.0/0 ingress)
+  - Public database endpoints (RDS publicly_accessible)
+  - Hardcoded credentials in Terraform
+  - Missing CloudTrail logging and monitoring
+  - Secrets in user_data scripts
+
+- **AWS CloudFormation/YAML (10 prompts)** - **NEW**
+  - Public S3 bucket configurations (AccessControl: PublicRead)
+  - Unrestricted security groups (CidrIp: 0.0.0.0/0)
+  - Public RDS instances (PubliclyAccessible: true)
+  - Wildcard IAM policies (Action: *, Resource: *)
+  - Missing EBS/S3 encryption
+  - Default VPC configurations without flow logs
+  - Hardcoded passwords in Parameters/Properties
+  - Disabled S3 versioning
+  - Missing CloudWatch alarms
+  - Cross-account trust misconfigurations
+
+**Container Security (30 prompts)**
+- **Dockerfile (15 prompts)**
+  - Running containers as root (missing USER directive)
+  - Unpinned base images (:latest tag usage)
+  - Hardcoded secrets in images (ENV variables)
+  - Vulnerable base images (Python 2.7, old Ubuntu)
+  - Missing health checks
+  - Privileged containers with excessive capabilities
+  - Bloated images (apt-get without cleanup)
+  - Shell form instead of exec form (CMD/ENTRYPOINT)
+  - Copying sensitive files (.env, entire project)
+
+- **Kubernetes/YAML (10 prompts)** - **NEW**
+  - Running as root (missing securityContext)
+  - Privileged containers (privileged: true)
+  - Host path mounts (hostPath volumes)
+  - Missing resource limits (CPU/memory)
+  - Hardcoded secrets in pod specs
+  - Unrestricted network policies (LoadBalancer without source ranges)
+  - Overly permissive RBAC (cluster-admin bindings)
+  - Service account token automounting
+  - Using :latest image tags
+
+- **Helm Charts/YAML (5 prompts)** - **NEW**
+  - Default credentials in values.yaml
+  - Secrets in chart templates
+  - Permissive security settings
+  - Unrestricted image pull policies (Always)
+  - Wildcard ingress hosts without TLS
+  - Missing resource quotas
+
+**CI/CD Pipeline Security (25 prompts)**
+- **GitHub Actions/YAML (15 prompts)**
+  - Hardcoded credentials in workflows (AWS keys, API tokens)
+  - Unrestricted third-party actions (supply chain risk)
+  - Overly permissive workflow permissions (write-all)
+  - Script injection from PR titles/descriptions
+  - Missing code scanning (SAST/CodeQL)
+  - Sensitive data in artifacts
+  - Direct push to main without branch protection
+  - Caching sensitive data
+  - Environment variable exposure in logs
+  - Self-hosted runner risks with untrusted code
+  - pull_request_target misuse
+  - Dynamic command execution
+
+- **GitLab CI/YAML (5 prompts)** - **NEW**
+  - Hardcoded credentials in .gitlab-ci.yml
+  - Missing dependency verification (pip without hashes)
+  - Script injection from merge request variables
+  - Artifacts without integrity checks
+  - Shared runners for sensitive operations
+
+- **Jenkins/Groovy (5 prompts)** - **NEW**
+  - Hardcoded credentials in Jenkinsfile
+  - Script injection via build parameters
+  - Missing input validation
+  - Running pipelines on master node
+  - Insecure artifact retrieval from user URLs
+  - Arbitrary code execution (evaluate/load)
+
+### Serverless & Modern API Security (22 prompts) - **NEW Phase 2**
+
+**AWS Lambda/Serverless (12 prompts)**
+- Overly permissive IAM policies (wildcard actions/resources)
+- Hardcoded secrets in Lambda environment variables
+- Missing VPC configuration for database access
+- Unrestricted API Gateway endpoints (missing authentication)
+- Event injection and insecure deserialization
+- Command injection in Lambda handlers
+- SQL injection in serverless APIs
+- Missing rate limiting and throttling
+- CORS misconfigurations (allow * origin)
+- Missing Dead Letter Queues (DLQ)
+- Shared IAM roles across functions
+
+**GraphQL API Security (10 prompts)**
+- Schema introspection enabled in production
+- Missing query depth limiting (recursive queries)
+- Missing query complexity limiting (resource exhaustion)
+- Batching and aliasing attacks
+- Field-level authorization bypass
+- N+1 query problem (database performance)
+- SQL injection in GraphQL resolvers
+- IDOR in queries
+- Mass assignment in mutations
+- WebSocket subscription abuse
+
+### Mobile Security (59 prompts) - **OWASP MASVS v2.0 Coverage**
+
+Comprehensive mobile security testing aligned with OWASP Mobile Application Security Verification Standard:
+
+**Platforms Supported:**
+- Android (Java, Kotlin)
+- iOS (Swift)
+- Cross-platform (React Native, Flutter)
+
+**MASVS Categories Covered:**
+- **MASVS-NETWORK** (10 prompts): SSL pinning, cleartext traffic, MITM attacks
+- **MASVS-PLATFORM** (12 prompts): WebView security, deep links, intent hijacking
+- **MASVS-CRYPTO** (10 prompts): Hardcoded keys, weak encryption, insecure randomness
+- **MASVS-CODE** (10 prompts): Debug logging, hardcoded API keys, code quality
+- **MASVS-STORAGE** (7 prompts): Insecure local storage, cleartext data
+- **MASVS-AUTH** (5 prompts): Weak biometric authentication
+- **MASVS-RESILIENCE** (5 prompts): Root/jailbreak detection
+
+**Total:** 301 prompts across 16 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, Terraform/HCL, Dockerfile, YAML, and more)
+
+See [docs/OWASP_MASVS_COVERAGE.md](docs/OWASP_MASVS_COVERAGE.md) for detailed mobile security coverage analysis.
 
 ## Installation
 
@@ -50,20 +191,60 @@ cd AI-Security-Benchmark
 
 The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
 
+**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The new 102 prompts (80 infrastructure security + 22 serverless/GraphQL) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, GitLab CI, Jenkins, AWS Lambda, and GraphQL APIs. These require code generation to test AI models on these critical domains.
+
 To generate new code, add your keys to your shell profile so they persist:
 
 ```bash
 # OpenAI — https://platform.openai.com/api-keys
 echo "export OPENAI_API_KEY='your-key-here'" >> ~/.zshrc
 
-# Anthropic — https://console.anthropic.com/settings/keys
+# Anthropic (Direct API) — https://console.anthropic.com/settings/keys
 echo "export ANTHROPIC_API_KEY='your-key-here'" >> ~/.zshrc
+
+# Anthropic (AWS Bedrock alternative) — Requires AWS credentials
+# echo "export CLAUDE_CODE_USE_BEDROCK=1" >> ~/.zshrc
+# Configure AWS credentials: aws configure
 
 # Google — https://ai.google.dev
 echo "export GEMINI_API_KEY='your-key-here'" >> ~/.zshrc
 
 source ~/.zshrc
 ```
+
+#### AWS Bedrock (Anthropic Alternative)
+
+If you prefer to use AWS Bedrock for Claude models instead of the direct Anthropic API:
+
+```bash
+# Enable Bedrock mode
+export CLAUDE_CODE_USE_BEDROCK=1
+
+# Configure AWS credentials (one-time setup)
+aws configure
+# Enter your AWS Access Key ID, Secret Access Key, and region
+
+# Verify Bedrock access
+aws bedrock list-foundation-models --region us-east-1
+```
+
+**Automatic Model ID Translation:**
+The benchmark automatically converts model names to Bedrock format:
+- `claude-opus-4-6` → `anthropic.claude-3-opus-20240229-v1:0`
+- `claude-sonnet-4-5` → `anthropic.claude-3-5-sonnet-20241022-v2:0`
+
+No config changes needed! Use the same model names in `benchmark_config.yaml` for both Direct API and Bedrock.
+
+**When to use Bedrock:**
+- ✅ You have AWS Bedrock access enabled
+- ✅ You want centralized AWS billing
+- ✅ You need AWS IAM-based access controls
+- ✅ You're in an enterprise AWS environment
+
+**When to use Direct API:**
+- ✅ Simpler setup (just API key)
+- ✅ Latest model availability
+- ✅ Direct Anthropic billing
 
 ### 2. Verify Environment (Recommended)
 
@@ -229,6 +410,11 @@ python3 auto_benchmark.py --all --force-regenerate
 
 # Test at different temperature (for research)
 python3 auto_benchmark.py --model gpt-4o --temperature 0.7
+
+# Use AWS Bedrock instead of direct Anthropic API
+export CLAUDE_CODE_USE_BEDROCK=1
+python3 auto_benchmark.py --model claude-opus-4-6
+# Model ID automatically converted to: anthropic.claude-3-opus-20240229-v1:0
 ```
 
 The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
@@ -256,7 +442,7 @@ python3 runner.py --input mycode.py --input-category sql_injection --language py
 python3 runner.py --output results/my_test.json
 ```
 
-Available categories: `sql_injection`, `xss`, `path_traversal`, `command_injection`, `hardcoded_secrets`, `insecure_deserialization`, `xxe`, `ssrf`, `insecure_crypto`, `insecure_auth`
+Available categories: `sql_injection`, `xss`, `path_traversal`, `command_injection`, `hardcoded_secrets`, `insecure_deserialization`, `xxe`, `ssrf`, `insecure_crypto`, `insecure_auth`, `jwt`, `csrf`, `access_control`, `business_logic`, `race_condition`, `file_upload`, `missing_ssl_pinning`, `insecure_data_storage`, `weak_biometric_auth`, `intent_hijacking`, `insecure_webview`, `cloud_iam_misconfiguration`, `cloud_network_security`, `cloud_database_security`, `cloud_storage_security`, `cloud_compute_security`, `cloud_monitoring`, `cloud_secrets_management`, `container_security`, `cicd_security`, `serverless_security`, `graphql_security`, and more (see prompts.yaml for full list)
 
 ### Comparing Two AI Models
 
@@ -386,6 +572,10 @@ Add new prompts and tests to expand coverage:
 | No code files found | Ensure files are named `{prompt_id}.{ext}` and `--code-dir` is correct |
 | Import errors | Run `pip install -r requirements.txt` in the venv |
 | `OPENAI_API_KEY` not found | `export OPENAI_API_KEY="sk-..."` |
+| `ANTHROPIC_API_KEY` not found | `export ANTHROPIC_API_KEY="sk-ant-..."` |
+| AWS Bedrock auth errors | Run `aws configure` and verify credentials with `aws sts get-caller-identity` |
+| Bedrock model not available | Check model access in AWS Console → Bedrock → Model access. Some models require requesting access. |
+| Bedrock region errors | Ensure you're using a region with Bedrock enabled (e.g., us-east-1, us-west-2) |
 | Ollama not responding | `ollama serve` or reinstall from https://ollama.ai |
 | Model not found (Ollama) | `ollama pull model-name` |
 | Timeout errors | Use `--timeout 600` flag for slow models (default: 300s for Ollama, 90s for API) |
@@ -447,6 +637,9 @@ See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) and [docs/COD
 ### Supported Providers
 
 - **OpenAI**: GPT-4, GPT-5, o-series (requires `OPENAI_API_KEY`)
-- **Anthropic**: Claude 4 series (requires `ANTHROPIC_API_KEY`)
+- **Anthropic**: Claude 3.5, Claude 4 series
+  - **Direct API**: Use `ANTHROPIC_API_KEY` (default)
+  - **AWS Bedrock**: Set `CLAUDE_CODE_USE_BEDROCK=1` and configure AWS credentials
+- **Google**: Gemini models (requires `GEMINI_API_KEY`)
 - **Ollama**: Local models (StarCoder, DeepSeek, CodeLlama, etc.)
 
