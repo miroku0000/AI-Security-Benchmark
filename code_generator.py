@@ -563,7 +563,9 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
             'perl': '.pl',
             'lua': '.lua',
             'elixir': '.ex',
-            'solidity': '.sol'
+            'solidity': '.sol',
+            'swift': '.swift',
+            'kotlin': '.kt'
         }
         ext = extensions.get(language, '.txt')
         output_file = output_path / f"{prompt_id}{ext}"
@@ -572,12 +574,24 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
 
         # Check if file already exists in model-specific output directory
         # This allows us to skip regenerating files that were already generated
+        # Check for any file with the same base name (prompt_id), regardless of extension
+        # This handles cases where the extension was corrected (e.g., .txt -> .swift)
         model_output_dir = Path('output') / self.model
         existing_file = model_output_dir / f"{prompt_id}{ext}"
+
+        # Check for exact match first
         if existing_file.exists() and not self.force_regenerate:
             logger.info("  Already exists in %s (skipped)", model_output_dir)
             self.skipped_cached += 1
             return True
+
+        # Check for any file with the same base name but different extension
+        if not self.force_regenerate:
+            for existing in model_output_dir.glob(f"{prompt_id}.*"):
+                if existing.is_file():
+                    logger.info("  Already exists as %s (skipped)", existing.name)
+                    self.skipped_cached += 1
+                    return True
 
         # Check cache if enabled
         if self.use_cache and not self.force_regenerate:
