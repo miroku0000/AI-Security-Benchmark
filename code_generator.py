@@ -565,7 +565,8 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
             'elixir': '.ex',
             'solidity': '.sol',
             'swift': '.swift',
-            'kotlin': '.kt'
+            'kotlin': '.kt',
+            'dart': '.dart'
         }
         ext = extensions.get(language, '.txt')
         output_file = output_path / f"{prompt_id}{ext}"
