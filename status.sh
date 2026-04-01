@@ -27,8 +27,15 @@ def get_file_count(dir_path):
     except:
         return 0
 
-def get_process_info(model_name, dir_path):
-    """Get process information for a model (runtime, last activity, etc.)."""
+def get_process_info(model_name, dir_path, expect_temperature=False):
+    """Get process information for a model (runtime, last activity, etc.).
+
+    Args:
+        model_name: Name of the model
+        dir_path: Path to the output directory
+        expect_temperature: If True, only match processes with --temperature flag.
+                          If False, only match processes WITHOUT --temperature flag.
+    """
     import subprocess
     import re
 
@@ -53,24 +60,34 @@ def get_process_info(model_name, dir_path):
         )
 
         pid = None
+        matching_line = None
+
         # Strategy 1: Look for processes with "output/<dir_name>" in command line
         search_pattern = f"output/{dir_name}"
         for line in result.stdout.split('\n'):
             if search_pattern in line and 'grep' not in line:
-                # Extract PID (second column)
-                parts = line.split()
-                if len(parts) >= 2:
-                    pid = parts[1]
-                    break
+                # Check temperature flag requirement
+                has_temp_flag = '--temperature' in line or '-temperature' in line
+                if has_temp_flag == expect_temperature:
+                    # Extract PID (second column)
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        pid = parts[1]
+                        matching_line = line
+                        break
 
         # Strategy 2: Look for directory name as parameter anywhere in process
         if not pid:
             for line in result.stdout.split('\n'):
                 if dir_name in line and 'grep' not in line and 'code_generator.py' in line:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        pid = parts[1]
-                        break
+                    # Check temperature flag requirement
+                    has_temp_flag = '--temperature' in line or '-temperature' in line
+                    if has_temp_flag == expect_temperature:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            pid = parts[1]
+                            matching_line = line
+                            break
 
         # Strategy 3: Look for application model script names
         if not pid:
@@ -78,10 +95,13 @@ def get_process_info(model_name, dir_path):
             if script_name:
                 for line in result.stdout.split('\n'):
                     if script_name in line and 'grep' not in line:
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            pid = parts[1]
-                            break
+                        # Application scripts don't use temperature, so only match if expect_temperature=False
+                        if not expect_temperature:
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                pid = parts[1]
+                                matching_line = line
+                                break
 
         if not pid:
             return None
@@ -139,9 +159,9 @@ def get_process_info(model_name, dir_path):
     except:
         return None
 
-def is_model_running(model_name, dir_path):
+def is_model_running(model_name, dir_path, expect_temperature=False):
     """Check if a model is currently running."""
-    return get_process_info(model_name, dir_path) is not None
+    return get_process_info(model_name, dir_path, expect_temperature) is not None
 
 def load_progress_history():
     """Load historical progress data."""
@@ -296,8 +316,8 @@ for category, models in dirs.items():
         total_expected += TARGET
         bar = progress_bar(count, TARGET, BAR_WIDTH)
 
-        # Get process information
-        proc_info = get_process_info(name, path)
+        # Get process information (exclude temperature study processes)
+        proc_info = get_process_info(name, path, expect_temperature=False)
         is_running = proc_info is not None
 
         # ANSI color codes
@@ -397,8 +417,8 @@ if temp_dirs:
                 # Compact progress bar (30 chars instead of 40)
                 bar = progress_bar(count, TARGET, 30)
 
-                # Get process information
-                proc_info = get_process_info(model_name, temp_path)
+                # Get process information (only temperature study processes)
+                proc_info = get_process_info(model_name, temp_path, expect_temperature=True)
                 is_running = proc_info is not None
 
                 # ANSI color codes
