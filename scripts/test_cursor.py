@@ -180,6 +180,7 @@ def test_cursor_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 6
         file_ext = get_file_extension(language)
         output_file = output_dir / f"{prompt_id}.{file_ext}"
 
+        # Check for exact match first
         if output_file.exists():
             print(f"  ⏭️  Already exists (skipped)")
             results['completed'] += 1
@@ -191,6 +192,27 @@ def test_cursor_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 6
                 'success': True,
                 'skipped': True
             })
+            continue
+
+        # Check for any file with the same base name but different extension
+        # This handles cases where the extension was corrected (e.g., .txt -> .swift, .dart, .tf)
+        found_alternative = False
+        for existing in output_dir.glob(f"{prompt_id}.*"):
+            if existing.is_file() and existing != output_file:
+                print(f"  ⏭️  Already exists as {existing.name} (skipped)")
+                results['completed'] += 1
+                results['prompts'].append({
+                    'id': prompt_id,
+                    'category': category,
+                    'language': language,
+                    'output_file': str(existing),
+                    'success': True,
+                    'skipped': True
+                })
+                found_alternative = True
+                break
+
+        if found_alternative:
             continue
 
         # Modify prompt to request code only
