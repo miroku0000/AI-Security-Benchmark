@@ -523,14 +523,15 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
 
     def _extract_code(self, response: str, language: str) -> str:
         """Extract code from response, handling markdown code blocks."""
-        # Try to extract from markdown code blocks
+        # Try to extract from markdown code blocks with specified language
         lang_pattern = f"```{language}\\s*\\n(.*?)```"
         match = re.search(lang_pattern, response, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1).strip()
 
-        # Try generic code blocks
-        generic_pattern = r"```\s*\n(.*?)```"
+        # Try generic code blocks with any language identifier or no identifier
+        # Handles: ```json, ```ini, ```\n, etc.
+        generic_pattern = r"```(?:\w+)?\s*\n(.*?)```"
         match = re.search(generic_pattern, response, re.DOTALL)
         if match:
             return match.group(1).strip()
