@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class CodeGenerator:
     """Universal code generator supporting multiple AI providers."""
 
-    def __init__(self, model: str, temperature: float = 0.2, use_cache: bool = True, force_regenerate: bool = False, timeout: int = None):
+    def __init__(self, model: str, temperature: float = 0.2, use_cache: bool = True, force_regenerate: bool = False, timeout: int = None, use_bedrock: bool = False):
         self.model = model
         self.temperature = temperature
         self.total_generated = 0
@@ -32,6 +32,17 @@ class CodeGenerator:
         self.failed_generations = []
         self.use_cache = use_cache
         self.force_regenerate = force_regenerate
+
+        # Initialize Bedrock attributes (will be set properly for Anthropic provider)
+        # ONLY use Bedrock if --use-bedrock flag is explicitly set
+        # If flag is not set (use_bedrock=False), unset environment variable to prevent accidental Bedrock usage
+        if not use_bedrock:
+            # Unset environment variable to ensure we use direct Anthropic API
+            if 'CLAUDE_CODE_USE_BEDROCK' in os.environ:
+                del os.environ['CLAUDE_CODE_USE_BEDROCK']
+
+        self.use_bedrock = use_bedrock
+        self.bedrock_model = None
 
         # Initialize cache manager
         if self.use_cache:
@@ -58,13 +69,20 @@ class CodeGenerator:
         """Detect provider from model name."""
         model_lower = model.lower()
 
-        # OpenAI models (including latest: gpt-4o, gpt-5, o1, o3, chatgpt-4o-latest)
-        if any(x in model_lower for x in ['gpt-3', 'gpt-4', 'gpt-5', 'o1', 'o3', 'chatgpt']):
-            return 'openai'
+        # Application-based models (should use test scripts)
+        if 'cursor' in model_lower:
+            return 'cursor'
+
+        if 'codex-app' in model_lower or 'codex_app' in model_lower:
+            return 'codex-app'
 
         # Claude Code CLI (separate from Anthropic API)
         if 'claude-code' in model_lower or 'claude_code' in model_lower:
-            return 'claude-cli'
+            return 'claude-code'
+
+        # OpenAI models (including latest: gpt-4o, gpt-5, o1, o3, chatgpt-4o-latest)
+        if any(x in model_lower for x in ['gpt-3', 'gpt-4', 'gpt-5', 'o1', 'o3', 'chatgpt']):
+            return 'openai'
 
         # Claude models (including opus-4, sonnet-4)
         if 'claude' in model_lower:
@@ -95,16 +113,32 @@ class CodeGenerator:
         elif self.provider == 'anthropic':
             try:
                 import anthropic
-                # Check for API key in both ANTHROPIC_API_KEY and MYANTHROPIC_API_KEY
-                api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY')
-                self.anthropic_client = anthropic.Anthropic(api_key=api_key)
-                logger.info("Anthropic client initialized")
+
+                # use_bedrock is already set from __init__ parameter (default: False)
+                # Only use Bedrock if explicitly requested via --use-bedrock flag
+
+                if self.use_bedrock:
+                    # Use AWS Bedrock
+                    self.anthropic_client = anthropic.AnthropicBedrock()
+                    # Convert model name to Bedrock format
+                    self.bedrock_model = self._convert_to_bedrock_model_id(self.model)
+                    logger.info("Anthropic Bedrock client initialized (using AWS credentials)")
+                    logger.info("Model mapping: %s -> %s", self.model, self.bedrock_model)
+                else:
+                    # Use direct Anthropic API
+                    api_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY')
+                    self.anthropic_client = anthropic.Anthropic(api_key=api_key)
+                    self.bedrock_model = None
+                    logger.info("Anthropic client initialized (direct API)")
             except ImportError:
                 logger.error("Anthropic package not installed. Install with: pip install anthropic")
                 raise
             except Exception as e:
                 logger.error("Failed to initialize Anthropic: %s", e)
-                logger.error("Make sure ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) environment variable is set")
+                if self.use_bedrock:
+                    logger.error("Make sure AWS credentials are configured for Bedrock")
+                else:
+                    logger.error("Make sure ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) environment variable is set")
                 raise
 
         elif self.provider == 'google':
@@ -120,14 +154,20 @@ class CodeGenerator:
                 logger.error("Make sure GEMINI_API_KEY environment variable is set")
                 raise
 
-        elif self.provider == 'claude-cli':
-            # Check if Claude CLI is installed
-            import shutil
-            if not shutil.which('claude'):
-                logger.error("Claude Code CLI not found in PATH")
-                logger.error("Please install Claude Code from Anthropic")
-                raise RuntimeError("Claude CLI not available")
-            logger.info("Claude Code CLI initialized")
+        elif self.provider == 'cursor':
+            # Application-based model - delegate to test script
+            logger.info("Cursor detected - will delegate to scripts/test_cursor.py")
+            self._delegate_to_script = 'scripts/test_cursor.py'
+
+        elif self.provider == 'codex-app':
+            # Application-based model - delegate to test script
+            logger.info("Codex.app detected - will delegate to scripts/test_codex_app.py")
+            self._delegate_to_script = 'scripts/test_codex_app.py'
+
+        elif self.provider == 'claude-code':
+            # Application-based model - delegate to test script
+            logger.info("Claude Code detected - will delegate to scripts/test_claude_code.py")
+            self._delegate_to_script = 'scripts/test_claude_code.py'
 
         elif self.provider == 'ollama':
             if not self.check_ollama():
@@ -179,8 +219,6 @@ class CodeGenerator:
             return self._generate_anthropic(prompt, language)
         elif self.provider == 'google':
             return self._generate_google(prompt, language)
-        elif self.provider == 'claude-cli':
-            return self._generate_claude_cli(prompt, language)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
 
@@ -243,6 +281,42 @@ Code:"""
             logger.error("Ollama generation error: %s", e)
             return None
 
+    def _convert_to_bedrock_model_id(self, model_name: str) -> str:
+        """Convert Direct API model name to Bedrock model ID."""
+        # Mapping of Direct API model names to Bedrock model IDs
+        bedrock_mapping = {
+            # Claude 3.5 models
+            'claude-3-5-sonnet-20241022': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+            'claude-3-5-sonnet-20240620': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+            'claude-3-5-haiku-20241022': 'anthropic.claude-3-5-haiku-20241022-v1:0',
+            # Claude 3 models
+            'claude-3-opus-20240229': 'anthropic.claude-3-opus-20240229-v1:0',
+            'claude-3-sonnet-20240229': 'anthropic.claude-3-sonnet-20240229-v1:0',
+            'claude-3-haiku-20240307': 'anthropic.claude-3-haiku-20240307-v1:0',
+            # Aliases (short names)
+            'claude-3-5-sonnet': 'anthropic.claude-3-5-sonnet-20241022-v2:0',  # Latest
+            'claude-3-5-haiku': 'anthropic.claude-3-5-haiku-20241022-v1:0',
+            'claude-3-opus': 'anthropic.claude-3-opus-20240229-v1:0',
+            'claude-3-sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
+            'claude-3-haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
+            # Future models (placeholder - update when available)
+            'claude-opus-4-6': 'anthropic.claude-3-opus-20240229-v1:0',  # Fall back to Claude 3 Opus
+            'claude-sonnet-4-5': 'anthropic.claude-3-5-sonnet-20241022-v2:0',  # Fall back to Claude 3.5 Sonnet
+        }
+
+        # Check if already in Bedrock format
+        if model_name.startswith('anthropic.'):
+            return model_name
+
+        # Look up in mapping
+        bedrock_id = bedrock_mapping.get(model_name)
+        if bedrock_id:
+            return bedrock_id
+
+        # If not found, log warning and return as-is (will likely fail, but let Bedrock give the error)
+        logger.warning("Unknown model '%s' - no Bedrock mapping found, using as-is", model_name)
+        return model_name
+
     def _generate_openai(self, prompt: str, language: str) -> Optional[str]:
         """Generate code using OpenAI."""
         system_prompt = f"""You are an expert {language} programmer. Generate code based on user requirements.
@@ -293,9 +367,12 @@ Provide only the code without explanations. Do not use markdown code blocks."""
         system_prompt = f"""You are an expert {language} programmer. Generate code based on user requirements.
 Provide only the code without explanations. Do not use markdown code blocks."""
 
+        # Use Bedrock model ID if in Bedrock mode, otherwise use direct API model name
+        model_id = self.bedrock_model if self.use_bedrock else self.model
+
         try:
             response = self.anthropic_client.messages.create(
-                model=self.model,
+                model=model_id,
                 max_tokens=4096,
                 temperature=self.temperature,
                 system=system_prompt,
@@ -313,7 +390,7 @@ Provide only the code without explanations. Do not use markdown code blocks."""
                 logger.info("Retrying with modified prompt...")
 
                 response = self.anthropic_client.messages.create(
-                    model=self.model,
+                    model=model_id,
                     max_tokens=4096,
                     temperature=self.temperature,
                     system=system_prompt,
@@ -481,12 +558,26 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
             'cpp': '.cpp',
             'c': '.c',
             'go': '.go',
-            'rust': '.rs'
+            'rust': '.rs',
+            'scala': '.scala',
+            'perl': '.pl',
+            'lua': '.lua',
+            'elixir': '.ex',
+            'solidity': '.sol'
         }
         ext = extensions.get(language, '.txt')
         output_file = output_path / f"{prompt_id}{ext}"
 
         logger.info("[%d/%d] %s (%s, %s)...", index, total, prompt_id, category, language)
+
+        # Check if file already exists in model-specific output directory
+        # This allows us to skip regenerating files that were already generated
+        model_output_dir = Path('output') / self.model
+        existing_file = model_output_dir / f"{prompt_id}{ext}"
+        if existing_file.exists() and not self.force_regenerate:
+            logger.info("  Already exists in %s (skipped)", model_output_dir)
+            self.skipped_cached += 1
+            return True
 
         # Check cache if enabled
         if self.use_cache and not self.force_regenerate:
@@ -527,6 +618,31 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
 
     def generate_from_prompts(self, prompts_file: str, output_dir: str, limit: Optional[int] = None, retries: int = 0):
         """Generate code for all prompts in the file with optional retries for failures."""
+        # Check if we should delegate to a test script
+        if hasattr(self, '_delegate_to_script'):
+            logger.info("=" * 70)
+            logger.info("Delegating to %s", self._delegate_to_script)
+            logger.info("=" * 70)
+            logger.info("Provider: %s", self.provider)
+            logger.info("Model: %s", self.model)
+            logger.info("Output directory: %s", output_dir)
+            logger.info("=" * 70)
+
+            # Build command to run test script
+            cmd = ['python3', self._delegate_to_script, '--output-dir', output_dir, '--timeout', str(self.timeout)]
+            if limit:
+                cmd.extend(['--limit', str(limit)])
+
+            try:
+                result = subprocess.run(cmd, check=True)
+                logger.info("=" * 70)
+                logger.info("Delegation completed successfully")
+                logger.info("=" * 70)
+                return
+            except subprocess.CalledProcessError as e:
+                logger.error("Delegation failed with exit code %d", e.returncode)
+                raise
+
         # Load prompts
         with open(prompts_file, 'r') as f:
             data = yaml.safe_load(f)
@@ -626,8 +742,7 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
         logger.info("=" * 70)
         logger.info("Total prompts:        %d", total_prompts)
         logger.info("Newly generated:      %d", self.total_generated)
-        if self.use_cache:
-            logger.info("Skipped (cached):     %d", self.skipped_cached)
+        logger.info("Skipped (existing):   %d", self.skipped_cached)
         if self.failed_generations:
             logger.error("Failed:               %d", len(self.failed_generations))
             logger.error("Failed prompts: %s", ', '.join(self.failed_generations))
@@ -650,9 +765,12 @@ Examples:
   python3 code_generator.py --model gpt-4o
   python3 code_generator.py --model chatgpt-4o-latest
 
-  # Use latest Claude models
+  # Use latest Claude models (direct Anthropic API by default)
   python3 code_generator.py --model claude-opus-4
   python3 code_generator.py --model claude-sonnet-4
+
+  # Use Claude via AWS Bedrock (requires AWS credentials)
+  python3 code_generator.py --model claude-opus-4 --use-bedrock
 
   # Use Ollama models (automatic 5-minute timeout)
   python3 code_generator.py --model codellama
@@ -719,6 +837,11 @@ Examples:
         default=3,
         help='Number of times to retry failed prompts (default: 3)'
     )
+    parser.add_argument(
+        '--use-bedrock',
+        action='store_true',
+        help='Use AWS Bedrock for Claude models instead of direct Anthropic API (requires AWS credentials)'
+    )
 
     args = parser.parse_args()
 
@@ -728,11 +851,13 @@ Examples:
         logger.error("Set it with: export OPENAI_API_KEY='your-key-here'")
         return 1
 
-    if 'claude' in args.model.lower() and not (os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY')):
-        logger.error("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) environment variable not set")
-        logger.error("Set it with: export ANTHROPIC_API_KEY='your-key-here'")
-        logger.error("Or: export MYANTHROPIC_API_KEY='your-key-here'")
-        return 1
+    if 'claude' in args.model.lower():
+        if not args.use_bedrock and not (os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY')):
+            logger.error("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) environment variable not set")
+            logger.error("Set it with: export ANTHROPIC_API_KEY='your-key-here'")
+            logger.error("Or: export MYANTHROPIC_API_KEY='your-key-here'")
+            logger.error("Or: use --use-bedrock flag to use AWS Bedrock with AWS credentials")
+            return 1
 
     if 'gemini' in args.model.lower() and not os.getenv('GEMINI_API_KEY'):
         logger.error("GEMINI_API_KEY environment variable not set")
@@ -745,7 +870,8 @@ Examples:
             temperature=args.temperature,
             use_cache=not args.no_cache,
             force_regenerate=args.force_regenerate,
-            timeout=args.timeout
+            timeout=args.timeout,
+            use_bedrock=args.use_bedrock
         )
         generator.generate_from_prompts(
             args.prompts,
