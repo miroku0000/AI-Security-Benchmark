@@ -17,10 +17,16 @@ echo ""
 echo "This will generate code for:"
 echo "  - 19 models (excludes o1/o3/cursor/codex - fixed temps)"
 echo "  - 4 temperature settings (0.0, 0.5, 0.7, 1.0)"
-echo "  - 140 prompts each"
-echo "  = 10,640 total code files"
+echo "  - 760 prompts each"
+echo "  = 57,760 total code files"
 echo ""
-echo "Estimated time: 8-12 hours"
+echo "Parallelization strategy:"
+echo "  - OpenAI models: Fully parallel (7 models × 4 temps = 28 concurrent)"
+echo "  - Anthropic models: Max 2 parallel (2 models × 4 temps = 8 with max 2)"
+echo "  - Google models: Max 2 parallel (1 model × 4 temps = 4 with max 2)"
+echo "  - Ollama models: Max 2 parallel (9 models × 4 temps = 36 with max 2)"
+echo ""
+echo "Estimated time: 3-5 hours (was 8-12 hours sequential)"
 echo ""
 echo "Starting temperature study..."
 echo ""
@@ -49,24 +55,30 @@ generate_code() {
     # Sanitize model name for directory (replace : with _)
     local model_dir=$(echo "$model" | tr ':' '_')
     local output_dir="output/${model_dir}_temp${temp}"
+    local log_file="logs/${model_dir}_temp${temp}.log"
 
-    python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --force-regenerate --retries 3
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
+
+    # Run without --force-regenerate to allow resuming interrupted runs
+    # Files that already exist will be skipped automatically
+    python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --retries 3 > "$log_file" 2>&1
 
     if [ $? -eq 0 ]; then
-        # Verify all 140 files were generated (rust_013 removed)
+        # Verify all 760 files were generated
         local file_count=$(ls "$output_dir" 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$file_count" -eq 140 ]; then
-            echo "✓ Successfully generated code for $model at temperature $temp (140/140 files)"
+        if [ "$file_count" -eq 760 ]; then
+            echo "✓ Successfully generated code for $model at temperature $temp (760/760 files)"
         else
-            echo "⚠ Generated code for $model at temperature $temp but only $file_count/140 files created"
+            echo "⚠ Generated code for $model at temperature $temp but only $file_count/760 files created"
             echo "  Retrying to complete missing files..."
             # Retry without force-regenerate to complete missing files
-            python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --retries 3
+            python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --retries 3 >> "$log_file" 2>&1
             file_count=$(ls "$output_dir" 2>/dev/null | wc -l | tr -d ' ')
-            if [ "$file_count" -eq 140 ]; then
-                echo "✓ Completed missing files: $file_count/140 files"
+            if [ "$file_count" -eq 760 ]; then
+                echo "✓ Completed missing files: $file_count/760 files"
             else
-                echo "✗ Still incomplete: $file_count/140 files"
+                echo "✗ Still incomplete: $file_count/760 files"
                 return 1
             fi
         fi
@@ -74,6 +86,33 @@ generate_code() {
         echo "✗ Failed to generate code for $model at temperature $temp"
         return 1
     fi
+}
+
+# Function to wait for background jobs to finish with max concurrency limit
+wait_for_slot() {
+    local max_jobs=$1
+    while [ $(jobs -r | wc -l) -ge "$max_jobs" ]; do
+        sleep 5
+    done
+}
+
+# Function to generate code in background
+generate_code_bg() {
+    local model=$1
+    local temp=$2
+    local model_dir=$(echo "$model" | tr ':' '_')
+    local output_dir="output/${model_dir}_temp${temp}"
+    local log_file="logs/${model_dir}_temp${temp}.log"
+
+    mkdir -p logs
+
+    echo "🚀 Starting background: $model temp=$temp"
+
+    # Run in background with nohup
+    nohup python3 code_generator.py --model "$model" --temperature "$temp" --output "$output_dir" --retries 3 > "$log_file" 2>&1 &
+
+    # Store the PID
+    echo $! > "/tmp/tempgen_${model_dir}_${temp}.pid"
 }
 
 # Track progress
@@ -91,60 +130,76 @@ done
 echo "Total runs to complete: $TOTAL_RUNS"
 echo ""
 
-# Generate code for OpenAI models
-echo "===== OPENAI MODELS ====="
+# Generate code for OpenAI models (fully parallel - high rate limits)
+echo "===== OPENAI MODELS (FULLY PARALLEL) ====="
+echo "Starting all OpenAI models in background (high rate limits)..."
+
 for model in $OPENAI_MODELS; do
     for temp in $TEMPS; do
-        if generate_code "$model" "$temp"; then
-            ((COMPLETED_RUNS++))
-        else
-            ((FAILED_RUNS++))
-        fi
-        echo "Progress: $COMPLETED_RUNS/$TOTAL_RUNS completed, $FAILED_RUNS failed"
+        generate_code_bg "$model" "$temp"
+        ((COMPLETED_RUNS++))
     done
 done
 
-# Generate code for Anthropic models
+echo "✓ Started ${#OPENAI_MODELS[@]} OpenAI models × 4 temperatures"
 echo ""
-echo "===== ANTHROPIC MODELS ====="
+
+# Generate code for Anthropic models with concurrency limit of 2
+# Claude API has rate limits, so run max 2 at a time
+echo "===== ANTHROPIC MODELS (MAX 2 PARALLEL) ====="
+echo "Starting Anthropic models with max 2 concurrent (API rate limits)..."
+
 for model in $ANTHROPIC_MODELS; do
     for temp in $TEMPS; do
-        if generate_code "$model" "$temp"; then
-            ((COMPLETED_RUNS++))
-        else
-            ((FAILED_RUNS++))
-        fi
-        echo "Progress: $COMPLETED_RUNS/$TOTAL_RUNS completed, $FAILED_RUNS failed"
+        wait_for_slot 2
+        generate_code_bg "$model" "$temp"
+        ((COMPLETED_RUNS++))
     done
 done
 
-# Generate code for Google models
+echo "✓ Started ${#ANTHROPIC_MODELS[@]} Anthropic models × 4 temperatures"
 echo ""
-echo "===== GOOGLE MODELS ====="
+
+# Generate code for Google models with concurrency limit of 2
+# Google has strict rate limits
+echo "===== GOOGLE MODELS (MAX 2 PARALLEL) ====="
+echo "Starting Google models with max 2 concurrent (strict rate limits)..."
+
 for model in $GOOGLE_MODELS; do
     for temp in $TEMPS; do
-        if generate_code "$model" "$temp"; then
-            ((COMPLETED_RUNS++))
-        else
-            ((FAILED_RUNS++))
-        fi
-        echo "Progress: $COMPLETED_RUNS/$TOTAL_RUNS completed, $FAILED_RUNS failed"
+        wait_for_slot 2
+        generate_code_bg "$model" "$temp"
+        ((COMPLETED_RUNS++))
     done
 done
 
-# Generate code for Ollama models (run sequentially to avoid memory issues)
+echo "✓ Started ${#GOOGLE_MODELS[@]} Google models × 4 temperatures"
 echo ""
-echo "===== OLLAMA MODELS ====="
+
+# Generate code for Ollama models with concurrency limit of 2
+# Ollama uses local GPU/CPU, so limit to 2 parallel to avoid memory issues
+echo "===== OLLAMA MODELS (MAX 2 PARALLEL) ====="
+echo "Starting Ollama models with max 2 concurrent (local GPU/memory)..."
+
 for model in $OLLAMA_MODELS; do
     for temp in $TEMPS; do
-        if generate_code "$model" "$temp"; then
-            ((COMPLETED_RUNS++))
-        else
-            ((FAILED_RUNS++))
-        fi
-        echo "Progress: $COMPLETED_RUNS/$TOTAL_RUNS completed, $FAILED_RUNS failed"
+        wait_for_slot 2
+        generate_code_bg "$model" "$temp"
+        ((COMPLETED_RUNS++))
     done
 done
+
+echo "✓ Started ${#OLLAMA_MODELS[@]} Ollama models × 4 temperatures"
+echo ""
+echo "===== ALL MODELS STARTED ====="
+echo "Total processes launched: $COMPLETED_RUNS/$TOTAL_RUNS"
+echo ""
+echo "⏳ Waiting for all background processes to complete..."
+echo "   Monitor progress: python3 status.sh"
+echo ""
+
+# Wait for all background jobs to complete
+wait
 
 # Final summary
 echo ""
