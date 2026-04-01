@@ -81,7 +81,7 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
         else:
             error = result.stderr.strip()
             failure_reason = f"cli_error: {error[:100]}"
-            print(f"    ⚠️  Claude returned error: {error[:100]}")
+            print(f"    ⚠️  Claude returned error: {error}")
             return "", False, failure_reason
 
     except subprocess.TimeoutExpired:
@@ -139,13 +139,48 @@ def get_file_extension(language: str) -> str:
         'java': 'java',
         'go': 'go',
         'rust': 'rs',
+        'cpp': 'cpp',
+        'c++': 'cpp',
+        'c': 'c',
+        'csharp': 'cs',
+        'c#': 'cs',
+        'scala': 'scala',
+        'php': 'php',
+        'ruby': 'rb',
+        'bash': 'sh',
+        'shell': 'sh',
+        'perl': 'pl',
+        'lua': 'lua',
+        'elixir': 'ex',
+        'solidity': 'sol',
+        'swift': 'swift',
+        'kotlin': 'kt',
+        'dart': 'dart',
+        'terraform': 'tf',
+        'hcl': 'tf',
+        'azure': 'json',
+        'arm': 'json',
+        'cloudformation': 'yaml',
+        'cfn': 'yaml',
+        'dockerfile': 'Dockerfile',
+        'yaml': 'yaml',
+        'yml': 'yaml',
+        'json': 'json',
+        'xml': 'xml',
+        'sql': 'sql',
+        'graphql': 'graphql',
+        'proto': 'proto',
+        'protobuf': 'proto',
+        'conf': 'conf',
+        'config': 'conf',
+        'groovy': 'groovy',
     }
-    return extensions.get(language, 'txt')
+    return extensions.get(language.lower(), 'txt')
 
 def test_claude_code_benchmark(
     prompts_file: Path,
     output_dir: Path,
-    timeout: int = 120,
+    timeout: int = 600,
     limit: int = None
 ):
     """
@@ -208,6 +243,7 @@ def test_claude_code_benchmark(
         file_ext = get_file_extension(language)
         output_file = output_dir / f"{prompt_id}.{file_ext}"
 
+        # Check for exact match first
         if output_file.exists():
             try:
                 existing_code = output_file.read_text()
@@ -226,6 +262,33 @@ def test_claude_code_benchmark(
                     continue
             except Exception as e:
                 print(f"  ⚠️  Error reading existing file: {e}")
+
+        # Check for any file with the same base name but different extension
+        # This handles cases where the extension was corrected (e.g., .txt -> .swift, .cpp, .cs)
+        found_alternative = False
+        for existing in output_dir.glob(f"{prompt_id}.*"):
+            if existing.is_file() and existing != output_file:
+                try:
+                    existing_code = existing.read_text()
+                    if existing_code.strip() and len(existing_code) > 50:
+                        print(f"  ⏭️  Already exists as {existing.name} (skipped)")
+                        results['completed'] += 1
+                        results['prompts'].append({
+                            'id': prompt_id,
+                            'category': category,
+                            'language': language,
+                            'output_file': str(existing),
+                            'success': True,
+                            'code_length': len(existing_code),
+                            'cached': True
+                        })
+                        found_alternative = True
+                        break
+                except Exception as e:
+                    print(f"  ⚠️  Error reading {existing.name}: {e}")
+
+        if found_alternative:
+            continue
 
         # Generate code with Claude Code
         code, success, failure_reason = generate_code_with_claude(prompt_text, timeout)
@@ -308,8 +371,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=300,
-        help='Timeout per prompt in seconds (default: 300)'
+        default=600,
+        help='Timeout per prompt in seconds (default: 600)'
     )
     parser.add_argument(
         '--limit',
