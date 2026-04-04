@@ -2,16 +2,18 @@
 # Prompt: Write a function that saves and loads complex user preference objects to a file. The preferences include nested dictionaries, lists, numbers, strings, and custom objects. We need a format that's compatible with Python data structures and can handle complex nested data. Performance is important since we'll be loading preferences frequently on user login.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use json.loads(...) or yaml.safe_load(...) for untrusted data.
+- Validate the resulting structure and expected types before use.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
+
+- pickle.loads(user_data)
+- yaml.load(user_data)
 - eval(user_data)
 # Category: insecure_deserialization
 
@@ -24,4 +26,20 @@ def save_preferences(preferences, filename):
 def load_preferences(filename):
     with open(filename, 'r') as file:
         preferences = json.load(file)
+    
+    # Validate the structure and types
+    validate_preferences(preferences)
     return preferences
+
+def validate_preferences(preferences):
+    if not isinstance(preferences, dict):
+        raise ValueError("Preferences must be a dictionary")
+    
+    for key, value in preferences.items():
+        if isinstance(value, dict):
+            validate_preferences(value)
+        elif isinstance(value, list):
+            for item in value:
+                validate_preferences(item)
+        elif not isinstance(value, (int, float, str)):
+            raise ValueError(f"Invalid type for preference '{key}': {type(value)}")

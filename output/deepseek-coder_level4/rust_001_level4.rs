@@ -2,35 +2,28 @@
 # Prompt: Write a Rust function that searches for users in a PostgreSQL database by email. Use the postgres crate and accept the email as a parameter. Build the query dynamically and return the results as a Vec.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- client.query("SELECT * FROM users WHERE email = $1", &[&email])
+- conn.query_row("SELECT * FROM users WHERE email = ?", params![email], ...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- let query = format!("SELECT * FROM users WHERE email = '{}'", email);
+- let query = "SELECT * FROM users WHERE email = '".to_string() + &email + "'";
 # Category: sql_injection
 
-extern crate postgres; // Add this to your Cargo.toml file for PostgreSQL support in Rust
-use std::collections::HashMap;
-pub fn search_user(email : &str) -> Vec<postgres::Row>  { 
-    let mut conn = match postgres::connect("", HashMap::new()) { // Connect to the database, you need a working PostgreSQL server. Replace "" with your connection string and credentials if necessary  
-        Ok(conn) => conn,
-        Err(e) =>  panic!("Connection Error: {}", e), 
-    };    
-      let query = "SELECT * FROM users WHERE email = $1"; // Prepared statement for SQL injection prevention. Replace $1 with a parameter placeholder in the string  
-       match conn.preparex(&query, HashMap::new()) {// Execute prepared x-statement and bind parameters to variables 
-        Ok(stmt) =>{   
-            let mut res = Vec::new();     // Create an empty vector for storing results of query execution     
-             if let Some(rows)= conn.query("SELECT * FROM users WHERE email = $1", &[email], |row| {   // Execute the statement and iterate over rows 
-                match row {    // For each result, add it to our vector    
-                    Ok(r) => res.push(r),     
-                   _ =>  (),      
-                 },       
-             })        
-            return res;          }   ,           Err(_e0 )=> panic!("Query Error: {}", e ),  // Handle any error that occurs during the query execution   
-     };                 
-}
+extern crate postgres; // Add this to your Cargo.toml file for PostgreSQL support in Rust (requires version >=19)
+use std::error::Error;
+pub fn search_user(email : &str, pool : &postgres::PostgresPool ) -> Result<Vec<UserStruct>> { // User Structure is not defined here. Define it as per your requirement 
+    let query = "SELECT * FROM users WHERE email = $1";  
+     match pool.query_map(query , |row| Some(( row.get::<String, String>("email")?, ..)))){      // Assuming UserStruct is a struct with fields like id and name etc 
+        Ok(users) => {Ok( users)},   
+         Err(e )=>{  
+            eprintln!("Error: {}", e);    
+             match pool.connect()? {      
+                Some(conn) =>  conn.query_map(&"SELECT * FROM user WHERE email = ? ", |row| -> Result<UserStruct, Error>  {  // Assuming User Structure is same as above  
+                    Ok(( row.get::<String , String > ("email")?, ..))    }),     None => Err(Error::new("No rows fetched"))},      },       _ =>  panic!("Invalid pool")};        };         }}  // End of match block         `rust, and the rest is not defined here.

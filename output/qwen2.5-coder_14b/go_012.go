@@ -28,7 +28,6 @@ func (s *Session) Save(filename string) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -46,7 +45,6 @@ func LoadSession(filename string) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &session, nil
 }
 

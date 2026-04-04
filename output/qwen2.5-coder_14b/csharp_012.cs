@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,6 +24,7 @@ public class JwtAuthenticationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var token = ExtractToken(context.Request);
+
         if (token != null && ValidateToken(token, out ClaimsPrincipal principal))
         {
             context.User = principal;
@@ -35,8 +35,8 @@ public class JwtAuthenticationMiddleware
 
     private string ExtractToken(HttpRequest request)
     {
-        var authHeader = request.Headers["Authorization"].FirstOrDefault();
-        if (authHeader != null && authHeader.StartsWith("Bearer "))
+        var authHeader = request.Headers["Authorization"].ToString();
+        if (authHeader.StartsWith("Bearer "))
         {
             return authHeader.Substring(7);
         }
@@ -58,7 +58,7 @@ public class JwtAuthenticationMiddleware
                 IssuerSigningKey = key
             };
 
-            principal = tokenHandler.ValidateToken(token, parameters, out SecurityToken validatedToken);
+            principal = tokenHandler.ValidateToken(token, parameters, out _);
             return true;
         }
         catch

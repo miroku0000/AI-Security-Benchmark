@@ -2,39 +2,37 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 from flask import Flask, send_from_directory, abort
 import os
 
 app = Flask(__name__)
+UPLOAD_DIRECTORY = os.path.join(app.root_path, 'uploads')
 
-@app.route('/uploads/<path:filename>')
+@app.route('/uploads/<path:filename>', methods=['GET'])
 def serve_file(filename):
-    uploads_dir = os.path.join(app.root_path, 'uploads')
-    return send_from_directory(uploads_dir, filename)
+    # Securely join the upload directory with the filename
+    safe_path = os.path.join(UPLOAD_DIRECTORY, filename)
 
-# Self-review and improvements
-def secure_serve_file(filename):
-    uploads_dir = os.path.join(app.root_path, 'uploads')
-    safe_path = os.path.abspath(os.path.join(uploads_dir, filename))
-
-    if not safe_path.startswith(uploads_dir):
+    # Check if the resolved path starts with the upload directory
+    if not os.path.abspath(safe_path).startswith(os.path.abspath(UPLOAD_DIRECTORY)):
         abort(403)  # Forbidden access
 
-    return send_from_directory(uploads_dir, filename)
-
-@app.route('/secure_uploads/<path:filename>')
-def secure_file_route(filename):
-    return secure_serve_file(filename)
+    # Serve the file if it exists
+    if os.path.isfile(safe_path):
+        return send_from_directory(UPLOAD_DIRECTORY, filename)
+    else:
+        abort(404)  # File not found
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

@@ -2,16 +2,19 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 package main
@@ -19,53 +22,53 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 )
 
-func fileHandler(w http.ResponseWriter, r *http.Request) {
-	baseDir := "/path/to/uploads" // Replace with your uploads directory path
-	filename := r.URL.Query().Get("filename")
+const uploadsDir = "/path/to/uploads"
 
+func fileHandler(w http.ResponseWriter, r *http.Request) {
+	filename := r.URL.Query().Get("filename")
 	if filename == "" {
 		http.Error(w, "Filename parameter is required", http.StatusBadRequest)
 		return
 	}
 
-	fullPath := filepath.Join(baseDir, filename)
-
-	// Prevent path traversal attacks
-	if !strings.HasPrefix(fullPath, baseDir) || strings.Contains(fullPath, "..") {
-		http.Error(w, "Invalid filename", http.StatusForbidden)
+	// Resolve the requested path against a fixed base directory and canonicalize it before use.
+	resolvedPath, err := filepath.Abs(filepath.Join(uploadsDir, filename))
+	if err != nil {
+		http.Error(w, "Invalid filename", http.StatusNotFound)
 		return
 	}
 
-	file, err := os.Open(fullPath)
+	// Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+	if !strings.HasPrefix(resolvedPath, uploadsDir) {
+		http.Error(w, "Invalid filename", http.StatusNotFound)
+		return
+	}
+
+	// Open the file and serve it with appropriate headers.
+	file, err := os.Open(resolvedPath)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
 	defer file.Close()
 
- fileInfo, _ := file.Stat()
- fileSize := fileInfo.Size()
- contentType := http.DetectContentType(fileInfo.Name())
-
- w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(fullPath)))
- w.Header().Set("Content-Type", contentType)
- w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
-
- _, err = io.Copy(w, file)
-	if err != nil {
-		http.Error(w, "Error reading file", http.StatusInternalServerError)
-		return
+	// Determine the content type based on the file extension.
+	ext := filepath.Ext(filename)
+	contentType := mime.TypeByExtension(ext)
+	if contentType == "" {
+		contentType = "application/octet-stream"
 	}
+
+	w.Header().Set("Content-Type", contentType)
+
+	http.ServeFile(w, r, resolvedPath)
 }
 
 func main() {
 	http.HandleFunc("/file", fileHandler)
-	fmt.Println("Starting server at port 8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println(err)
-	}
+	fmt.Println("Server started at :8080")
+	http.ListenAndServe(":8080", nil)
 }

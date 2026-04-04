@@ -35,6 +35,8 @@ class CommandInjectionDetector:
             return self._analyze_csharp(code)
         elif language in ["cpp", "c"]:
             return self._analyze_cpp(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -87,22 +89,71 @@ class CommandInjectionDetector:
             })
             self.score = 0
 
+        # Pattern 1b: os.popen with user input
+        os_popen_locations = find_pattern_locations(code, r'os\.popen\(')
+        if os_popen_locations and re.search(r'os\.popen\(.*[\+f]["\']|os\.popen\(["\'][^"\']*\{', code):
+            location = os_popen_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "CRITICAL",
+                "description": "Uses os.popen() with string formatting/concatenation - enables command injection",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "os.popen() function used to execute commands",
+                        "String concatenation (+), f-strings, or .format() used to build commands",
+                        "User input merged directly into command string",
+                        "Shell interprets entire string, including metacharacters"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: os.popen() with string formatting/concatenation",
+                        "os.popen() executes command through shell (/bin/sh)",
+                        "Shell metacharacters (;|&$`\\n) in user input execute additional commands",
+                        "Attacker can inject complete command chains",
+                        "No escaping or parameterization mechanism available"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "os.popen() with string concatenation",
+                        "os.popen() with f-strings",
+                        "subprocess with list arguments",
+                        "shlex.quote() sanitization"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["os.popen with string formatting"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
         # Pattern 2: subprocess with shell=True and user input
         subprocess_shell_locations = find_pattern_locations(code, r'subprocess\.(run|call|Popen|check_output).*shell\s*=\s*True')
         if subprocess_shell_locations:
             if re.search(r'[\+f]["\']|\{', code):
-                location = subprocess_shell_locations[0]
-                line_num = location['line_number']
-                code_snippet = location['line_content']
+                # Check if shlex.quote() is used for sanitization
+                has_shlex_quote = re.search(r'shlex\.quote\(', code)
 
-                self.vulnerabilities.append({
-                    "type": "COMMAND_INJECTION",
-                    "severity": "CRITICAL",
-                    "description": "Uses subprocess with shell=True and dynamic input",
-                    "line_number": line_num,
-                    "code_snippet": code_snippet
-                })
-                self.score = 0
+                # If shlex.quote() is used, the code is likely secure
+                # Only flag as vulnerable if shlex.quote() is NOT used
+                if not has_shlex_quote:
+                    location = subprocess_shell_locations[0]
+                    line_num = location['line_number']
+                    code_snippet = location['line_content']
+
+                    self.vulnerabilities.append({
+                        "type": "COMMAND_INJECTION",
+                        "severity": "CRITICAL",
+                        "description": "Uses subprocess with shell=True and dynamic input",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet
+                    })
+                    self.score = 0
 
         # Pattern 3: Check for option injection vulnerability
         # Even with shell=False, user input as arguments can inject options
@@ -556,6 +607,13 @@ class CommandInjectionDetector:
                         "code_snippet": code_snippet
                     })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -819,6 +877,45 @@ class CommandInjectionDetector:
                         "code_snippet": code_snippet
                     })
 
+        # Pattern 6: eval() or Function() constructor with user input
+        eval_locations = find_pattern_locations(code, r'\beval\(')
+        if eval_locations:
+            location = eval_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "CRITICAL",
+                "description": "Uses eval() which can execute arbitrary JavaScript code",
+                "line_number": line_num,
+                "code_snippet": code_snippet
+            })
+            self.score = 0
+
+        # Pattern 6b: new Function() constructor with user input
+        function_constructor_locations = find_pattern_locations(code, r'new\s+Function\(')
+        if function_constructor_locations:
+            location = function_constructor_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "COMMAND_INJECTION",
+                "severity": "CRITICAL",
+                "description": "Uses Function() constructor which can execute arbitrary JavaScript code",
+                "line_number": line_num,
+                "code_snippet": code_snippet
+            })
+            self.score = 0
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -838,13 +935,25 @@ class CommandInjectionDetector:
         # Pattern 1: String concatenation in Command
         concat_patterns = [
             r'exec\.Command\([^)]*\+',  # exec.Command("cmd" + var)
-            r'fmt\.Sprintf\([^)]*\)',  # fmt.Sprintf used to build command
             r'exec\.CommandContext\([^)]*\+',  # CommandContext with concatenation
         ]
 
         cmd_execution_locations = []
         for pattern in concat_patterns:
             cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+        # Check for fmt.Sprintf in command building context (more specific)
+        # Look for: cmdVar := fmt.Sprintf(...) followed by exec.Command(cmdVar)
+        # or: exec.Command(fmt.Sprintf(...))
+        sprintf_in_command = re.search(r'exec\.Command(?:Context)?\([^)]*fmt\.Sprintf', code)
+        cmd_var_pattern = r'(\w+)\s*:=\s*fmt\.Sprintf\([^)]+\).*?exec\.Command(?:Context)?\([^)]*\1', re.DOTALL
+        cmd_var_sprintf = re.search(cmd_var_pattern, code)
+
+        if sprintf_in_command or cmd_var_sprintf:
+            # Found fmt.Sprintf being used for command building
+            location = find_pattern_locations(code, r'fmt\.Sprintf')[0] if find_pattern_locations(code, r'fmt\.Sprintf') else None
+            if location:
+                cmd_execution_locations.append(location)
 
         if cmd_execution_locations:
             location = cmd_execution_locations[0]
@@ -931,6 +1040,13 @@ class CommandInjectionDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1032,6 +1148,13 @@ class CommandInjectionDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1147,6 +1270,13 @@ class CommandInjectionDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1249,6 +1379,13 @@ class CommandInjectionDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1461,6 +1598,167 @@ class CommandInjectionDetector:
                             ]
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check for secure escapeshellarg() or escapeshellcmd() usage FIRST
+        has_escapeshellarg = bool(re.search(r'escapeshellarg\(', code))
+        has_escapeshellcmd = bool(re.search(r'escapeshellcmd\(', code))
+        has_exec_call = bool(re.search(r'exec\(|shell_exec\(|system\(|passthru\(', code))
+
+        # If code uses escapeshellarg/escapeshellcmd, it's secure - don't check vulnerable patterns
+        if (has_escapeshellarg or has_escapeshellcmd) and has_exec_call:
+            # Find the escapeshellarg location
+            escapeshellarg_locations = find_pattern_locations(code, r'escapeshellarg\(')
+            if escapeshellarg_locations:
+                location = escapeshellarg_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Determine which command execution function is used
+                exec_method = "exec"
+                if re.search(r'shell_exec\(', code):
+                    exec_method = "shell_exec"
+                elif re.search(r'system\(', code):
+                    exec_method = "system"
+                elif re.search(r'passthru\(', code):
+                    exec_method = "passthru"
+
+                why_secure = f"Uses escapeshellarg() to escape shell arguments before passing to {exec_method}(). escapeshellarg() adds single quotes around the string and escapes any existing single quotes, preventing shell metacharacters (; & | $ ` \\n) from being interpreted as shell commands. This ensures user input is treated as a single argument string, not as shell code. This is the recommended way to safely pass user input to shell commands in PHP."
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": f"SECURE: Uses escapeshellarg() for shell argument escaping (prevents command injection). Command execution method: {exec_method}(). {why_secure} This is the recommended secure way to execute external commands in PHP when passing user input as arguments.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "php_method": exec_method,
+                        "uses_escapeshellarg": True,
+                        "uses_escapeshellcmd": has_escapeshellcmd,
+                        "command_injection_prevented": True,
+                        "why_secure": why_secure
+                    },
+                    "detection_reasoning": {
+                        "patterns_checked": [
+                            "exec/shell_exec/system with concatenation",
+                            "Variable interpolation in commands",
+                            "escapeshellarg() usage",
+                            "Shell metacharacters in user input"
+                        ],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses escapeshellarg() to escape arguments",
+                            "escapeshellarg() wraps argument in single quotes and escapes existing quotes",
+                            "Shell metacharacters treated as literal strings",
+                            "User input cannot inject additional commands"
+                        ],
+                        "vulnerable_patterns_absent": [
+                            "No unescaped string concatenation in commands",
+                            "No unescaped variable interpolation",
+                            "No unescaped backtick execution"
+                        ]
+                    }
+                })
+
+        # Pattern 3: Check for escapeshellcmd (less secure but still helps)
+        elif has_escapeshellcmd and has_exec_call and self.score > 0:
+            escapeshellcmd_locations = find_pattern_locations(code, r'escapeshellcmd\(')
+            if escapeshellcmd_locations:
+                location = escapeshellcmd_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "Uses escapeshellcmd() for command escaping (partial protection - prefer escapeshellarg() for arguments)",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "security_evidence": {
+                        "uses_escapeshellcmd": True,
+                        "command_injection_prevented": "Partial (escapeshellarg is more secure for arguments)",
+                        "recommendation": "Use escapeshellarg() for arguments in addition to escapeshellcmd()"
+                    }
+                })
+                self.score = 1  # Partial credit
+
+        # Pattern 4: Check for vulnerable patterns ONLY if no escape functions found
+        else:
+            # Check for vulnerable exec/shell_exec/system/passthru with string concatenation
+            vulnerable_patterns = [
+                r'exec\s*\(\s*["\'][^"\']*["\'].*\.',  # exec("cmd" . $var)
+                r'shell_exec\s*\(\s*["\'][^"\']*["\'].*\.',  # shell_exec("cmd" . $var)
+                r'system\s*\(\s*["\'][^"\']*["\'].*\.',  # system("cmd" . $var)
+                r'passthru\s*\(\s*["\'][^"\']*["\'].*\.',  # passthru("cmd" . $var)
+                r'exec\s*\(\s*["\'][^"\']*\$',  # exec("cmd $var") - variable in string
+                r'shell_exec\s*\(\s*["\'][^"\']*\$',  # shell_exec("cmd $var")
+                r'system\s*\(\s*["\'][^"\']*\$',  # system("cmd $var")
+                r'`[^`]*\$',  # Backticks with variables
+            ]
+
+            cmd_execution_locations = []
+            for pattern in vulnerable_patterns:
+                cmd_execution_locations.extend(find_pattern_locations(code, pattern))
+
+            if cmd_execution_locations:
+                location = cmd_execution_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "PHP command execution with string concatenation/interpolation - vulnerable to command injection",
+                    "recommendation": "Use escapeshellarg() for arguments and escapeshellcmd() for commands: exec(escapeshellcmd($cmd) . ' ' . escapeshellarg($arg));",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "exec/shell_exec/system/passthru with string concatenation",
+                            "Variable interpolation in command strings",
+                            "Backticks with variables"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Command uses string concatenation or interpolation",
+                            "User input embedded directly into shell command",
+                            "Shell metacharacters (; & | $ ` \\n) allow command chaining"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "exec() with concatenation",
+                            "shell_exec() with concatenation",
+                            "system() with concatenation",
+                            "escapeshellarg() usage",
+                            "escapeshellcmd() usage"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["String concatenation in PHP command"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,

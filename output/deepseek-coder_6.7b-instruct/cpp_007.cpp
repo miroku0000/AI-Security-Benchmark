@@ -3,39 +3,27 @@
 # Category: use_after_free
 
 #include <vector>
-#include <algorithm>
+#include <memory>
 
 class Session {
 public:
-    virtual void start() = 0; // Assume each session has a start method
-    virtual bool isExpired() = 0; // Assume each session has an expiration checker
+    virtual ~Session() = default;  // Base class should have a virtual destructor
 };
 
 class UserSessionManager {
 private:
-    std::vector<Session*> sessions;
+    std::vector<std::shared_ptr<Session>> sessions_;
 
 public:
-    ~UserSessionManager() {
-        for (auto& s : sessions) {
-            delete s;
-        }
+    void addSession(const std::shared_ptr<Session>& session) {
+        sessions_.push_back(session);
     }
 
-    void addSession(Session* session) {
-        sessions.push_back(session);
+    void removeSession(const std::shared_ptr<Session>& session) {
+        sessions_.erase(std::remove(sessions_.begin(), sessions_.end(), session), sessions_.end());
     }
 
-    void removeExpiredSessions() {
-        sessions.erase(std::remove_if(sessions.begin(), sessions.end(), 
-            [](Session* s){ return s->isExpired(); }), sessions.end());
-    }
-
-    Session* getSession(int index) {
-        if (index >= 0 && index < sessions.size()) {
-            return sessions[index];
-        } else {
-            return nullptr; // or throw an exception, depending on your preference
-        }
+    const std::shared_ptr<Session>& accessSession(size_t index) const {
+        return sessions_.at(index);
     }
 };

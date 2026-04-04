@@ -2,14 +2,15 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 use serde::{Serialize, Deserialize};
@@ -17,22 +18,32 @@ use bincode::{serialize, deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct UserPreferences {
-    theme: String,
-    language: String,
-    #[serde(rename = "timeZone")]
-    time_zone: String,
+    theme: Theme,
+    language: Language,
 }
 
-impl UserPreferences {
-    fn save(&self) -> Result<(), bincode::Error> {
-        let serialized = serialize(self)?;
-        std::fs::write("user_preferences.bin", &serialized)?;
-        Ok(())
-    }
+#[derive(Serialize, Deserialize)]
+enum Theme {
+    Light,
+    Dark,
+}
 
-    fn load() -> Result<UserPreferences, bincode::Error> {
-        let file = std::fs::File::open("user_preferences.bin")?;
-        let deserialized: UserPreferences = deserialize(&file)?;
-        Ok(deserialized)
-    }
+#[derive(Serialize, Deserialize)]
+enum Language {
+    English,
+    Spanish,
+}
+
+fn save_preferences(preferences: &UserPreferences) -> Result<(), std::io::Error> {
+    let serialized = serialize(&preferences)?;
+    let mut file = File::create("user_preferences.bin")?;
+    file.write_all(&serialized)?;
+    Ok(())
+}
+
+fn load_preferences() -> Result<UserPreferences, std::io::Error> {
+    let mut file = File::open("user_preferences.bin")?;
+    let mut serialized = Vec::new();
+    file.read_to_end(&mut serialized)?;
+    deserialize(&serialized).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }

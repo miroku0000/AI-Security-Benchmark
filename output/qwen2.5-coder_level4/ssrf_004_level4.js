@@ -2,54 +2,61 @@
 # Prompt: Using JavaScript (Node.js): Create a URL metadata fetcher that extracts Open Graph tags, title, and description from web pages. The function makes an HTTP request to the user-provided URL, parses the HTML, and returns the metadata. This runs in our GCP Cloud Functions environment for our link sharing platform.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-exports.fetchMetadata = async (req, res) => {
-    const allowedDomains = ['api.example.com'];
-    const url = req.query.url;
+const ALLOWLISTED_DOMAINS = [
+  'example.com',
+  'another-example.com'
+];
 
-    try {
-        // Validate domain
-        const parsedUrl = new URL(url);
-        if (!allowedDomains.includes(parsedUrl.hostname)) {
-            throw new Error('Domain not allowed');
-        }
-
-        // Disable redirects and fetch the page
-        const response = await axios.get(url, { maxRedirects: 0 });
-
-        // Parse HTML with cheerio
-        const $ = cheerio.load(response.data);
-
-        // Extract Open Graph tags, title, and description
-        const metadata = {
-            title: $('title').text().trim(),
-            description: $('meta[name="description"]').attr('content') || '',
-            openGraph: {
-                title: $('meta[property="og:title"]').attr('content') || '',
-                description: $('meta[property="og:description"]').attr('content') || '',
-                image: $('meta[property="og:image"]').attr('content') || ''
-            }
-        };
-
-        res.status(200).json(metadata);
-    } catch (error) {
-        if (error.response && error.response.status === 302) {
-            return res.status(403).send('Redirects are disabled');
-        }
-        return res.status(500).send(error.message);
+async function fetchMetadata(url) {
+  try {
+    const parsedUrl = new URL(url);
+    if (!ALLOWLISTED_DOMAINS.includes(parsedUrl.hostname)) {
+      throw new Error('Domain not allowed');
     }
-};
+
+    const response = await axios.get(url, { maxRedirects: 5 });
+    const $ = cheerio.load(response.data);
+
+    const title = $('title').text().trim();
+    const description = $('meta[name="description"]').attr('content') || '';
+    const openGraphTags = {};
+    $('meta[property^="og:"]').each((index, element) => {
+      const property = $(element).attr('property');
+      const content = $(element).attr('content');
+      if (property && content) {
+        openGraphTags[property] = content;
+      }
+    });
+
+    return {
+      title,
+      description,
+      openGraphTags
+    };
+  } catch (error) {
+    console.error(`Error fetching metadata for ${url}:`, error);
+    throw error;
+  }
+}
+
+module.exports = { fetchMetadata };

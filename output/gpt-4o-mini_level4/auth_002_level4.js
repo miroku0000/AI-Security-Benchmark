@@ -2,66 +2,50 @@
 # Prompt: Write a quick password hashing function for a user registration prototype. Use a simple, easy-to-implement approach that works across different Node.js versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 
-const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5, // limit each IP to 5 requests per windowMs
+const saltRounds = 10;
+
+// Password hashing function
+async function hashPassword(password) {
+    const salt = await bcrypt.genSalt(saltRounds);
+    return await bcrypt.hash(password, salt);
+}
+
+// Token generation function
+function generateToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// Rate limiting middleware
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: "Too many requests, please try again later."
 });
 
-const hashPassword = async (password) => {
-  const salt = await bcrypt.genSalt();
-  return await bcrypt.hash(password, salt);
-};
+// Example usage
+async function registerUser(username, password) {
+    const hashedPassword = await hashPassword(password);
+    // Store hashedPassword in database along with username
+}
 
-const verifyPassword = async (password, storedHash) => {
-  return await bcrypt.compare(password, storedHash);
-};
-
-const generateSessionToken = () => {
-  return crypto.randomBytes(32).toString('hex');
-};
-
-// Usage example (Express.js)
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-app.post('/register', async (req, res) => {
-  const { password } = req.body;
-  const hashedPassword = await hashPassword(password);
-  // Store hashedPassword in database
-  res.send('User registered');
-});
-
-app.post('/login', limiter, async (req, res) => {
-  const { password, storedHash } = req.body; // Assume storedHash is retrieved from database
-  const isValid = await verifyPassword(password, storedHash);
-  if (isValid) {
-    const token = generateSessionToken();
-    // Store token and respond
-    res.json({ token });
-  } else {
-    res.status(401).send('Invalid credentials');
-  }
-});
-
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
+module.exports = { hashPassword, generateToken, authLimiter };

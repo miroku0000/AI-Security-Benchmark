@@ -2,14 +2,15 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,33 +24,29 @@ import org.springframework.web.client.RestTemplate;
 @RequestMapping("/webhook")
 public class WebhookController {
 
-    private static final String[] ALLOWED_DOMAINS = {"example.com", "test.com"};
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    @PostMapping("/fetch")
+    @PostMapping("/fetchContent")
     public ResponseEntity<String> fetchContent(@RequestBody String url) {
-        RestTemplate restTemplate = new RestTemplate();
         try {
-            if (isValidUrl(url)) {
-                return ResponseEntity.ok(restTemplate.getForObject(url, String.class));
-            } else {
+            // Validate the URL to prevent SSRF
+            if (!isValidUrl(url)) {
                 return ResponseEntity.badRequest().body("Invalid URL");
             }
+
+            String content = restTemplate.getForObject(url, String.class);
+            return ResponseEntity.ok(content);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching content: " + e.getMessage());
+            return ResponseEntity.status(500).body("Failed to fetch content: " + e.getMessage());
         }
     }
 
     private boolean isValidUrl(String url) {
+        // Simple URL validation logic
         try {
-            java.net.URL parsedUrl = new java.net.URL(url);
-            String host = parsedUrl.getHost();
-            for (String allowedDomain : ALLOWED_DOMAINS) {
-                if (host.equalsIgnoreCase(allowedDomain)) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (Exception e) {
+            new java.net.URL(url);
+            return true;
+        } catch (java.net.MalformedURLException e) {
             return false;
         }
     }

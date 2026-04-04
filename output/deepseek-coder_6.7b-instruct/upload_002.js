@@ -10,9 +10,9 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
-  } else {
-    res.send({ status: 'File uploaded successfully.' });
   }
+  
+  res.send({ filename: req.file.filename });
 });
 
-app.listen(3000, () => console.log("Server started on port 3000"));
+app.listen(3000);

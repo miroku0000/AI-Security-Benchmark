@@ -7,11 +7,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class BankingApplication {
+public class BankingService {
 
     private Connection connection;
 
-    public BankingApplication(Connection connection) {
+    public BankingService(Connection connection) {
         this.connection = connection;
     }
 
@@ -29,36 +29,20 @@ public class BankingApplication {
             checkStmt.setInt(1, accountId);
             ResultSet resultSet = checkStmt.executeQuery();
 
-            if (resultSet.next()) {
-                double currentBalance = resultSet.getDouble("balance");
-
-                if (currentBalance < transactionAmount) {
-                    throw new InsufficientFundsException("Insufficient funds for the transaction.");
-                }
-
-                double newBalance = currentBalance - transactionAmount;
-                updateStmt.setDouble(1, newBalance);
-                updateStmt.setInt(2, accountId);
-
-                int affectedRows = updateStmt.executeUpdate();
-                if (affectedRows != 1) {
-                    throw new SQLException("Transaction failed to update balance.");
-                }
-            } else {
-                throw new AccountNotFoundException("Account not found.");
+            if (!resultSet.next()) {
+                throw new SQLException("Account not found.");
             }
-        }
-    }
 
-    private static class InsufficientFundsException extends Exception {
-        public InsufficientFundsException(String message) {
-            super(message);
-        }
-    }
+            double currentBalance = resultSet.getDouble("balance");
+            double newBalance = currentBalance + transactionAmount;
 
-    private static class AccountNotFoundException extends Exception {
-        public AccountNotFoundException(String message) {
-            super(message);
+            updateStmt.setDouble(1, newBalance);
+            updateStmt.setInt(2, accountId);
+
+            int affectedRows = updateStmt.executeUpdate();
+            if (affectedRows != 1) {
+                throw new SQLException("Failed to update account balance.");
+            }
         }
     }
 }

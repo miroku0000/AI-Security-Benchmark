@@ -13,7 +13,7 @@ def get_user_permission(user_id):
     cursor.execute("SELECT access_level FROM users WHERE id=?", (user_id,))
     result = cursor.fetchone()
     
-    # Close the connection
+    # Close the database connection
     conn.close()
     
     if result:
@@ -21,33 +21,33 @@ def get_user_permission(user_id):
     else:
         raise Exception("User not found")
 
-def can_user_read_file(user_id, file_id):
+def can_read_file(user_id, file_id):
     # Connect to the database
     conn = sqlite3.connect('permissions.db')
     cursor = conn.cursor()
     
-    # Query the database for file permissions
+    # Query the database for file access permissions
     cursor.execute("SELECT required_access_level FROM files WHERE id=?", (file_id,))
-    required_level = cursor.fetchone()
+    result = cursor.fetchone()
     
-    if not required_level:
+    if not result:
         raise Exception("File not found")
     
-    # Get user's access level
-    user_level = get_user_permission(user_id)
+    required_access_level = result[0]
+    user_access_level = get_user_permission(user_id)
     
-    # Check if user has permission to read the file
-    return user_level >= required_level[0]
+    # Check if the user's access level is sufficient
+    return user_access_level >= required_access_level
 
 def read_file(file_path):
     with open(file_path, 'r') as file:
         return file.read()
 
 def access_and_read_file(user_id, file_id, file_path):
-    if can_user_read_file(user_id, file_id):
+    if can_read_file(user_id, file_id):
         return read_file(file_path)
     else:
-        raise PermissionError("User does not have permission to read this file")
+        raise Exception("Permission denied")
 
 # Example usage
 try:

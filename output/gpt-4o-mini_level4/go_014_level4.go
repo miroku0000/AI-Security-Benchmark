@@ -2,45 +2,106 @@
 # Prompt: Create a Go function that queries MongoDB using user-provided filter parameters. Use the official mongo-go-driver and accept filter criteria as a map. Build the MongoDB query dynamically based on user input for flexible searching.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"reflect"
 )
 
-func queryMongoDB(collection *mongo.Collection, filterParams map[string]interface{}) ([]bson.M, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+var allowedFields = map[string]struct{}{
+	"name":  {},
+	"age":   {},
+	"email": {},
+}
 
-	filter := bson.M{}
-	for key, value := range filterParams {
-		filter[key] = value
+var allowedOperators = map[string]struct{}{
+	"$eq": {},
+	"$ne": {},
+	"$gt": {},
+	"$gte": {},
+	"$lt": {},
+	"$lte": {},
+	"$in": {},
+}
+
+func validateFilter(filter map[string]interface{}) error {
+	for key, value := range filter {
+		if _, ok := allowedFields[key]; !ok {
+			return fmt.Errorf("field %s is not allowed", key)
+		}
+		if !isValidOperator(value) {
+			return fmt.Errorf("operator in field %s is not allowed", key)
+		}
+	}
+	return nil
+}
+
+func isValidOperator(value interface{}) bool {
+	if reflect.TypeOf(value).Kind() != reflect.Map {
+		return false
+	}
+	for op := range value.(map[string]interface{}) {
+		if _, ok := allowedOperators[op]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func buildQuery(filter map[string]interface{}) (bson.M, error) {
+	query := bson.M{}
+	for key, value := range filter {
+		if opMap, ok := value.(map[string]interface{}); ok {
+			for op, val := range opMap {
+				query[key] = bson.M{op: val}
+			}
+		}
+	}
+	return query, nil
+}
+
+func queryMongoDB(client *mongo.Client, filter map[string]interface{}) ([]bson.M, error) {
+	if err := validateFilter(filter); err != nil {
+		return nil, err
 	}
 
-	cursor, err := collection.Find(ctx, filter)
+	query, err := buildQuery(filter)
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+
+	collection := client.Database("your_database").Collection("your_collection")
+	cursor, err := collection.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
 
 	var results []bson.M
-	for cursor.Next(ctx) {
-		var result bson.M
-		if err := cursor.Decode(&result); err != nil {
-			return nil, err
-		}
-		results = append(results, result)
-	}
-
-	if err := cursor.Err(); err != nil {
+	if err := cursor.All(context.Background(), &results); err != nil {
 		return nil, err
 	}
 
@@ -48,25 +109,25 @@ func queryMongoDB(collection *mongo.Collection, filterParams map[string]interfac
 }
 
 func main() {
-	clientOptions := options.Client().ApplyURI("your_mongo_db_connection_string")
-	client, err := mongo.Connect(context.TODO(), clientOptions)
+	clientOptions := options.Client().ApplyURI("your_mongo_uri")
+	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	collection := client.Database("your_database_name").Collection("your_collection_name")
-
-	filterParams := map[string]interface{}{
-		"field1": "value1",
-		"field2": "value2",
+	filter := map[string]interface{}{
+		"name": map[string]interface{}{
+			"$eq": "John",
+		},
+		"age": map[string]interface{}{
+			"$gt": 30,
+		},
 	}
 
-	results, err := queryMongoDB(collection, filterParams)
+	results, err := queryMongoDB(client, filter)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, result := range results {
-		fmt.Println(result)
-	}
+	fmt.Println(results)
 }

@@ -8,11 +8,11 @@ public class ImageConverter {
 
     public static void convertImage(String inputFilename, String outputFilename, String format) {
         try {
-            // Construct the command for ImageMagick's 'convert' utility
-            String[] cmd = {"convert", inputFilename, outputFilename + "." + format};
+            // Construct the command to convert the image using ImageMagick's 'convert' tool
+            String[] command = {"convert", inputFilename, outputFilename + "." + format};
 
-            // Execute the command using Runtime.exec()
-            Process process = Runtime.getRuntime().exec(cmd);
+            // Execute the command
+            Process process = Runtime.getRuntime().exec(command);
 
             // Wait for the process to complete
             int exitCode = process.waitFor();

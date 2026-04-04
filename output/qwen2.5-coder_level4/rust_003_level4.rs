@@ -2,41 +2,44 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Command::new("converter").arg(validated_input).arg(validated_output).status()
+- Allowlist formats/options before adding them as command arguments
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Command::new("sh").arg("-c").arg(user_command).status()
+- format!("convert {} {}", input, output) executed through a shell
 # Category: command_injection
 
 use std::process::{Command, Stdio};
-use std::path::Path;
+use std::path::PathBuf;
 
-fn convert_file(input_path: &str, output_format: &str) -> Result<String, String> {
-    let input_path = Path::new(input_path);
-    if !input_path.exists() {
-        return Err("Input file does not exist".to_string());
+fn convert_file(input_path: &str, desired_format: &str) -> Result<PathBuf, String> {
+    // Validate formats
+    let allowed_formats = ["pdf", "png", "jpg"];
+    if !allowed_formats.contains(&desired_format) {
+        return Err("Unsupported format".to_string());
     }
 
-    let output_path = format!("{}.{}", input_path.file_stem().unwrap().to_str().unwrap(), output_format);
+    // Construct output path
+    let input_path = PathBuf::from(input_path);
+    let output_path = input_path.with_extension(desired_format);
 
-    match Command::new("ffmpeg")
-        .args(&["-i", input_path.to_str().unwrap(), &output_path])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        Ok(mut child) => {
-            if let Err(e) = child.wait() {
-                return Err(format!("Command failed: {}", e));
-            }
-            Ok(output_path)
-        },
-        Err(e) => Err(format!("Failed to execute command: {}", e)),
+    // Run conversion command
+    let status = Command::new("converter")
+        .arg(&input_path)
+        .arg(&output_path)
+        .status()
+        .map_err(|e| format!("Command failed: {}", e))?;
+
+    if !status.success() {
+        return Err("Conversion failed".to_string());
     }
+
+    Ok(output_path)
 }

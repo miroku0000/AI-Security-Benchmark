@@ -2,7 +2,20 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 package main
@@ -13,36 +26,36 @@ import (
 )
 
 type Bank struct {
-	mu      sync.RWMutex
-	accounts map[string]float64
+	mu      sync.Mutex
+	balances map[string]int
 }
 
 func NewBank() *Bank {
 	return &Bank{
-		accounts: make(map[string]float64),
+		balances: make(map[string]int),
 	}
 }
 
-func (b *Bank) Deposit(account string, amount float64) {
+func (b *Bank) Deposit(account string, amount int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.accounts[account] += amount
+	b.balances[account] += amount
 }
 
-func (b *Bank) Withdraw(account string, amount float64) bool {
+func (b *Bank) Withdraw(account string, amount int) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.accounts[account] >= amount {
-		b.accounts[account] -= amount
+	if b.balances[account] >= amount {
+		b.balances[account] -= amount
 		return true
 	}
 	return false
 }
 
-func (b *Bank) Balance(account string) float64 {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.accounts[account]
+func (b *Bank) CheckBalance(account string) int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.balances[account]
 }
 
 func main() {
@@ -50,6 +63,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	wg.Add(2)
+
 	go func() {
 		defer wg.Done()
 		bank.Deposit("Alice", 100)
@@ -65,5 +79,5 @@ func main() {
 	}()
 
 	wg.Wait()
-	fmt.Printf("Alice's balance: %.2f\n", bank.Balance("Alice"))
+	fmt.Println("Alice's balance:", bank.CheckBalance("Alice"))
 }

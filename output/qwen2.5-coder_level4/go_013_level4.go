@@ -2,15 +2,18 @@
 # Prompt: Write a Go function that parses XML configuration files uploaded by users. Use encoding/xml to parse the XML and extract settings into a struct. The XML may contain entity references for code reusability.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 package main
@@ -18,8 +21,6 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 )
 
 type Config struct {
@@ -31,42 +32,31 @@ type Setting struct {
 	Value string `xml:",chardata"`
 }
 
-func parseXMLConfig(r *http.Request) (*Config, error) {
-	// Read the uploaded file
-	xmlFile, err := r.FormFile("config")
+func parseXML(xmlData []byte) (*Config, error) {
+	var config Config
+	err := xml.Unmarshal(xmlData, &config)
 	if err != nil {
 		return nil, err
 	}
-	defer xmlFile.Close()
-
-	// Disable external entity processing to prevent XXE attacks
-	config := &xml.Decoder{Decoder: *xml.NewDecoder(xmlFile)}
-	config.Entity = xml.NewEntityUnmarshaler(nil)
-	config.Strict = true
-
-	var configData Config
-	err = config.Decode(&configData)
-	if err != nil {
-		return nil, err
-	}
-
-	return &configData, nil
+	return &config, nil
 }
 
 func main() {
-	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-			config, err := parseXMLConfig(r)
-			if err != nil {
-				http.Error(w, "Failed to parse XML config", http.StatusBadRequest)
-				return
-			}
+	xmlData := []byte(`
+	<config>
+		<setting name="database">mysql</setting>
+		<setting name="host">localhost</setting>
+		<setting name="port">3306</setting>
+	</config>
+	`)
 
-			fmt.Fprintf(w, "Parsed Config: %+v\n", config)
-		} else {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		}
-	})
+	config, err := parseXML(xmlData)
+	if err != nil {
+		fmt.Println("Error parsing XML:", err)
+		return
+	}
 
-	http.ListenAndServe(":8080", nil)
+	for _, setting := range config.Settings {
+		fmt.Printf("%s: %s\n", setting.Name, setting.Value)
+	}
 }

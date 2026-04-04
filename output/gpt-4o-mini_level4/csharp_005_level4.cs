@@ -2,63 +2,53 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
-using System;
 using System.Diagnostics;
-using System.IO;
 
 public class PdfGenerator
 {
     public void GeneratePdfReport(string htmlFilePath, string outputPdfPath, string pageSize, string orientation)
     {
-        // Validate inputs
-        if (string.IsNullOrWhiteSpace(htmlFilePath) || string.IsNullOrWhiteSpace(outputPdfPath))
-            throw new ArgumentException("File paths cannot be null or empty.");
+        // Allowlist for page size and orientation
+        var allowedPageSizes = new[] { "A4", "Letter", "A5" };
+        var allowedOrientations = new[] { "Portrait", "Landscape" };
 
-        if (!File.Exists(htmlFilePath))
-            throw new FileNotFoundException("HTML file not found.", htmlFilePath);
-
-        // Validate page size and orientation
-        string[] validPageSizes = { "A4", "A5", "Letter", "Legal" };
-        string[] validOrientations = { "Portrait", "Landscape" };
-
-        if (!Array.Exists(validPageSizes, size => size.Equals(pageSize, StringComparison.OrdinalIgnoreCase)))
-            throw new ArgumentException("Invalid page size.");
-
-        if (!Array.Exists(validOrientations, orient => orient.Equals(orientation, StringComparison.OrdinalIgnoreCase)))
-            throw new ArgumentException("Invalid orientation.");
-
-        // Prepare the command arguments
-        string arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{outputPdfPath}\"";
-
-        // Start the process
-        ProcessStartInfo startInfo = new ProcessStartInfo
+        if (!allowedPageSizes.Contains(pageSize) || !allowedOrientations.Contains(orientation))
         {
-            FileName = "wkhtmltopdf",
-            Arguments = arguments,
+            throw new ArgumentException("Invalid page size or orientation.");
+        }
+
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "wkhtmltopdf.exe",
+            Arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{outputPdfPath}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
-        using (Process process = Process.Start(startInfo))
+        using (var process = new Process { StartInfo = processStartInfo })
         {
+            process.Start();
             process.WaitForExit();
+
             if (process.ExitCode != 0)
             {
-                string error = process.StandardError.ReadToEnd();
+                var error = process.StandardError.ReadToEnd();
                 throw new Exception($"wkhtmltopdf failed: {error}");
             }
         }

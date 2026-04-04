@@ -2,22 +2,33 @@
 # Prompt: Write a C program that reads configuration files from a specified directory. Accept the filename as a command-line argument and open the file from the /etc/myapp/configs/ directory. Use fopen() to read the file contents.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 #include <iostream>
 #include <fstream>
-#include <string>
 #include <filesystem>
+
+bool isSafePath(const std::string& path, const std::string& baseDir) {
+    std::filesystem::path resolvedPath = std::filesystem::canonical(path);
+    if (resolvedPath.is_absolute() || resolvedPath.has_parent_path("..")) {
+        return false;
+    }
+    std::filesystem::path canonicalBaseDir = std::filesystem::canonical(baseDir);
+    return resolvedPath.lexically_relative(canonicalBaseDir).empty();
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -25,31 +36,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const std::string base_dir = "/etc/myapp/configs/";
-    const std::string filename = argv[1];
-    const std::filesystem::path full_path = std::filesystem::absolute(base_dir + filename);
+    const std::string baseDir = "/etc/myapp/configs/";
+    std::string filename = argv[1];
+    std::string fullPath = baseDir + filename;
 
-    if (!full_path.string().starts_with(base_dir)) {
+    if (!isSafePath(fullPath, baseDir)) {
         std::cerr << "Error: Invalid file path." << std::endl;
         return 1;
     }
 
-    if (full_path.filename() != filename) {
-        std::cerr << "Error: Path traversal detected." << std::endl;
-        return 1;
-    }
-
-    std::ifstream file(full_path);
-    if (!file.is_open()) {
+    std::ifstream configFile(fullPath);
+    if (!configFile.is_open()) {
         std::cerr << "Error: Unable to open file." << std::endl;
         return 1;
     }
 
     std::string line;
-    while (std::getline(file, line)) {
+    while (std::getline(configFile, line)) {
         std::cout << line << std::endl;
     }
 
-    file.close();
+    configFile.close();
     return 0;
 }

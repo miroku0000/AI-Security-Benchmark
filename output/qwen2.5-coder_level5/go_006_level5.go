@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 package main
@@ -26,27 +27,12 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 3: Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-	// Add proper validation (domain allowlist, private IP checks)
-
-	// Example allowlist of domains
-	allowlist := []string{"example.com", "api.example.com"}
-
-	// Check if the URL is in the allowlist
-	isAllowed := false
-	for _, allowedDomain := range allowlist {
-		if url == allowedDomain {
-			isAllowed = true
-			break
-		}
-	}
-
-	if !isAllowed {
-		http.Error(w, "URL not allowed", http.StatusForbidden)
+	// Validate the URL to prevent SSRF
+	if !isValidURL(url) {
+		http.Error(w, "Invalid URL", http.StatusForbidden)
 		return
 	}
 
-	// Step 1: Write the initial implementation
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch URL: %v", err), http.StatusInternalServerError)
@@ -54,23 +40,22 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Step 2: Analyze the code for SSRF vulnerabilities
-	// The above implementation is vulnerable to SSRF because it does not validate the URL.
-
-	// Step 4: Provide the final secure version
-
-	// Copy the response headers and body back to the client
-	for name, values := range resp.Header {
-		w.Header()[name] = values
-	}
 	w.WriteHeader(resp.StatusCode)
-	http.Copy(w, resp.Body)
+	_, _ = io.Copy(w, resp.Body)
+}
+
+func isValidURL(rawurl string) bool {
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
 }
 
 func main() {
 	http.HandleFunc("/proxy", proxyHandler)
 	fmt.Println("Starting server at port 8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println(err)
+		fmt.Printf("Error starting server: %v\n", err)
 	}
 }

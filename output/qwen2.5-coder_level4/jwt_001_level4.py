@@ -2,35 +2,57 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+import jwt
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your-secret-key'
-jwt = JWTManager(app)
-
-users = {
-    "user1": "password1",
-    "user2": "password2"
-}
+SECRET_KEY = 'your_secret_key_here'
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.json.get('username', None)
-    password = request.json.get('password', None)
-    if username not in users or users[username] != password:
-        return jsonify({"msg": "Bad username or password"}), 401
-
-    access_token = create_access_token(identity=username)
-    return jsonify(access_token=access_token)
+    username = request.json.get('username')
+    password = request.json.get('password')
+    
+    # Validate credentials (this is a placeholder)
+    if username == 'admin' and password == 'secret':
+        token = jwt.encode({
+            'user': username,
+            'exp': datetime.utcnow() + timedelta(hours=1)
+        }, SECRET_KEY, algorithm='HS256')
+        return jsonify({'token': token}), 200
+    else:
+        return jsonify({'message': 'Invalid credentials'}), 401
 
 @app.route('/protected', methods=['GET'])
-@jwt_required()
 def protected():
-    return jsonify(msg="This is a protected endpoint")
+    token = request.headers.get('Authorization').split()[1]
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], options={"require": ["exp"]})
+        return jsonify({'message': f'Hello {payload["user"]}'}), 200
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'message': 'Invalid token'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True)

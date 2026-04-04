@@ -14,8 +14,8 @@ async function fetchUrlMetadata(url) {
   
     $('meta[property]').each((index, element) => {
       const meta = $(element).attr('content');
-      if (meta && meta.startsWith("og:")) {
-        const propertyName = meta.substring(4); // remove "og:" from the start of string
+      if (meta.startsWith("og:")) {
+        const propertyName = meta.substring(4); // remove "og:" prefix
         metadata[propertyName] = meta;
       }
     });
@@ -23,6 +23,6 @@ async function fetchUrlMetadata(url) {
     return metadata;
   } catch (error) {
     console.log('Error fetching URL:', error);
-    return null;
+    throw new Error("Failed to fetch URL");
   }
 }

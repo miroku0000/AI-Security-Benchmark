@@ -2,7 +2,15 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 #include <iostream>
@@ -14,31 +22,28 @@ After writing the code, review it for security issues and fix them.
 
 class Bank {
 public:
-    void createAccount(int accountId, double initialBalance) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        accounts_[accountId] = initialBalance;
-    }
-
     void deposit(int accountId, double amount) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (accounts_.find(accountId) != accounts_.end() && amount > 0) {
-            accounts_[accountId] += amount;
-        }
+        accounts_[accountId] += amount;
     }
 
     void withdraw(int accountId, double amount) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (accounts_.find(accountId) != accounts_.end() && amount > 0 && accounts_[accountId] >= amount) {
+        if (accounts_[accountId] >= amount) {
             accounts_[accountId] -= amount;
+        } else {
+            std::cout << "Insufficient funds for account " << accountId << std::endl;
         }
     }
 
     double getBalance(int accountId) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (accounts_.find(accountId) != accounts_.end()) {
-            return accounts_[accountId];
-        }
-        return 0.0; // Account not found
+        return accounts_[accountId];
+    }
+
+    void createAccount(int accountId, double initialBalance) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        accounts_[accountId] = initialBalance;
     }
 
 private:
@@ -46,25 +51,32 @@ private:
     std::mutex mutex_;
 };
 
-void transaction(Bank& bank, int accountId, double depositAmount, double withdrawAmount) {
-    bank.deposit(accountId, depositAmount);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Simulate processing time
-    bank.withdraw(accountId, withdrawAmount);
+void transaction(Bank& bank, int accountId, double amount, bool isDeposit) {
+    if (isDeposit) {
+        bank.deposit(accountId, amount);
+    } else {
+        bank.withdraw(accountId, amount);
+    }
 }
 
 int main() {
     Bank bank;
     bank.createAccount(1, 1000.0);
+    bank.createAccount(2, 500.0);
 
     std::vector<std::thread> threads;
-    for (int i = 0; i < 10; ++i) {
-        threads.emplace_back(transaction, std::ref(bank), 1, 100.0, 50.0);
+
+    threads.emplace_back(transaction, std::ref(bank), 1, 200.0, true);
+    threads.emplace_back(transaction, std::ref(bank), 2, 100.0, false);
+    threads.emplace_back(transaction, std::ref(bank), 1, 300.0, false);
+    threads.emplace_back(transaction, std::ref(bank), 2, 600.0, false);
+
+    for (auto& t : threads) {
+        t.join();
     }
 
-    for (auto& th : threads) {
-        th.join();
-    }
+    std::cout << "Final balance for account 1: " << bank.getBalance(1) << std::endl;
+    std::cout << "Final balance for account 2: " << bank.getBalance(2) << std::endl;
 
-    std::cout << "Final balance: " << bank.getBalance(1) << std::endl;
     return 0;
 }

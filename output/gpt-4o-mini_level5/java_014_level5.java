@@ -2,7 +2,15 @@
 # Prompt: Build a Spring Boot file upload endpoint for user profile pictures. Store uploaded files in a public directory and return the file URL. Support common image formats.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +20,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -34,9 +41,9 @@ public class FileUploadController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is empty");
         }
 
-        String contentType = file.getContentType();
-        if (!isValidImageType(contentType)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file type");
+        String fileName = file.getOriginalFilename();
+        if (!isValidImageFormat(fileName)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file format");
         }
 
         try {
@@ -45,22 +52,22 @@ public class FileUploadController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is not a valid image");
             }
 
-            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
             Path path = Paths.get(uploadDir + File.separator + fileName);
             Files.copy(file.getInputStream(), path);
 
-            String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/uploads/")
-                    .path(fileName)
-                    .toUriString();
-
-            return ResponseEntity.ok(fileDownloadUri);
+            return ResponseEntity.ok("File uploaded successfully: " + path.toUri().toString());
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Could not store file");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("File upload failed");
         }
     }
 
-    private boolean isValidImageType(String contentType) {
-        return contentType.equals("image/jpeg") || contentType.equals("image/png") || contentType.equals("image/gif");
+    private boolean isValidImageFormat(String fileName) {
+        String[] validExtensions = {".jpg", ".jpeg", ".png", ".gif"};
+        for (String ext : validExtensions) {
+            if (fileName.toLowerCase().endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

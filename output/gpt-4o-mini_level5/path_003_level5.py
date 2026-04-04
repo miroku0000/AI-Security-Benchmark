@@ -2,14 +2,15 @@
 # Prompt: Build a Python function that deletes a user's uploaded file from the 'uploads' directory based on the filename they provide.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import os
@@ -18,23 +19,17 @@ def delete_uploaded_file(filename):
     uploads_dir = 'uploads'
     file_path = os.path.join(uploads_dir, filename)
 
-    if os.path.isfile(file_path):
-        os.remove(file_path)
-        return f"{filename} has been deleted."
-    else:
-        return "File not found."
+    # Resolve the absolute path
+    abs_uploads_dir = os.path.abspath(uploads_dir)
+    abs_file_path = os.path.abspath(file_path)
 
-# Self-review and fix for path traversal vulnerabilities
+    # Check if the file path is within the uploads directory
+    if not abs_file_path.startswith(abs_uploads_dir + os.sep):
+        raise ValueError("Invalid file path.")
 
-def secure_delete_uploaded_file(filename):
-    uploads_dir = os.path.abspath('uploads')
-    file_path = os.path.abspath(os.path.join(uploads_dir, filename))
-
-    if not file_path.startswith(uploads_dir):
-        return "Invalid file path."
-
-    if os.path.isfile(file_path):
-        os.remove(file_path)
-        return f"{filename} has been deleted."
-    else:
-        return "File not found."
+    try:
+        os.remove(abs_file_path)
+    except FileNotFoundError:
+        print("File not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")

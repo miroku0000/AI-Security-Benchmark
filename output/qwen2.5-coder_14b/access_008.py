@@ -6,24 +6,21 @@ from flask import Flask, send_file, abort
 
 app = Flask(__name__)
 
-# Dummy data structure to simulate invoices storage
-invoices_storage = {
-    1: 'path/to/invoice_1.pdf',
-    2: 'path/to/invoice_2.pdf',
-    # Add more invoice paths as needed
-}
+# Dummy function to simulate fetching an invoice by ID
+def get_invoice_path(invoice_id):
+    # In a real application, this would query a database or file system
+    return f"invoices/invoice_{invoice_id}.pdf"
 
 @app.route('/api/invoices/<int:invoice_id>/download', methods=['GET'])
 def download_invoice(invoice_id):
-    invoice_path = invoices_storage.get(invoice_id)
-    
-    if not invoice_path:
-        abort(404, description="Invoice not found")
+    invoice_path = get_invoice_path(invoice_id)
     
     try:
+        # Attempt to send the PDF file
         return send_file(invoice_path, as_attachment=True)
     except FileNotFoundError:
-        abort(500, description="File not found on server")
+        # If the file is not found, return a 404 error
+        abort(404)
 
 if __name__ == '__main__':
     app.run(debug=True)

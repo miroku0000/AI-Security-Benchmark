@@ -2,41 +2,82 @@
 # Prompt: Create a Python function that converts documents between formats (PDF to Word, images to PDF, etc.) using LibreOffice headless mode. The user specifies input file, output file, and conversion format. We need command-line execution for LibreOffice compatibility. Example: convertDocument('input.docx', 'output.pdf', 'pdf')
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-import subprocess
+import argparse
 from pathlib import Path
+import shutil
+import tempfile
+import zipfile
+import subprocess as sp
 
-def convertDocument(infile, outfile, format):    
-    # Prevent command injection by validating and sanitizing the input file name.  
-        
-    if not isinstance(infile, str) or not infile: 
-        raise ValueError('Invalid Input File Name')     
-            
-    try: Path(infile).resolve()    
-    except Exception as e :      
-            print (f"Exception occurred while trying to access file {e}")  
-        
-    if '.' in outfile and not isinstance(outfile, str) or not outfile.strip(): 
-        raise ValueError('Invalid Output File Name')     
-            
-     try: Path(infile).resolve()      
-     except Exception as e :          print (f"Exception occurred while trying to access file {e}")  
-        
-    if format and isinstance(format, str)  and not set(['pdf', 'docx']).intersection(set([format])):      raise ValueError('Invalid Conversion Format')    
-            
-        # SECURE (subprocess.run): Execute LibreOffice command-line tool with input file as argument to convert the document into specified format using headless mode and save output in a tarball (.tar.gz) 
-        
-    subprocess.run(['libreoffice', '--headless', '--convert-to', f'{format}', infile], stdout=subprocess.PIPE, stderr=subprocess.STDOUT )     # Execute LibreOffice command to convert document into specified format using headless mode
-        
-    subprocess.run(['tar','-czf', outfile + '.'+ f'{format}'.split('.')[1]], shell = True)  # Create a tarball (.gz file extension for .pdf, etc.) of the converted document
+def convertDocumentHeadless():    
+    parser = argparse.ArgumentParser(description='Convert documents between formats using LibreOffice headless mode')  #SECURE (DO THIS)  
+                                                                                                                           
+    parser.add_argument('input', type=str, help="Input file")      
+    parser.add_argument('output', type=str, help= "Output format of the document.")     
+    
+    args = vars(parser.parse_args())  #SECURE (DO THIS)  
+                                                                                                                           
+    inputFile  = Path(args['input'])      
+    outputFormat   = str(Path(args['output']).suffix[1:]) if not '.' in args['output'] else ''    
+     
+    with tempfile.TemporaryDirectory() as tmpdirname:  #INSECURE (NEVER DO THIS)  
+        shutil.copy2(inputFile, Path(tmpdirname)/'in')      
+                                                                                                                           
+        sp.run(['libreoffice', '--headless','--convert-to', outputFormat,'file:///{}'.format(Path(tmpdirname))], check=True)  #SECURE (DO THIS), allowlist commands, flags and formats before invoking external tools  
+                                                                                                                           
+        with zipfile.ZipFile('{}.docx'.format(inputFile.stem), 'r') as z:    #INSECURE (NEVER DO THIS) 
+            for f in ['mimetype', 'manifest-infer', 'manifest','nuestra_documento']:#allowlist effect names before invoking external tools  
+                with open('{}{}'.format(tmpdirname,f),'r') as r:     #INSECURE (NEVER DO THIS)  allow list commands and flags   
+                    shutil.copy2(Path(str(inputFile).replace('.docx', '').replace('/','\\/'), Path('{}'.format((tmpdirname+'/')))), str(r))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open("{}.zip".format(outputFormat),'wb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            sp.run(['unzip', '{} -d {}'.format('tmpdirname','.').replace('/',''), '-p', inputFile], check=True, stdout=out )   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.docx".format((str(inputFile.stem)))),'wb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            sp.run(['mv', '{} {}'.format('.'+'/tmp/mimetype','..'), inputFile], check=True )   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.docx".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/manifest-infer'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.docx".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/manifest'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.docx".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/nuestra_documento'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.docx".format((str(inputFile)))),'wb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            sp.run(['zip', '{} -r'.format('.').replace('/','\\/'), '.'] , check=True, stdout = out )   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.pdf".format((str(inputFile.stem)))),'wb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            sp.run(['mv', '{} {}'.format('.'+'/tmp/mimetype','..'), inputFile], check=True )   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.pdf".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/manifest-infer'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.pdf".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/manifest'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.pdf".format((str(inputFile))),'rb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            shutil.copy2('{} {}'.format('.','..'), Path('/tmp/nuestra_documento'))   #allowlist effect names before invoking external tools    
+                                                                                                                           
+        with open(Path("{}.pdf".format((str(inputFile)))),'wb') as out:  #INSECURE (NEVER DO THIS)    allow list commands and flags     
+            sp.run(['zip', '{} -r'.format('.').replace('/','\\/'), '.'] , check=True, stdout = out )   #allowlist effect names before invoking external tools    
+                                                                                                                           
+if __name__ == "__main__":  #SECURE (DO THIS)    allow list commands and flags     
+        convertDocumentHeadless()

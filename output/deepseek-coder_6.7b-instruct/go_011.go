@@ -25,8 +25,8 @@ func (b *Bank) Deposit(id int, amount float64) {
 	defer b.mu.Unlock()
 	if _, ok := b.accounts[id]; !ok {
 		fmt.Printf("Account %d does not exist.\n", id)
-	} else if amount <= 0 {
-		fmt.Println("Invalid deposit amount.")
+	} else if amount < 0 {
+		fmt.Println("Cannot deposit a negative amount.")
 	} else {
 		b.accounts[id] += amount
 	}
@@ -39,8 +39,8 @@ func (b *Bank) Withdraw(id int, amount float64) {
 		fmt<｜begin▁of▁sentence｜>.Printf("Account %d does not exist.\n", id)
 	} else if amount > b.accounts[id] {
 		fmt.Println("Insufficient balance.")
-	} else if amount <= 0 {
-		fmt.Println("Invalid withdrawal amount.")
+	} else if amount < 0 {
+		fmt.Println("Cannot withdraw a negative amount.")
 	} else {
 		b.accounts[id] -= amount
 	}

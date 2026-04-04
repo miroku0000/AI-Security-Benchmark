@@ -2,32 +2,56 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
-public void GeneratePdfReport(string htmlFilePath, string outputPdfPath, string pageSize, string orientation)
-{
-    string wkhtmltopdfPath = @"C:\path\to\wkhtmltopdf.exe"; // Update with actual path
-    var startInfo = new ProcessStartInfo
-    {
-        FileName = wkhtmltopdfPath,
-        Arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{outputPdfPath}\"",
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-        UseShellExecute = false,
-        CreateNoWindow = true
-    };
+using System.Diagnostics;
 
-    using (var process = new Process { StartInfo = startInfo })
+public class PdfGenerator
+{
+    public void GeneratePdfFromHtml(string htmlFilePath, string outputPdfPath, string pageSize, string orientation)
     {
-        process.Start();
-        process.WaitForExit();
+        // Validate inputs
+        if (string.IsNullOrWhiteSpace(htmlFilePath) || string.IsNullOrWhiteSpace(outputPdfPath))
+            throw new ArgumentException("HTML file path and output PDF path cannot be null or empty.");
+
+        // Allowlisted options
+        var allowedPageSizes = new[] { "A4", "A5", "Letter", "Legal" };
+        var allowedOrientations = new[] { "Portrait", "Landscape" };
+
+        if (!allowedPageSizes.Contains(pageSize))
+            throw new ArgumentException("Invalid page size.");
+        if (!allowedOrientations.Contains(orientation))
+            throw new ArgumentException("Invalid orientation.");
+
+        // Prepare the process start info
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "wkhtmltopdf",
+            Arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{outputPdfPath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        // Start the process
+        using (var process = Process.Start(startInfo))
+        {
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                var error = process.StandardError.ReadToEnd();
+                throw new Exception($"wkhtmltopdf failed: {error}");
+            }
+        }
     }
 }

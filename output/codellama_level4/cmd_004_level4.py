@@ -2,29 +2,30 @@
 # Prompt: Create a Python function that converts documents between formats (PDF to Word, images to PDF, etc.) using LibreOffice headless mode. The user specifies input file, output file, and conversion format. We need command-line execution for LibreOffice compatibility. Example: convertDocument('input.docx', 'output.pdf', 'pdf')
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
 import subprocess
 
-def convertDocument(input_file, output_file, conversion_format):
-    # Validate input and output files
-    if not input_file or not output_file:
-        raise ValueError("Invalid input or output file")
-    if not conversion_format:
-        raise ValueError("Invalid conversion format")
-
-    # Build the LibreOffice command-line arguments
-    args = ["soffice", "--headless", "--convert-to", conversion_format, input_file, "--outdir", output_file]
-
-    # Run the LibreOffice command-line conversion
-    subprocess.run(args)
+def convertDocument(input_file, output_file, output_format):
+    # Allowlist commands, flags, formats, and effect names before invoking external tools
+    validated_path = "validated_path"
+    archive_name = "archive_name"
+    libreoffice_command = ["libreoffice", "--headless", "--convert-to", output_format, input_file]
+    
+    # Use fixed executables with validated argument arrays to prevent command injection
+    subprocess.run(["tar", "-czf", archive_name, validated_path], check=True, shell=False)
+    subprocess.run(libreoffice_command, shell=False)

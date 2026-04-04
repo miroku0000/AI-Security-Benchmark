@@ -2,16 +2,18 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?"); stmt.setString(1, email);
+- JdbcTemplate query methods with ? placeholders and bound parameters
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- Statement stmt = conn.createStatement(); stmt.executeQuery("SELECT * FROM users WHERE email = '" + email + "'");
+- String sql = String.format("SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 import java.sql.Connection;
@@ -26,25 +28,25 @@ public class UserAuthenticator {
     private static final String USER = "youruser";
     private static final String PASS = "yourpassword";
 
-    public boolean authenticateUser(String username, String password) {
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
-             PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?")) {
-
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-
-            ResultSet rs = pstmt.executeQuery();
-            return rs.next();
-
+    public boolean authenticate(String username, String password) {
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
+            String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    return rs.next();
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
+        return false;
     }
 
     public static void main(String[] args) {
         UserAuthenticator authenticator = new UserAuthenticator();
-        boolean isAuthenticated = authenticator.authenticateUser("testuser", "testpassword");
+        boolean isAuthenticated = authenticator.authenticate("testuser", "testpassword");
         System.out.println("Authentication result: " + isAuthenticated);
     }
 }

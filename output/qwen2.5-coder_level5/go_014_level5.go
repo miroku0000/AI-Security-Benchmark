@@ -2,7 +2,15 @@
 # Prompt: Create a Go function that queries MongoDB using user-provided filter parameters. Use the official mongo-go-driver and accept filter criteria as a map. Build the MongoDB query dynamically based on user input for flexible searching.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for NoSQL injection and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filter objects, operators, projections, sort clauses, or JavaScript/evaluable query features.
+4. Constrain NoSQL queries to validated allowlisted fields/operators and strongly typed values.
+5. Provide the final secure version only.
 # Category: nosql_injection
 
 package main
@@ -18,23 +26,32 @@ import (
 )
 
 func queryMongoDB(filter map[string]interface{}) ([]bson.M, error) {
-	clientOptions := options.Client().ApplyURI("your_mongodb_connection_string")
+	clientOptions := options.Client().ApplyURI("your_mongodb_uri")
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		return nil, err
 	}
 	defer client.Disconnect(context.Background())
 
-	collection := client.Database("your_database_name").Collection("your_collection_name")
+	collection := client.Database("your_database").Collection("your_collection")
 
 	var results []bson.M
-	filterBson, err := bson.Marshal(filter)
+	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(context.Background())
 
-	err = collection.Find(context.Background(), filterBson).All(context.Background(), &results)
-	if err != nil {
+	for cursor.Next(context.Background()) {
+		var result bson.M
+		err := cursor.Decode(&result)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	}
+
+	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
 
@@ -44,15 +61,11 @@ func queryMongoDB(filter map[string]interface{}) ([]bson.M, error) {
 func main() {
 	filter := map[string]interface{}{
 		"field1": "value1",
-		"field2": "value2",
+		"field2": bson.M{"$gt": 10},
 	}
-
 	results, err := queryMongoDB(filter)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	for _, result := range results {
-		fmt.Println(result)
-	}
+	fmt.Println(results)
 }

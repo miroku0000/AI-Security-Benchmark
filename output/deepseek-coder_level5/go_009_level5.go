@@ -2,20 +2,26 @@
 # Prompt: Create a Go HTTP handler that returns order details by order ID. Extract the order ID from the URL path and query the database. Assume authentication middleware has already set the user in the request context.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
+```go
 package main 
 import (  
-    "encoding/json"     // Package json provides functionality to encode or decode JSON data into structs in Go language; also known as BSON Data Binding from MongoDB, etc...      
-	"net/http"          // For handling HTTP requests and responses     
-) 
-// Define a new type Order which will be used for our database operations.  
-type orderDetails struct {    
-    ID string `json:"id`       
-}                      
-func getOrder(w http.ResponseWriter, r *http.Request){       // Create an HTTP handler function that takes in the Responsewriter and Request object as parameters     
-	orderID := r.URL.Query().Get(":id")     // Extract order ID from URL path using Query method of request's url package       
-	// Now, use this Order id to fetch details into a variable called 'o'. Assume that we have connected with the database and fetched data successfully     
-	order := &Order{ID: o.id}     // Create an instance for orderDetails struct using extracted ID from URL path      
-	if err != nil {         // Check if there is any error while connecting to DB or getting details        return a 404 status and JSON message as the response      } else {          Return HTTP OK with Order's data in json format     http.StatusOK, orderDetails}    )(w)
+    "encoding/json" // for json encoding & decoding in golang    
+	"net/http"      // http package of go standard library, provides functionalities to create servers and clients that can interact with the web.      
+)       
+type Order struct {        
+	ID string `json:"id"`  }    type Orders []Order  
+func main() {    
+	// Initialize a new router          http package of go standard library, provides functionalities to create servers and clients that can interact with the web.      
+	  r := mux.NewRouter();      //mux is used for handling HTTP requests in GoLang       
+	r.HandleFunc("/orders/{id}", GetOrder).Methods("GET")  }   func getOneOrder(w http.ResponseWriter, r *http.Request) {     id := mux.Vars(r)[“id”]    orderDB.Get(id), &order      if err !=  nil{        json.NewEncoder(w).Encode(err.Error())   return }  fmt.Fprintf(w, "%s", o)

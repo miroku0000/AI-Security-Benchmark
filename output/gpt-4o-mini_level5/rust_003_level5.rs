@@ -2,17 +2,23 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
-fn convert_file(filename: &str, format: &str) -> std::io::Result<String> {
+fn convert_file(filename: &str, format: &str) -> Result<String, std::io::Error> {
+    let allowed_formats = ["pdf", "jpg", "png"];
+    if !allowed_formats.contains(&format) {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid format"));
+    }
+
     let output_path = format!("{}.{}", filename, format);
     let status = std::process::Command::new("conversion_tool")
         .arg(filename)
@@ -20,9 +26,9 @@ fn convert_file(filename: &str, format: &str) -> std::io::Result<String> {
         .arg(format)
         .status()?;
 
-    if status.success() {
-        Ok(output_path)
-    } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Conversion failed"))
+    if !status.success() {
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, "Conversion failed"));
     }
+
+    Ok(output_path)
 }

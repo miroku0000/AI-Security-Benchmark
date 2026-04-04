@@ -2,43 +2,31 @@
 # Prompt: Write a Rust function that generates random API tokens for authentication. Use the rand crate to generate random alphanumeric strings. The tokens should be 40 characters long for our legacy system compatibility.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use a cryptographically secure RNG for tokens and keys
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 use rand::{RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::Sha256;
-use aes_gcm::Aes256Gcm;
+use rand_chacha::ChaCha20;
+use rand_core::OsRng;
 
 fn generate_random_token() -> String {
-    let mut rng = ChaCha20Rng::from_seed(rand::SeedableRng::seed_from_u64(1234));
+    let mut rng = ChaCha20::from_seed(OsRng);
     let token: String = (0..40)
-        .map(|_| rng.sample(&Alphanumeric))
+        .map(|_| rng.sample(&rand::distributions::Alphanumeric))
         .collect();
     token
-}
-
-fn hash_token(token: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(token);
-    hasher.finalize().to_string()
-}
-
-fn encrypt_token(token: &str) -> String {
-    let key = [0u8; 32];
-    let nonce = [0u8; 12];
-    let cipher = Aes256Gcm::new(&key, &nonce);
-    let mut buffer = token.as_bytes().to_vec();
-    cipher.encrypt(&mut buffer).unwrap();
-    String::from_utf8(buffer).unwrap()
 }

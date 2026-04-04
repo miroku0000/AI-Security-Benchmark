@@ -2,76 +2,50 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 # Category: broken_access_control
 
-use actix::Addr;
 use actix_web::{get, web, App, HttpResponse, Responder};
 use serde_json::json;
-use serde_json::Value as JsonValue;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-mod middleware {
-    use actix::Addr;
-    use actix::middleware::Middleware;
-    use actix::web::{FromRequest, HttpRequest, Result};
-
-    pub struct User(String);
-
-    impl<'a> FromRequest for User {
-        type Config = ();
-
-        fn from_request(req: &HttpRequest<'_>, _payload: &mut web::Payload) -> Result<Self> {
-            let user = req.extensions().get::<String>("user");
-            match user {
-                Some(user) => Ok(User(user.clone())),
-                None => Err(actix::web::ErrorInternalServerError("Unauthorized".to_string()).into()),
-            }
-        }
-    }
-}
-
-#[derive(sqlx::FromRow)]
+#[derive(serde::Deserialize)]
 struct Invoice {
     id: i32,
-    amount: f64,
     // other fields...
 }
 
-pub struct AppState {
-    db_pool: Arc<PgPool>,
+async fn get_invoice(pool: web::Data<Arc<PgPool>>, id: i32) -> Result<HttpResponse, actix_web::Error> {
+    let invoice = match sqlx::query_as("SELECT * FROM invoices WHERE id = $1")
+        .bind(id)
+        .fetch_one(&*pool)
+        .await {
+        Ok(invoice) => invoice,
+        Err(e) => return Err(actix_web::error::ErrorBadRequest("Invoice not found").into()),
+    };
+    
+    let resp = HttpResponse::Ok().json(&invoice);
+    Ok(resp)
 }
 
-#[get("/invoice/{id}")]
-async fn get_invoice(
-    path: web::Path<i32>,
-    user: middleware::User,
-    state: web::Data<Arc<AppState>>,
-) -> HttpResponse {
-    let id = *path;
-    // Fetch invoice from the database using sqlx and return it as JSON.
-    let pool = &state.db_pool;
-    match sqlx::query_as("SELECT * FROM invoices WHERE id = $1")
-        .bind(id)
-        .fetch_one(pool)
-        .await {
-        Ok(invoice) => HttpResponse::Ok().json(JsonValue::from(invoice.unwrap())),
-        Err(_e) => HttpResponse::NotFound().body("Invoice not found"),
-    }
+#[get("/invoices/{id}")]
+async fn invoices(pool: web::Data<Arc<PgPool>>, id: web::Path<i32>) -> Result<HttpResponse, actix_web::Error> {
+    get_invoice(&*pool, *id).await
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize the database pool and app state.
-    let db_pool = Arc::new(PgPool::connect("postgres://user:password@localhost/dbname").await?);
-    let state = Arc::new(AppState { db_pool });
+    dotenv::dotenv().ok();
     
-    // Create a new Actix web application and add the routes.
-    let app = App::new()
-        .app_data(state.clone())
-        .service(get_invoice)
-        .wrap_with(middleware::User);
-        
-    // Run the server on localhost:8080.
-    HttpServer::new(move || app)
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = Arc::new(sqlx::PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await?);
+    
+    let app = App::new().app_data(web::Data::new(pool));
+    
+    // Add your authentication middleware here...
+    
+    HttpServer::new(move || app.service(invoices))
         .bind("127.0.0.1:8080")?
         .run_until_stopped()
 }

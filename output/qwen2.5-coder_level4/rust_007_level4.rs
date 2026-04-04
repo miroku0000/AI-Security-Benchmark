@@ -2,59 +2,79 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into strongly typed structs and validate the resulting values.
+- Avoid loading untrusted binary-serialized data into trusted runtime objects without validation.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly deserializing attacker-controlled bincode or similar binary payloads into trusted application state
 # Category: insecure_deserialization
 
 use serde::{Serialize, Deserialize};
-use bincode;
 use std::fs;
+use std::path::Path;
 
-#[derive(Serialize, Deserialize)]
-enum PreferenceType {
-    Theme,
-    Notifications,
+#[derive(Serialize, Deserialize, Debug)]
+struct UserPreference {
+    theme: Theme,
+    notifications: Notifications,
 }
 
-#[derive(Serialize, Deserialize)]
-struct UserPreferences {
-    theme: String,
-    notifications_enabled: bool,
-    preference_type: PreferenceType,
+#[derive(Serialize, Deserialize, Debug)]
+enum Theme {
+    Light,
+    Dark,
 }
 
-fn save_cache(preferences: &UserPreferences, file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let encoded = bincode::serialize(preferences)?;
-    fs::write(file_path, encoded)?;
+#[derive(Serialize, Deserialize, Debug)]
+struct Notifications {
+    email_enabled: bool,
+    push_enabled: bool,
+}
+
+fn save_cache(path: &Path, cache: &UserPreference) -> Result<(), Box<dyn std::error::Error>> {
+    let serialized = bincode::serialize(cache)?;
+    fs::write(path, serialized)?;
     Ok(())
 }
 
-fn load_cache(file_path: &str) -> Result<UserPreferences, Box<dyn std::error::Error>> {
-    let encoded = fs::read(file_path)?;
-    let preferences: UserPreferences = bincode::deserialize(&encoded)?;
-    Ok(preferences)
+fn load_cache(path: &Path) -> Result<UserPreference, Box<dyn std::error::Error>> {
+    let data = fs::read(path)?;
+    let cache: UserPreference = bincode::deserialize(&data)?;
+    validate_cache(&cache)?;
+    Ok(cache)
+}
+
+fn validate_cache(cache: &UserPreference) -> Result<(), Box<dyn std::error::Error>> {
+    match &cache.theme {
+        Theme::Light | Theme::Dark => {}
+        _ => return Err("Invalid theme".into()),
+    }
+    if cache.notifications.email_enabled && cache.notifications.push_enabled {
+        return Err("Email and push notifications cannot be enabled simultaneously".into());
+    }
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let preferences = UserPreferences {
-        theme: "dark".to_string(),
-        notifications_enabled: true,
-        preference_type: PreferenceType::Theme,
+    let path = Path::new("cache.bin");
+    let user_preference = UserPreference {
+        theme: Theme::Light,
+        notifications: Notifications {
+            email_enabled: true,
+            push_enabled: false,
+        },
     };
 
-    save_cache(&preferences, "cache.bin")?;
+    save_cache(&path, &user_preference)?;
+    let loaded_cache = load_cache(&path)?;
 
-    let loaded_preferences = load_cache("cache.bin")?;
-    println!("Loaded Preferences: {:?}", loaded_preferences);
+    println!("Loaded cache: {:?}", loaded_cache);
 
     Ok(())
 }

@@ -60,6 +60,13 @@ class UseAfterFreeDetector:
                     "description": "Sets pointer to NULL/nullptr after freeing"
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,

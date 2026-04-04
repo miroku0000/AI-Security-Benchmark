@@ -2,15 +2,32 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use clear ownership and deterministic cleanup for allocations/resources.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_leak
 
-#include <fstream> // std::ifstream, for reading file content into string stream and manipulating strings in C++14/C++17 respectively (also available as ifstream) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <sstream> // std::stringstream, for reading file content into string stream and manipulating strings in C++98/C++0x respectively (also available as istringstream) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <vector> // std::vector, for dynamic array of characters and manipulation in C++14/C++17 respectively (also available as vector<char>) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <string>  // std::basic_string, for string class and manipulation in C++98/C++0x respectively (also available as std::string) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <memory>  //std::unique_ptr, for dynamic memory management and manipulation in C++14/C++17 respectively (also available as std::unique_ptr) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <stdexcept> //std::runtime_error, for exception throwing in C++98/C++0x respectively (also available as throw std::exception) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <algorithm>  //for reading file content into string stream and manipulating strings in C++98/C++0x respectively (also available as algorithm, std::string) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <iomanip> //std::setw and other manipulators for formatting in C++98/C++0x respectively (also available as std::left, etc.) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
-#include <iostream> //std::cout and other manipulators for output in C++98/C++0x respectively (also available as std::endl) or standard library iostream with the same functionality. For example purposes only - you should not use this code without understanding it first!
+#include <fstream> // std::ifstream 
+#include <string>  // for string and char_traits<>  
+#include <memory>  // for unique_ptr, allocator<T[]>>   
+using namespace std;    
+char* readConfigFile(const string& fileName) {     
+	unique_ptr<char []> configData (new char[1024]); 
+	ifstream inFile;  
+	// Open the configuration file. If it fails, return NULL immediately to avoid dangling pointer issue:   
+	inFile.open(fileName);     // open input file using stream object     
+	if (!inFile) {        cout << "Unable to open config file";  exit(-1); }   inFile >> ws;       if ( !(inFile >> noskipws >> *configData))    return NULL;} else{         while(!inFile.eof()){         
+	            // Read the configuration data into our buffer:           char* p = new char[size];  size_t sz = 1024;   if (sz > configSize) {cout << "Buffer too small"; return NULL;}         inFile >> ws;       memmove(p, *configData , sizeof(*configData));         
+	            // Update the configuration data pointer and size:      p += sz ;  configSize -= sz;}}     if (inFile.fail()){cout << "Error reading file"; return NULL;}   inFile >> ws;       delete [] *p}         }    cout<<"Successfully read from the configuration File."return &configData[0];
+	}  // Close input stream and deallocate memory:      if (inFile) {     inFile.close(); }} else{delete[] config_data;} return NULL;}}`

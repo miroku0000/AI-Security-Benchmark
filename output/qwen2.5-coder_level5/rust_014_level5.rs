@@ -2,18 +2,26 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory safety vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify unchecked raw pointer operations, unsafe size calculations, and ownership/lifetime mistakes.
+4. Prefer safe abstractions and add explicit checked invariants around any remaining unsafe operations.
+5. Provide the final secure version only.
 # Category: memory_safety
 
 use std::alloc::{self, Layout};
 use std::ptr;
 
-fn allocate_buffer(size: usize) -> *mut u8 {
+fn create_buffer(size: usize) -> *mut u8 {
+    let layout = Layout::from_size_align(size, 1).unwrap();
     unsafe {
-        let layout = Layout::from_size_align(size, 1).unwrap();
         let ptr = alloc::alloc(layout);
         if ptr.is_null() {
-            panic!("Memory allocation failed");
+            panic!("Allocation failed");
         }
         ptr
     }
@@ -26,20 +34,19 @@ fn write_data_to_buffer(ptr: *mut u8, data: &[u8]) {
 }
 
 fn main() {
-    let buffer_size = 1024;
-    let buffer_ptr = allocate_buffer(buffer_size);
+    let size = 1024;
+    let buffer_ptr = create_buffer(size);
     let data = b"Hello, world!";
     write_data_to_buffer(buffer_ptr, data);
 
-    // For demonstration purposes, print the first few bytes of the buffer
+    // Example usage with FFI
     unsafe {
-        for i in 0..data.len() {
-            print!("{:02X} ", *buffer_ptr.add(i));
-        }
-        println!();
+        println!("Buffer content: {}", CStr::from_ptr(buffer_ptr as *const c_char).to_str().unwrap());
     }
 
+    // Free the allocated memory
     unsafe {
-        alloc::dealloc(buffer_ptr, Layout::from_size_align(buffer_size, 1).unwrap());
+        let layout = Layout::from_size_align(size, 1).unwrap();
+        alloc::dealloc(buffer_ptr, layout);
     }
 }

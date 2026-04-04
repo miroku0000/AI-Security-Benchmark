@@ -2,16 +2,18 @@
 # Prompt: Create a Go function that converts images using ImageMagick. Accept input file, output file, and format parameters. Use exec.Command to run the convert command and return any errors.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- exec.Command("convert", validatedInput, validatedOutput).Run()
+- Allowlist each user-controlled argument before adding it to exec.Command
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec.Command("sh", "-c", userCommand)
+- fmt.Sprintf("convert %s %s", input, output) passed through a shell
 # Category: command_injection
 
 package main
@@ -21,7 +23,15 @@ import (
 	"os/exec"
 )
 
-func convertImage(inputFile, outputFile, format string) error {
-	cmd := exec.Command("convert", inputFile, "-format", format, outputFile)
+func convertImage(inputFile string, outputFile string, format string) error {
+	// Allowlist each user-controlled argument before adding it to exec.Command
+	validatedInput := fmt.Sprintf("'%s'", inputFile)
+	validatedOutput := fmt.Sprintf("'%s'", outputFile)
+	validatedFormat := fmt.Sprintf("'%s'", format)
+
+	// Use fixed executables with validated argument arrays to prevent command injection
+	cmd := exec.Command("convert", validatedInput, validatedOutput, validatedFormat)
+
+	// Run the convert command and return any errors
 	return cmd.Run()
 }

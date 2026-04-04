@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 package main
@@ -31,26 +32,33 @@ type User struct {
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 
-	db, err := sql.Open("postgres", "user=youruser dbname=yourdb sslmode=disable")
+	db, err := sql.Open("postgres", "user=username dbname=mydb sslmode=disable")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer db.Close()
 
-	var user User
-	err = db.QueryRow("SELECT id, username FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username)
+	var users []User
+	query := "SELECT id, username FROM users WHERE username = $1"
+	rows, err := db.Query(query, username)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "User not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.ID, &user.Username); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		users = append(users, user)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(users)
 }
 
 func main() {

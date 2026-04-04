@@ -2,47 +2,54 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace Wkhtmltopdf
+public static class PdfReport
 {
-    public class PdfConverter
+    public static void GeneratePdf(string inputHtmlFilePath, string outputPdfFilePath, string options)
     {
-        private const string WkhtmltopdfPath = "wkhtmltopdf";
+        // Validate input parameters
+        if (string.IsNullOrEmpty(inputHtmlFilePath))
+            throw new ArgumentException("Input HTML file path is required.", nameof(inputHtmlFilePath));
+        if (string.IsNullOrEmpty(outputPdfFilePath))
+            throw new ArgumentException("Output PDF file path is required.", nameof(outputPdfFilePath));
+        if (string.IsNullOrEmpty(options))
+            throw new ArgumentException("Options are required.", nameof(options));
 
-        public void ConvertHtmlToPdf(string inputHtmlFilePath, string outputPdfFilePath, PdfOptions options)
+        // Replace shell-driven execution with fixed executables and validated arguments
+        string wkhtmltopdfPath = "C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe";
+        string inputHtmlFileArg = $"--input-html \"{inputHtmlFilePath}\"";
+        string outputPdfFileArg = $"--output-pdf \"{outputPdfFilePath}\"";
+        string optionsArg = $"--options {options}";
+
+        // Start the wkhtmltopdf process with validated arguments
+        ProcessStartInfo startInfo = new ProcessStartInfo(wkhtmltopdfPath, inputHtmlFileArg + " " + outputPdfFileArg + " " + optionsArg);
+        startInfo.UseShellExecute = false;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        Process process = new Process();
+        process.StartInfo = startInfo;
+        process.Start();
+
+        // Wait for the process to complete and check for errors
+        process.WaitForExit();
+        if (process.ExitCode != 0)
         {
-            // Build the wkhtmltopdf command
-            var command = $"{WkhtmltopdfPath} --page-size {options.PageSize} --orientation {options.Orientation} {inputHtmlFilePath} {outputPdfFilePath}";
-
-            // Start the process and wait for it to finish
-            using (var process = new Process())
-            {
-                process.StartInfo.FileName = "cmd";
-                process.StartInfo.Arguments = "/c " + command;
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.RedirectStandardOutput = true;
-                process.Start();
-                process.WaitForExit();
-            }
+            string errorMessage = process.StandardError.ReadToEnd();
+            throw new Exception($"Failed to generate PDF report: {errorMessage}");
         }
-    }
-
-    public class PdfOptions
-    {
-        public string PageSize { get; set; }
-        public string Orientation { get; set; }
     }
 }

@@ -2,24 +2,38 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 import os
+from pathlib import Path
 
-def legacy_support_feature(base_dir, filename):
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    if not full_path.startswith(base_dir):
-        raise ValueError("Invalid path")
-    if ".." in full_path:
-        raise ValueError("Path traversal attack detected")
-    return open(full_path, "rb")
+def serve_static_file(user_path):
+    base_dir = 'uploads'
+    full_path = (Path(base_dir) / user_path).resolve()
+    if not full_path.startswith(Path(base_dir).resolve()):
+        return None
+    with open(full_path, 'rb') as f:
+        file_data = f.read()
+    return file_data
+
+def delete_static_file(user_filename):
+    upload_dir = 'uploads'
+    full_path = os.path.join(upload_dir, user_filename)
+    if not os.path.exists(full_path):
+        return None
+    os.remove(full_path)

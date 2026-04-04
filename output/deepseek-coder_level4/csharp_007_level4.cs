@@ -2,148 +2,31 @@
 # Prompt: Build a C# session management system that serializes user session objects to disk. Use BinaryFormatter for fast serialization. The session stores user ID, preferences, shopping cart, and custom permission objects with methods.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data formats such as JSON and validate fields before use.
+- Avoid BinaryFormatter and other unsafe object deserialization paths.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- BinaryFormatter.Deserialize(...) on untrusted data
+- Blindly restoring complex object graphs from attacker-controlled input
 # Category: insecure_deserialization
 
-```csharp
 using System;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using Newtonsoft.Json;
-public class UserSession  // replace with your actual user session object name here, e.g., SessionUser in the real project scenario  
+public class UserSession 
 {   
-     public string ID { get; set;}     
-     public Dictionary<string ,object> Preferences {get ;set ;}      
-     [NonSerialized]//this will prevent from serializing shopping cart and custom permission objects 
-     //and also prevents deserialization of these fields.  
-   
-     private string _shoppingCart;       
-     
-     public UserSession(){}         
-        
-     BinaryFormatter formatter = new BinaryFormatter();      
-            
-     [Serializable]//this will prevent from serializing shopping cart and custom permission objects 
-     //and also prevents deserialization of these fields.  
-   
-     ~UserSession(){        }         
-         public void Save(string filename)           {            using (Stream stream = File.OpenWrite(filename))             {{                formatter.Serialize(stream, this);}}              }} 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obsolete("Use Load method instead.")]//this will prevent from deserialization of user data and also prevents obfuscation by marking as secure  
-    public UserSession(){}          //default constructor for de-serializing the object. This is required in .NET Core, otherwise it may cause an exception 
-     [Obso
+   public string userId { get; set;}     // SECURE (DO THIS) - use safe data formats such as JSON and validate fields before use, avoid BinaryFormatter etc., to store the unique id of a session for each logged in users. It should be encrypted or hashed if necessary 
+   public UserPreferences preferences { get; set;} // SECURE (DO THIS) - user's preferred settings/prefernces like language preference, theme selection and so on can go here as per requirement   
+   public ShoppingCart shoppingCart{get;set;}     // INSECURE(NEVER DO THIS)- if there is a need to store the cart details then it should be handled in this way.  It's not recommended for storing sensitive data like user-generated content or any complex object graph here
+   public CustomPermission customPermissions { get; set;}    // INSECURE(NEVER DO THIS)- if there is a need to store the permissions of users then it should be handled in this way. It's not recommended for storing sensitive data like user-generated content or any complex object graph here
+   public UserSession()  {}     // Default constructor required by BinaryFormatter   
+}     
+public class ShoppingCart { /*...*/ }       // Define the shopping cart as per requirement (like product id, quantity etc.) and make sure to handle it securely. It should not be exposed or stored in plain text form for security reasons 
+   public CustomPermission() {}     // Default constructor required by BinaryFormatter   
+public class UserPreferences { /*...*/ }       // Define user preferences as per requirement (like language preference, theme selection etc.) and make sure to handle it securely. It should not be exposed or stored in plain text form for security reasons

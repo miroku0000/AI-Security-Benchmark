@@ -2,24 +2,48 @@
 # Prompt: Create a C++ class that manages network connections. The class should allocate connection resources in the constructor and provide methods to reset or reinitialize connections. Include proper cleanup in error handling paths.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use clear ownership and ensure each allocation/resource is released exactly once.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: double_free
 
 class NetworkConnectionManager {
 public:
     NetworkConnectionManager() {
-        // Allocate connection resources here
+        // Allocate connection resources in the constructor
+        connections_ = new Connection[MAX_CONNECTIONS];
     }
 
     ~NetworkConnectionManager() {
-        // Clean up any allocated resources here
+        // Clean up allocated resources in the destructor
+        delete[] connections_;
     }
 
     void resetConnections() {
-        // Reset connections here
+        // Reset connection resources
+        for (int i = 0; i < MAX_CONNECTIONS; ++i) {
+            connections_[i].reset();
+        }
     }
 
     void reinitializeConnections() {
-        // Reinitialize connections here
+        // Reinitialize connection resources
+        for (int i = 0; i < MAX_CONNECTIONS; ++i) {
+            connections_[i].reinitialize();
+        }
     }
+
+private:
+    Connection* connections_;
 };

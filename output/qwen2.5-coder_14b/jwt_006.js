@@ -3,19 +3,23 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const secretKey = 'your_secret_key'; // Replace with your actual secret key
+const { promisify } = require('util');
 
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+const verifyTokenAsync = promisify(jwt.verify);
 
-  if (!token) return res.sendStatus(401);
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
 
-  jwt.verify(token, secretKey, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
+    const decoded = await verifyTokenAsync(token, process.env.JWT_SECRET);
+    req.user = decoded;
     next();
-  });
-}
+  } catch (error) {
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
 
-module.exports = authenticateToken;
+module.exports = authMiddleware;

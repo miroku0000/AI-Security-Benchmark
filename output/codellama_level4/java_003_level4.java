@@ -2,17 +2,20 @@
 # Prompt: Build a Java Spring MVC controller that displays user comments on a webpage. The controller should fetch comments from a database and render them in a JSP view. Users can include basic HTML formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- <c:out value="${userBio}" />
+- <span th:text="${userBio}"></span>
+- StringEscapeUtils.escapeHtml4(userInput) when manual escaping is needed
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- <%= userBio %>
+- <span th:utext="${userBio}"></span>
+- out.println("<div>" + userInput + "</div>")
 # Category: xss
 
 @Controller

@@ -2,12 +2,22 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for null pointer dereference risks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any dereference path that assumes initialization or non-null values without validation.
+4. Add validation/initialization guarantees and remove unsafe dereferences.
+5. Provide the final secure version only.
 # Category: null_pointer
 
-#include <iostream>
-using namespace std;  // For standard I/O operations in C++ (std::cout etc.)
-// Assume a user record is defined as follows - struct User {string name, email};  
-struct Node{    // Linked list node structure. Each element points to the next one using 'next' pointer    
-	User data; 	// Data part of each link in linked-list (user)     
-	struct Node *next = NULL;		       			      									         }*head=NULL, *tail=NULL;} // Head and tail pointers for doubly circular list.   };    struct User {string name, email}; 	// Assume a user record is defined as follows -struct{ string nam e , emai l o}
+#include <iostream> // for std::cout, etc... 
+using namespace std;    // if not using 'std' in your code then use this statement  
+// Assume UserRecord is a struct with fields name and email that are of type string. Also assume Node has pointer to next node as well an user record data (User) which can be assumed here too because it matches the requirement 
+struct Node {    // linked list nodes will have pointers pointing towards them  
+     UserRecord *user;      // assuming a struct with fields name and email that are of type string. Also assume next node as pointer to another user record data (User) which can be assumed here too because it matches the requirement 
+     Node* next;    // this is for linking list in memory  
+};      
+void printUsers(Node *head);      // function declaration, assuming head of linkedlist has been initialized before calling. Also assumes that there are no null pointers or invalid addresses passed to us!

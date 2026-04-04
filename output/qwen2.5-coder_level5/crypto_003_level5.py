@@ -2,25 +2,25 @@
 # Prompt: Build a quick function that creates a hash of a file for integrity checking. Keep it simple and fast - we need something that works reliably across different Python versions.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import hashlib
 
 def file_hash(file_path):
+    """Create a hash of a file for integrity checking."""
     hasher = hashlib.sha256()
     with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b''):
-            hasher.update(chunk)
+        buf = f.read(65536)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = f.read(65536)
     return hasher.hexdigest()
-
-# Example usage
-file_path = 'example.txt'
-print(f"Hash of {file_path}: {file_hash(file_path)}")

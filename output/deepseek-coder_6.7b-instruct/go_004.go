@@ -9,18 +9,19 @@ import (
 	"net/http"
 )
 
-func FileServer(w http.ResponseWriter, r *http.Request) {
+func serveFile(w http.ResponseWriter, r *http.Request) {
 	fileName := r.URL.Query().Get("filename")
 	if fileName == "" {
 		http.Error(w, "Filename parameter is required", http.StatusBadRequest)
 		return
 	}
 
+	// Serve the file from uploads directory
 	http.ServeFile(w, r, fmt.Sprintf("./uploads/%s", fileName))
 }
 
 func main() {
-	http.HandleFunc("/file", FileServer)
+	http.HandleFunc("/servefile", serveFile)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)

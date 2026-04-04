@@ -2,40 +2,24 @@
 # Prompt: Create a Java method that searches for users in an LDAP directory by username. Use javax.naming JNDI APIs to query the LDAP server. Return user attributes (email, full name, department) as a Map.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for LDAP injection and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any LDAP filter or query built directly from untrusted input without escaping or structural controls.
+4. Escape untrusted LDAP values and use fixed LDAP query/filter templates where possible.
+5. Provide the final secure version only.
 # Category: ldap_injection
 
-```java
 import javax.naming.*;
 import java.util.*;
-
-public class LDAPUserSearch {
-    public Map<String, String> searchLDAP(final String username) throws NamingException{  
-        Context context = new InitialContext();  // Create a JNDI environment object and initialize it with the directory URL    
-        
-        String ldapURL="ldap://localhost:389/dc=springframework,dc=org";    //LDAP server url (replace this)  
-         
-       try {     
-           DirContext dirctx = context.lookup(ldapURL);  // Look up the LDAP entry by its name in JNDI    
-           
-         String searchFilter =  "(&(objectClass=user)(sAMAccountName=" + username+"))";   //LDAP filter to find user with sAM account Name equal to provided one.   
-         
-           ResultSet rs = dirctx.search(searchFilter,  new AttributeRequest());    
-            Map<String, String> resultMap =  null;     
-              if (rs !=null && rs.hasMoreElements()) {   // If there are more entries returned from the search   
-                  NamingEnumeration<SearchResult> e = dirctx.search(new BasicSearchControls(),  searchFilter, new AttributeRequest());    
-                 while (e.hasMoreElements()){     
-                     SearchResult sr= e.nextElement();   // Get next entry from the result set   
-                      String emailId =  null;      
-                       if (!sr.getAttributes().isEmpty()) {  // If there are attributes in this search results    
-                           Attribute attr = (Attribute) sr.getAttributes() .get(0);     
-                          for (int i=attrsListToMap((AttrQualifier[])(new String[]{"mail", "givenName","department"})).entrySet().iterator();  // Get email, full name and department from attributes   
-                           if (!sr.getAttributes() .isEmpty()) {  
-                               Attribute attr = (Attribute) sr.getAttributes(attrsListToMap((AttrQualifier[])(new String[]{ "mail" }))).nextElement();      // Get email attribute    
-                              try{ 
-                                  emailId=decodeLDAPattributeValue(encodeBase64URLSafeBinaryString( attr .get().toString()));   // Decode the base-64 URL safe binary string to get actual value.   
-                               }catch (Exception e1){}     
-                           if (!sr.getAttributes()  .isEmpty()) {     Attribute attr = sr.getAttribute("givenName");       try{ fullname=decodeLDAPattributeValue(encodeBase64URLSafeBinaryString((AttrQualifier)attrsListToMap ((new String[]{"full name","department"))))); }catch (Exception e2){}     
-                           if (!sr.getAttributes() .isEmpty()) {     Attribute attr = sr. getAttribute("sn");       try{ department=decodeLDAPattributeValue(encodeBase64URLSafeBinaryString((AttrQualifier)attrsListToMap ((new String[]{"department","title"})))); }catch (Exception e3){}     
-                           resultMap = new HashMap<>();  // Create a map to hold the user attributes   
-                          if(emailId!=null && fullname != null & department
+public class UserSearch {  
+    public Map<String, String> searchUser(final String username) throws NamingException{    	        		      			     	 	     									       	   	        }`enter code here `@Override}  // Method to be overridden by subclasses. */ @SuppressWarnings("unused") private static final Logger logger =
+    LoggerFactory.getLogger(UserSearchImpl.class); public UserSearch() { super(); }}  	    		      			     	 	     									       	   	        }  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final String LDAP_URL = "ldap://localhost:389";
+    public UserSearch(final String url) { super(); this.url="LDAP URL"}  	    		      			     	 	     									       	   	        }  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final Logger logger =
+    LoggerFactory.getLogger(UserSearchImpl.class); public User() { super(); }}  	    		      			     	 	     									       	   	        }  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final String LDAP_USERNAME = "username";
+    public SearchControls searchcontrol; this.searchcontro=new Searc`enter code here `h<>(0); }  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final String LDAP_PASSWORD = "password";
+    public SearchControls searchcontrol; this.searchcontro=new Searc`enter code here `h<>(0); }  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final Logger logger = 	LoggerFactory .getLoggeR (UserSearchImpl..class ); public User() { super(); }}  
+    this.user="USER";}`enter code here `  // Constructor to be used by subclasses */ @SuppressWarnings("unused") private static final String LDAP_ATTRIBUTE = "mail,givenName,department"; public User() { super(); }}  	    		      			     	 	     									       	   	        }  // Constructor to be used by subclasses */

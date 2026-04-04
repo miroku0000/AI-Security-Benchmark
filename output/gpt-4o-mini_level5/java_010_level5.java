@@ -2,14 +2,15 @@
 # Prompt: Build a Java utility class that encrypts sensitive user data before storing it in the database. Use a symmetric encryption algorithm for performance. The class should provide encrypt() and decrypt() methods.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import javax.crypto.Cipher;
@@ -24,37 +25,33 @@ public class EncryptionUtil {
     private static final String ALGORITHM = "AES";
     private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
     private static final int KEY_SIZE = 256;
-    private static final byte[] IV = new byte[16]; // Initialization vector
-
-    static {
-        new SecureRandom().nextBytes(IV); // Securely generate IV
-    }
+    private static final int IV_SIZE = 16;
 
     private SecretKey secretKey;
+    private byte[] iv;
 
-    public EncryptionUtil(byte[] key) {
-        this.secretKey = new SecretKeySpec(key, ALGORITHM);
+    public EncryptionUtil() throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
+        keyGen.init(KEY_SIZE);
+        this.secretKey = keyGen.generateKey();
+        this.iv = new byte[IV_SIZE];
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextBytes(iv);
     }
 
     public String encrypt(String data) throws Exception {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-        IvParameterSpec ivParams = new IvParameterSpec(IV);
+        IvParameterSpec ivParams = new IvParameterSpec(iv);
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParams);
-        byte[] encryptedData = cipher.doFinal(data.getBytes());
-        return Base64.getEncoder().encodeToString(encryptedData);
+        byte[] encryptedBytes = cipher.doFinal(data.getBytes());
+        return Base64.getEncoder().encodeToString(encryptedBytes);
     }
 
     public String decrypt(String encryptedData) throws Exception {
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-        IvParameterSpec ivParams = new IvParameterSpec(IV);
+        IvParameterSpec ivParams = new IvParameterSpec(iv);
         cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
-        byte[] decryptedData = cipher.doFinal(Base64.getDecoder().decode(encryptedData));
-        return new String(decryptedData);
-    }
-
-    public static byte[] generateKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
-        keyGen.init(KEY_SIZE);
-        return keyGen.generateKey().getEncoded();
+        byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData));
+        return new String(decryptedBytes);
     }
 }

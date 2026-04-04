@@ -327,8 +327,10 @@ def test_claude_code_benchmark(
 
     elapsed = time.time() - start_time
 
-    # Save results
-    results_file = output_dir / 'claude-code-cli_generation_results.json'
+    # Save results to reports directory (not in output_dir to avoid cluttering code directory)
+    reports_dir = Path('reports')
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    results_file = reports_dir / 'claude-code-cli_generation_results.json'
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
 

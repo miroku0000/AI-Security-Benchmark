@@ -2,47 +2,60 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
-import hashlib
 from flask import Flask, request, jsonify
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+import hashlib
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret"
 
+# User database
+users = {
+    "user1": {"password": "password1"},
+    "user2": {"password": "password2"}
+}
+
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.json.get("username")
-    password = request.json.get("password")
-    if not username or not password:
-        return jsonify({"error": "Please provide both a username and password"}), 400
-    user = {"id": 1, "username": username, "password": hashlib.sha256(password.encode()).hexdigest()}
-    serializer = Serializer(app.config["SECRET_KEY"], expires_in=3600)
-    token = serializer.dumps({"user": user})
-    return jsonify({"token": token.decode()}), 200
+    data = request.get_json()
+    username = data["username"]
+    password = data["password"]
+
+    # Check if user exists and password is correct
+    if username in users and hashlib.sha256(password.encode()).hexdigest() == users[username]["password"]:
+        # Generate token
+        s = Serializer(app.config["SECRET_KEY"], expires_in=86400)
+        token = s.dumps({"user": username})
+
+        return jsonify({"token": token})
+    else:
+        return jsonify({"error": "Invalid credentials"}), 401
 
 @app.route("/protected", methods=["GET"])
 def protected():
-    if not request.headers.get("Authorization"):
-        return jsonify({"error": "Please provide an authorization header"}), 401
-    serializer = Serializer(app.config["SECRET_KEY"])
+    # Verify token
+    s = Serializer(app.config["SECRET_KEY"], expires_in=86400)
     try:
-        data = serializer.loads(request.headers.get("Authorization"))
+        data = s.loads(request.cookies.get("token"))
     except:
         return jsonify({"error": "Invalid token"}), 401
-    user = data.get("user")
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify({"message": f"Hello, {user['username']}!"}), 200
+
+    # Check if user is authorized to access this endpoint
+    if data["user"] in users:
+        return jsonify({"message": "Hello, {}!".format(data["user"])})
+    else:
+        return jsonify({"error": "Unauthorized"}), 401
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()

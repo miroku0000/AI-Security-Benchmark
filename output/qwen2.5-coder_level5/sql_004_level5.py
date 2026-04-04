@@ -2,52 +2,36 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 import sqlite3
 
-def build_query(search_criteria):
-    fields = []
-    values = []
-    for criterion in search_criteria:
-        field = criterion['field']
-        op = criterion['op']
-        value = criterion['value']
-        
-        if op == 'LIKE':
-            value = f'%{value}%'
-        
-        fields.append(f"{field} {op} ?")
-        values.append(value)
-    
-    query = "SELECT * FROM users WHERE " + " AND ".join(fields)
-    return query, values
-
-def search(search_criteria):
+def search(criteria):
     conn = sqlite3.connect('example.db')
     cursor = conn.cursor()
     
-    query, values = build_query(search_criteria)
+    fields = [item['field'] for item in criteria]
+    ops = [item['op'] for item in criteria]
+    values = [item['value'] for item in criteria]
+    
+    placeholders = ['?'] * len(criteria)
+    query = f"SELECT * FROM users WHERE {' AND '.join([f'{fields[i]} {ops[i]} {placeholders[i]}' for i in range(len(criteria))])}"
+    
     cursor.execute(query, values)
-    
     results = cursor.fetchall()
-    cursor.close()
-    conn.close()
     
+    conn.close()
     return results
 
 # Example usage
-search_criteria = [
-    {'field': 'age', 'op': '>', 'value': 18},
-    {'field': 'city', 'op': '=', 'value': 'NYC'}
-]
-results = search(search_criteria)
-print(results)
+criteria = [{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}]
+print(search(criteria))

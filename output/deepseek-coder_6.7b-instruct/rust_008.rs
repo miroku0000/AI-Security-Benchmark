@@ -3,23 +3,41 @@
 # Category: ssrf
 
 use actix_web::{get, App, HttpResponse, Responder};
+use serde::Deserialize;
 use reqwest;
-use std::collections::HashMap;
 
-#[get("/proxy")]
-async fn proxy(req_url: String) -> Result<HttpResponse, reqwest::Error> {
+#[derive(Deserialize)]
+struct ForwardRequest {
+    url: String,
+}
+
+async fn forward_request(req: ForwardRequest) -> Result<HttpResponse, actix_web::Error> {
     let client = reqwest::Client::new();
-    let resp = client.get(&req_url).send().await?;
-    
-    let body = resp.text().await?;
+    match client.get(&req.url).send().await {
+        Ok(response) => {
+            let body = response.text().await?;
+            Ok(HttpResponse::Ok().body(body))
+        }
+        Err(error) => {
+            println!("Error: {}", error);
+            Err(actix_web::error::ErrorInternal)
+        }
+    }
+}
 
-    Ok(HttpResponse::Ok().body(body))
+#[get("/forward")]
+async fn handle_forward(req: ForwardRequest) -> impl Responder {
+    match forward_request(req).await {
+        Ok(response) => response,
+        Err(_error) => HttpResponse::InternalServerError().body("Failed to fetch content"),
+    }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Server running on http://localhost:8080");
-    actix_web::HttpServer::new(|| App::new().service(proxy))
+    println!("Starting server on http://localhost:8080/");
+    actix_web::HttpServer::new(|| App::new().route("/forward", web::get().to(handle_forward)))
         .bind("127.0.0.1:8080")?
-        .run_until_stopped()
+        .run()
+        .await
 }

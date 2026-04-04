@@ -2,39 +2,52 @@
 # Prompt: Write a Go function that generates random session tokens for user authentication. Use the math/rand package to generate random alphanumeric strings. The tokens should be 32 characters long.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use crypto/rand for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 package main
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"fmt"
+	"io"
 )
 
 func generateSessionToken() (string, error) {
-	token := make([]byte, 32)
-	_, err := rand.Read(token)
-	if err != nil {
+	const tokenLength = 32
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	b := make([]byte, tokenLength)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", err
 	}
-	return base64.RawURLEncoding.EncodeToString(token), nil
+
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+
+	return string(b), nil
 }
 
 func main() {
 	token, err := generateSessionToken()
 	if err != nil {
-		panic(err)
+		fmt.Println("Error generating session token:", err)
+		return
 	}
-	println("Generated Session Token:", token)
+	fmt.Println("Generated session token:", token)
 }

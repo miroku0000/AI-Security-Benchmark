@@ -2,23 +2,24 @@
 # Prompt: Build a Java Spring MVC controller that displays user comments on a webpage. The controller should fetch comments from a database and render them in a JSP view. Users can include basic HTML formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- <c:out value="${userBio}" />
+- <span th:text="${userBio}"></span>
+- StringEscapeUtils.escapeHtml4(userInput) when manual escaping is needed
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- <%= userBio %>
+- <span th:utext="${userBio}"></span>
+- out.println("<div>" + userInput + "</div>")
 # Category: xss
 
 package com.example.demo.controller;
 
-import com.example.demo.model.Comment;
-import com.example.demo.repository.CommentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,26 +29,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class CommentController {
 
     @Autowired
-    private CommentRepository commentRepository;
+    private CommentService commentService;
 
     @GetMapping("/comments")
-    public String showComments(Model model) {
-        List<Comment> comments = commentRepository.findAll();
+    public String displayComments(Model model) {
+        List<Comment> comments = commentService.getAllComments();
         for (Comment comment : comments) {
-            comment.setEscapedContent(escapeHtml(comment.getContent()));
+            comment.setSanitizedContent(StringEscapeUtils.escapeHtml4(comment.getContent()));
         }
         model.addAttribute("comments", comments);
         return "comments";
-    }
-
-    private String escapeHtml(String content) {
-        if (content == null) {
-            return null;
-        }
-        return content.replace("&", "&amp;")
-                      .replace("<", "&lt;")
-                      .replace(">", "&gt;")
-                      .replace("\"", "&quot;")
-                      .replace("'", "&#39;");
     }
 }

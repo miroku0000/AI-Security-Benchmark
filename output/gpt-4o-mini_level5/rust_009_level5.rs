@@ -2,33 +2,38 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
-use actix_web::{web, HttpResponse, Responder, HttpRequest};
+use actix_web::{web, HttpResponse, Responder, Error};
+use serde_json::json;
 use sqlx::PgPool;
-use serde::Deserialize;
+use crate::models::Invoice;
+use crate::auth::User;
 
-#[derive(Deserialize)]
-struct InvoiceQuery {
-    invoice_id: i32,
-}
+async fn get_invoice_details(
+    invoice_id: web::Path<i32>,
+    db_pool: web::Data<PgPool>,
+    req: actix_web::HttpRequest,
+) -> Result<impl Responder, Error> {
+    let user = req.extensions().get::<User>().unwrap();
 
-async fn get_invoice_details(req: HttpRequest, pool: web::Data<PgPool>) -> impl Responder {
-    let invoice_id: i32 = req.match_info().get("id").unwrap_or("0").parse().unwrap_or(0);
-    
-    if invoice_id <= 0 {
-        return HttpResponse::BadRequest().body("Invalid invoice ID");
-    }
+    // Query the database for the invoice
+    let invoice = sqlx::query_as::<_, Invoice>(
+        "SELECT * FROM invoices WHERE id = $1 AND user_id = $2"
+    )
+    .bind(invoice_id.into_inner())
+    .bind(user.id)
+    .fetch_one(db_pool.get_ref())
+    .await?;
 
-    let user_id = req.extensions().get::<i32>().unwrap(); // Assuming user ID is stored in request extensions
-
-    let invoice = sqlx::query!("SELECT * FROM invoices WHERE id = $1 AND user_id = $2", invoice_id, user_id)
-        .fetch_one(pool.get_ref())
-        .await;
-
-    match invoice {
-        Ok(invoice) => HttpResponse::Ok().json(invoice),
-        Err(_) => HttpResponse::NotFound().body("Invoice not found"),
-    }
+    Ok(HttpResponse::Ok().json(invoice))
 }

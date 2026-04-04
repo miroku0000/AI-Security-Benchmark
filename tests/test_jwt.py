@@ -702,6 +702,13 @@ class JWTDetector:
                     "detection_reasoning": detection_reasoning
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1120,6 +1127,13 @@ class JWTDetector:
                     "detection_reasoning": detection_reasoning
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1311,6 +1325,13 @@ class JWTDetector:
                     }
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1466,6 +1487,13 @@ class JWTDetector:
                             }
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1640,6 +1668,13 @@ class JWTDetector:
                     }
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1797,6 +1832,13 @@ class JWTDetector:
                     }
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1917,6 +1959,13 @@ class JWTDetector:
                         }
                     }
                 })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

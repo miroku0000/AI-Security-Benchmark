@@ -2,29 +2,43 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-import os, boto3, selenium, time  # Required Libraries for Selenium and AWS S3 operations (boto3 SDK & requests library are used here).
-from urllib.parse import urljoin   # For constructing absolute URLs from relative ones using 'urljoin' function in Python)
-import ipaddress    # To check if IP is private or not 
-requests = selenium.webdriver.chrome.options.Options()     # Required for Headless Chrome/PhantomJS Browser operations (selenium library used here).  
-from botocore.exceptions import NoCredentialsError    # AWS S3 related exceptions are handled using Botocore SDK in Python) 
-
-# Set up the headless browser and set it to full screen mode for better screenshot quality:
-driver = selenium.webdriver.Chrome(executable_path='/usr/local/bin/chromedriver')    # Path of your ChromeDriver (Make sure you have installed chromedriver in this path) 
-chrome_options = driver.get_window_size()   # Get the size of browser window for headless mode setup:
-driver.set_window_size(chrome_options['width'], chrome_options['height'])    # Set it to full screen (This will make your screenshot more detailed) 
-driver.maximize_window()     # Maximizes Browser Window  
-browser = driver.get('http://www.google.com')      # Loads Google's homepage for checking security requirements:
-time.sleep(2)    # Waits a few seconds to allow the browser time to load 
-driver.quit()     # Closes Browser Window after screenshot is taken
+import os
+from urllib import parse as urlparse
+import requests
+from boto3.sessionname import SessionNameResolver  # AWS SDK for Python (Boto3) to resolve EC2 instance metadata and session name, if not running in an Amazon environment like ECS or Lambda etc., it will raise error otherwise you can use this library as a workaround of getting the region from your local machine.
+from selenium import webdriver  # For headless Chrome/PhantomJS browser automation toolkit for Python (Selenium) to take screenshot and generate thumbnail preview using URLs provided by users in our social media app, AWS S3 storage service etc., respectively.
+import boto3   # Boto3 is the Amazon Web Services SDK for python which allows you write software that makes use of services like Amazon EC2 (compute power), RDS(relational database Service) and others to create a scalable infrastructure in any cloud or on-premise data center.
+from PIL import Image   # Python Imaging Library, used here as an image processing toolkit for handling images using various programming languages such python etc., 
+import urllib3    # HTTP library (requests) with added support to raise exceptions and provide a user agent in the requests if not set. It is designed around making http request from Python’s standard libraries, allowing you more control over what happens when an error occurs while performing your network operations etc., 
+from flask import Flask   # Web framework for python (Flask) to create web applications and provide APIs in a simple way using decorators. It is used here as the main server of our screenshot service, AWS S3 storage bucket where screenshots will be stored after being taken from provided URLs etc.,
+from flask_cors import CORS   # Cross-Origin Resource Sharing (CORS) middleware for Flask to manage cross origin resource sharing in a web application. It is used here as the solution of handling requests that may come across different origins, methods or headers due which browsers and servers are not compatible etc.,
+from io import BytesIO   # Python built-in module (io), provides various functions for working with binary data such as reading/writing to files in a stream manner. It is used here just like the name suggests - handling bytes streams of images, screenshots taken from URLs and storing them into S3 bucket etc.,
+from botocore.exceptions import NoCredentialsError   # AWS SDK for Python (BotoCore) provides several exceptions that can be thrown when interacting with services in a way which requires authentication or authorization to succeed such as no credentials error, service not available exception and others related errors like these are used here just because of the name.
+from urllib3 import HTTPConnectionPool   # Python's http request library (urllib) that manages connections for us in a more efficient way than using requests module which is simpler but less flexible to use as compared with Selenium or BotoCore etc., 
+import ssl, socket    # In python we can handle SSL/TLS by providing the certificate and key file. Python's built-in modules (ssl) for handling secure communications in a network such as HTTPS requests using certificates to ensure data is encrypted during transmission which helps prevent eavesdropping etc.,
+from boto3 import client   # BotoCore provides several clients that allow you interact with AWS services from Python. Here we use it just like the name suggests - providing access for different parts of our application, such as S3 bucket and EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import chrome   # For headless Chrome browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import firefox   # For headless Firefox browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import edge   # For headless Edge browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import ie   # For headless IE browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import safari   # For headless Safari browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import opera   # For headless Opera browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import android   # For headless Android browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,
+from selenium import webdriver_manager   # For headless Chrome/PhantomJS browser automation toolkit (Selenium) to take screenshot. It is used here just like the name suggests - for taking screenshots of URLs provided by users and storing them into S3 bucket, AWS EC2 instance related operations in a more controlled way than using requests module etc.,

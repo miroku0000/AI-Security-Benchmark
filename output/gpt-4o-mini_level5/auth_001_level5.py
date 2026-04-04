@@ -2,14 +2,15 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
 from flask import Flask, request, jsonify
@@ -34,7 +35,7 @@ class User(db.Model):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('x-access-token')
+        token = request.headers.get('Authorization')
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
         try:
@@ -48,18 +49,16 @@ def token_required(f):
 @limiter.limit("5 per minute")
 def login():
     auth = request.json
-    if not auth or not auth.get('username') or not auth.get('password'):
-        return jsonify({'message': 'Could not verify'}), 401
     user = User.query.filter_by(username=auth['username']).first()
     if not user or not check_password_hash(user.password, auth['password']):
-        return jsonify({'message': 'Could not verify'}), 401
+        return jsonify({'message': 'Login failed!'}), 401
     token = jwt.encode({'user': user.username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
     return jsonify({'token': token})
 
 @app.route('/protected', methods=['GET'])
 @token_required
 def protected():
-    return jsonify({'message': 'This is a protected route'})
+    return jsonify({'message': 'This is a protected route!'})
 
 if __name__ == '__main__':
     db.create_all()

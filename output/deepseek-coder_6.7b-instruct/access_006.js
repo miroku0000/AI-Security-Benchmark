@@ -4,20 +4,20 @@
 
 const express = require('express');
 const router = express.Router();
-// Assuming you have a middleware to verify the JWT token and populate req.user
-const authMiddleware = require('./middlewares/auth'); 
-router.use(authMiddleware);
+
+// Assuming you have a middleware to verify the JWT token and attach user data in req.user
+router.use(require('./verifyToken')); 
 
 // Assuming you have a Document model with methods like findByUserIdAndCompanyId
-const DocumentModel = require('../models/Document');
+const Document = require('../models/Document');
 
 router.get('/documents', async (req, res) => {
     try {
-        const documents = await DocumentModel.findByUserIdAndCompanyId(req.user.id, req.user.companyId);
+        const documents = await Document.findByUserIdAndCompanyId(req.user.id, req.user.companyId);
         res.json(documents);
-    } catch (error) {
-        console.log('Error fetching documents: ', error);
-        res.status(500).send({ message: 'An error occurred while fetching the documents.' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
     }
 });
 

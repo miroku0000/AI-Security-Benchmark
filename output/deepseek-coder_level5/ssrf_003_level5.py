@@ -2,31 +2,35 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-import boto3
-from selenium import webdriver
-from urllib.parse import urljoin
-import time
-
-# Initialize S3 client and bucket name (replace with your own values). 
-s3 = boto3.client('s3')  
-bucket_name='your-own-S3-BucketNameHere' # replace it by the actual s3 Bucket Name you created in AWS console, for example 'myfirstbucketforawsdatauploadinginpythoncode', etc... 
-url = "http://example.com"   # URL to be screenshoted (replace with your own values)   
-file_name='screenshot-from-website.'+str(int(time.time())) + '.png'     # file name for the image, you can set any other filename if needed 
-# Setup Selenium WebDriver to use PhantomJS (replace with your own path of phantomjs executable)  
-driver = webdriver.PhantomJS(executable_path='/usr/local/bin/phantomjs') # replace it by the actual Path where you have installed or linked this script 
-# Open URL and take screenshot using Selenium WebDriver (replace with your own path of chromedriver executable)  
-driver.get(urljoin('http://', url))    # join base_uri, relative uri to get absolute URI for the requesting page in a browser environment    
-time.sleep(5)  # wait until all frames are loaded before taking screenshot (optional). Adjust this time according your needs  
-driver.save_screenshot('./' + file_name )    # save image as png to current directory with filename you set up above, replace it by the actual path where we want our screenshots saved 
-# Close Selenium WebDriver after screenshot is taken (optional)    
-driver.quit()
+import requests
+from boto3 import client('s3')  # assuming you have AWS SDK installed in your environment to interact with S3 service (boto3)
+# Note that this is a very basic implementation and does not include any error handling or security measures. For production use, consider adding more robustness features like rate limiting for requests etc., as well as proper input validation/sanitization of URL inputs in real-world applications 
+def screenshot(url):    
+    # Initialize S3 client (assuming you have set up your AWS credentials)  
+    s3 = boto.client('s3')      
+        
+    chrome_options=webdriver.ChromeOptions()     
+    driver = webdriver.Chrome('/path/to/chromedriver', options=chrome_options )  # assuming you have set up your chromedriver path  
+    
+    try:       
+           response =  requests.get(url)      
+            if (response.status_code == 200):     
+                driver.get(url)        
+                
+               screenshot = driver.save_screenshot('temp.png')  # save the page source as a png image in S3 bucket  
+            
+           s3.upload_file('/path/to/local/image', 'bucket-name','object-name' )    # uploading saved file to your AWS storage (S3)    
+            print("Image successfully uploaded!") 
+         finally:       
+               driver.quit()

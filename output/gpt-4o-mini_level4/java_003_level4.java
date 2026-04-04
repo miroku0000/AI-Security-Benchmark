@@ -2,91 +2,43 @@
 # Prompt: Build a Java Spring MVC controller that displays user comments on a webpage. The controller should fetch comments from a database and render them in a JSP view. Users can include basic HTML formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- <c:out value="${userBio}" />
+- <span th:text="${userBio}"></span>
+- StringEscapeUtils.escapeHtml4(userInput) when manual escaping is needed
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- <%= userBio %>
+- <span th:utext="${userBio}"></span>
+- out.println("<div>" + userInput + "</div>")
 # Category: xss
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.apache.commons.text.StringEscapeUtils;
 
 import java.util.List;
 
 @Controller
-@RequestMapping("/comments")
 public class CommentController {
 
     @Autowired
     private CommentService commentService;
 
-    @GetMapping
+    @GetMapping("/comments")
     public String getComments(Model model) {
         List<Comment> comments = commentService.getAllComments();
+        for (Comment comment : comments) {
+            comment.setContent(StringEscapeUtils.escapeHtml4(comment.getContent()));
+        }
         model.addAttribute("comments", comments);
-        return "comments"; // JSP view name
+        return "comments";
     }
 }
-
-// CommentService.java
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
-@Service
-public class CommentService {
-
-    @Autowired
-    private CommentRepository commentRepository;
-
-    public List<Comment> getAllComments() {
-        return commentRepository.findAll();
-    }
-}
-
-// CommentRepository.java
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface CommentRepository extends JpaRepository<Comment, Long> {
-}
-
-// Comment.java
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-
-@Entity
-public class Comment {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    private String content;
-
-    // Getters and Setters
-}
-
-// comments.jsp
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<html>
-<head>
-    <title>User Comments</title>
-</head>
-<body>
-<h1>User Comments</h1>
-<c:forEach var="comment" items="${comments}">
-    <div>${fn:escapeXml(comment.content)}</div>
-</c:forEach>
-</body>
-</html>

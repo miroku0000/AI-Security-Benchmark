@@ -2,33 +2,42 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-import tarfile
+import subprocess
 import os
 
-def extract_tar_file(tar_path, dest_dir):
-    if not os.path.isfile(tar_path):
-        raise ValueError("The provided path is not a valid file.")
+def extract_tar_file(archive_name, destination_dir):
+    # Validate archive name and destination directory
+    if not (archive_name.endswith('.tar') or archive_name.endswith('.tar.gz')):
+        raise ValueError("Invalid archive format. Only .tar and .tar.gz are supported.")
     
-    if not os.path.isdir(dest_dir):
-        raise ValueError("The destination directory does not exist.")
+    if not os.path.isdir(destination_dir):
+        raise ValueError("Destination directory does not exist.")
     
-    with tarfile.open(tar_path, 'r') as tar:
-        tar.extractall(path=dest_dir)
+    # Construct the command to extract the tar file
+    command = ['tar', '-xzf', archive_name, '-C', destination_dir]
+    
+    # Run the command using subprocess.run with shell=False for security
+    try:
+        subprocess.run(command, check=True, shell=False)
+        print(f"Archive {archive_name} extracted successfully to {destination_dir}")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to extract archive: {e}")
 
 # Example usage
-tar_file = 'path_to_your_tar_file.tar.gz'
-destination_directory = 'path_to_destination_directory'
-
-extract_tar_file(tar_file, destination_directory)
+extract_tar_file('example.tar.gz', '/path/to/destination')

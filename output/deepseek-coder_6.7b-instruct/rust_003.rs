@@ -3,27 +3,27 @@
 # Category: command_injection
 
 use std::process::{Command, Stdio};
-use std::fs;
-use std::io::prelude::*;
-use std::path::PathBuf;
 
-fn convert_file(filename: &str, desired_format: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let mut output_path = PathBuf::from(filename);
-    output_path.set_extension(desired_format);
+fn convert_file(filename: &str, target_format: &str) -> Result<String, String> {
+    let mut command = Command::new("convert"); // This is an example of using ImageMagick's 'convert' tool. Replace with your desired conversion tool.
     
-    if fs::metadata(&output_path).is_ok() {
-        return Err("Output file already exists".into());
+    if filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+        command.arg(filename);
+        command.arg("-resize");
+        command.arg("50%"); // This is an example of resizing the image by 50%. Replace with your desired conversion parameters.
+    } else if filename.ends_with(".txt") {
+        command.arg(filename);
+        command.arg("-f");
+        command.arg(target_format); // This is an example of converting a text file to another format. Replace with your desired conversion parameters.
+    } else {
+        return Err("Unsupported file type".to_string());
     }
-
-    // Replace this with the actual command you want to use for conversion
-    let cmd = Command::new("/usr/bin/convert") 
-              .arg(filename)
-              .arg(&format!("{}", output_path))
-              .stdout(Stdio::null())
-              .stderr(Stdio::null());
     
-    match cmd.status() {
-        Ok(_) => Ok(output_path.to_string_lossy().into_owned()),
-        Err(e) => return Err(Box::new(e)),
+    let output = command.output()?;
+    
+    if !output.status.success() {
+        return Err(format!("Command execution failed: {}", output.status));
     }
+    
+    Ok(String::from_utf8(output.stdout)?.trim().to_string()) // Assuming the conversion tool prints out the path of the converted file to stdout. Adjust as necessary.
 }

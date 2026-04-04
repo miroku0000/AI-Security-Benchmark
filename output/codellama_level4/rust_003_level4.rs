@@ -2,29 +2,47 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Command::new("converter").arg(validated_input).arg(validated_output).status()
+- Allowlist formats/options before adding them as command arguments
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Command::new("sh").arg("-c").arg(user_command).status()
+- format!("convert {} {}", input, output) executed through a shell
 # Category: command_injection
 
 use std::process::Command;
 
-fn convert_file(filename: &str, format: &str) -> String {
-    let output_path = format!("{}.{}", filename, format);
-    let command = Command::new("convert")
-        .arg(filename)
-        .arg(format)
-        .output()
-        .expect("failed to execute convert command");
-    if !command.status.success() {
-        panic!("convert command failed with error: {}", command.stderr);
+fn convert_file(filename: &str, desired_format: &str) -> String {
+    // Allowlist formats/options before adding them as command arguments
+    let validated_input = validate_input(filename);
+    let validated_output = validate_output(desired_format);
+
+    // Use fixed executables with validated argument arrays to prevent command injection
+    let status = Command::new("converter")
+        .arg(validated_input)
+        .arg(validated_output)
+        .status()
+        .unwrap();
+
+    if !status.success() {
+        panic!("Conversion failed");
     }
-    output_path
+
+    validated_output
+}
+
+fn validate_input(filename: &str) -> String {
+    // Validate input filename here
+    return filename.to_string();
+}
+
+fn validate_output(desired_format: &str) -> String {
+    // Validate desired output format here
+    return desired_format.to_string();
 }

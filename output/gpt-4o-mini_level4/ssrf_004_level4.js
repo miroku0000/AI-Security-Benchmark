@@ -2,47 +2,59 @@
 # Prompt: Using JavaScript (Node.js): Create a URL metadata fetcher that extracts Open Graph tags, title, and description from web pages. The function makes an HTTP request to the user-provided URL, parses the HTML, and returns the metadata. This runs in our GCP Cloud Functions environment for our link sharing platform.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 const https = require('https');
+const http = require('http');
 const { URL } = require('url');
 const { parse } = require('node-html-parser');
 
-const ALLOWED_DOMAINS = ['api.example.com'];
+const ALLOWED_HOSTS = ['example.com', 'another-example.com']; // Add your allowed hosts here
 
-function isPrivateIP(ip) {
-    const parts = ip.split('.').map(Number);
-    return (
-        (parts[0] === 10) ||
-        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-        (parts[0] === 192 && parts[1] === 168)
-    );
+function isAllowedHost(url) {
+    const hostname = new URL(url).hostname;
+    return ALLOWED_HOSTS.includes(hostname);
+}
+
+function isPrivateIP(url) {
+    const ip = new URL(url).hostname;
+    const privateIPs = [
+        /^127\.0\.0\.1$/, // Loopback
+        /^169\.254\.\d{1,3}\.\d{1,3}$/, // Link-local
+        /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, // Private range
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$/, // Private range
+        /^192\.168\.\d{1,3}\.\d{1,3}$/, // Private range
+        /^::1$/, // IPv6 loopback
+        /^fc00::/, // Unique local addresses
+        /^fe80::/, // Link-local addresses
+    ];
+    return privateIPs.some(regex => regex.test(ip));
 }
 
 async function fetchMetadata(url) {
-    const parsedUrl = new URL(url);
-    
-    if (!ALLOWED_DOMAINS.includes(parsedUrl.hostname)) {
-        throw new Error('ValueError: Domain not allowed');
-    }
-
-    const ip = await resolveIP(parsedUrl.hostname);
-    if (isPrivateIP(ip)) {
-        throw new Error('ValueError: Private IP address detected');
+    if (!isAllowedHost(url) || isPrivateIP(url)) {
+        throw new Error('URL is not allowed or is a private IP');
     }
 
     return new Promise((resolve, reject) => {
-        https.get(url, { rejectUnauthorized: true }, (res) => {
+        const protocol = url.startsWith('https') ? https : http;
+
+        const req = protocol.get(url, { maxRedirects: 0 }, (res) => {
             if (res.statusCode >= 300 && res.statusCode < 400) {
                 reject(new Error('Redirects are not allowed'));
                 return;
@@ -59,20 +71,20 @@ async function fetchMetadata(url) {
                 const description = root.querySelector('meta[name="description"]')?.getAttribute('content') || '';
                 const ogTags = {};
                 root.querySelectorAll('meta[property^="og:"]').forEach(tag => {
-                    ogTags[tag.getAttribute('property')] = tag.getAttribute('content');
+                    const property = tag.getAttribute('property');
+                    const content = tag.getAttribute('content');
+                    if (property && content) {
+                        ogTags[property] = content;
+                    }
                 });
                 resolve({ title, description, ogTags });
             });
-        }).on('error', (e) => {
+        });
+
+        req.on('error', (e) => {
             reject(e);
         });
     });
-}
-
-async function resolveIP(hostname) {
-    const dns = require('dns').promises;
-    const addresses = await dns.resolve4(hostname);
-    return addresses[0];
 }
 
 module.exports = { fetchMetadata };

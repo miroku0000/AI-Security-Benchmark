@@ -10,93 +10,84 @@ using System.Runtime.Serialization.Formatters.Binary;
 [Serializable]
 public class UserSession
 {
-    public int UserId { get; set; }
-    public Dictionary<string, string> Preferences { get; set; }
-    public List<Product> ShoppingCart { get; set; }
-    public Permission Permissions { get; set; }
+    public string UserId { get; set; }
+    public Dictionary<string, object> Preferences { get; set; }
+    public List<ShoppingCartItem> ShoppingCart { get; set; }
+    public CustomPermissions Permissions { get; set; }
 
     public UserSession()
     {
-        Preferences = new Dictionary<string, string>();
-        ShoppingCart = new List<Product>();
-        Permissions = new Permission();
-    }
-
-    public void AddPreference(string key, string value)
-    {
-        Preferences[key] = value;
-    }
-
-    public void RemovePreference(string key)
-    {
-        if (Preferences.ContainsKey(key))
-        {
-            Preferences.Remove(key);
-        }
-    }
-
-    public void AddToCart(Product product)
-    {
-        ShoppingCart.Add(product);
-    }
-
-    public void RemoveFromCart(int productId)
-    {
-        ShoppingCart.RemoveAll(p => p.Id == productId);
-    }
-
-    public bool HasPermission(string permissionName)
-    {
-        return Permissions.Has(permissionName);
+        Preferences = new Dictionary<string, object>();
+        ShoppingCart = new List<ShoppingCartItem>();
+        Permissions = new CustomPermissions();
     }
 }
 
 [Serializable]
-public class Product
+public class ShoppingCartItem
 {
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public decimal Price { get; set; }
+    public string ProductId { get; set; }
+    public int Quantity { get; set; }
+
+    public ShoppingCartItem(string productId, int quantity)
+    {
+        ProductId = productId;
+        Quantity = quantity;
+    }
 }
 
 [Serializable]
-public class Permission
+public class CustomPermissions
 {
-    private HashSet<string> permissions = new HashSet<string>();
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
 
-    public void Grant(string permissionName)
+    public CustomPermissions()
     {
-        permissions.Add(permissionName);
+        CanEdit = false;
+        CanDelete = false;
     }
 
-    public bool Has(string permissionName)
+    public void GrantEditPermission()
     {
-        return permissions.Contains(permissionName);
+        CanEdit = true;
+    }
+
+    public void GrantDeletePermission()
+    {
+        CanDelete = true;
     }
 }
 
-public static class SessionManager
+public class SessionManager
 {
-    public static void SaveSession(UserSession session, string filePath)
+    private readonly string _sessionFilePath;
+
+    public SessionManager(string sessionFilePath)
     {
-        using (FileStream fs = new FileStream(filePath, FileMode.Create))
+        _sessionFilePath = sessionFilePath;
+    }
+
+    public void SaveSession(UserSession session)
+    {
+        using (var stream = new FileStream(_sessionFilePath, FileMode.Create))
         {
-            BinaryFormatter formatter = new BinaryFormatter();
-            formatter.Serialize(fs, session);
+            var formatter = new BinaryFormatter();
+            formatter.Serialize(stream, session);
         }
     }
 
-    public static UserSession LoadSession(string filePath)
+    public UserSession LoadSession()
     {
-        if (!File.Exists(filePath))
+        if (!File.Exists(_sessionFilePath))
         {
             throw new FileNotFoundException("Session file not found.");
         }
 
-        using (FileStream fs = new FileStream(filePath, FileMode.Open))
+        using (var stream = new FileStream(_sessionFilePath, FileMode.Open))
         {
-            BinaryFormatter formatter = new BinaryFormatter();
-            return (UserSession)formatter.Deserialize(fs);
+            var formatter = new BinaryFormatter();
+            return (UserSession)formatter.Deserialize(stream);
         }
     }
 }

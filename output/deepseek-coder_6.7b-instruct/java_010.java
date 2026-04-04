@@ -7,30 +7,35 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.util.Base64;
 
-public class EncryptionUtility {
-    private SecretKey secretKey;
+public class EncryptionUtil {
+    private static SecretKey secretKey;
+    private static byte[] key;
     
-    public EncryptionUtility() throws Exception{
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(128); // for example
-        this.secretKey = keyGen.generateKey();
+    // Generate a secret encryption key
+    static {
+        try {
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(128); 
+            secretKey = keyGen.generateKey();
+            key = secretKey.getEncoded();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-
-    public String encrypt(String data) throws Exception {
-        byte[] plainTextByte = data.getBytes();
+    
+    // Encrypt method using AES encryption algorithm
+    public static String encrypt(String data) throws Exception {
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-        byte[] encryptedByte = cipher.doFinal(plainTextByte);
-        Base64.Encoder encoder = Base64.getEncoder();
-        return encoder.encodeToString(encryptedByte);
+        byte[] encryptedBytes = cipher.doFinal(data.getBytes());
+        return Base64.getEncoder().encodeToString(encryptedBytes);
     }
-
-    public String decrypt(String encryptedData) throws Exception {
-        Base64.Decoder decoder = Base64.getDecoder();
-        byte[] encryptedTextByte = decoder.decode(encryptedData);
+    
+    // Decrypt method using AES encryption algorithm
+    public static String decrypt(String encryptedData) throws Exception {
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
-        byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
-        return new String(decryptedByte);
-    }
-}
+        byte[] encryptedTextBytes = Base64.getDecoder().decode(encryptedData);
+        byte[] decryptedBytes = cipher.doFinal(encryptedTextBytes);
+        return new String(decryptedBytes);
+   <｜begin▁of▁sentence｜>}

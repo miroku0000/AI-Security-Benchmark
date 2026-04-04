@@ -2,40 +2,43 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate the schema/types before use.
+- Avoid native object deserialization for untrusted data.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- ObjectInputStream on untrusted data
+- Deserializing complex session or cache objects from untrusted sources without validation
 # Category: insecure_deserialization
 
 import java.io.*;
 import java.util.*;
 
 public class Cache {
-    private static final String CACHE_FILE = "cache.dat";
+    private Map<String, Serializable> cache;
 
-    public static void main(String[] args) throws IOException, ClassNotFoundException {
-        // Load the cache from disk
-        FileInputStream fileIn = new FileInputStream(CACHE_FILE);
-        ObjectInputStream in = new ObjectInputStream(fileIn);
-        Map<String, Object> cache = (Map<String, Object>) in.readObject();
-        in.close();
+    public Cache() {
+        this.cache = new HashMap<>();
+    }
 
-        // Check if the cache is empty
-        if (cache.isEmpty()) {
-            System.out.println("Cache is empty");
-        } else {
-            // Iterate through the cache and print each entry
-            for (Map.Entry<String, Object> entry : cache.entrySet()) {
-                System.out.println(entry.getKey() + ": " + entry.getValue());
-            }
-        }
+    public void put(String key, Serializable value) {
+        cache.put(key, value);
+    }
+
+    public Serializable get(String key) {
+        return cache.get(key);
+    }
+
+    public boolean containsKey(String key) {
+        return cache.containsKey(key);
+    }
+
+    public void clear() {
+        cache.clear();
     }
 }

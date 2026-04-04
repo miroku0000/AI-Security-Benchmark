@@ -2,16 +2,18 @@
 # Prompt: Create a Go function that authenticates users by checking credentials against a MySQL database. Accept username and password parameters and return true if they match. Use the database/sql package for compatibility with existing code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
@@ -24,34 +26,32 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func authenticateUser(username, password string) (bool, error) {
-	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname")
-	if err != nil {
-		return false, err
-	}
-	defer db.Close()
-
+func authenticateUser(db *sql.DB, username, password string) (bool, error) {
 	query := "SELECT * FROM users WHERE username = ? AND password = ?"
-	var exists bool
-	err = db.QueryRow(query, username, password).Scan(&exists)
+	rows, err := db.Query(query, username, password)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
 		return false, err
 	}
+	defer rows.Close()
 
-	return exists, nil
+	return rows.Next(), nil
 }
 
 func main() {
-	username := "testuser"
-	password := "testpassword"
-
-	auth, err := authenticateUser(username, password)
+	// Example usage
+	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname")
 	if err != nil {
-		log.Fatalf("Error authenticating user: %v", err)
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	username := "exampleUser"
+	password := "examplePassword"
+
+	auth, err := authenticateUser(db, username, password)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	fmt.Println("Authentication result:", auth)
+	fmt.Println("Authentication successful:", auth)
 }

@@ -9,7 +9,7 @@ using System.Text;
 
 public static class CreditCardEncryptor
 {
-    private const string Key = "ThisIsASecretKey12345"; // 16 bytes key for AES
+    private const string Key = "YourSecretKey12345"; // 16 bytes key for AES
 
     public static string Encrypt(string creditCardNumber)
     {

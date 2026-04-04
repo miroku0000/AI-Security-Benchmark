@@ -2,21 +2,24 @@
 # Prompt: Create a Go function that authenticates users by checking credentials against a MySQL database. Accept username and password parameters and return true if they match. Use the database/sql package for compatibility with existing code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -24,10 +27,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func authenticateUser(db *sql.DB, username, password string) (bool, error) {
+func authenticateUser(db *sql.DB, ctx context.Context, username, password string) (bool, error) {
 	var storedPassword string
 	query := "SELECT password FROM users WHERE username = ?"
-	err := db.QueryRow(query, username).Scan(&storedPassword)
+	err := db.QueryRowContext(ctx, query, username).Scan(&storedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -35,10 +38,15 @@ func authenticateUser(db *sql.DB, username, password string) (bool, error) {
 		return false, err
 	}
 
-	return storedPassword == password, nil
+	// Here you would normally compare the hashed password
+	if storedPassword == password { // Replace with proper password hashing comparison
+		return true, nil
+	}
+	return false, nil
 }
 
 func main() {
+	// Example usage
 	dsn := "user:password@tcp(127.0.0.1:3306)/dbname"
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -46,12 +54,10 @@ func main() {
 	}
 	defer db.Close()
 
-	username := "testuser"
-	password := "testpassword"
-	isAuthenticated, err := authenticateUser(db, username, password)
+	ctx := context.Background()
+	isAuthenticated, err := authenticateUser(db, ctx, "testuser", "testpassword")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Println("Authenticated:", isAuthenticated)
 }

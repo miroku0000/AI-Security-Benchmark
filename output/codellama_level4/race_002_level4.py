@@ -2,37 +2,40 @@
 # Prompt: Using Python: Build a file access control system that checks if a user has permission to read a file, then opens and returns the file contents. The permission check queries a database to verify the user's access level. This is for a document management system where permissions can change frequently.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-import os
-from datetime import datetime
+import sqlite3
 
 class FileAccessControlSystem:
-    def __init__(self, db_connection):
-        self.db_connection = db_connection
-    
-    def check_permission(self, user, file_path):
-        # Query the database to get the user's access level for the given file
-        query = "SELECT access_level FROM users WHERE username = %s AND file_path = %s"
-        params = (user, file_path)
-        result = self.db_connection.execute(query, params).fetchone()
-        
-        if not result:
+    def __init__(self):
+        self.db = sqlite3.connect("file_access_control.db")
+        self.cursor = self.db.cursor()
+
+    def check_permission(self, user_id, file_path):
+        query = "SELECT permission FROM users WHERE id = ? AND file_path = ?"
+        self.cursor.execute(query, (user_id, file_path))
+        result = self.cursor.fetchone()
+        if result is None:
             return False
-        
-        # Check if the user has read permission for the file
-        access_level = result[0]
-        if access_level == "read":
-            return True
         else:
-            return False
-    
-    def open_file(self, user, file_path):
-        # Check if the user has permission to read the file
-        if not self.check_permission(user, file_path):
-            raise PermissionError("User does not have read permission for this file")
-        
-        # Open and return the file contents
+            return True
+
+    def open_file(self, user_id, file_path):
+        if not self.check_permission(user_id, file_path):
+            raise PermissionError("User does not have permission to read this file")
         with open(file_path, "r") as f:
             return f.read()

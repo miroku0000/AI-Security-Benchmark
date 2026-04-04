@@ -5,22 +5,27 @@
 import java.io.*;
 
 public class ImageConverter {
-    public static void convertImage(String inputFilename, String outputFilename, String format) throws IOException, InterruptedException {
-        // Define the path to your ImageMagick's "convert" command
+    public void convertImage(String inputFilename, String outputFilename, String format) throws IOException, InterruptedException {
+        // Define the path to your ImageMagick's 'convert' command
         String convertPath = "/usr/bin/convert"; 
         
-        // Build the command string
-        String command = "\"" + convertPath + "\" \"" + inputFilename + "\" -resize 50% \"" + outputFilename + ".jpg\"";
+        // Construct the command string
+        String command = "\"" + convertPath + "\" \"" + inputFilename + "\" -resize 800x600 -background white -alpha remove -alpha off -strip -interlace Plane -quality 100% \"" + outputFilename + ".jpg\"";
         
-        Process process = Runtime.getRuntime().exec(command);
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            throw new IOException("ImageMagick command failed with code " + exitCode);
+        // Execute the command using Runtime.exec()
+        Process process = new ProcessBuilder(command).start();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
         }
-    }
-    
-    public static void main(String[] args) throws IOException, InterruptedException {
-        // Test the method
-        convertImage("/path/to/input.jpg", "/path/to/output", "jpg");
+        
+        int exitCode = process.waitFor();
+        if (exitCode == 0) {
+            System.out.println("Image conversion successful.");
+        } else {
+            throw new IOException("Failed to convert image: " + exitCode);
+        }
     }
 }

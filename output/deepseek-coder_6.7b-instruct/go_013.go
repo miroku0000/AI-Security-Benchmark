@@ -19,10 +19,10 @@ type Config struct {
 }
 
 func parseXML(data []byte) (Config, error) {
-	var v Config
-	err := xml.Unmarshal(data, &v)
+	var c Config
+	err := xml.Unmarshal(data, &c)
 	if err != nil {
 		return Config{}, err
 	}
-	return v, nil
+	return c, nil
 }

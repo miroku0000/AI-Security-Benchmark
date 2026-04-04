@@ -24,6 +24,8 @@ class CSRFDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "php":
+            return self._analyze_php(code)
         elif language == "go":
             return self._analyze_go(code)
         elif language == "java":
@@ -159,6 +161,13 @@ class CSRFDetector:
                         }
                     })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -285,6 +294,13 @@ class CSRFDetector:
                         }
                     })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -396,6 +412,13 @@ class CSRFDetector:
                             ]
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -512,6 +535,13 @@ class CSRFDetector:
                         }
                     })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -623,6 +653,13 @@ class CSRFDetector:
                             ]
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -736,6 +773,13 @@ class CSRFDetector:
                             ]
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -862,6 +906,224 @@ class CSRFDetector:
                             }
                         }
                     })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for CSRF vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 0: Check for state-changing operations via GET (CRITICAL CSRF vulnerability)
+        has_get_with_state_change = re.search(r'\$_GET\[', code) and any([
+            re.search(r'INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM', code, re.IGNORECASE),
+            re.search(r'\$stmt\s*=\s*\$conn->prepare\(["\'](?:INSERT|UPDATE|DELETE)', code, re.IGNORECASE),
+            re.search(r'mysqli_query\([^,]+,\s*["\'](?:INSERT|UPDATE|DELETE)', code, re.IGNORECASE),
+        ])
+
+        if has_get_with_state_change:
+            # Find GET parameter usage
+            get_locations = find_pattern_locations(code, r'\$_GET\[')
+            if get_locations:
+                location = get_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "CSRF",
+                    "severity": "CRITICAL",
+                    "description": "PHP state-changing operation via GET parameters - CRITICAL CSRF + METHOD MISUSE: Using GET for state-changing operations (INSERT/UPDATE/DELETE) violates HTTP standards and enables trivial CSRF attacks. ATTACK: Attacker sends victim link: 'https://victim.com/transfer.php?to=attacker&amount=1000'. Victim clicks link (email, chat, forum) → Browser sends GET request with victim's cookies → Unauthorized action executed. No form needed, just a link. IMPACT: (1) CLICKABLE EXPLOIT - simple link in email/chat triggers attack, (2) IMAGE TAG - <img src='https://victim.com/delete.php?id=123'> auto-executes on page load, (3) PREFETCH - browser prefetching can trigger unintended state changes, (4) HISTORY LEAKAGE - URLs with sensitive operations logged in browser history/server logs. REAL-WORLD: Account deletion, fund transfers, password changes, privilege escalation all exploitable via simple link sharing.",
+                    "recommendation": "NEVER use GET for state-changing operations: (1) Use POST/PUT/DELETE for ALL state changes (INSERT/UPDATE/DELETE), (2) Check REQUEST_METHOD: if ($_SERVER['REQUEST_METHOD'] !== 'POST') die('Method not allowed');, (3) Add CSRF token validation as described below, (4) HTTP GET should be idempotent (safe to repeat without side effects) - only for data retrieval",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "State-changing database operations (INSERT/UPDATE/DELETE) using $_GET parameters",
+                            "HTTP GET method used for non-idempotent operations",
+                            "Violates HTTP RFC 7231 (GET must be safe and idempotent)",
+                            "Trivially exploitable via links, images, or any HTTP GET request"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: $_GET parameters used with state-changing SQL operations",
+                            "GET requests include parameters in URL - visible in logs, browser history, referrer headers",
+                            "No request body or form submission required - simple link click triggers attack",
+                            "ATTACK VECTOR 1 (Link): Attacker sends email with malicious link → Victim clicks → State change executed",
+                            "ATTACK VECTOR 2 (Image): Attacker embeds <img src='victim.com/delete.php?id=123'> in forum post → Auto-loads when victim views page → Deletion executed",
+                            "ATTACK VECTOR 3 (Prefetch): Browser prefetching can trigger GET requests before user interaction",
+                            "REAL-WORLD EXAMPLE: User shares link 'victim.com/transfer.php?to=attacker&amount=1000' on social media → Anyone logged in who clicks it performs transfer",
+                            "IMPACT: Complete bypass of CSRF protection - no token validation possible because simple links don't carry custom data"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "$_GET parameter usage",
+                            "INSERT/UPDATE/DELETE SQL statements",
+                            "State-changing database operations",
+                            "HTTP method validation"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["$_GET with state-changing SQL (INSERT/UPDATE/DELETE)"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 1: Check for POST/PUT/DELETE processing
+        has_post_processing = any([
+            re.search(r'\$_SERVER\[["\']REQUEST_METHOD["\']\]\s*===?\s*["\']POST["\']', code),
+            re.search(r'\$_SERVER\[["\']REQUEST_METHOD["\']\]\s*===?\s*["\']PUT["\']', code),
+            re.search(r'\$_SERVER\[["\']REQUEST_METHOD["\']\]\s*===?\s*["\']DELETE["\']', code),
+            re.search(r'\$_POST\[', code),
+            re.search(r'<form[^>]*method\s*=\s*["\']POST["\']', code, re.IGNORECASE),
+        ])
+
+        if not has_post_processing:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 2: Check for CSRF protection mechanisms
+        # WordPress CSRF protection
+        has_wp_nonce_field = re.search(r'wp_nonce_field\(', code)
+        has_wp_verify_nonce = re.search(r'wp_verify_nonce\(', code)
+
+        # Laravel CSRF protection
+        has_laravel_csrf = any([
+            re.search(r'@csrf', code),
+            re.search(r'{{\s*csrf_field\(\)', code),
+            re.search(r'{{\s*csrf_token\(\)', code),
+            re.search(r'csrf_token\(\)', code),
+        ])
+
+        # Manual CSRF token validation
+        has_manual_csrf = any([
+            re.search(r'\$_SESSION\[["\']csrf_token["\']\]', code),
+            re.search(r'session\(["\']csrf_token["\']\)', code),
+            re.search(r'verify.*csrf|validate.*csrf|check.*csrf', code, re.IGNORECASE),
+            re.search(r'<input[^>]*name\s*=\s*["\']csrf_token["\']', code, re.IGNORECASE),
+            re.search(r'<input[^>]*name\s*=\s*["\']_token["\']', code, re.IGNORECASE),
+        ])
+
+        # Check if CSRF protection is present
+        has_csrf_protection = (has_wp_nonce_field or has_wp_verify_nonce or
+                               has_laravel_csrf or has_manual_csrf)
+
+        if not has_csrf_protection:
+            # Find POST forms or POST processing
+            post_locations = []
+            post_locations.extend(find_pattern_locations(code, r'<form[^>]*method\s*=\s*["\']POST["\']'))
+            if not post_locations:
+                post_locations.extend(find_pattern_locations(code, r'\$_SERVER\[["\']REQUEST_METHOD["\']\]\s*===?\s*["\']POST["\']'))
+            if not post_locations:
+                post_locations.extend(find_pattern_locations(code, r'\$_POST\['))
+
+            if post_locations:
+                location = post_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "CSRF",
+                    "severity": "HIGH",
+                    "description": "PHP POST form/handler lacks CSRF protection - ATTACK: Attacker creates malicious website with hidden form: '<form action=\"https://victim.com/admin.php\" method=\"POST\"><input name=\"user_id\" value=\"123\"></form><script>document.forms[0].submit()</script>'. When authenticated admin visits attacker site, form auto-submits with admin's session cookies. Server processes deletion request as legitimate admin action. IMPACT: Account deletion, unauthorized data modifications, privilege escalation, financial fraud - all actions admin can perform are exploitable",
+                    "recommendation": "Add CSRF protection: (1) WordPress: Add 'wp_nonce_field(\"delete_user\")' to form and 'if (!wp_verify_nonce($_POST[\"_wpnonce\"], \"delete_user\")) die(\"Invalid nonce\");' to handler. (2) Laravel: Add '@csrf' directive inside forms or '{{ csrf_field() }}'. (3) Manual: Generate token: '$_SESSION[\"csrf_token\"] = bin2hex(random_bytes(32));', include in form: '<input type=\"hidden\" name=\"csrf_token\" value=\"<?php echo $_SESSION[\"csrf_token\"]; ?>\">', validate: 'if (!hash_equals($_SESSION[\"csrf_token\"], $_POST[\"csrf_token\"])) die(\"Invalid token\");'",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "POST/PUT/DELETE form or handler without CSRF token validation",
+                            "No WordPress wp_nonce_field() in forms or wp_verify_nonce() in handlers",
+                            "No Laravel @csrf directive or csrf_field() helper",
+                            "No manual CSRF token ($_SESSION['csrf_token']) generation/validation",
+                            "Session-based authentication vulnerable to cross-site request forgery"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: POST form/handler found without CSRF protection",
+                            "No wp_nonce_field() or wp_verify_nonce() detected (WordPress)",
+                            "No @csrf directive or csrf_token() detected (Laravel)",
+                            "No $_SESSION['csrf_token'] or manual token validation",
+                            "ATTACK: (1) Admin logs into victim.com, (2) Visits attacker.com in another tab, (3) Attacker site contains hidden form targeting victim.com/admin.php, (4) JavaScript auto-submits form, (5) Browser includes admin's session cookies, (6) Server processes request as admin, (7) User deleted/data modified without admin's knowledge",
+                            "REAL-WORLD: Admin panels vulnerable to account deletion, privilege escalation, configuration changes, financial transactions - all exploitable via malicious links or embedded iframes",
+                            "IMPACT: Complete compromise of admin actions - attacker can perform ANY operation admin is authorized for by tricking them into visiting malicious page"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "WordPress wp_nonce_field() in forms",
+                            "WordPress wp_verify_nonce() in POST handlers",
+                            "Laravel @csrf directive or csrf_field()",
+                            "Laravel csrf_token() validation",
+                            "Manual $_SESSION['csrf_token'] generation/validation",
+                            "Hidden input fields with csrf_token or _token names",
+                            "Token verification functions (verify_csrf, validate_csrf, check_csrf)"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["POST form/handler without CSRF protection"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+        else:
+            # Has CSRF protection
+            protection_locations = []
+            if has_wp_nonce_field or has_wp_verify_nonce:
+                protection_locations.extend(find_pattern_locations(code, r'wp_nonce_field|wp_verify_nonce'))
+            if has_laravel_csrf:
+                protection_locations.extend(find_pattern_locations(code, r'@csrf|csrf_field|csrf_token'))
+            if has_manual_csrf:
+                protection_locations.extend(find_pattern_locations(code, r'\$_SESSION\[["\']csrf_token["\']\]|csrf_token'))
+
+            if protection_locations:
+                location = protection_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "Uses CSRF protection mechanism (WordPress nonces, Laravel CSRF, or manual token validation)",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "patterns_checked": [
+                            "POST/PUT/DELETE forms without CSRF tokens",
+                            "Missing WordPress wp_nonce_field() or wp_verify_nonce()",
+                            "Missing Laravel @csrf directive",
+                            "No manual CSRF token validation",
+                            "Unprotected form submissions"
+                        ],
+                        "why_not_vulnerable": [
+                            f"Line {line_num}: CSRF protection mechanism detected",
+                            "Uses WordPress nonces, Laravel CSRF tokens, or manual token validation",
+                            "CSRF tokens are cryptographically secure synchronizer tokens tied to user session",
+                            "Server validates token before processing state-changing requests",
+                            "Attacker cannot obtain or forge valid token due to Same-Origin Policy",
+                            "Invalid or missing token results in request rejection",
+                            "Tokens prevent cross-site forged requests - attacker's malicious site cannot include valid token"
+                        ],
+                        "vulnerable_patterns_absent": [
+                            "No unprotected POST/PUT/DELETE forms or handlers",
+                            "CSRF protection properly implemented via framework or manual validation",
+                            "Token validation enforced on all state-changing operations",
+                            "Cross-site request forgery attacks blocked by token verification"
+                        ]
+                    }
+                })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,

@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 package main
@@ -17,35 +18,33 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 )
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Get the URL from the request query parameters
 		url := r.URL.Query().Get("url")
-
-		// Validate the URL by checking if it is a valid HTTP or HTTPS URL
-		if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
-			fmt.Fprintf(w, "Invalid URL provided.")
+		if url == "" {
+			fmt.Fprintf(w, "Please provide a URL to fetch content from.")
 			return
 		}
 
-		// Fetch the content from the URL using http.Get
+		// Add strict destination validation and internal-address blocking here
+
 		resp, err := http.Get(url)
 		if err != nil {
 			fmt.Fprintf(w, "Error fetching content: %v", err)
 			return
 		}
 
-		// Return the response to the client
 		defer resp.Body.Close()
-		_, err = io.Copy(w, resp.Body)
+		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Fprintf(w, "Error copying content: %v", err)
+			fmt.Fprintf(w, "Error reading response body: %v", err)
+			return
 		}
+
+		fmt.Fprintf(w, "%s", body)
 	})
 
-	// Start the HTTP server on port 8080
 	http.ListenAndServe(":8080", nil)
 }

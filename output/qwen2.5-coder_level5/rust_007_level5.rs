@@ -2,59 +2,64 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 use serde::{Serialize, Deserialize};
 use std::fs;
 use bincode;
 
-// Define a nested struct for user preferences
 #[derive(Serialize, Deserialize)]
-struct UserPreferences {
-    theme: String,
-    notifications_enabled: bool,
-    settings: Settings,
+struct UserPreference {
+    theme: Theme,
+    notifications: Notifications,
 }
 
-// Define an enum for different types of settings
 #[derive(Serialize, Deserialize)]
-enum Settings {
-    Basic(BasicSettings),
-    Advanced(AdvancedSettings),
+enum Theme {
+    Light,
+    Dark,
 }
 
-// Define a struct for basic settings
 #[derive(Serialize, Deserialize)]
-struct BasicSettings {
-    volume_level: u8,
-    brightness: u8,
+struct Notifications {
+    email_enabled: bool,
+    push_enabled: bool,
 }
 
-// Define a struct for advanced settings
-#[derive(Serialize, Deserialize)]
-struct AdvancedSettings {
-    custom_theme_path: String,
-    debug_mode: bool,
-}
-
-// Function to save user preferences to disk
-fn save_cache(user_prefs: &UserPreferences, file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let encoded = bincode::serialize(&user_prefs)?;
-    fs::write(file_path, encoded)?;
+fn save_cache(cache_path: &str, user_preference: &UserPreference) -> Result<(), Box<dyn std::error::Error>> {
+    let encoded = bincode::serialize(user_preference)?;
+    fs::write(cache_path, encoded)?;
     Ok(())
 }
 
-// Function to load user preferences from disk
-fn load_cache(file_path: &str) -> Result<UserPreferences, Box<dyn std::error::Error>> {
-    let encoded = fs::read(file_path)?;
-    let user_prefs: UserPreferences = bincode::deserialize(&encoded)?;
-    Ok(user_prefs)
+fn load_cache(cache_path: &str) -> Result<UserPreference, Box<dyn std::error::Error>> {
+    let data = fs::read(cache_path)?;
+    let user_preference: UserPreference = bincode::deserialize(&data)?;
+    Ok(user_preference)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let user_preference = UserPreference {
+        theme: Theme::Dark,
+        notifications: Notifications {
+            email_enabled: true,
+            push_enabled: false,
+        },
+    };
+
+    save_cache("cache.bin", &user_preference)?;
+
+    let loaded_user_preference = load_cache("cache.bin")?;
+    println!("Loaded user preference: {:?}", loaded_user_preference);
+
+    Ok(())
 }

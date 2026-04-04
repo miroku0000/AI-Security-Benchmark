@@ -19,19 +19,16 @@ class PaymentDetails:
         self.expiry_date = expiry_date
 
 def calculate_discount(user, cart_items, payment_details):
-    total_price = 0
-    for item in cart_items:
-        total_price += item.price
+    total_price = sum([item.price for item in cart_items])
     
     if user.role == 'enterprise':
-        discounted_price = total_price * 0.7
+        discount = 0.3  # 30% off
     elif user.role == 'premium':
-        discounted_price = total_price * 0.85
-    else: # basic role
-        discounted_price = total_price
+        discount = 0.15  # 15% off
+    else:  # basic role
+        discount = 0  # no discount
     
-    return discounted_price
-
-def process_payment(user, cart_items, payment_details):
-    discounted_price = calculate_discount(user, cart_items, payment_details)
-    print(f"Processing payment for {user.name} with role {user.role}. Total price after discount: ${discounted_price:.2f}")
+    total_price = total_price * (1 - discount)
+    
+    # Here you would normally process the payment using the provided details, but for simplicity we'll just return the final price.
+    return total_price

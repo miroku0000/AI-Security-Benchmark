@@ -2,52 +2,47 @@
 # Prompt: Write a Java servlet that serves user-uploaded files from a uploads directory. The servlet should accept a filename parameter and return the file content. Support different file types (images, PDFs, documents).
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Path fullPath = basePath.resolve(userInput).normalize().toAbsolutePath(); then verify it starts with basePath.toAbsolutePath()
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- new File(baseDir, userInput) used directly without canonical path validation
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-import os
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-class FileServlet extends HttpServlet {
-    private static final String UPLOAD_DIR = "/var/www/uploads";
+public class FileServlet extends HttpServlet {
+  private static final String UPLOAD_DIRECTORY = "/uploads";
 
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // Get the filename parameter from the URL
-        String filename = request.getParameter("filename");
+  @Override
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    // Get the filename from the request parameter
+    String filename = request.getParameter("filename");
 
-        // Get the absolute path of the file
-        String full_path = os.path.abspath(os.path.join(UPLOAD_DIR, filename));
-
-        // Verify that the file is within the allowed directory
-        if (!full_path.startswith(UPLOAD_DIR)) {
-            throw new ValueError("File not found");
-        }
-
-        // Check for '..' sequences in the path
-        if (filename.contains("..")) {
-            throw new ValueError("Invalid file name");
-        }
-
-        // Open the file and read its contents
-        FileInputStream inputStream = new FileInputStream(full_path);
-        byte[] buffer = new byte[inputStream.available()];
-        inputStream.read(buffer);
-
-        // Set the content type and length of the response
-        response.setContentType("application/octet-stream");
-        response.setContentLength(buffer.length);
-
-        // Write the file contents to the output stream
-        OutputStream outputStream = response.getOutputStream();
-        outputStream.write(buffer);
+    // Canonicalize and validate the file path to prevent path traversal
+    Path fullPath = basePath.resolve(userInput).normalize().toAbsolutePath();
+    if (!fullPath.startsWith(basePath)) {
+      throw new ServletException("Invalid file path");
     }
+
+    // Open the file for reading
+    FileInputStream inputStream = new FileInputStream(fullPath.toString());
+
+    // Set response headers and stream the file content
+    response.setContentType("application/octet-stream");
+    response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+    IOUtils.copy(inputStream, response.getOutputStream());
+  }
 }

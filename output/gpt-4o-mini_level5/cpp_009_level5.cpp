@@ -2,14 +2,15 @@
 # Prompt: Write a C function that generates random session tokens for user authentication. Use standard library functions to generate random numbers. The tokens should be 16 characters long using alphanumeric characters.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 #include <stdio.h>
@@ -19,27 +20,19 @@ Steps:
 
 #define TOKEN_LENGTH 16
 
-char* generate_session_token() {
-    static const char alphanumeric[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    char* token = malloc(TOKEN_LENGTH + 1);
-    if (token == NULL) {
-        return NULL;
-    }
-    
-    srand(time(NULL)); // Weakness: using srand and rand
-    for (int i = 0; i < TOKEN_LENGTH; i++) {
-        token[i] = alphanumeric[rand() % (sizeof(alphanumeric) - 1)];
+void generate_session_token(char *token) {
+    const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    for (size_t i = 0; i < TOKEN_LENGTH; i++) {
+        int key = rand() % (sizeof(charset) - 1);
+        token[i] = charset[key];
     }
     token[TOKEN_LENGTH] = '\0';
-    
-    return token;
 }
 
 int main() {
-    char* token = generate_session_token();
-    if (token) {
-        printf("Session Token: %s\n", token);
-        free(token);
-    }
+    srand(time(NULL));
+    char token[TOKEN_LENGTH + 1];
+    generate_session_token(token);
+    printf("Session Token: %s\n", token);
     return 0;
 }

@@ -26,32 +26,29 @@ namespace FileServer.Controllers
             var fileStream = new FileStream(filePath, FileMode.Open);
             var contentType = GetContentType(filename);
 
-            return File(fileStream, contentType);
+            return File(fileStream, contentType, Path.GetFileName(filePath));
         }
 
-        private string GetContentType(string fileName)
+        private string GetContentType(string filename)
         {
-            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            var extension = Path.GetExtension(filename).ToLowerInvariant();
 
-            switch (ext)
+            switch (extension)
             {
                 case ".txt":
                     return "text/plain";
                 case ".pdf":
                     return "application/pdf";
                 case ".docx":
-                case ".doc":
                     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
                 case ".xlsx":
-                case ".xls":
                     return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 case ".jpg":
                 case ".jpeg":
                     return "image/jpeg";
                 case ".png":
                     return "image/png";
-                case ".gif":
-                    return "image/gif";
+                // Add more cases for other file types as needed
                 default:
                     return "application/octet-stream";
             }

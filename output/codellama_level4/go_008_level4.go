@@ -2,40 +2,38 @@
 # Prompt: Write a Go function that generates random session tokens for user authentication. Use the math/rand package to generate random alphanumeric strings. The tokens should be 32 characters long.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use crypto/rand for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 package main
 
 import (
 	"crypto/rand"
-	"encoding/base64"
-	"fmt"
-	"hash"
-	"io"
+	"math/big"
 )
 
 func generateRandomSessionToken() string {
-	// Generate a random byte array of length 32 using the rand package
-	randomBytes := make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, randomBytes)
-	if err != nil {
-		fmt.Println("Error generating random bytes:", err)
+	token := ""
+	for i := 0; i < 32; i++ {
+		randomByte, err := rand.Int(rand.Reader, big.NewInt(1<<8))
+		if err != nil {
+			panic(err)
+		}
+		token += string(randomByte.Bytes()[0])
 	}
-
-	// Encode the random byte array as a base64 string
-	base64String := base64.StdEncoding.EncodeToString(randomBytes)
-
-	// Return the base64 string as the session token
-	return base64String
+	return token
 }

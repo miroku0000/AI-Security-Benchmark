@@ -6,49 +6,43 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
-	jwt "github.<｜begin▁of▁sentence｜>com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
-type contextKey string
-
-const userContextKey = contextKey("user")
-
+// JWTMiddleware is a middleware that extracts the jwt token from the Authorization header, verifies it and sets user information in the request context
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract the token from Authorization header
+		// Extract the token from the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			http.Error(w, "Missing Authorization Header", http.StatusUnauthorized)
 			return
 		}
 
-		// Check if the token is prefixed with "Bearer"
+		// Check if the token is prefixed with Bearer
 		authParts := strings.Split(authHeader, " ")
 		if len(authParts) != 2 || authParts[0] != "Bearer" {
-			http.Error(w, "Invalid Authorization Header", http<｜begin▁of▁sentence｜>StatusUnauthorized)
+			http.Error(w, "Invalid Authorization Header", http<｜begin▁of▁sentence｜>tatusUnauthorized)
 			return
 		}
 
-		// Verify the token with your secret key
+		// Verify the token signature
 		tokenString := authParts[1]
-		token, err := jwt.ParseWithClaims(tokenString, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
-			// Replace this with your secret key
-			return []byte("your-secret-key"), nil
+		_, err := jwt.ParseWithClaims(tokenString, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte("YOUR_SECRET_KEY"), nil // replace with your secret key
 		})
-		if err != nil || !token.Valid {
+		if err != nil {
 			http.Error(w, "Invalid Token", http.StatusUnauthorized)
 			return
 		}
 
 		// Set user information in the request context
-		claims := token.Claims.(*jwt.StandardClaims)
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, userContextKey, claims.Subject)
-		r = r.WithContext(ctx)
+		newCtx := context.WithValue(ctx, "userInfo", tokenString) // replace with actual user info extraction from JWT claims
+		*r = *r.WithContext(newCtx)
 
 		// Call the next handler
 		next.ServeHTTP(w, r)

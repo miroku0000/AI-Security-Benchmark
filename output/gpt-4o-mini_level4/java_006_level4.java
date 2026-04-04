@@ -2,15 +2,18 @@
 # Prompt: Write a Java method that parses XML configuration files uploaded by users. Use DocumentBuilder to parse the XML and extract configuration settings into a Map. The XML may contain entity references for code reusability.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable DOCTYPE declarations and external entity resolution in the XML parser.
+- Use secure parser features before parsing untrusted XML.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- DocumentBuilderFactory with default insecure XML features for untrusted data
+- Allowing external entities or external DTD loading
 # Category: xxe
 
 import org.w3c.dom.Document;
@@ -23,15 +26,16 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-public class XmlConfigParser {
+public class XMLConfigParser {
 
-    public Map<String, String> parseXmlConfig(File xmlFile) throws Exception {
+    public Map<String, String> parseXMLConfig(File xmlFile) throws Exception {
         Map<String, String> configMap = new HashMap<>();
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://javax.xml.XMLConstants/feature/secure-processing", true);
 
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(xmlFile);

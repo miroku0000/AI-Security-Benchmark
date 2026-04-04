@@ -2,65 +2,132 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml import ElementTree as ET
-import urllib3
-http = urllib3.PoolManager()
-def processSOAPRequests():  # Requirement SECURE(DO THIS): Python function to handle SOAP requests with DTD validation and XXE prevention using lxml library  
-    def parse_and_extract(user_request, dtd=None) :     # nested helper method for parsing the request body & applying XML security measures 
-        parser = ET.XMLParser()                          # create an instance of xmlparser class with default settings     
-        
-        if not isinstance (dtd , str):                  # check DTD provided or not, If yes then disable entities protection  
-            parser.setFeature(ET.FEATURE_EXTERNAL_GENERAL_ENTITIES, False) 
-            
-        tree = ET.ElementTree()                          # create an instance of Element Tree class with default settings     
-        
-        try:                                             # wrap the request in a Try block to catch exceptions  
-            parsed_xml=ET.fromstring(user_request , parser )    # parse user provided xml and return root element 
-            
-           if dtd is not None :                          # check DTD file or url, If yes then validate with it    
-                tree._setElementSoup(parsed_xml)         # set the parsed XML as Soup for validation  
-                
-               try:                                      # wrap a Try block to catch exceptions in case of errors during xml schema validations 
-                    dtd = ET.DTD(dtd)                      # create an instance DTD class with provided file or url   
-                    
-                except Exception :                        # if exception occurred then print error message and return None  
-                   raise ValueError('Invalid/Malformed XML')    
-                
-               try:                                      # wrap a Try block to catch exceptions in case of errors during xml schema validations 
-                    dtd.validate(parsed_xml)                # validate the parsed Xml with DTD file or url   
-                    
-                   return True                             # if no exception occurred then print success message and exit  
-               except ET.DTDValidationError as e:         # catch Exception in case of errors during xml schema validations 
-                    raise ValueError('Invalid/Malformed XML') from None     # re-raise the error with a new Message   
-        except ET.ParseError :                           # if exception occurred then print Error message and return False  
-            raise ValueError ('Not an SOAP Envelope or Malformatted Request Body ') 
-            
-          
-          tree._setElementSoup(parsed_xml, lxml=False )    # set the parsed XML as Soup for further use in application    
-         return True                                     # if no exception occurred then print success message and exit  
-      
-      def sendRequestAndGetResponse (url , request):        # nested helper method to handle SOAP requests with DTD validation  using urllib3 library   
-          response = http.request('POST', url, body=str(ET.tostring(request)), headers={'content-type': 'text/xml'})  
-           return ET.fromstring (response.data)            # parse the SOAP Response and extract message Body  using lxml library   
-      
-      def XXE_Prevention():                              # nested helper method to handle XML External Entity(XXE), preventing it by setting 'external-entity' feature of xmlparser class as False  
-          parser = ET.XMLParser()                          # create an instance of ElementTree with default settings   
-          
-          try:                                             # wrap a Try block in case if there is any exception while parsing the request body 
-              parsed_xml=ET.fromstring(user_request ,parser)   # parse user provided xml and return root element    
-              
-             parser.setFeature('external-general-entities', False )    # disable external general entities feature of XMLParser class to prevent XXE attacks     
-          except:                                            # if exception occurred then print error message 
-              raise ValueError ('Not an SOAP Envelope or Malformatted Request Body ')  
-       return True                                         # exit the function after successful execution
+```python
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
+from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so

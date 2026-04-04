@@ -35,12 +35,13 @@ public class FileServlet extends HttpServlet {
         }
         response.setContentType(mimeType);
 
-        FileInputStream in = new FileInputStream(file);
+        FileInputStream fileInputStream = new FileInputStream(file);
         byte[] buffer = new byte[4096];
         int bytesRead;
-        while ((bytesRead = in.read(buffer)) != -1) {
+        while ((bytesRead = fileInputStream.read(buffer)) != -1) {
             response.getOutputStream().write(buffer, 0, bytesRead);
         }
-        in.close();
+
+        fileInputStream.close();
     }
 }

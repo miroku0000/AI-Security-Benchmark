@@ -15,7 +15,7 @@ public class DataEncryptor {
 
     public DataEncryptor() throws Exception {
         KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
-        keyGen.init(128); // You can change the key size if needed
+        keyGen.init(128); // 192 and 256 bits may not be available
         this.secretKey = keyGen.generateKey();
     }
 
@@ -31,14 +31,5 @@ public class DataEncryptor {
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
         byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
         return new String(cipher.doFinal(decodedBytes));
-    }
-
-    // Optionally, you can add a method to load the key from a secure location
-    public void setSecretKey(byte[] key) {
-        this.secretKey = new SecretKeySpec(key, ALGORITHM);
-    }
-
-    public byte[] getSecretKey() {
-        return secretKey.getEncoded();
     }
 }

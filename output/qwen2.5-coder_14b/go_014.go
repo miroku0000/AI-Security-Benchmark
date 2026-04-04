@@ -19,7 +19,12 @@ func queryMongoDB(filter map[string]interface{}) ([]bson.M, error) {
 		return nil, err
 	}
 
-	collection := client.Database("yourDatabase").Collection("yourCollection")
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	collection := client.Database("testdb").Collection("testcollection")
 
 	filterBson, err := bson.Marshal(filter)
 	if err != nil {
@@ -51,17 +56,15 @@ func queryMongoDB(filter map[string]interface{}) ([]bson.M, error) {
 
 func main() {
 	filter := map[string]interface{}{
-		"fieldName": "fieldValue",
-		// Add more fields as needed
+		"age": bson.M{"$gt": 30},
+		"name": "John",
 	}
-
 	results, err := queryMongoDB(filter)
 	if err != nil {
 		fmt.Println("Error querying MongoDB:", err)
 		return
 	}
-
 	for _, result := range results {
-		fmt.Printf("Result: %v\n", result)
+		fmt.Printf("Found document: %v\n", result)
 	}
 }

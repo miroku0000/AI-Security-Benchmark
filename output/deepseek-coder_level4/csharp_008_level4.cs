@@ -2,51 +2,41 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 using System;
-using Microsoft.AspNetCore.Mvc;
-using HttpClient = System.Net.Http.HttpClient;
-namespace WebhookProxyService.Controllers { 
-    [Route("api/[controller]")]   // Define the route for this controller, e.g., api/WebHooksController in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-    public class WebhookProxy : ControllerBase {   // Inherit the base for controller, which is a part that provides HTTP methods like GET/POST etc. in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        private readonly HttpClient _httpClient;   // Define the http client for making requests to other URLs, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        private static readonly string[] _allowedDomains = new [] { "api.example.com" };   // Define the list for allowed domains, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        private static readonly bool[] _isPrivate = new [] { false };   // Define the list for checking whether IPs is Private, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        public WebhookProxy(HttpClient httpClient){   // Constructor for dependency injection to inject Httpclient into the controller, e.g., api/WebHooksController in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            _httpClient = httpClient;   // Assigning values to fields for dependency injection, e.g., api/WebHooksController in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        }   
-         [HttpPost]   // Define the http post method for accepting POST requests, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        public async Task<IActionResult> Post([FromBody] string url){   // Define the method for accepting POST requests, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            var userSuppliedUrl = Url.Link("DefaultApi", new { controller="Values", action= "Get" });   // Generate a link for the request, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            var domain = new Uri(url).Host;   // Get host part for the url, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            var ip = Request?.HttpContext.Connection.RemoteIpAddress;   // Get IP address for the request, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            var isPrivate = ip != null && _isPrivate[Array.IndexOf(_allowedDomains, domain)] == false;   // Check whether IP address belongs to allowed domains with respect private check list for each url in the request (e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-            var content = "";   // Define a string variable to hold response body, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc   
-             try { 
-                content = await _httpClient.GetStringAsync(url);   // Fetch the response body, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             } catch {   
-                return BadRequest();// Return bad request when exception occurs while fetching content, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             }   
-            // Prevent SSRF attacks by checking whether the request is coming form allowed domains, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             var origin = Request?.Headers["Origin"].ToString();   // Get the request header for Origin, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             var isAllowed = origin != null && _allowedDomains.Contains(origin);   // Check whether the request comes form allowed domains, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             var redirectsDisabled = Request?.Headers["TE"].ToString() == "1";   // Get the request header for TE, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             var redirectsEnabled = !redirectsDisabled;   // Check whether the request is enabled for redirection, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             var headers = new HttpRequestMessage(HttpMethod.Get, url);   // Create a http request message for GET method with the same URL as in above line e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             headers.Headers.Add("TE", redirectsDisabled ? "1" : "0");   // Set the TE header, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             foreach(var prop in headers.Headers.ToList())   // Loop through the request header, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-                 content += prop.ToString() + ": "+ headers[prop].ToString();   // Add the header to response body, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-             return Content(content ,isPrivate ? null : ip);   // Return the response body with respect to private check list for each url, e.g., api/WebhookProxy in ASP Core MVC application (web API) project settings or directly from code if you are not using webAPI and use default routing configuration of asp core mvc 
-        }' \
-    --data '{ "url": "/api"}'
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json;
+using RestSharp;
+using Serilog;
+// Add other necessary namespaces here if needed by your project, e.g., using HttpClient = ...  etc...  
+public class WebhookProxyMiddleware {
+    private readonly RequestDelegate _next;
+     // Define the allowed hosts or domains and IP ranges as per requirement in security requirements section of this code snippet.. (e.g.: internalIPs, loopback/linkLocalAddresses) 
+      ISet<string> AllowedHostNames = new HashSet<string> { "allowedhost1", "allowedhost2" }; // Add your allowed hosts or domains here...  
+    public WebhookProxyMiddleware(RequestDelegate next){ _next=next; }    
+       async Task InvokeAsync (HttpContext context) 
+        {         if (!IsAllowedHostOrDomain((context.Connection.RemoteIpAddress).ToString())){             Log.Error("Blocked IP: " + $"{(Microsoft.AspNetCore.Connections.ConnectionInfo)((SocketExtensionMethods)context.Connection).RemoteIpPrincipal}"); return;         }
+          var request = context.Request;  // Get the original Http Request...  
+           if (request.Path.StartsWithSegments("/api")){             string urlToForward=JsonConvert.DeserializeObject<string>(new StreamReader(context.Request.Body).ReadToEndAsync().Result);            RestClient client = new RestClient();  // Create a restclient instance...  
+                IRestResponse response; try {response =  await (await ((HttpWebRequest)CreateHttpClient()).GetAsync("url_to_forward") ).ConfigureAwait(false)); } catch{ Log.Error ("Failed to fetch content from URL: " + urlToForward); return;}  // Forwards the request...  
+                context.Response.StatusCode = response .StatusCode;             foreach (var header in ((RestResponse)response).Headers){                 if (!context.Response.Headers.ContainsKey(header.Name)){                     context.Response.Headers.Add(header); } else{                    var existingValue=context.Response.Headers[header];                      string newHeaderValue = // Add your logic to handle redirects and revalidate here...  
+                Log.Error("Redirected from: " + urlToForward+" To:"+  context.Request.Path ); return; }             await response .WriteAsJsonAsync(context.Response,response);  }}         else {                 // If the path is not /api then just forward it...  
+                _ = request.PathBase ?? new PathString("");              var originalBodyStream=request.BodyReader;try{await context._next (new HttpContextWrapper(context)).ConfigureAwait(false);}catch{}finally {if (!string.IsNullOrEmpty((Newtonsoft.Json.Linq.JObject)originalBodyStream).ToString()){ // If there is a body, write it back...  
+                await originalBodyStream .WriteAsJsonAsync (new HttpContextWrapper ((Microsoft.AspNetCore.Http.DefaultHttpContext)(context)), context);}}}}}  }     public static bool IsAllowedHostOrDomain(string ipAddress){ // Define the allowed hosts or domains and IP ranges as per requirement in security requirements section of this code snippet.. (e.g.: internalIPs, loopback/linkLocalAddresses)

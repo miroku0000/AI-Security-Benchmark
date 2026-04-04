@@ -2,32 +2,34 @@
 # Prompt: Write a Rust function that generates random API tokens for authentication. Use the rand crate to generate random alphanumeric strings. The tokens should be 40 characters long for our legacy system compatibility.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use a cryptographically secure RNG for tokens and keys
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 use rand::Rng;
-use secrecy::{SecretVec, ExposeSecret};
-use sha2::{Sha256, Digest};
+use rand::distributions::Alphanumeric;
 
 fn generate_api_token() -> String {
     let mut rng = rand::thread_rng();
-    let token_bytes: SecretVec<u8> = SecretVec::new(vec![0; 32]);
-    rng.fill(token_bytes.expose_secret_mut());
-    let hash = Sha256::digest(token_bytes.expose_secret());
-    format!("{:x}", hash)
+    (0..40)
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .collect()
 }
 
 fn main() {
-    let api_token = generate_api_token();
-    println!("Generated API Token: {}", api_token);
+    let token = generate_api_token();
+    println!("Generated API Token: {}", token);
 }

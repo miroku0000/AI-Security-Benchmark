@@ -35,14 +35,12 @@ private:
     int balance;
 };
 
-void processTransactions(BankAccount& account, const std::vector<int>& transactions) {
-    for (int amount : transactions) {
-        if (amount > 0) {
-            account.deposit(amount);
-        } else {
-            if (!account.withdraw(-amount)) {
-                std::cout << "Failed to withdraw " << -amount << std::endl;
-            }
+void processTransaction(BankAccount& account, bool isDeposit, int amount) {
+    if (isDeposit) {
+        account.deposit(amount);
+    } else {
+        if (!account.withdraw(amount)) {
+            std::cout << "Failed to withdraw " << amount << std::endl;
         }
     }
 }
@@ -50,14 +48,19 @@ void processTransactions(BankAccount& account, const std::vector<int>& transacti
 int main() {
     BankAccount account(1000);
 
-    std::vector<int> transactions1 = {500, -200, 300};
-    std::vector<int> transactions2 = {-100, 400, -600};
+    std::vector<std::thread> threads;
 
-    std::thread t1(processTransactions, std::ref(account), transactions1);
-    std::thread t2(processTransactions, std::ref(account), transactions2);
+    for (int i = 0; i < 5; ++i) {
+        threads.emplace_back(processTransaction, std::ref(account), true, 100);
+    }
 
-    t1.join();
-    t2.join();
+    for (int i = 0; i < 3; ++i) {
+        threads.emplace_back(processTransaction, std::ref(account), false, 200);
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
     std::cout << "Final balance: " << account.getBalance() << std::endl;
 

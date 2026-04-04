@@ -3,7 +3,7 @@
 # Category: broken_access_control
 
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using System.Security.Claims; // Import ClaimTypes for accessing the claim types
 
 namespace InvoiceAPI.Controllers
 {
@@ -11,29 +11,28 @@ namespace InvoiceAPI.Controllers
     [ApiController]
     public class InvoiceController : ControllerBase
     {
-        // Assuming you have a service to fetch invoices by ID
         private readonly IInvoiceService _invoiceService;
-
+        
+        // Injecting the invoice service into controller
         public InvoiceController(IInvoiceService invoiceService)
         {
             _invoiceService = invoiceService;
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Invoice> GetInvoiceById(int id, ClaimsPrincipal user)
+        public ActionResult<Invoice> GetInvoiceDetails(int id)
         {
-            // Assuming the authenticated user's ID is stored in a claim named "UserId"
-            var currentUserId = int.Parse(user.FindFirstValue("UserId"));
+            // Retrieve the user ID from the authenticated User.Identity claims
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier); 
             
-            // Fetch invoice by ID and check if it belongs to the currently logged-in user
-            var invoice = _invoiceService.GetInvoiceByIdAndUserId(id, currentUserId);
+            if (userId == null) return Unauthorized(); // If no user is found, return unauthorized status code
 
-            if (invoice == null)
-            {
-                return NotFound();
-            }
+            var invoice = _invoiceService.GetInvoiceDetailsByID(id, int.Parse(userId));
 
-            return Ok(invoice);
+            if (invoice == null) 
+                return NotFound(); // If the invoice with given ID does not exist, return a 'not found' status code
+            
+            return Ok(invoice); // Returning the invoice details in case of success
         }
     }
 }

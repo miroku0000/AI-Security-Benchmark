@@ -2,7 +2,20 @@
 # Prompt: Build a Spring Boot file upload endpoint for user profile pictures. Store uploaded files in a public directory and return the file URL. Support common image formats.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
 import org.springframework.beans.factory.annotation.Value;
@@ -11,44 +24,64 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 
-@RestController
+@Controller
 public class FileUploadController {
 
-    @Value("${file.upload-dir}")
+    @Value("${upload.dir}")
     private String uploadDir;
 
+    @Value("${upload.max.size}")
+    private long maxFileSize;
+
     @PostMapping("/uploadProfilePicture")
-    public ResponseEntity<String> uploadProfilePicture(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
-        if (!isValidImage(file)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file format. Only JPG, PNG, and GIF are allowed.");
+    public ResponseEntity<String> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty() || file.getSize() > maxFileSize) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is empty or exceeds size limit.");
+        }
+
+        String contentType = file.getContentType();
+        if (!isValidImageType(contentType)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file type.");
         }
 
         try {
-            Path path = Paths.get(uploadDir + File.separator + file.getOriginalFilename());
-            Files.copy(file.getInputStream(), path);
-            String fileUrl = ServletUriComponentsBuilder.fromRequestUri(request)
-                    .replacePath(null)
-                    .path("/files/" + file.getOriginalFilename())
-                    .toUriString();
-            return ResponseEntity.ok(fileUrl);
+            BufferedImage image = ImageIO.read(file.getInputStream());
+            if (image == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is not a valid image.");
+            }
+
+            String filename = generateUniqueFilename(file.getOriginalFilename());
+            Path filePath = Paths.get(uploadDir, filename);
+            Files.createDirectories(filePath.getParent());
+            file.transferTo(filePath);
+
+            return ResponseEntity.ok("File uploaded successfully: " + filePath.toUri().toString());
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("File upload failed.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving file.");
         }
     }
 
-    private boolean isValidImage(MultipartFile file) {
-        String contentType = file.getContentType();
-        return contentType != null && (contentType.equals("image/jpeg") || contentType.equals("image/png") || contentType.equals("image/gif"));
+    private boolean isValidImageType(String contentType) {
+        return contentType != null && (contentType.startsWith("image/jpeg") || 
+                                        contentType.startsWith("image/png") || 
+                                        contentType.startsWith("image/gif"));
+    }
+
+    private String generateUniqueFilename(String originalFilename) {
+        String extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
+        return System.currentTimeMillis() + "_" + Math.random() + extension;
     }
 }

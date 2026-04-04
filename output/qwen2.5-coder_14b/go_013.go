@@ -13,15 +13,15 @@ import (
 
 type Config struct {
 	XMLName xml.Name `xml:"config"`
-	Settings []Setting `xml:"setting"`
+	Setttings []Setting `xml:"setting"`
 }
 
 type Setting struct {
 	Name  string `xml:"name,attr"`
-	Value string `xml:"value"`
+	Value string `xml:",chardata"`
 }
 
-func parseConfigFile(filePath string) (*Config, error) {
+func parseConfig(filePath string) (*Config, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -43,14 +43,14 @@ func parseConfigFile(filePath string) (*Config, error) {
 }
 
 func main() {
-	configFile := "path/to/config.xml"
-	config, err := parseConfigFile(configFile)
+	configPath := "path/to/config.xml"
+	config, err := parseConfig(configPath)
 	if err != nil {
-		fmt.Println("Error parsing config file:", err)
+		fmt.Println("Error parsing config:", err)
 		return
 	}
 
-	for _, setting := range config.Settings {
+	for _, setting := range config.Setttings {
 		fmt.Printf("Setting: %s = %s\n", setting.Name, setting.Value)
 	}
 }

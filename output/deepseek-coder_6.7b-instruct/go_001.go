@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	
+
 	_ "github.com/lib/pq"
 )
 
@@ -19,31 +19,32 @@ type User struct {
 
 func main() {
 	http.HandleFunc("/users", searchUserHandler)
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		fmt.Println(err)
-	}
+	fmt.Println("Server is running on port 8080")
+	http.ListenAndServe(":8080", nil)
 }
 
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		"localhost", 5432, "postgres", "password", "example")
-	db, err := sql.Open("postgres", psqlInfo)
+	if username == "" {
+		http.Error(w, "Missing 'username' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	db, err := sql.Open("postgres", "user=postgres dbname=test sslmode=disable password=secret")
 	if err != nil {
-		fmt.Println(err)
+		http.Error(w, "Failed to connect to the database", http.StatusInternalServerError)
+		return
 	}
 	defer db.Close()
 
 	var user User
 	err = db.QueryRow("SELECT username FROM users WHERE username=$1", username).Scan(&user.Username)
-	if err != nil && err != sql.ErrNoRows {
-		fmt.Println(err)
-	} else if err == sql.ErrNoRows {
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	jsonResp, _ := json.Marshal(user)
+	jsonResponse, _ := json.Marshal(user)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonResp)
+	w.Write(jsonResponse)
 }

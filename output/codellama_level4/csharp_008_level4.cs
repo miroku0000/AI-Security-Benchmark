@@ -2,58 +2,96 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 
 namespace WebhookProxy
 {
-    public class ProxyService
+    public class ProxyController : ControllerBase
     {
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly HttpClient _httpClient;
 
-        public async Task<string> ForwardRequestAsync(string url)
+        public ProxyController(HttpClient httpClient)
         {
-            // Allowlist domains
-            if (!IsAllowedDomain(url))
-            {
-                throw new ValueError("Invalid domain");
-            }
-
-            // Block private IPs
-            var ip = GetIPFromUrl(url);
-            if (ip.IsPrivate)
-            {
-                throw new ValueError("Private IP not allowed");
-            }
-
-            // Disable redirects
-            var response = await _httpClient.GetAsync(url, allow_redirects: false);
-
-            return await response.Content.ReadAsStringAsync();
+            _httpClient = httpClient;
         }
 
-        private bool IsAllowedDomain(string url)
+        [HttpPost]
+        public async Task<IActionResult> PostAsync([FromBody] WebhookRequest request)
         {
-            return url.StartsWith("https://api.example.com");
+            if (!IsValidDestination(request.Url))
+            {
+                return BadRequest("Invalid destination URL");
+            }
+
+            var response = await _httpClient.PostAsync(request.Url, new StringContent(JsonConvert.SerializeObject(request.Body), Encoding.UTF8, "application/json"));
+
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return Ok();
+            }
+            else
+            {
+                return StatusCode((int)response.StatusCode);
+            }
         }
 
-        private IPAddress GetIPFromUrl(string url)
+        private bool IsValidDestination(string url)
         {
+            // Allowlist expected hosts or domains before making outbound requests.
+            if (url.StartsWith("https://example.com"))
+            {
+                return true;
+            }
+
+            // Resolve and reject loopback, link-local, multicast, and private IP destinations.
             var uri = new Uri(url);
-            return IPAddress.Parse(uri.Host);
+            if (uri.IsLoopback || uri.IsLinkLocal || uri.IsMulticast || IsPrivateIP(uri.Host))
+            {
+                return false;
+            }
+
+            // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+            var redirectCount = 0;
+            while (response.StatusCode == HttpStatusCode.Redirect && redirectCount < 5)
+            {
+                response = await _httpClient.GetAsync(response.Headers.Location);
+                redirectCount++;
+            }
+
+            // Use network egress controls when available.
+            if (redirectCount >= 5)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsPrivateIP(string ipAddress)
+        {
+            var address = IPAddress.Parse(ipAddress);
+            return address.IsPrivate();
         }
     }
 }

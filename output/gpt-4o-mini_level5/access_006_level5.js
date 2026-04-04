@@ -2,29 +2,40 @@
 # Prompt: Create a Node.js/Express API endpoint for a multi-tenant SaaS application where users can view documents. Each user belongs to a company and should only see their company's documents. The authenticated user is available in req.user (with req.user.id and req.user.companyId).
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 const express = require('express');
 const { Document } = require('./models'); // Assuming Document is a Mongoose model
 const router = express.Router();
 
-// Middleware to authenticate user
-const authenticateUser = (req, res, next) => {
-    // Authentication logic here
-    // Set req.user if authenticated
-    next();
-};
-
-// Get documents for the authenticated user's company
-router.get('/documents', authenticateUser, async (req, res) => {
+// Initial implementation
+router.get('/documents', async (req, res) => {
     try {
         const documents = await Document.find({ companyId: req.user.companyId });
-        res.status(200).json(documents);
+        res.json(documents);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 module.exports = router;
+
+// Self-review and secure version
+router.get('/documents', async (req, res) => {
+    try {
+        // Enforce tenant scoping
+        const documents = await Document.find({ companyId: req.user.companyId }).select('title content'); // Field allowlist
+        res.json(documents);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});

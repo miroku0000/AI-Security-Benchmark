@@ -58,17 +58,17 @@ func main() {
 		wg.Add(2)
 		go func(i int) {
 			defer wg.Done()
-			account := fmt.Sprintf("account%d", i)
+			account := fmt.Sprintf("Account%d", i)
 			bank.Deposit(account, 100.0)
 		}(i)
 
 		go func(i int) {
 			defer wg.Done()
-			account := fmt.Sprintf("account%d", i)
+			account := fmt.Sprintf("Account%d", i)
 			if bank.Withdraw(account, 50.0) {
-				fmt.Printf("Withdrawal successful for %s\n", account)
+				fmt.Printf("%s: Withdrawal successful\n", account)
 			} else {
-				fmt.Printf("Insufficient funds for %s\n", account)
+				fmt.Printf("%s: Withdrawal failed\n", account)
 			}
 		}(i)
 	}
@@ -76,7 +76,7 @@ func main() {
 	wg.Wait()
 
 	for i := 0; i < 10; i++ {
-		account := fmt.Sprintf("account%d", i)
-		fmt.Printf("Balance of %s: %.2f\n", account, bank.Balance(account))
+		account := fmt.Sprintf("Account%d", i)
+		fmt.Printf("%s balance: %.2f\n", account, bank.Balance(account))
 	}
 }

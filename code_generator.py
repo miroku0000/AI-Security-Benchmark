@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class CodeGenerator:
     """Universal code generator supporting multiple AI providers."""
 
-    def __init__(self, model: str, temperature: float = 0.2, use_cache: bool = True, force_regenerate: bool = False, timeout: int = None, use_bedrock: bool = False):
+    def __init__(self, model: str, temperature: float = 0.2, use_cache: bool = True, force_regenerate: bool = False, timeout: int = None, use_bedrock: bool = False, immediate_retry: bool = True, max_immediate_retries: int = 2):
         self.model = model
         self.temperature = temperature
         self.total_generated = 0
@@ -32,6 +32,8 @@ class CodeGenerator:
         self.failed_generations = []
         self.use_cache = use_cache
         self.force_regenerate = force_regenerate
+        self.immediate_retry = immediate_retry
+        self.max_immediate_retries = max_immediate_retries
 
         # Initialize Bedrock attributes (will be set properly for Anthropic provider)
         # ONLY use Bedrock if --use-bedrock flag is explicitly set
@@ -241,7 +243,9 @@ Code:"""
                     prompt=enhanced_prompt,
                     options={
                         'temperature': self.temperature,
-                        'num_predict': 4096,  # max tokens
+                        'num_predict': 8192,  # Increased for specialty languages
+                        'top_k': 40,  # Add sampling params to help with temp 0.0
+                        'top_p': 0.9,
                     }
                 )
 
@@ -337,7 +341,10 @@ Provide only the code without explanations. Do not use markdown code blocks."""
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
                     ],
-                    "max_completion_tokens": 4096
+                    # Increased to 32000 to allow for reasoning tokens + output
+                    # GPT-5 models (especially 5.2) use reasoning tokens like o1/o3
+                    # Without this, reasoning can exhaust the token budget leaving no output
+                    "max_completion_tokens": 32000
                 }
                 # Only add temperature for GPT-5 series (non-o-series, non-fixed-temp models)
                 if 'gpt-5' in model_lower and not is_o_series and not is_fixed_temp:
@@ -345,6 +352,19 @@ Provide only the code without explanations. Do not use markdown code blocks."""
 
                 response = self.openai_client.chat.completions.create(**params)
             else:
+                # Model-specific max_tokens based on capabilities:
+                # GPT-4: 8K total context (use 7.5K for output, ~500 tokens for system+user prompts)
+                # GPT-3.5-turbo: 4K max_tokens hard limit
+                # GPT-4-turbo and newer: 16K+ output capability
+                if 'gpt-4-turbo' in model_lower or 'gpt-4o' in model_lower:
+                    max_tokens = 16384  # Modern models with large output capability
+                elif 'gpt-4' in model_lower:
+                    max_tokens = 7500  # Original GPT-4 with 8K total context (leave ~500 for prompt)
+                elif 'gpt-3.5-turbo' in model_lower:
+                    max_tokens = 4000  # GPT-3.5-turbo max output limit (slightly under 4096 for safety)
+                else:
+                    max_tokens = 16384  # Default for other models
+
                 response = self.openai_client.chat.completions.create(
                     model=self.model,
                     messages=[
@@ -352,7 +372,7 @@ Provide only the code without explanations. Do not use markdown code blocks."""
                         {"role": "user", "content": prompt}
                     ],
                     temperature=self.temperature,
-                    max_tokens=4096
+                    max_tokens=max_tokens
                 )
 
             code = response.choices[0].message.content.strip()
@@ -371,9 +391,10 @@ Provide only the code without explanations. Do not use markdown code blocks."""
         model_id = self.bedrock_model if self.use_bedrock else self.model
 
         try:
+            # Increased max_tokens to 16384 to reduce generation failures
             response = self.anthropic_client.messages.create(
                 model=model_id,
-                max_tokens=4096,
+                max_tokens=16384,
                 temperature=self.temperature,
                 system=system_prompt,
                 messages=[
@@ -391,7 +412,7 @@ Provide only the code without explanations. Do not use markdown code blocks."""
 
                 response = self.anthropic_client.messages.create(
                     model=model_id,
-                    max_tokens=4096,
+                    max_tokens=16384,
                     temperature=self.temperature,
                     system=system_prompt,
                     messages=[
@@ -423,13 +444,14 @@ Provide only the code without explanations. Do not use markdown code blocks."""
         max_retries = 5
         for attempt in range(max_retries):
             try:
+                # Increased max_output_tokens to 16384 to reduce generation failures
                 response = self.google_client.models.generate_content(
                     model=self.model,
                     contents=prompt,
                     config={
                         "system_instruction": system_prompt,
                         "temperature": self.temperature,
-                        "max_output_tokens": 4096,
+                        "max_output_tokens": 16384,
                     }
                 )
 
@@ -544,8 +566,8 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
         # Return as-is if no markers found
         return response.strip()
 
-    def _generate_single_prompt(self, prompt_info: dict, output_path: Path, index: int, total: int) -> bool:
-        """Generate code for a single prompt. Returns True if successful."""
+    def _generate_single_prompt(self, prompt_info: dict, output_path: Path, index: int, total: int, retry_count: int = 0) -> bool:
+        """Generate code for a single prompt with optional immediate retry. Returns True if successful."""
         prompt_id = prompt_info['id']
         prompt_text = prompt_info['prompt']
         language = prompt_info.get('language', 'python')
@@ -567,36 +589,38 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
             'solidity': '.sol',
             'swift': '.swift',
             'kotlin': '.kt',
-            'dart': '.dart'
+            'dart': '.dart',
+            'terraform': '.tf'
         }
         ext = extensions.get(language, '.txt')
         output_file = output_path / f"{prompt_id}{ext}"
 
-        logger.info("[%d/%d] %s (%s, %s)...", index, total, prompt_id, category, language)
+        if retry_count == 0:
+            logger.info("[%d/%d] %s (%s, %s)...", index, total, prompt_id, category, language)
+        else:
+            logger.info("  [Retry %d/%d] %s...", retry_count, self.max_immediate_retries, prompt_id)
 
-        # Check if file already exists in model-specific output directory
+        # Check if file already exists in the target output directory
         # This allows us to skip regenerating files that were already generated
         # Check for any file with the same base name (prompt_id), regardless of extension
         # This handles cases where the extension was corrected (e.g., .txt -> .swift)
-        model_output_dir = Path('output') / self.model
-        existing_file = model_output_dir / f"{prompt_id}{ext}"
 
-        # Check for exact match first
-        if existing_file.exists() and not self.force_regenerate:
-            logger.info("  Already exists in %s (skipped)", model_output_dir)
+        # Check for exact match first (in the target output directory)
+        if output_file.exists() and not self.force_regenerate:
+            logger.info("  Already exists (skipped)")
             self.skipped_cached += 1
             return True
 
         # Check for any file with the same base name but different extension
         if not self.force_regenerate:
-            for existing in model_output_dir.glob(f"{prompt_id}.*"):
-                if existing.is_file():
+            for existing in output_path.glob(f"{prompt_id}.*"):
+                if existing.is_file() and existing != output_file:
                     logger.info("  Already exists as %s (skipped)", existing.name)
                     self.skipped_cached += 1
                     return True
 
-        # Check cache if enabled
-        if self.use_cache and not self.force_regenerate:
+        # Check cache if enabled (skip cache check on retry)
+        if retry_count == 0 and self.use_cache and not self.force_regenerate:
             if self.cache.is_cached(
                 self.model, prompt_id, prompt_text, language,
                 category, self.temperature, output_file
@@ -624,7 +648,21 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
                 )
             return True
         else:
-            logger.error("  Failed to generate code for %s", prompt_id)
+            # Immediate retry logic
+            if self.immediate_retry and retry_count < self.max_immediate_retries:
+                logger.warning("  Failed on attempt %d, retrying immediately...", retry_count + 1)
+
+                # Invalidate cache entry before retry
+                if self.use_cache:
+                    self.cache.invalidate(self.model, prompt_id)
+
+                # Small delay before retry
+                time.sleep(2)
+
+                # Recursive retry
+                return self._generate_single_prompt(prompt_info, output_path, index, total, retry_count + 1)
+
+            logger.error("  Failed to generate code for %s (after %d attempts)", prompt_id, retry_count + 1)
             if self.use_cache:
                 self.cache.mark_generated(
                     self.model, prompt_id, prompt_text, language,
@@ -680,8 +718,10 @@ IMPORTANT: Output ONLY the complete, runnable code. No explanations, description
         logger.info("Caching: %s", 'Enabled' if self.use_cache else 'Disabled')
         if self.force_regenerate:
             logger.info("Force Regenerate: Yes (ignoring cache)")
+        if self.immediate_retry:
+            logger.info("Immediate Retry: Yes (up to %d attempts per prompt)", self.max_immediate_retries + 1)
         if retries > 0:
-            logger.info("Retries: %d", retries)
+            logger.info("Batch Retries: %d (for prompts that failed all immediate retries)", retries)
         logger.info("Total prompts: %d", len(prompts))
         logger.info("Output directory: %s", output_dir)
         logger.info("=" * 70)

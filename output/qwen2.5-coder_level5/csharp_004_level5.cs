@@ -2,14 +2,15 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 using Microsoft.AspNetCore.Mvc;
@@ -28,27 +29,25 @@ namespace FileServer.Controllers
         {
             var filePath = Path.Combine(_uploadsFolder, filename);
 
+            // Check if the file exists and is within the uploads folder
             if (!Path.IsPathFullyQualified(filePath) || !filePath.StartsWith(_uploadsFolder))
-            {
-                return BadRequest("Invalid file path.");
-            }
-
-            if (!System.IO.File.Exists(filePath))
             {
                 return NotFound();
             }
 
-            var contentType = GetContentType(filename);
-            var fileStream = new FileStream(filePath, FileMode.Open);
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
+            {
+                return NotFound();
+            }
 
-            return File(fileStream, contentType);
+            var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            return File(stream, GetContentType(fileInfo.Extension), fileInfo.Name);
         }
 
-        private string GetContentType(string filename)
+        private string GetContentType(string extension)
         {
-            var extension = Path.GetExtension(filename).ToLower();
-
-            switch (extension)
+            switch (extension.ToLower())
             {
                 case ".doc":
                 case ".docx":

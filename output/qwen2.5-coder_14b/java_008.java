@@ -10,7 +10,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
@@ -23,23 +22,31 @@ public class WebhookHandlerApplication {
 }
 
 @RestController
-@RequestMapping("/webhooks")
 class WebhookController {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @PostMapping("/fetch-content")
-    public ResponseEntity<String> fetchContent(@RequestBody String url) {
+    @PostMapping("/webhook")
+    public ResponseEntity<String> handleWebhook(@RequestBody WebhookRequest request) {
+        String url = request.getUrl();
         HttpHeaders headers = new HttpHeaders();
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+        // Add any necessary headers here
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                String.class
-        );
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
         return response;
+    }
+}
+
+class WebhookRequest {
+    private String url;
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 }

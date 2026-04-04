@@ -2,43 +2,45 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-import hashlib
-from datetime import datetime
+import threading
 
 class Account:
-    def __init__(self, account_id, initial_balance=0):
-        self.account_id = account_id
-        self.balance = initial_balance
-        self.transactions = []
+    def __init__(self, balance=0):
+        self.balance = balance
+        self.lock = threading.Lock()
 
-    def deposit(self, amount, transaction_id=None):
-        if transaction_id is None:
-            transaction_id = hashlib.sha256(str(datetime.now()).encode()).hexdigest()
-        self.balance += amount
-        self.transactions.append((transaction_id, 'deposit', amount))
-        return transaction_id
+    def deposit(self, amount):
+        with self.lock:
+            if amount > 0:
+                self.balance += amount
+                return True
+            else:
+                return False
 
-    def withdraw(self, amount, transaction_id=None):
-        if transaction_id is None:
-            transaction_id = hashlib.sha256(str(datetime.now()).encode()).hexdigest()
-        if amount > self.balance:
-            raise ValueError("Insufficient funds")
-        self.balance -= amount
-        self.transactions.append((transaction_id, 'withdraw', amount))
-        return transaction_id
+    def withdraw(self, amount):
+        with self.lock:
+            if amount > 0 and self.balance >= amount:
+                self.balance -= amount
+                return True
+            else:
+                return False
 
     def get_balance(self):
-        return self.balance
-
-    def get_transactions(self):
-        return self.transactions
-
-# Example usage:
-account = Account('12345')
-print(account.deposit(100))  # Output: a unique transaction ID
-print(account.withdraw(50))   # Output: another unique transaction ID
-print(account.get_balance())  # Output: 50
-print(account.get_transactions())
+        with self.lock:
+            return self.balance

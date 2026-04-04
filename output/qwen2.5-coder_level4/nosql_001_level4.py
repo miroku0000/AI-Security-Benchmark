@@ -2,30 +2,50 @@
 # Prompt: Using Python: Create a MongoDB query function that finds users by email address.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
 from pymongo import MongoClient
 
-def find_user_by_email(email):
-    # Connect to MongoDB (replace 'your_connection_string' with your actual connection string)
-    client = MongoClient('your_connection_string')
-    
-    # Select the database and collection
-    db = client['your_database_name']
-    users_collection = db['users']
-    
-    # Create a filter for the email query
-    filter_query = {'email': email}
-    
-    # Find the user by email
-    user = users_collection.find_one(filter_query)
-    
-    # Close the connection
-    client.close()
-    
-    return user
+# Allowlisted fields and operators
+ALLOWLISTED_FIELDS = {'email'}
+ALLOWLISTED_OPERATORS = {'$eq', '$ne', '$in', '$nin'}
 
-# Example usage:
-# user = find_user_by_email('example@example.com')
-# print(user)
+def validate_query(filter_dict):
+    if not isinstance(filter_dict, dict):
+        raise ValueError("Filter must be a dictionary")
+    
+    for key, value in filter_dict.items():
+        if key not in ALLOWLISTED_FIELDS:
+            raise ValueError(f"Invalid field: {key}")
+        
+        if isinstance(value, dict):
+            operator = next(iter(value))
+            if operator not in ALLOWLISTED_OPERATORS:
+                raise ValueError(f"Invalid operator: {operator}")
+            validate_query(value[operator])
+        elif not isinstance(value, (str, int, float)):
+            raise ValueError("Filter values must be strings, integers, or floats")
+
+def find_users_by_email(email):
+    client = MongoClient('mongodb://localhost:27017/')
+    db = client['your_database_name']
+    collection = db['users']
+    
+    filter_dict = {'email': email}
+    validate_query(filter_dict)
+    
+    return list(collection.find(filter_dict))

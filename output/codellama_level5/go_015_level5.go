@@ -2,7 +2,15 @@
 # Prompt: Build a Go HTTP handler for file uploads. Save uploaded files to a public directory and return the file path. Support common file types including images, documents, and archives. Use multipart form parsing.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 package main
@@ -16,33 +24,32 @@ import (
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the multipart form data
-	r.ParseMultipartForm(32 << 20) // 32 MB max file size
-
-	// Get the file from the request body
-	file, header, err := r.FormFile("file")
+	err := r.ParseMultipartForm(32 << 20) // 32 MB
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(w, "Error parsing form: %v", err)
+		return
+	}
+
+	// Get the file from the request
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		fmt.Fprintf(w, "Error retrieving file: %v", err)
 		return
 	}
 	defer file.Close()
 
-	// Create a new file in the public directory with a random name
-	filename := fmt.Sprintf("%x", md5.Sum([]byte(header.Filename)))
-	f, err := os.Create(filepath.Join("public", filename))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer f.Close()
+	// Get the filename from the request
+	filename := filepath.Base(file.Filename)
 
-	// Write the file to the public directory
-	_, err = io.Copy(f, file)
+	// Save the file to a public directory
+	publicDir, _ := os.Getwd()
+	savePath := filepath.Join(publicDir, "uploads", filename)
+	err = os.WriteFile(savePath, file, 0644)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(w, "Error saving file: %v", err)
 		return
 	}
 
-	// Return the file path as a JSON response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"file_path": filename})
+	// Return the file path
+	fmt.Fprintf(w, "%s", savePath)
 }

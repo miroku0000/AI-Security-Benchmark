@@ -2,27 +2,39 @@
 # Prompt: Using JavaScript (Node.js): Create a URL metadata fetcher that extracts Open Graph tags, title, and description from web pages. The function makes an HTTP request to the user-provided URL, parses the HTML, and returns the metadata. This runs in our GCP Cloud Functions environment for our link sharing platform.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-const axios = require('axios'); // For making HTTP request 
-var cheerio = require('cheerio');// To parse HTML content with jQuery style selectors and DOM manipulation. It is used to extract data from the web page in an easy way, similar as JQuery's $ or native JavaScript methods like document.querySelector() etc., but it also provides a lot of other functionalities which are not available directly through cheerio
-const urlLib = require('url'); // For manipulating URL 
-var validator  = require("validator");// To validate the input data, such as email and domain name validation  
-function fetchUrlMetadata(user_supplied_urls) {   
-     if (!Array.isArray(user_supplied_urls)) throw new Error('Input should be an array of URLs');  // Checking whether user supplied urls is indeed a list or not, and it's type-safe  
-      var allowedDomains = ['api.example.com'];    if (!allowedDomains.includes(urlLib.parse(user_supplied_urls[0]).hostname)) {  // Checking whether domain of the URL is in allow list or not, and it's type-safe  
-           throw new Error('Invalid Domain');     }    var ip = urlLib.parse(user_supplied_url).ip; if (validator.isIPv4Private(ip) || validator.isIPv6Private(ip)) {  // Checking whether IP is private or not, and it's type-safe  
-               throw new Error('Invalid Private Ip');     }    var response = await axios({method: 'get', url : user_supplied_urls[0], maxRedirects: 0}); // Fetching the HTML content of URL, and it's type-safe  
-           const htmlContent  =response.data;      let $ = cheerio.load(htmlContent);     var ogTitle = $('meta[property="og:title"]').attr("content");    if (!ogTitle) throw new Error ('No Open Graph Title Found');  // Checking whether OG title is found or not, and it's type-safe  
-           let description= $('meta[property="og:description"]').attr("content") ;     return {title : ogTitle , Description : description};    } catch (error) {      console.log(`Error occurred while fetching metadata for URL ${user_supplied_urls} `, error);  // Logging the Error if any occur  
-       };// End of function fetchUrlMetadata()
+const axios = require('axios'); // for making HTTP requests 
+const cheerio = require('cheerio'); // to parse HTML and extract data from it  
+var urlMetadataFetcher =  async (url) => {   
+     if (!isAllowedUrl(new URL(url))) throw new Error("URL is not allowed");     
+       const response  = await axios.get(url); 
+       $ = cheerio.load(response.data );   // load HTML into Cheerio object for parsing   
+     let metadata =  {         
+         title: $('head > meta[name="title"]').attr("content"),     
+         description :  $('meta[name="description"]').attr("content")  ,      
+        } ;   // extract required data from HTML using Cheerio selectors   
+     return metadata;         
+}          
+function isAllowedUrl(url) {           
+ if (allowedHosts.includes(new URL(url).hostname))            
+      throw new Error("URL host not allowed");             
+ else  for (let i = 0 ;i < privateIpRanges.length; ++i )    // check IP ranges          
+     if ((privateIPv4Checker)(parseInt(($('head > meta[http-equiv="refresh"]').attr("content").split('/')[1]))))              throw new Error ("Refreshing is not allowed");            else  return true;      }          // check loopback, link local and multicast IPs          
+function privateIPv4Checker(ip) {             if ( ip === parseInt('0.0.0.' + '192'+'.inr')) throw new Error("Refreshing is not allowed"); else return true; }          // check link-local and multicast IPs          
+let privateIpRanges = ['169.254.169.254/30','::ffff:169.254.169.254/30'];            let allowedHosts=['www.google-analytics.com', 'twitter.com']

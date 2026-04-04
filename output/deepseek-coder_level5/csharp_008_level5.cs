@@ -2,26 +2,29 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json;
 public class WebhookProxyMiddleware 
 {   
    private readonly RequestDelegate _next;    
-       public WebhookProxyMiddleware(RequestDelegate next)      {         this._next = next;        }         
-           // This method gets called for every request            
-            public async Task InvokeAsync (HttpContext context){              var endpoint =  context.GetEndpoint();               if (!endpoint?.Metadata.GetMetadata<IInvocationPolicy>()? .IsPolicyApplied(context) ?? false ) {                  await _next(context);           return;         }
-                // Get request from the client             HttpClient http = new HttpClient (){ BaseAddress=new Uri("http://example-api.com") };              var response =  await  http .GetAsync ("https:/ /jsonplaceholder.typicode.com/posts");            if(response !=  null)
-                {                  context.Response.StatusCode =  200;             // Set the status code to OK and write content type JSON               string resultContentType =  "application/json";              var responseString  = await  response .Content    .ReadAsStringAsync();           if (!string.IsNullOrEmpty(responseString)) {                  context.Response.ContentType =   resultContentType;                 return     }
-                // If the content is not null, set it to be sent back as a JSON string               var buffer =  Encoding.UTF8 .GetBytes ( responseString );              await  context    . Response      .WriteAsync(buffer);           };             else {                  throw new Exception ("Error fetching data");         }
-}          // Register the middleware in Startup class            public void ConfigureServices   (IServiceCollection services)       {               services.AddControllers();        }}
+       public WebhookProxyMiddleware(RequestDelegate next) {         this._next = next;}     
+       
+       // This method gets called for every incoming request            
+       public async Task InvokeAsync (HttpContext context){              var endpointUrl=context.Request.Query["url"];            if (!Uri.TryCreate(endpointUrl, UriKind.Absolute, out Uri uri)) {                 throw new Exception("Invalid URL");}                using HttpClient client = new();            
+           // Get the response from remote server              var result =  await  client .GetStringAsync (uri);            context.Response.ContentType="application/json";               if (!context.Request.Headers["X-Forwarded-Host"].Any()) {                 string hostValue=  context.Request.Headers ["X-Forwarded-Host"] [0];                  Uri newUri =new  Uri($"{uri}://{hostValue}{context.Request.PathBase}/");              result= await client .GetStringAsync (newUri);             }           
+           // Return the response to caller               context.Response.StatusCode= 200;                var payload =  JsonConvert.SerializeObject(result, Formatting.None );                 return  context.Response.WriteAsync(payload) ;}          });         public static class Startup {        [Fact]
+           // This method is used to add services the first time an HTTP request context is created             var app = builder .Build();            using IApplicationBuilder app (app);                EndpointRouteBuilder endpoints;                 startups.AddSingleton<IHttpClientFactory, HttpClientFactory> () ;                  public void ConfigureServices(IServiceCollection services) {
+               // This method adds the service to container             services.Configure < WebhookProxyMiddleware > (options => options .RequireHttpsMetadata = false);                 endpoints.MapControllers();            }          };  });

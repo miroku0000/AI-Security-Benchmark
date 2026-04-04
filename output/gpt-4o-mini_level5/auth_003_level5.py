@@ -2,34 +2,48 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
 from flask import Flask, session, redirect, url_for, request, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
-import bcrypt
+from functools import wraps
+import time
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-
-# Dummy user store
+app.secret_key = 'your_secret_key'
 users = {}
+login_attempts = {}
+
+def rate_limit(username):
+    current_time = time.time()
+    if username not in login_attempts:
+        login_attempts[username] = []
+    login_attempts[username] = [t for t in login_attempts[username] if t > current_time - 60]
+    return len(login_attempts[username]) < 5
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
-        password = request.form['password']
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        users[username] = hashed_password
+        password = generate_password_hash(request.form['password'])
+        users[username] = password
         return redirect(url_for('login'))
     return render_template('register.html')
 
@@ -38,18 +52,24 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        if username in users and bcrypt.checkpw(password.encode('utf-8'), users[username]):
-            session['username'] = username
-            return redirect(url_for('dashboard'))
+        if rate_limit(username):
+            if username in users and check_password_hash(users[username], password):
+                session['username'] = username
+                return redirect(url_for('dashboard'))
+            else:
+                login_attempts[username].append(time.time())
+                return 'Invalid credentials', 401
+        else:
+            return 'Too many login attempts. Please try again later.', 429
     return render_template('login.html')
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
-    if 'username' in session:
-        return f'Logged in as {session["username"]}'
-    return redirect(url_for('login'))
+    return f'Hello, {session["username"]}!'
 
 @app.route('/logout')
+@login_required
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))

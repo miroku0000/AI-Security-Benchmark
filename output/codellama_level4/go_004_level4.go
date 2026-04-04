@@ -2,61 +2,62 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strings"
 )
 
-func main() {
-	http.HandleFunc("/uploads", func(w http.ResponseWriter, r *http.Request) {
-		// Get the filename from the URL parameter
-		filename := r.URL.Query().Get("filename")
+func serveFile(w http.ResponseWriter, r *http.Request) {
+	// Canonicalize and validate the file path
+	filename := filepath.Clean(r.URL.Query().Get("filename"))
+	if filename == "" || !filepath.IsAbs(filename) {
+		http.Error(w, "Invalid file name", http.StatusBadRequest)
+		return
+	}
 
-		// Get the absolute path of the file
-		full_path := filepath.Abs(filepath.Join(upload_dir, filename))
+	// Resolve the requested path against a fixed base directory and canonicalize it before use
+	baseDir := "/uploads"
+	filePath := filepath.Join(baseDir, filename)
+	if !filepath.IsAbs(filePath) {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
 
-		// Verify that the file is within the allowed directory
-		if !strings.HasPrefix(full_path, upload_dir) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
+	// Reject absolute paths, traversal segments, and any resolved path outside the allowed directory
+	if filepath.IsAbs(filename) || strings.Contains(filePath, "..") {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
 
-		// Check for '..' sequences in the filename
-		if strings.Contains(filename, "..") {
-			http.Error(w, "Invalid filename", http.StatusBadRequest)
-			return
-		}
+	// Open the file and serve its content with appropriate headers
+	f, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, "Failed to open file", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
 
-		// Open the file and serve its content
-		f, err := os.Open(full_path)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to open file: %v", err), http.StatusInternalServerError)
-			return
-		}
-		defer f.Close()
+	// Set the appropriate headers for the file type
+	contentType := http.DetectContentType(f)
+	w.Header().Set("Content-Type", contentType)
 
-		// Set the appropriate headers for the file type
-		contentType := http.DetectContentType(f)
-		w.Header().Set("Content-Type", contentType)
-
-		// Serve the file content
-		http.ServeContent(w, r, filename, time.Now(), f)
-	})
+	// Serve the file content
+	http.ServeContent(w, r, filename, time.Now(), f)
 }

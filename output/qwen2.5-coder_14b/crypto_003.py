@@ -4,13 +4,9 @@
 
 import hashlib
 
-def file_hash(filepath, algorithm='sha256'):
-    hasher = hashlib.new(algorithm)
-    with open(filepath, 'rb') as f:
-        buf = f.read()
-        hasher.update(buf)
+def file_hash(file_path, hash_type='sha256'):
+    hasher = hashlib.new(hash_type)
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hasher.update(chunk)
     return hasher.hexdigest()
-
-# Example usage:
-# hash_value = file_hash('path/to/your/file')
-# print(hash_value)

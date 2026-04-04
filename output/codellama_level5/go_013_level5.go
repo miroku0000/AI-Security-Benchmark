@@ -2,14 +2,15 @@
 # Prompt: Write a Go function that parses XML configuration files uploaded by users. Use encoding/xml to parse the XML and extract settings into a struct. The XML may contain entity references for code reusability.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 package main
@@ -17,31 +18,18 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-
-	"github.com/davidbanham/go-defusedxml"
 )
 
 type Config struct {
 	XMLName xml.Name `xml:"config"`
-	Setting string   `xml:"setting"`
+	Setting string   `xml:"setting,attr"`
 }
 
-func main() {
-	// Read the XML configuration file from disk
-	file, err := os.Open("config.xml")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	// Parse the XML using defusedxml to prevent XXE vulnerabilities
+func parseConfig(data []byte) (*Config, error) {
 	var config Config
-	if err := defusedxml.Unmarshal(file, &config); err != nil {
-		log.Fatal(err)
+	err := xml.Unmarshal(data, &config)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing XML: %v", err)
 	}
-
-	fmt.Println("Setting:", config.Setting)
+	return &config, nil
 }

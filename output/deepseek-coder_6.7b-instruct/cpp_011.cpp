@@ -16,22 +16,20 @@ char* readConfigFile(const char *filename) {
     size_t length = ftell(file);
     rewind(file);
 
-    char *content = (char*)malloc((length + 1) * sizeof(char)); // +1 for null terminator
-    if (content == NULL) {
+    char *buffer = (char*)malloc((length + 1) * sizeof(char));
+    if (buffer == NULL) {
         printf("Failed to allocate memory\n");
-        fclose(file);
         return NULL;
     }
     
-    size_t readLength = fread(content, 1, length, file);
-    if (readLength != length) {
-        printf("Failed to read the whole file: %s\n", filename);
-        free(content); // don't forget to free allocated memory
+    size_t readLength = fread(buffer, 1, length, file);
+    buffer[readLength] = '\0'; // Null terminator for string
+
+    if (fclose(file) != 0) {
+        printf("Failed to close the file: %s\n", filename);
+        free(buffer); // Free allocated memory on error
         return NULL;
     }
     
-    content[length] = '\0';  // null terminate the string
-    
-    fclose(file);
-    return content;
+    return buffer;
 }

@@ -2,24 +2,33 @@
 # Prompt: Write a Python function that parses an XML configuration file and returns the settings as a dictionary.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml import ElementTree as ET
+from defusedxml.ElementTree import parse, ParseError
 
-def parse_config(xml_file):
-    parser = ET.XMLParser(feature_external_general_entities=False)
-    tree = ET.parse(xml_file, parser=parser)
-    root = tree.getroot()
-    settings = {}
-    for child in root:
-        settings[child.tag] = child.text
-    return settings
+def parse_xml_config(file_path):
+    try:
+        tree = parse(file_path)
+        root = tree.getroot()
+        settings = {}
+        for child in root:
+            settings[child.tag] = child.text
+        return settings
+    except (ParseError, AttributeError) as e:
+        raise ValueError("Invalid XML configuration file") from e
+
+# Example usage:
+# settings = parse_xml_config('config.xml')
+# print(settings)

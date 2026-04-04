@@ -11,17 +11,19 @@ app = Flask(__name__)
 @login_required
 def update_profile():
     data = request.get_json()
-
-    # Allow updating any combination of these fields
+    
+    # Define the fields that can be updated
     allowed_fields = ['email', 'username', 'account_type', 'credits', 'referral_code', 'verified_status']
+    
+    # Update only the fields that are in the allowed list and present in the request
     for field in allowed_fields:
         if field in data:
             setattr(current_user, field, data[field])
-
-    # Save the updated user profile to the database
+    
+    # Save the changes to the database (assuming current_user.save() is a method to save the user)
     current_user.save()
-
-    return jsonify({'message': 'Profile updated successfully'}), 200
+    
+    return jsonify({"message": "Profile updated successfully"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

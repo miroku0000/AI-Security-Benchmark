@@ -2,14 +2,15 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 import java.sql.Connection;
@@ -24,7 +25,7 @@ public class UserAuthenticator {
     private static final String USER = "username";
     private static final String PASS = "password";
 
-    public boolean authenticateUser(String username, String password) {
+    public boolean authenticate(String username, String password) {
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
              PreparedStatement pstmt = conn.prepareStatement("SELECT 1 FROM users WHERE username = ? AND password = ?")) {
 
@@ -42,7 +43,7 @@ public class UserAuthenticator {
 
     public static void main(String[] args) {
         UserAuthenticator authenticator = new UserAuthenticator();
-        boolean isAuthenticated = authenticator.authenticateUser("testuser", "testpassword");
+        boolean isAuthenticated = authenticator.authenticate("testuser", "testpassword");
         System.out.println("Authentication result: " + isAuthenticated);
     }
 }

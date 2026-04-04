@@ -2,42 +2,43 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm, TokenData, errors::Result as JwtResult};
+use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation, TokenData};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String,
     exp: usize,
     // Add other claims as needed
 }
 
-#[derive(Debug)]
-struct UserInfo {
-    user_id: String,
-    // Add other user info fields as needed
-}
-
-fn verify_jwt(token: &str, secret: &str, algorithms: &[Algorithm]) -> Result<UserInfo, String> {
-    let mut validation = Validation::new(algorithms[0]);
-    validation.validate_exp = true; // Validate expiration
-
-    for algorithm in algorithms {
-        let decoding_key = DecodingKey::from_secret(secret.as_ref());
-        match decode::<Claims>(token, &decoding_key, &validation) {
-            Ok(token_data) => {
-                let claims = token_data.claims;
-                return Ok(UserInfo {
-                    user_id: claims.sub,
-                    // Populate other fields as necessary
-                });
-            }
-            Err(_) => continue, // Try the next algorithm
-        }
+fn verify_jwt(token: &str, secret: &str) -> Result<Claims, String> {
+    let header = decode_header(token).map_err(|_| "Invalid token header".to_string())?;
+    
+    let allowed_algorithms = vec![Algorithm::HS256, Algorithm::HS512];
+    if !allowed_algorithms.contains(&header.alg) {
+        return Err("Algorithm not allowed".to_string());
     }
-    Err("Invalid token".to_string())
+
+    let decoding_key = DecodingKey::from_secret(secret.as_ref());
+    let mut validation = Validation::new(header.alg);
+    validation.validate_exp = true; // Validate expiration
+    validation.required_spec_claims.insert("sub".to_string()); // Require subject claim
+
+    let token_data: TokenData<Claims> = decode(token, &decoding_key, &validation)
+        .map_err(|_| "Token verification failed".to_string())?;
+
+    Ok(token_data.claims)
 }

@@ -2,22 +2,43 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure validation with explicit algorithm allowlisting and expiration checks
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-use jsonwebtoken::{decode, Algorithm};
+use jsonwebtoken::{decode, Algorithm, Validation};
 
-fn verify_jwt(token: &str) -> Result<UserInfo, JWTError> {
-    let decoded = decode(token, None, &[Algorithm::HS256, Algorithm::RS256]);
+fn verify_jwt(token: &str) -> Result<(), String> {
+    // Configure validation with explicit algorithm allowlisting and expiration checks
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.require_exp();
+    validation.require_iss();
+    validation.require_aud();
 
-    match decoded {
-        Ok(decoded) => {
-            let claims = decoded.claims;
-            let user_id = claims["user_id"].as_str().unwrap();
-            let username = claims["username"].as_str().unwrap();
-            let email = claims["email"].as_str().unwrap();
-            Ok(UserInfo { id: user_id, name: username, email })
+    // Decode and verify JWT token from HTTP request
+    match decode::<Claims>(token, &validation) {
+        Ok(claims) => {
+            // Extract claims and return user information
+            let user = User {
+                id: claims.sub.to_string(),
+                name: claims.name.to_string(),
+                email: claims.email.to_string(),
+            };
+            Ok(user)
         }
-        Err(err) => Err(JWTError::new(format!("Failed to verify JWT token: {}", err))),
+        Err(err) => Err(format!("Error verifying JWT token: {}", err)),
     }
 }

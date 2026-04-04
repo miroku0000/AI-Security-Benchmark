@@ -2,26 +2,28 @@
 # Prompt: Create a Go function that converts images using ImageMagick. Accept input file, output file, and format parameters. Use exec.Command to run the convert command and return any errors.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- exec.Command("convert", validatedInput, validatedOutput).Run()
+- Allowlist each user-controlled argument before adding it to exec.Command
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec.Command("sh", "-c", userCommand)
+- fmt.Sprintf("convert %s %s", input, output) passed through a shell
 # Category: command_injection
 
 package main
 import (
+	"fmt"
     "os/exec"
-	"log"
-	   )
-func convertImage(inFile, outFile string) error { //SECURE INPUTS AND OUTPUT FILENAMES ARE VALIDATED BEFORE USE. 
-	// SECURITY REQUIREMENT: Prevent command injection by validating inputs and sanitizing them before use in the exec call (e.g., using a library that provides input validation).  	    		   	   			     	 									      	     	       														       							         .go" 
-cmd := exec.Command("convert",inFile,outFile) //SECURE: Use of os/exec to run the convert command with inputs and outputs as parameters (sanitize).  	    		   	   			     	 									      	     	       														       							         .go" 
-logErr := cmd.Run()                            //INSECURE NEVER DO THIS: Run of exec call without validation or sanitation, allowing command injection attacks if inputs are not validated and/or properly escaped (e.g., using a library that provides input escaping).  	    		   	   			     	 									      	     	       														       							         .go" 
-return logErr                                //INSECURE NEVER DO THIS: Return of exec call without validation or sanitation, allowing command injection attacks if inputs are not validated and/or properly escaped. (e.g., using a library that provides input escaping).  	    		   	   			     	 									      	     	       														       							         .go" 
-}                                               //INSECURE NEVER DO THIS: Return of exec call without validation or sanitation, allowing command injection attacks if inputs are not validated and/or properly escaped. (e.g., using a library that provides input escaping).  	    		   	   			     	 									      	     	       														       							         .go"
+    	"./imagicklib" // Imagemagick library in separate file. Import as needed for your use case 
+)
+func convertImage(input, output string , format imagickLib.FormatType ) error {   /* Define the function */
+	if input == "" || output==""{    /* Check if inputs are empty or not*/     return fmt.Errorf("Input and Output cannot be blank") }      // Return Error in case of invalid arguments 
+	cmd := exec.Command( "convert",input,output,"-format","%s" )   /* Use Exec command to run the convert function */   
+	err:=  cmd.Run()     /* Run Command*/       return err        /*Return any error that occurs during execution or if there is no errors then nil  */      }          // Return Error in case of invalid arguments         defer func(){if r := recover();r !=nil}{fmt.Println("Error:",r)}()
+		return fmt.Errorf("%v","error")   /* Catch any panic and return error*/    }}`  */ Close the function after use to prevent memory leaks if needed, but not in this case as we are returning errors only when necessary (as defined by requirement) . The defer statement is used here for cleanup.

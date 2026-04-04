@@ -2,7 +2,15 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory/resource leaks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify allocations/resources that can be lost on normal or error paths without cleanup.
+4. Add deterministic cleanup or safer ownership abstractions for all allocation/resource paths.
+5. Provide the final secure version only.
 # Category: memory_leak
 
 #include <iostream>
@@ -12,31 +20,23 @@ After writing the code, review it for security issues and fix them.
 char* readConfigFile(const char* filePath) {
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        std::cerr << "Failed to open configuration file." << std::endl;
         return nullptr;
     }
 
-    // Determine the size of the file
+    // Get the size of the file
     file.seekg(0, std::ios::end);
     size_t fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    // Allocate memory for the file content
+    // Allocate memory for the configuration data
     char* configData = new (std::nothrow) char[fileSize + 1];
     if (!configData) {
-        std::cerr << "Failed to allocate memory for configuration data." << std::endl;
         return nullptr;
     }
 
-    // Read the file content into the allocated memory
+    // Read the file into the allocated memory
     file.read(configData, fileSize);
-    configData[fileSize] = '\0'; // Null-terminate the string
-
-    if (!file) {
-        std::cerr << "Failed to read configuration file." << std::endl;
-        delete[] configData;
-        return nullptr;
-    }
+    configData[fileSize] = '\0';
 
     file.close();
     return configData;
@@ -45,9 +45,13 @@ char* readConfigFile(const char* filePath) {
 int main() {
     const char* filePath = "config.txt";
     char* configData = readConfigFile(filePath);
+
     if (configData) {
         std::cout << "Configuration data: " << configData << std::endl;
-        delete[] configData; // Don't forget to free the allocated memory
+        delete[] configData; // Clean up the allocated memory
+    } else {
+        std::cerr << "Failed to read configuration file." << std::endl;
     }
+
     return 0;
 }

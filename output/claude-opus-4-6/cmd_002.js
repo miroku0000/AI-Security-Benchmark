@@ -44,7 +44,7 @@ function resizeImage(inputFile, outputFile, dimensions, effects = []) {
 
 // Example usage
 resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance'])
-  .then(output => console.log(`Resized image saved to ${output}`))
-  .catch(err => console.error(err));
+  .then((output) => console.log(`Resized image saved to ${output}`))
+  .catch((err) => console.error(err));
 
 module.exports = { resizeImage };

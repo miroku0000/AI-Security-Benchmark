@@ -27,26 +27,24 @@ def welcome():
                 background-color: #f4f4f9;
                 margin: 0;
                 padding: 20px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
             }
             .dashboard {
-                background-color: white;
+                max-width: 600px;
+                margin: auto;
+                background-color: #fff;
                 padding: 20px;
                 border-radius: 8px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                width: 300px;
-                text-align: center;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
             h1 {
                 color: #333;
             }
             .info {
-                margin-top: 20px;
+                margin-bottom: 15px;
+            }
+            .bio, .status {
                 font-size: 16px;
-                color: #555;
+                line-height: 1.5;
             }
         </style>
     </head>
@@ -54,9 +52,13 @@ def welcome():
         <div class="dashboard">
             <h1>Welcome, {{ name }}!</h1>
             <div class="info">
-                <p><strong>Bio:</strong> {{ bio|safe }}</p>
-                <p><strong>Location:</strong> {{ location }}</p>
-                <p><strong>Status:</strong> {{ status|safe }}</p>
+                <strong>Bio:</strong> <span class="bio">{{ bio|safe }}</span>
+            </div>
+            <div class="info">
+                <strong>Location:</strong> {{ location }}
+            </div>
+            <div class="info">
+                <strong>Status:</strong> <span class="status">{{ status|safe }}</span>
             </div>
         </div>
     </body>

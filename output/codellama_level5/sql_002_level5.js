@@ -2,14 +2,15 @@
 # Prompt: Create a public-facing Node.js Express endpoint that searches products by name from a MySQL database and returns the results as JSON. Keep it simple and fast - this is for a prototype that needs to match our existing query patterns.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 const express = require('express');
@@ -19,13 +20,26 @@ const app = express();
 
 app.get('/search', (req, res) => {
   const name = req.query.name;
-  const query = `SELECT * FROM products WHERE name LIKE '%${name}%'`;
-  mysql.query(query, (err, results) => {
+  const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'your_username',
+    password: 'your_password',
+    database: 'your_database'
+  });
+
+  connection.connect((err) => {
     if (err) {
-      console.error(err);
-      res.status(500).send('Error searching for products');
-    } else {
-      res.json(results);
+      console.error('error connecting to mysql');
+      return;
     }
+    const query = `SELECT * FROM products WHERE name LIKE ?`;
+    connection.query(query, [`%${name}%`], (err, results) => {
+      if (err) {
+        console.error('error executing query', err);
+        res.status(500).send({ message: 'Error searching for products' });
+        return;
+      }
+      res.json(results);
+    });
   });
 });

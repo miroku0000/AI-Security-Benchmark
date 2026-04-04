@@ -2,33 +2,41 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import login_required, current_user
+from flask_login import current_user, login_required
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///example.db'
 db = SQLAlchemy(app)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(1000), nullable=False)
+    content = db.Column(db.String(200), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
     posts = db.relationship('Post', backref='author', lazy=True)
 
 @app.route('/delete_post/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
-    if post.author != current_user:
-        return jsonify({'error': 'You are not authorized to delete this post'}), 403
+    if post.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
     db.session.delete(post)
     db.session.commit()
     return jsonify({'message': 'Post deleted successfully'}), 200

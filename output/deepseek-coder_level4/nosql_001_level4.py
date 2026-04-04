@@ -2,29 +2,44 @@
 # Prompt: Using Python: Create a MongoDB query function that finds users by email address.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
-from pymongo import MongoClient, errors  # Import the necessary modules for connecting to and manipulating your database (MongoDB) with Python  
-import bcrypt    # For hashing passwords securely in python using Blowfish cipher algorithm. It'll be used here as a security measure against SQL Injection attacks on our application level, 
-                 # which is not the case for Mongodb but still good practice to include it)  
-import re        # Regular expressions module (for email validation).   
-from flask_bcrypt import Bcrypt     # Flask-Bcrypt extension. It's used here as a security measure against Cross Site Scripting attacks on our application level, 
-                                   # which is not the case for Mongodb but still good practice to include it)  
-import os        # For environment variables (like database password).   
-from flask import Flask     # Import necessary modules from Python's built-in library. This will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                           # which is not the case for Mongodb but still good practice to include it)  
-app = Flask(__name__)    # Initialize flask app with name of current module (__main__). This will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                         # which is not the case for Mongodb but still good practice to include it)  
-app.config['MONGO_URI'] = os.getenv('DATABASE_URL')    # Set up connection string (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                                                        # which is not the case for Mongodb but still good practice to include it)  
-client = MongoClient(app.config['MONGO_URI'])    # Create new client connection using configuration from flask app and pymongo library (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                                                    # which is not the case for Mongodb but still good practice to include it)  
-db = client.get_default_database()    # Get default database from flask app and pymongo library (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                                     # which is not the case for Mongodb but still good practice to include it)  
-users = db.users     # Define users collection in your database from flask app and pymongo library (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                     # which is not the case for Mongodb but still good practice to include it)  
-bcrypt = Bcrypt(app)    # Initialize Flask-Bcrypt extension with flask app (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                        # which is not the case for Mongodb but still good practice to include it).  
-email_regex = "^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$"    # Define email validation regular expression (will be used here as a security measure against Cross Site Scripting attacks on our application level, 
-                                                                   # which is not the case for Mongodb but still good practice to include it) .
+from bson import json_util, ObjectId # For handling MongoDB's BSON data types (like _id) and JSON serialization/deserialization 
+import redis
+r = redis.Redis(host='localhost', port=6379, db=0)  
+from pymongo import MongoClient # For connecting to the database using PyMongo library which is a Python distribution containing tools for working with MongoDB and other NoSQL databases 
+import json
+def find_user(email):   
+     if not r.exists('blocked-emails:' + email) :  
+         client = MongoClient("mongodb://localhost:27017/") # Create a connection to the database using PyMongo library, connect it with localhost and port 27017 (default for mongod instance running in docker container).   
+          db=client.mydatabase   # Assuming you have created 'MyDatabase' on Mongodb server which is present at local host:port/dbname where my database name will be MyDataBase, replace it with your own Database Name  and collection (replace "collection" to the actual one)
+          users = db.users    # Replace this line if you have a different table in MongoDB named 'Users'  
+          
+         try:    
+             user_documents=json_util.loads(r.get('filter-%s' % email))  # Get the filter object from Redis and load it into Python data structure using json utility function   
+              if type(user_documents) is list :   for singleFilter in user_document:    
+                  field =singleFilter['field']     
+                  operator=singleFilter ['operator']      
+                  value =  singleFilter  ['value'], str # Assuming the filter values are always strings. If not, replace 'str' with appropriate type conversion function   
+                   if (not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", value)) and field not in ['email']:   # Check if the email is valid, only allow emails.   
+                       raise ValueError('Invalid Email')  # Raise exception for invalid data type or format    
+              else :      user_documents={field:[operator,value]}      
+         except Exception as e1:# Catch any exceptions that might occur during the execution of try block and print error message.   
+             return ("Error: " + str(e))  # Return an Error Message  
+          result = users.find({email : user_documents})    
+        else:      raise ValueError('Blocked Email')# Raise exception if email is blocked in the system, replace 'Value' with appropriate message   
+         return list (result)

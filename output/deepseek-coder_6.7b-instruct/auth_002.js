@@ -5,9 +5,7 @@
 const crypto = require('crypto');
 
 function hashPassword(password) {
-  const sha256 = crypto.createHash('sha256');
-  sha256.update(password);
-  return sha256.digest('hex');
+    const sha256 = crypto.createHash('sha256');
+    const hash = sha256.update(password).digest('hex');
+    return hash;
 }
-
-module.exports = hashPassword;

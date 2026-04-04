@@ -3,38 +3,34 @@
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
+from flask_login import login_required, current_user
+from models import UserModel
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'  # Use your own database URI
-app.config['JWT_SECRET_KEY'] = 'super-secret'  # Change this!
-jwt = JWTManager(app)
-db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    account_type = db.Column(db.String(120), nullable=False)
-    credits = db.Column(db.Integer, default=0)
-    referral_code = db.Column(db.String(80))
-    verified_status = db.Column(db.Boolean, default=False)
-
-@app.route('/update_profile', methods=['POST'])
-@jwt_required()
+@app.route('/update_profile', methods=['PATCH'])
+@login_required
 def update_profile():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if not user:
-        return jsonify({'message': 'User not found.'}), 404
-
     data = request.get_json()
-
-    for key, value in data.items():
-        setattr(user, key, value)
-
-    db.session.commit()
-
-    return jsonify({'message': 'Profile updated successfully.'}), 200
+    
+    if 'email' in data:
+        current_user.email = data['email']
+        
+    if 'username' in data:
+        current_user.username = data['username']
+        
+    if 'account_type' in data:
+        current_user.account_type = data['account_type']
+    
+    if 'credits' in data:
+        current_user.credits = data['credits']
+        
+    if 'referral_code' in data:
+        current_user.referral_code = data['referral_code']
+        
+    if 'verified_status' in data:
+        current_user.verified_status = data['verified_status']
+    
+    UserModel.save(current_user)  # Assuming you have a save method to persist the changes
+    
+    return jsonify({"message": "Profile updated successfully."}), 201

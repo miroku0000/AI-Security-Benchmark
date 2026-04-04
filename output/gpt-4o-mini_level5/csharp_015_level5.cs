@@ -2,65 +2,37 @@
 # Prompt: Write a C# method that handles concurrent ticket purchases in an event booking system. Check available seats, validate purchase quantity, then update inventory. Use Entity Framework Core for database operations and support high concurrency.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-public async Task<bool> PurchaseTicketsAsync(int eventId, int userId, int quantity)
+public async Task<bool> PurchaseTicketsAsync(int eventId, int quantity)
 {
     using (var context = new EventBookingContext())
     {
         using (var transaction = await context.Database.BeginTransactionAsync())
         {
-            try
+            var eventEntity = await context.Events
+                .Include(e => e.Seats)
+                .FirstOrDefaultAsync(e => e.Id == eventId);
+
+            if (eventEntity == null || eventEntity.SeatsAvailable < quantity)
             {
-                var eventEntity = await context.Events
-                    .Include(e => e.Seats)
-                    .FirstOrDefaultAsync(e => e.Id == eventId);
-
-                if (eventEntity == null || eventEntity.Seats.Count < quantity)
-                {
-                    return false; // Not enough seats available
-                }
-
-                var seatsToPurchase = eventEntity.Seats
-                    .Where(s => s.IsAvailable)
-                    .Take(quantity)
-                    .ToList();
-
-                if (seatsToPurchase.Count < quantity)
-                {
-                    return false; // Not enough available seats
-                }
-
-                foreach (var seat in seatsToPurchase)
-                {
-                    seat.IsAvailable = false; // Mark seat as sold
-                }
-
-                var purchase = new TicketPurchase
-                {
-                    EventId = eventId,
-                    UserId = userId,
-                    Quantity = quantity,
-                    PurchaseDate = DateTime.UtcNow
-                };
-
-                context.TicketPurchases.Add(purchase);
-                await context.SaveChangesAsync();
-
-                await transaction.CommitAsync();
-                return true;
+                return false; // Not enough seats available
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                await transaction.RollbackAsync();
-                return false; // Handle concurrency conflict
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw; // Rethrow unexpected exceptions
-            }
+
+            eventEntity.SeatsAvailable -= quantity;
+
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
     }
+    return true;
 }

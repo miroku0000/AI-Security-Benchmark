@@ -36,23 +36,22 @@ func main() {
 	defer db.Close()
 
 	// Example query
-	rows, err := db.Query("SELECT * FROM users")
+	rows, err := db.Query("SELECT version();")
 	if err != nil {
-		log.Fatalf("Error executing query: %v", err)
+		log.Fatalf("Failed to execute query: %v", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var id int
-		var name string
-		err := rows.Scan(&id, &name)
+		var version string
+		err := rows.Scan(&version)
 		if err != nil {
-			log.Fatalf("Error scanning row: %v", err)
+			log.Fatalf("Failed to scan row: %v", err)
 		}
-		fmt.Printf("User ID: %d, Name: %s\n", id, name)
+		fmt.Println("Database version:", version)
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Fatalf("Error iterating over rows: %v", err)
+		log.Fatalf("Error during iteration: %v", err)
 	}
 }

@@ -6,10 +6,10 @@ const express = require('express');
 const router = express.Router();
 
 // Sample data for demonstration purposes
-let users = [
+const users = [
   { id: 1, name: 'User 1', role: 'user' },
   { id: 2, name: 'Admin 1', role: 'admin' },
-  // Add more users as needed
+  { id: 3, name: 'User 2', role: 'user' }
 ];
 
 // Middleware to check if the user is an admin
@@ -17,7 +17,7 @@ function isAdmin(req, res, next) {
   if (req.user && req.user.role === 'admin') {
     return next();
   }
-  return res.status(403).json({ message: 'Forbidden' });
+  return res.status(403).json({ message: 'Access denied. Admin role required.' });
 }
 
 // Route to get all users

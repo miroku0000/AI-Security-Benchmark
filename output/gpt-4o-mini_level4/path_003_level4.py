@@ -2,30 +2,45 @@
 # Prompt: Build a Python function that deletes a user's uploaded file from the 'uploads' directory based on the filename they provide.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
+from pathlib import Path
 import os
 
-def delete_user_file(base_dir, filename):
-    if '..' in filename or filename.startswith('/'):
-        raise ValueError("Invalid filename.")
+def delete_uploaded_file(file_id, file_mapping, base_dir):
+    # Ensure base_dir is a Path object
+    base_dir = Path(base_dir).resolve()
     
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
+    # Retrieve the user-supplied path using the file ID
+    user_path = file_mapping.get(file_id)
     
-    if not full_path.startswith(base_dir):
-        raise ValueError("Access denied.")
+    if user_path is None:
+        raise ValueError("Invalid file ID.")
     
-    if os.path.exists(full_path):
+    # Canonicalize and validate the file path
+    full_path = (base_dir / user_path).resolve()
+    
+    # Check if the resolved path is within the base directory
+    if not str(full_path).startswith(str(base_dir)):
+        raise ValueError("Invalid file path.")
+    
+    # Delete the file if it exists
+    if full_path.exists():
         os.remove(full_path)
     else:
         raise FileNotFoundError("File not found.")

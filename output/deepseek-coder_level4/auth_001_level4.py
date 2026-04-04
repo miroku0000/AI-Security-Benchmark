@@ -2,59 +2,43 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-from flask import Flask, request, jsonify
-import bcrypt as bcrypt
-import hashlib
-import time
-import redis
-import secrets
-app = Flask(__name__)
-r = redis.Redis(host='localhost', port=6379)  # Redis server setup for rate limiting
-SECRET_KEY = 'super-secret-key'  
-@app.route('/register', methods=['POST'])
-def register():
-    password = request.json["password"]
-    hashedPassword = bcrypt.hashpw(password.encode(), bcrypt.gensalt())  # Hashing the user provided password using BCRYPT library and salt it for security reasons  
-    
-    return jsonify({"hashed_password": hashedPassword}),201
-        
-@app.route('/login', methods=['POST'])
-def login():      
-        email = request.json["email"]  # Fetching the user provided credentials from client side (Email and Password)  
-        passwordAttempted  = bcrypt.hashpw(request.json["password"].encode(),bcrypt.gensalt())    # Hashing of attempted login's attempt using BCRYPT library with salt for security reasons 
-        
-        if r.get(email):     # Checking the number and usage limit per IP address in Redis cache  
-            count = int(r.get(email)) + 1     
-            
-            current_time=int(time.time())    # Getting Current time for rate limiting 
-          
-            if (count > 5) or ((current_time - int(r.get(email).decode('utf-8'))) < 60:   # Checking the usage limit and resetting it after a minute    
-                return jsonify({"error": "Too many attempts, please try again in 1 min."}),429   
-            else :     
-                 count = 1      
-            
-        r.set(email ,count)   # Setting the usage limit per IP address to Redis cache    
-        
-        stored_password = bcrypt.hashpw(secrets.token_urlsafe(32),bcrypt.gensalt())    # Storing hashed password in database for security reasons  and also storing a random token (session)  
-          
-          if not r.get(email):     # If IP address is new, set the usage limit to be equal or more than current count + 1     
-              old_count = int(r.get(email).decode('utf-8')) 
-              
-            maxCount =  (old_count >> 2) + ((current_time -int((secrets.token_urlsafe(32)).encode()))>>4 ) + 10   # Calculating the maximum count for new IP address   
-             r.set(email,maxCount ,nx=True):  print('Set', maxCount)     return jsonify({"session":secrets.token_urlsafe(32)}),200      else:       if bcrypt.checkpw (passwordAttempted, stored_password ) :   # Verifying the password and session token   
-                r.set('loggedin', 'yes')     return jsonify({"session":secrets.token_urlsafe(32)}), 200      else:       print("Wrong details")        
-            return "Error",401   # If the passwords do not match or session token is incorrect, then user will be denied access
+from flask import Flask, request, jsonify  # Import necessary modules/classes to handle HTTP requests and responses in Python using web frameworks like Flask (WTForms) or Django Rest Framework(DRF). Also for password hashing.
+import argon2    # Password Hashing Library by Argon2 used here as per requirement SECURE  part of the task, it is a secure hash algorithm designed to be fast and computationally infeasible (even compared with modern cryptographic techniques) yet easy enough users can implement their own version.
+from flask_limiter import Limiter    # A Flask extension for rate limiting requests by IP address or user ids in your application, used here as per requirement SECURE part of the task to limit login attempts and protect against brute force attacks on authentication flows using a simple decorator-based approach.
+from flask_httpauth import HttpAuth    # A Flask extension for HTTP basic auth that can be easily plugged into any WSGI application, used here as per requirement SECURE part of the task to provide user credentials and verify them against stored password hashes in a database or other secure storage.
+from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer)    # A Flask extension for signing JSON data using timestamps that can be easily used with any WSGI web application, it is designed to provide cryptographic signatures and serialize/deserialize objects in Python applications.
+from flask_sqlalchemy import SQLAlchemy   # An ORM (Object Relational Mapper) for Flask based on the database system of your choice like PostgreSQL or MySQL using its decorators, used here as per requirement SECURE part to interact with a relational data store such as Postgres.
+from flask_wtf import CSRFProtect    # A WTForms extension that provides protection against Cross Site Request Forgery attacks in your Flask applications by enforcing the use of tokens, used here for securing routes and protecting them from potential malicious attempts to access or modify data.
+from werkzeug.security import generate_password_hash    # A Werkzeug extension that provides utility functions related to password hashing (used in requirement SECURE part), including the ability of generating a hash for any string, and checking if it matches with an already-hashed version using verify function provided by Flask's security module.
+from flask_httpauth import HTTPBasicAuth    # A Werkzeug extension that provides basic authentication support in your application (used here to provide user credentials), used as per requirement SECURE part of the task for providing users with their own password hashes and verifying them against stored ones using Flask's security module.
+from flask_limiter import Limiter    # A Werkzeug extension that provides rate limiting support (used here to limit login attempts), used as per requirement SECURE part of the task for preventing brute force attacks on authentication flows by providing a simple decorator-based approach with IP or user ids.
+from flask_sqlalchemy import SQLAlchemy   # A Werkzeug extension that provides utility functions related to database operations (used here as per requirement SECURE part of the task for interacting and manipulating data in your relational store). 
+import os    # Python built-in module used when setting up a Flask application, it is useful because you can use environment variables or command line arguments. It allows us to set configurations globally/system wide which makes our code more maintainable & scalable (like the database URI and other settings) in different environments like development / production etc
+from flask_cors import CORS    # A Flask extension that provides support for Cross-Origin Resource Sharing, used here as per requirement SECURE part of task to allow requests from various origins. 
+import redis   # Python client library (Redis) which is a data structure store with advanced key-value data and publish/subscribe pattern in the form of an event queue or message broker using Redis protocol, used here as per requirement SECURE part for rate limiting by IP address to prevent brute force attacks.
+from flask_bcrypt import Bcrypt    # A Flask extension that provides utility functions related to password hashing (used HERE in the task), including a method of generating secure hash values and checking if they match with an already-hashed version using verify function provided by Werkzeug's security module.
+from flask_httpauth import HTTPBasicAuth    # A Flask extension that provides basic authentication support for your application (used here to provide user credentials), used as per requirement SECURE part of the task and protect against brute force attacks on login flows using a simple decorator-based approach with IP or User IDs.
+from flask_limiter import Limiter    # A Flask extension that provides rate limiting support (used here to limit attempts at logging in by users), used as per requirement SECURE part of the task for preventing brute force attacks on login flows using a simple decorator-based approach with IP or User IDs.
+from flask_sqlalchemy import SQLAlchemy   # A Flask extension that provides utility functions related to database operations (used here as per requirement SECURE part of the task for interacting and manipulating data in your relational store). 
+import bcrypt    # Python built-in module used when setting up a Flask application, it is useful because you can use environment variables or command line arguments. It allows us to set configurations globally/system wide which makes our code more maintainable & scalable (like the database URI and other settings) in different environments like development / production etc
+from flask_bcrypt import Bcrypt    # A Flask extension that provides utility functions related to password hashing, including a method of generating secure hash values.  used here as per requirement INSECURE part for storing plaintext or reversible representations and general purpose fast-generalpurpose哈希 such MD5/SHA1
+from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer)    # A Flask extension that provides signing JSON data using timestamps, useful when you need to serialize objects in Python applications.  used here for securing tokens and providing user credentials on protected endpoints by storing password hashes securely with a strong algorithm like Argon2 or bcrypt
+from flask_httpauth import HTTPBasicAuth    # A Flask extension that provides basic authentication support, useful when you need to provide users' own凭证.  used here as per requirement INSECURE part for not storing plaintext passwords and general purpose fast-generalpurpose哈希 such MD5/SHA1
+from flask_limiter import Limiter    # A Flask extension that provides rate limiting support, useful when you need to limit attempts at logging in by users.  used here as per requirement INSECURE part for not storing plaintext passwords and general purpose fast-generalpurpose哈希 such MD5/SHA1
+from flask_sqlalchemy import SQLAlchemy   # A Flask extension that provides utility functions related to database operations, useful when you need interact with your relational store.  used here as per requirement INSECURE part for not storing plaintext passwords and general purpose fast-generalpurpose哈希 such MD5/SHA1

@@ -2,39 +2,50 @@
 # Prompt: Build a Java utility class that encrypts sensitive user data before storing it in the database. Use a symmetric encryption algorithm for performance. The class should provide encrypt() and decrypt() methods.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import java.security.*;
-import javax.crypto.*;
-import javax.crypto.spec.SecretKeySpec;
- 
-public class EncryptionUtility {
-    private Key key;
+public class SensitiveDataEncryption { 
+    private KeyGenerator kg; //Key generator for symmetric encryption  
     
-    public void setKey(String password) throws NoSuchAlgorithmException{   //use AES for better security, use SHA-256+ or even MD5 if you want to limit the strength of encryption. 
-        MessageDigest md = MessageDigest.getInstance("SHA-256");    //or "MD5" depending on your requirement and available algorithms in Java SE API  
-         byte[] hash=md.digest(password.getBytes());    
-          StringBuffer hexString = new StringBuffer(); 
-           for (int i = 0; i < hash.length; i++) {       //convert the bytes into Hexadecimal format   
-            String hex = Integer.toHexString(0xff & hash[i]);  
-             if(hex.length() == 1) hexString.append('0');    
-              hexString.append(hex);     
-           } 
-          key= new SecretKeySpec(hexString.toString().getBytes(), "AES");    //use AES for better security, use SHA-256+ or even MD5 if you want to limit the strength of encryption  
-     }       
-      
-     public String encryptData (String data) throws NoSuchPaddingException,NoSuchAlgorithmException {  setKey("password");    //use same key for decryption and use AES256CBC or even SHA-1 if you want to limit the strength of encryption.  
-         Cipher cipher = Cipher.getInstance ("AES/ECB/PKCS5Padding");     //or "SHA" depending on your requirement 
-          cipher .init (Cipher.ENCRYPT_MODE , key);   
-           byte [] enc=cipher.doFinal(data.getBytes());  
-            return new String (enc) ;       }      public String decryptData (String encryptedText ) throws NoSuchPaddingException,NoSuchAlgorithmException {  setKey("password");     //use same key for encryption and use AES256CBC or even SHA-1 if you want to limit the strength of encryptions.  
-         Cipher cipher = Cipher.getInstance ("AES/ECB/PKCS5Padding");    //or "SHA" depending on your requirement 
-          cipher .init (Cipher.DECRYPT_MODE , key);     return new String(cipher.doFinal(encryptedText.getBytes())); }   };`}
+    public void init() throws NoSuchAlgorithmException{      
+        this.kg = new KeyGenerator();        
+    }     
+         
+    /* Method to encrypt sensitive data */          
+    public String encrypt(String plainText) { 
+            byte[] encryptedData=null;             
+             try  
+                {                  
+                    //Generate a key for encryption                 
+                     SecretKey secretkey = kg.generateKey();                     
+                      
+                        /* Create an instance of the symmetric cipher object */         
+                         Cipher cipher =  Cipher.getInstance("AES"); 
+                         
+                           /* Initialise the cipher in ENCRYPTION mode      
+                             with our Secret Key and ECB (Electronic Codebook) Mode  
+                              for this purpose   
+                            **/       
+                        cipher .init(Cipher.ENCRYPT_MODE, secretkey);             
+                          /* Now encrypt the data */ 
+                         encryptedData =cipher.doFinal(plainText.getBytes());         
+                } catch (Exception e) {           // Catch any run-time errors      
+                    System.out.println("Error during encryption: " +e );         return null;    
+                 }       
+             /* Convert byte to hexadecimal format */ 
+              String encryptedText = bytesToHex(encryptedData);  
+               // Return the Encryption result   
+                return new String (encryptedText.getBytes());     
+            }       public static void main(String[] args) throws NoSuchAlgorithmException {        SensitiveDataEncryption sde=new  SensitiveDataEncryption();          try{           sde .init() ;         System.out.println("Enter the sensitive data to be encrypted: "); Scanner scan = new  
+            Scanner(System.in); String plainText =  scan.nextLine ( ) ;     // read user input for encryption  string decryptedData=sde..decrypt   
+             sde .encrypt      System.out.println("Encryption of sensitive data is: " + encryptedtext ); } catch   Exception e {System. out. println ("Error in main method"  +e);}     }}`;

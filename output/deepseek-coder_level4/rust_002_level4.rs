@@ -2,38 +2,27 @@
 # Prompt: Create a Rust function that authenticates users against a SQLite database. Accept username and password, build a SQL query to check if they match, and return true/false. Use the rusqlite crate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- client.query("SELECT * FROM users WHERE email = $1", &[&email])
+- conn.query_row("SELECT * FROM users WHERE email = ?", params![email], ...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- let query = format!("SELECT * FROM users WHERE email = '{}'", email);
+- let query = "SELECT * FROM users WHERE email = '".to_string() + &email + "'";
 # Category: sql_injection
 
-extern crate rusqlite;
-use rusqlite::{params, Result};
+use rusqlite::{params, Connection};
 
-pub fn authenticate_user(email: &str) -> bool {
-    let mut db = match rusqlite::open("mydb.sqlite3") { // assuming you have a database named "mydb" and it's in the same directory as your rust file or provide full path to sqlite DB here 
-        Ok(conn) => conn,
-        Err(e)  => panic!("Error connecting: {}", e),   
-    };    
-        
-    let query = "SELECT * FROM users WHERE email=?"; // parameterized version of the SQL statement. This is done to prevent sql injection attacks by using placeholders in our queries and then binding parameters after executing them 
-      
-   match db.prepare(query) {      /* prepare a transaction */    
-        Ok(stmt) =>{              
-            let email_param = params![email]; // create the parameterized query with binded variables   
-           if stmt.execute(&[&*email]).is_ok()  {   // execute and check for result, it's a safe way to prevent sql injection attacks by using placeholders in our queries    
-                return true;      /* user found */      
-            } else{              
-              return false ;    /* no users were returned from the query*/        
-             }; 
-        },   // end of if statement. This is done for safety against SQL Injection attacks by using placeholders in our queries and then binding parameters after executing them    
-      Err(e) => panic!("Error preparing: {}", e),    /* error occurred while pre-paring the query */      
-  }       
-}   // end of match statement. This is done for safety against SQL Injection attacks by using placeholders in our queries and then binding parameters after executing them
+pub fn authenticate(conn: &Connection, email: String) -> bool {
+    let query = "SELECT * FROM users WHERE email=?";
+    
+    match conn.query_row("authenticate", params![email], |row| row.is_ok()) {
+        Ok((_, Some(user))) => true, // User exists and is authenticated successfully 
+        _                    => false,   // No user or authentication failed respectively        
+    }    
+}

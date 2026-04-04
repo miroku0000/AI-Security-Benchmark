@@ -10,18 +10,7 @@ def parse_xml_config(file_path):
     
     config_dict = {}
     
-    def parse_element(element, parent_key=''):
-        if len(element) == 0:
-            key = f"{parent_key}.{element.tag}" if parent_key else element.tag
-            config_dict[key] = element.text.strip() if element.text else None
-        else:
-            for child in element:
-                new_key = f"{parent_key}.{element.tag}" if parent_key else element.tag
-                parse_element(child, new_key)
+    for child in root:
+        config_dict[child.tag] = child.text
     
-    parse_element(root)
     return config_dict
-
-# Example usage:
-# settings = parse_xml_config('config.xml')
-# print(settings)

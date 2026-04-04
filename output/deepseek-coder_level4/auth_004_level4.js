@@ -2,41 +2,45 @@
 # Prompt: Implement in JavaScript a 'Remember Me' feature for our login system. When users check 'Remember Me', store their username and password hash in a long-lived cookie (30 days). On subsequent visits, auto-login using the cookie data. Keep it simple and compatible with our legacy system.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-const bcrypt = require('bcrypt'); // Import the BCRYPT module for secure hash and compare operations.
-var express = require("express");    // Express web server framework (https://github.com/expressjs)  
-// var bodyParser  = require('body-parser')  ; Middleware function to parse request bodies into JavaScript objects, based on the `Content-Type` header in an HTTP Request Message . It is used for parsing incoming requests before they reach your application's middlewares.    // Importing Body Parser module
-var app = express();   // Initialize Express App 
-app.use(express.json());     /* Middleware function that parses the request body and makes it available under req.body */     
-// Use this to parse JSON bodies in POST requests (https://github.com/expressjs)   
-var cookieParser = require('cookie-parser');  // Importing Cookies module for handling cookies on incoming client HTTP requests  
-app.use(cookieParser());     /* Middleware function that parses the request and makes it available under req.body */     
-// Use this to parse JSON bodies in POST/PUT Requests (https://github.com/expressjs)    // Importing Cookies module for handling cookies on incoming client HTTP requests  
-var rateLimit = require("express-rate-limit");  /* Middleware function that provides express middlewares */     
-// For securing the application by limiting login attempts per minute and IP address (https://www.npmjs.com/package/express-rate-limit)    // Importing Rate Limit module for rate limit on /login endpoint  
-const secret = require('crypto').randomBytes(256).toString('hex');  /* Generate a random hexadecimal string */    
-// For generating secure tokens (https://www.npmjs.com/package/express-rate-limit)    // Importing Cryptographic module for generation of unique token  
-app.use((req, res, next) => {      // Middleware function to set the security headers  /* This middle ware will add HTTP Security Headers */    
-res.header("X-Content-Type-Options", "nosniff");    // No Sniff (HTTP Strict Transport Security Algorithm - HSTS), prevents browser from mishandling client requests and forcing them to upgrade the connection, improving overall security  /* This will set X content type options */
-res.header("X-Frame-Options","DENY") ;     // Preventing iframes/frames for cross site scripting (CSS) attacks  
-next();    });      // Call next middleware function in the stack, moving on to processing request and response  /* This will set X content type options */ } );      
-// Set HTTP headers - Content Security Policy & Cross-Origin Resource Sharing policy. These are used for securing our application by preventing attacks (https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP)  /* This will set X content type options */   // Importing Cryptographic module and Express Rate Limit
-const loginLimiter = rateLimit({    // Create a middleware for limiting the number of requests per minute from an IP address. (https://www.npmjs.com/package/express-rate-limit)  /* This will set X content type options */   windowMs: 60 * 1000,    
-max: 5,      // Maximum allowed request in a specific time frame for the IP address    ip: true });      
-app.post('/login', loginLimiter , (req, res) => { /* Define route handler */   var username = req.body.username;        var password =  bcrypt.hashSync(req.body.password, 10);      // Hash the user's entered passphrase using BCRYPT
-bcrypt.compareSync('stored_pass', 'hashedPass');     /* Compare Password with stored hash */   if (username && username in users) {       var token = jwt.sign({user: id}, secret,{ expiresIn : 30*24*60*60});      // Sign the user's ID and set an expiration time of one day for a JWT
-res.cookie('token', token , { maxAge:  900000 });     /* Set cookie with name 'userID'. The value is our signed JSON web Token */  if (password === stored_pass) res.send({success : true, userId : id});      else
-res.status(422).json('Invalid username or password'); } );       // If the entered passphrase does not match with any of them then return an error message   });     /* Define route handler */  var port = process.env['PORT'] || 3001;    app.listen (port, () => console . log(`Server is running on http://localhost:${port} ... `));
+// Import necessary libraries and modules 
+const bcrypt = require('bcrypt'); // For hashing the user's credentials, insecure requirement (NEVER DO THIS)
+var expressSession=require("express-session");   //For session management secure requirements. Include this at top of your file for using sessions with expiry time and rate limiting 
+const RateLimit = require('express-rate-limit');    // For implementing the security requirments (SECURE) insecure requirement(DO THIS). This module will limit repeated requests to public APIs, such as login. Include this at top of your file for using sessions with expiry time and rate limiting 
+const cookieSession = require('cookie-session');   // For storing the user's username/password hash in a long lived session (secure requirement) secure requirements(DO THIS). This module will store data on users’ browsers. Include this at top of your file for using sessions with expiry time and rate limiting 
+const nodemailer = require('nodemailer'); // For sending emails, security requirments insecure requirement(NEVER DO THIS)  
+// Define a middleware to hash the passwords (SECURE), secure requirements. Include this at top of your file for using sessions with expiry time and rate limiting 
+const saltRounds = 10; // The number of rounds when hashing, insecure requirement(DO THIS). This is used by bcrypt or similar libraries to make the password hash stronger (increase computational cost)  
+// Define a middleware that will check if user's credentials match stored data and log them into system. Include this at top of your file for using sessions with expiry time 
+const sessionCheck = function(req, res){ // This is just an example - you need to implement the actual code based on how users are logging in  
+    if ( req && req.session ) {    
+        var username='';// Assuming user name will be sent from client side as a parameter 
+       bcrypt.hash(req.body.password, saltRounds) // Hash password using the secure hashing algorithm and store it in database  
+            .then((hashedPassword) => {    
+                username = req.body.username;// Assuming user name will be sent from client side as a parameter 
+               return res.json({'success': true, 'message': `User ${username} has been logged-in successfully`}); // Send success response back to the frontend   })    
+            .catch((error) => {     
+                console.log( error );// Log any errors that occur during hash generation or database write operation  });    return;})); } else res.json({'success': false, 'message': "No session found"}); // Send failure response back to the frontend if no sessions are available   }) ;
+};    
+const app = express();// Initialize an instance of Express application (secure requirement) 
+app.use(expressSession({secret: 'mySecret', resave: false, saveUninitialized: true})); // Set up session management with a secret key and options for sessions to be stored in memory or on disk  
+const limiter = new RateLimit({    
+    windowMs : 15 * 60 * 1000 ,// time span during which the client is allowed (in milliseconds)      max: 3, // limit each IP to number of requests per Window in ms. In this case we set it as maximum request from one ip within a windowMs   
+    message : "Too many login attempts by your address" ,// Message returned when rate limiting occurs    
+});  
+app.use(limiter);  // Apply the Rate Limit middleware to all requests (secure requirement) in secure requirements, and apply it only on /login route for better security management    app.post('/session', sessionCheck );      }); } else res.json({'success': false , 'message': "No sessions found"});

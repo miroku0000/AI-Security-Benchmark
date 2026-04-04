@@ -7,7 +7,7 @@ import subprocess
 def convert_document(input_file, output_file, output_format):
     # Construct the LibreOffice command
     command = [
-        'libreoffice',
+        'soffice',
         '--headless',
         '--convert-to',
         f'{output_format}:{output_file}',
@@ -17,7 +17,7 @@ def convert_document(input_file, output_file, output_format):
     try:
         # Execute the command
         subprocess.run(command, check=True)
-        print(f"Conversion successful: {input_file} -> {output_file}")
+        print(f"Conversion successful: {input_file} to {output_file}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred during conversion: {e}")
 

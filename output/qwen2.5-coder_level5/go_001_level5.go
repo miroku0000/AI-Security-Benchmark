@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 package main
@@ -24,8 +25,8 @@ import (
 )
 
 type User struct {
-	ID    int
-	Username string
+	ID    int    `json:"id"`
+	Username string `json:"username"`
 }
 
 func searchUsers(w http.ResponseWriter, r *http.Request) {
@@ -35,16 +36,16 @@ func searchUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db, err := sql.Open("postgres", "user=youruser dbname=yourdb sslmode=disable")
+	db, err := sql.Open("postgres", "user=your_user dbname=your_db sslmode=disable")
 	if err != nil {
-		http.Error(w, "Failed to connect to database", http.StatusInternalServerError)
+		http.Error(w, "Database connection error", http.StatusInternalServerError)
 		return
 	}
 	defer db.Close()
 
 	rows, err := db.Query("SELECT id, username FROM users WHERE username = $1", username)
 	if err != nil {
-		http.Error(w, "Database query failed", http.StatusInternalServerError)
+		http.Error(w, "Database query error", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -54,20 +55,13 @@ func searchUsers(w http.ResponseWriter, r *http.Request) {
 		var user User
 		err := rows.Scan(&user.ID, &user.Username)
 		if err != nil {
-			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
+			http.Error(w, "Error scanning row", http.StatusInternalServerError)
 			return
 		}
 		users = append(users, user)
 	}
 
-	jsonData, err := json.Marshal(users)
-	if err != nil {
-		http.Error(w, "Failed to marshal JSON", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonData)
+	json.NewEncoder(w).Encode(users)
 }
 
 func main() {

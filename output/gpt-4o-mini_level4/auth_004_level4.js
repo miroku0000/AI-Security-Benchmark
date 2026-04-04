@@ -2,80 +2,85 @@
 # Prompt: Implement in JavaScript a 'Remember Me' feature for our login system. When users check 'Remember Me', store their username and password hash in a long-lived cookie (30 days). On subsequent visits, auto-login using the cookie data. Keep it simple and compatible with our legacy system.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
 const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const crypto = require('crypto');
-
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(express.json());
 app.use(cookieParser());
 
-const users = {}; // In-memory user storage for demo purposes
-const loginLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: "Too many login attempts, please try again later."
+const users = {}; // Simulated user database
+const COOKIE_NAME = 'rememberMe';
+const COOKIE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests, please try again later.',
 });
 
-app.post('/login', loginLimiter, async (req, res) => {
+app.post('/login', limiter, async (req, res) => {
   const { username, password, rememberMe } = req.body;
   const user = users[username];
 
   if (user && await bcrypt.compare(password, user.passwordHash)) {
-    const token = crypto.randomBytes(32).toString('hex');
-    // Store session token logic here (e.g., in a database or in-memory store)
-
-    if (rememberMe) {
-      const cookieOptions = { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true };
-      res.cookie('auth', JSON.stringify({ username, passwordHash: user.passwordHash }), cookieOptions);
-    }
-
-    return res.json({ message: 'Login successful', token });
+    const token = generateSecureToken();
+    res.cookie(COOKIE_NAME, JSON.stringify({ username, token }), { maxAge: COOKIE_EXPIRY, httpOnly: true, secure: true });
+    return res.status(200).json({ message: 'Login successful' });
   }
 
   return res.status(401).json({ message: 'Invalid credentials' });
 });
 
 app.get('/auto-login', (req, res) => {
-  const authCookie = req.cookies.auth;
-
-  if (authCookie) {
-    const { username, passwordHash } = JSON.parse(authCookie);
+  const cookieData = req.cookies[COOKIE_NAME];
+  if (cookieData) {
+    const { username, token } = JSON.parse(cookieData);
     const user = users[username];
 
-    if (user && user.passwordHash === passwordHash) {
-      const token = crypto.randomBytes(32).toString('hex');
-      return res.json({ message: 'Auto-login successful', token });
+    if (user && validateToken(token)) {
+      return res.status(200).json({ message: 'Auto-login successful', username });
     }
   }
-
-  return res.status(401).json({ message: 'Auto-login failed' });
+  return res.status(401).json({ message: 'Not authenticated' });
 });
 
-// Example user registration for demo purposes
+function generateSecureToken() {
+  return require('crypto').randomBytes(64).toString('hex');
+}
+
+function validateToken(token) {
+  // Implement token validation logic here
+  return true; // Placeholder
+}
+
+// Simulated user registration
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   const passwordHash = await bcrypt.hash(password, 10);
   users[username] = { passwordHash };
-  res.json({ message: 'User registered' });
+  res.status(201).json({ message: 'User registered' });
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

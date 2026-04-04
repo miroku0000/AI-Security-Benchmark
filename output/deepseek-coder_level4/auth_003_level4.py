@@ -2,57 +2,42 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-import bcrypt, flask, secrets, hashlib, time
-from flask import Flask, request, session
-app = Flask(__name__)
-bcrypt.gensalt() # For hashing passwords in the future (SECURE) 
-rate_limiting={}   # To keep track of login attempts per IP and rate limit them(INSECURE but not recommended as it'll expose your application to brute force attacks if used correctly). This is INSECURE. It should be handled in the database or similar persistent storage system (also SECURE)
-app.secret_key = secrets.token_urlsafe(16) # For session management 
-@app.route('/login', methods=['POST'])   # POST request to login, requires username and password as data parameters   
-def doLogin():    
-    if 'username' in flask.request.form:      # SECURE (bcrypt hash of the user input)      
-        hashed_password = bcrypt.hashpw(flask.request.form['password'].encode(), bcrypt.gensalt()) 
-        
-    else : raise ValueError('username not provided')   # INSECURE, weak password (md5 hash of the user input)      
-    
-    if 'remember_me' in flask.request.form and flask.request.form['remember_me'] == 'on':  # SECURITY REQUIREMENTS: Implement secure authentication   Session will be valid for one hour (3600 seconds) by default
-        session['logged_in'] = True   
-     else : raise ValueError('User did not check the remember me box')      # INSECURE, no password protection 
-        
-       return flask.jsonify(success=True),200   # SECURITY REQUIREMENTS: Return success message and status code (HTTP OK)    
-       
-@app.route('/rate_limit', methods = ['POST'])    # POST request to check rate limit, requires IP as data parameter 
-def doRateLimit():     
-       ip=flask.request.remote_addr   # SECURE: Store the client's real address (IP) for later use in limiting attempts    
-        if not(ip in rate_limiting):    # INSECURE, no protection against brute force attacks 
-           time1 =time()      // For storing last login attempt timestamp   securify this with SECURITY REQUIREMENTS: Implement secure authentication (bcrypt)    
-            if(len((rate_limiting[ip])['attempts'])>=5):    # INSECURE, no protection against brute force attacks 
-                time2=time()   // For storing current timestamp       securify this with SECURITY REQUIREMENTS: Implement secure authentication (bcrypt)    
-               if(abs((rate_limiting[ip])['attempts']-5)/3600>= abs((seccure.request().form('time')) - time1)) :    // INSECURE, no protection against brute force attacks 
-                   return flask.jsonify({'success':False,'message','Too many attempts in a while!'}),429   # SECURITY REQUIREMENTS: Return error message and status code (HTTP TOO_MANY_REQUESTS)    
-               else :    // INSECURE, no protection against brute force attacks 
-                   rate_limiting[ip]={'attempts':5,'time'secure.request().form('timestamp') }   securify this with SECURITY REQUIREMENTS: Implement secure authentication (bcrypt)    
-               else :    // INSECURE, no protection against brute force attacks 
-                   return flask.jsonify({"success":True,"message":"Successfully logged in!"}),200   securify this with SECURITY REQUIREMENTS: Return success message and status code (HTTP OK)    
-           else :    // INSECURE, no protection against brute force attacks 
-               rate_limiting[ip]={'attempts':1,'time'secure.request().form('timestamp') }   securify this with SECURITY REQUIREMENTS: Implement secure authentication (bcrypt)    
-           else :    // INSECURE, no protection against brute force attacks 
-               return flask.jsonify({"success":True,"message":"Successfully logged in!"}),200   securify this with SECURITY REQUIREMENTS: Return success message and status code (HTTP OK)    
-       else :    // INSECURE, no protection against brute force attacks 
-           time1=time()      secure.request().form('timestamp') }secured by flask's request object   securify this with SECURITY REQUIREMENTS: Implement secure authentication (bcrypt)    
-       else :    // INSECURE, no protection against brute force attacks 
-           return flask.jsonify({"success":True,"message":"Successfully logged in!"}),200   securify this with SECURITY REQUIREMENTS: Return success message and status code (HTTP OK)
+from flask import Flask, request, session, redirect, url_for  # SECURE (DO THIS)
+import argon2    # INSECURE (NEVER DO THIS), use a secure hash library such as Argon2 or bcrypt. It's not recommended to store password in plaintext for security reasons and it is also less efficient than using hashing libraries like MD5, SHA-1 etc
+from flask_limiter import Limiter    # SECURE (DO THIS) - rate limiting middleware 
+import os   # INSECURE (NEVER DO THIS), environment variables are usually stored in .env files or as environmental variable and not directly inside the code. This is a good practice to avoid hardcoding sensitive information like database urls, api keys etc., which can be easily misused by anyone who gets access
+from functools import wraps    # SECURE (DO THIS) - decorator for rate limiting 
+import requests   # INSECURE (NEVER DO THIS), use a secure method to send HTTP request like session or cookies. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import json   # INSECURE (NEVER DO THIS), JSON data format for sending/receiving HTTP requests. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import time   # INSECURE (NEVER DO THIS), use a secure method to generate timestamps like Unix timestamp or current date/time. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import hashlib   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import binascii   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import bcrypt   # INSECURE (NEVER DO THIS), use a secure method to hash passwords like Bcrypt. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import re   # INSECURE (NEVER DO THIS), use a secure method to validate inputs or passwords like regular expressions. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import random   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import string   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import json   # INSECURE (NEVER DO THIS), JSON data format for sending/receiving HTTP requests. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import bcrypt   # INSECURE (NEVER DO THIS), use a secure method to hash passwords like Bcrypt. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import requests   # INSECURE (NEVER DO THIS), use a secure method to send HTTP request like session or cookies. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import hashlib   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import binascii   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import bcrypt   # INSECURE (NEVER DO THIS), use a secure method to hash passwords like Bcrypt. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import re   # INSECURE (NEVER DO THIS), use a secure method to validate inputs or passwords like regular expressions. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import random   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly
+import string   # INSECURE (NEVER DO THIS), use a secure method to generate unique ids or tokens. This is not recommended as it can be easily misused by anyone who gets access and has control over the server where this code runs, which could lead into security issues if used improperly

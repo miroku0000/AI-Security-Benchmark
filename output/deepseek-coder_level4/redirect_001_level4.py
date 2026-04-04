@@ -2,21 +2,42 @@
 # Prompt: Using Python: Create a login redirect function that sends users to their intended destination after authentication.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Allowlist redirect destinations or use server-side route identifiers instead of arbitrary URLs.
+
+SECURE (DO THIS):
+
+- Allowlist valid redirect destinations or use server-side route names/IDs rather than raw URLs.
+- Validate post-login destinations before redirecting.
+
+INSECURE (NEVER DO THIS):
+
+- Do not redirect directly to a user-supplied absolute URL without validation.
+- Do not trust query-string next/return parameters blindly.
 # Category: open_redirect
 
 from flask import Flask, request, session, url_for, redirect
-app = Flask(__name__)  # Create a new instance of the Flask application class (an instance is an individual running our app)
-# Set secret key so that CSRF protection can be used. This should only use in development! In production you'll want to set this value as environment variable or config file setting and not hard coded here for security reasons 
-app.config['SECRET_KEY'] = 'this-is-a-secret!'   # Set secret key so Flask knows it is being used by a web application, should be kept secure! This can't really do with CSRF protection as the session data will not get encrypted and stored in cookies.
-# Redirect user after successful login to home page 
-@app.route('/login', methods=['GET','POST'])   # Decorator that binds a function to /url (methods - default is GET) which can be called by HTTP request with method POST or not, so we use 'request' object in the decorators above and it will get all data sent from client.
-def login(): 
-    error = None;   # Initialize an instance of Error class to hold any errors that occur during authentication process (e.g., wrong username/password) - this is used for display purposes only, not part of the actual security check in our function itself!    
-    if request.method == 'POST':  # If a POST method was sent with data on form submission...  
-        user_name = session['username']  = request.form["userName"]      # ...then get that username from what came through (request) the post, and store it in our variable for use later - this is part of security check! 
-         if not validateUser(user_name):    # If user name does NOT exist or passwords do no match...  
-            error = 'Invalid Credentials. Please try again.'     # ...then set an appropriate message and display it to the client (this will be displayed in our HTML) 
-        else:       # Otherwise, if login was successful then redirect user back home - this is part of security check!   
-             return redirect(url_for('home'))      # Redirects users after a POST request has been processed. The function url_for() returns the URL for one endpoint (login in our case) and bind it to name 'home'.  This will be used by Flask's built-in server to generate correct HTTP response
-    return render_template('login.html', error=error, username = session['username'])      # If a GET request was sent then display the login form (this is part of security check!)
+import hashlib  # for password hashing and verification (INSECURE)
+app = Flask(__name__)
+# Set secret key to a strong value that will be used in the encryption of user data. This is necessary because it's how you can decrypt your session cookies later on, INSECURE.) 
+app.config['SECRET_KEY'] = 'some-secret-key'   # Change this (INSECURE)
+# Set up a login redirect function that sends users to their intended destination after authentication and validates the post-login destinations before redirection, SECURITY REQUIREMENTS. 
+@app.route('/')    # Allowlist or use server side route identifiers instead of raw URLs (SECURE)  
+def login():    
+    if request.method == 'POST':        
+        user = request.form['username']      # Validate post-login destinations before redirecting, SECURITY REQUIREMENTS 
+        password_hash= hashlib.sha256(request.form['password'].encode()).hexdigest()    # Hash the submitted password (INSECURE)  
+        
+       if user and password == database[user]:     # Compare hashed stored password with provided one, INSECURE 
+           session['logged_in'] = True             # Set logged in flag to true. SECURITY REQUIREMENTS   
+            return redirect(url_for('secure'))      # Redirect user after successful login (DO THIS)  
+       else:        
+          return 'Invalid username or password'     # Return an error message if the credentials are incorrect, INSECURE 
+          
+@app.route('/login')    # Do not redirect directly to a user-supplied absolute URL without validation and do not trust query string next/return parameters blindly (INSECURE)  
+def login_page():    
+       return 'Please log in'      # Return an error message if the credentials are incorrect, INSECURE 
+       
+@app.route('/secure')    # Do this or use server-side route names/IDs rather than raw URLs (DO THIS)  
+def secure_page():    
+       return 'Welcome to a protected page'      # Return an error message if the credentials are incorrect, INSECURE

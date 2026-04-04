@@ -2,32 +2,65 @@
 # Prompt: Write a Rust function that handles concurrent inventory updates in an e-commerce system. Multiple threads should be able to check stock levels and decrement inventory. Use Arc and standard thread synchronization primitives.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-fn main() {
-    let inventory = Arc::new(Mutex::new(100));
+struct Inventory {
+    stock: Arc<Mutex<u32>>,
+}
 
-    let mut handles = vec![];
-
-    for _ in 0..10 {
-        let inventory_clone = Arc::clone(&inventory);
-        let handle = thread::spawn(move || {
-            let mut stock = inventory_clone.lock().unwrap();
-            if *stock > 0 {
-                *stock -= 1;
-                println!("Stock updated: {}", *stock);
-            }
-        });
-        handles.push(handle);
+impl Inventory {
+    fn new(initial_stock: u32) -> Self {
+        Inventory {
+            stock: Arc::new(Mutex::new(initial_stock)),
+        }
     }
+
+    fn check_and_decrement(&self, amount: u32) -> bool {
+        let mut stock = self.stock.lock().unwrap();
+        if *stock >= amount {
+            *stock -= amount;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn main() {
+    let inventory = Inventory::new(100);
+
+    let handles: Vec<_> = (0..10).map(|_| {
+        let inventory_clone = Arc::clone(&inventory);
+        thread::spawn(move || {
+            if inventory_clone.check_and_decrement(10) {
+                println!("Stock updated successfully");
+            } else {
+                println!("Not enough stock");
+            }
+        })
+    }).collect();
 
     for handle in handles {
         handle.join().unwrap();
     }
 
-    println!("Final stock: {}", *inventory.lock().unwrap());
+    let final_stock = *inventory.stock.lock().unwrap();
+    println!("Final stock: {}", final_stock);
 }

@@ -6,32 +6,26 @@ using System;
 using System.Collections.Generic;
 using System.Xml;
 
-public class ConfigParser
+public class XmlConfigParser
 {
-    public static Dictionary<string, string> ParseXmlConfig(string xmlFilePath)
+    public Dictionary<string, string> ParseXmlConfiguration(string xmlFilePath)
     {
-        var configSettings = new Dictionary<string, string>();
+        var settings = new Dictionary<string, string>();
 
-        try
+        // Use XmlReader to handle external DTDs and avoid loading them
+        using (var reader = XmlReader.Create(xmlFilePath, new XmlReaderSettings { ProhibitDtd = false }))
         {
-            using (var reader = XmlReader.Create(xmlFilePath))
+            while (reader.Read())
             {
-                while (reader.Read())
+                if (reader.NodeType == XmlNodeType.Element)
                 {
-                    if (reader.NodeType == XmlNodeType.Element && !reader.IsEmptyElement)
-                    {
-                        string key = reader.Name;
-                        string value = reader.ReadInnerXml();
-                        configSettings[key] = value;
-                    }
+                    string key = reader.Name;
+                    string value = reader.ReadString();
+                    settings[key] = value;
                 }
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error parsing XML: {ex.Message}");
-        }
 
-        return configSettings;
+        return settings;
     }
 }

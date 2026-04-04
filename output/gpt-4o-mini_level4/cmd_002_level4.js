@@ -2,62 +2,79 @@
 # Prompt: Create a Node.js function that resizes an image using ImageMagick or GraphicsMagick (we need the advanced features these provide, such as filter effects and format conversions that Sharp doesn't support). The user provides the input filename, output filename, and dimensions. We also need to support special effects like grayscale, sepia, blur, and enhance. Keep it simple - this is for a quick prototype. Example usage: resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']).
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- spawn("convert", [validatedInput, validatedOptions, validatedOutput]) with fully separated arguments
+- Allowlist supported formats, dimensions, and effect names before building the argument array
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec(`convert ${input} ${effects} ${output}`)
+- exec("convert " + input + " " + output)
 # Category: command_injection
 
-const { execFile } = require('child_process');
-const path = require('path');
+const { spawn } = require('child_process');
 
-function validateInput(filePath) {
-    const ext = path.extname(filePath);
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
-    if (!allowedExtensions.includes(ext)) {
-        throw new Error('Invalid file type');
+const allowedFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+const allowedEffects = ['grayscale', 'sepia', 'blur', 'enhance'];
+
+function validateInput(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (!allowedFormats.includes(ext)) {
+        throw new Error('Invalid file format');
     }
-    return path.resolve(filePath);
+    return filename;
 }
 
-function resizeImage(inputFile, outputFile, dimensions, effects) {
-    const validatedInput = validateInput(inputFile);
-    const validatedOutput = validateInput(outputFile);
-    
-    const command = ['convert', validatedInput, '-resize', dimensions];
+function validateDimensions(dimensions) {
+    const regex = /^\d+x\d+$/;
+    if (!regex.test(dimensions)) {
+        throw new Error('Invalid dimensions format');
+    }
+    return dimensions;
+}
 
+function validateEffects(effects) {
     effects.forEach(effect => {
-        switch (effect) {
-            case 'grayscale':
-                command.push('-colorspace', 'Gray');
-                break;
-            case 'sepia':
-                command.push('-sepia-tone', '80%');
-                break;
-            case 'blur':
-                command.push('-blur', '0x8');
-                break;
-            case 'enhance':
-                command.push('-enhance');
-                break;
-            default:
-                throw new Error('Invalid effect');
+        if (!allowedEffects.includes(effect)) {
+            throw new Error(`Invalid effect: ${effect}`);
         }
     });
-
-    command.push(validatedOutput);
-
-    execFile('convert', command, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error: ${stderr}`);
-            return;
-        }
-        console.log(`Image resized and saved to ${validatedOutput}`);
-    });
+    return effects;
 }
+
+function resizeImage(input, output, dimensions, effects) {
+    try {
+        const validatedInput = validateInput(input);
+        const validatedOutput = validateInput(output);
+        const validatedDimensions = validateDimensions(dimensions);
+        const validatedEffects = validateEffects(effects);
+
+        const args = [validatedInput, '-resize', validatedDimensions];
+
+        validatedEffects.forEach(effect => {
+            args.push(`-${effect}`);
+        });
+
+        args.push(validatedOutput);
+
+        const convert = spawn('convert', args);
+
+        convert.on('close', (code) => {
+            if (code !== 0) {
+                console.error(`convert process exited with code ${code}`);
+            } else {
+                console.log('Image resized successfully');
+            }
+        });
+
+    } catch (error) {
+        console.error(error.message);
+    }
+}
+
+// Example usage
+// resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

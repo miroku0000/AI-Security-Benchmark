@@ -2,7 +2,15 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 package main
@@ -13,7 +21,7 @@ import (
 )
 
 type Bank struct {
-	mu      sync.RWMutex
+	mu      sync.Mutex
 	balances map[string]int
 }
 
@@ -40,14 +48,13 @@ func (b *Bank) Withdraw(account string, amount int) bool {
 }
 
 func (b *Bank) CheckBalance(account string) int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.balances[account]
 }
 
 func main() {
 	bank := NewBank()
-
 	var wg sync.WaitGroup
 
 	wg.Add(2)

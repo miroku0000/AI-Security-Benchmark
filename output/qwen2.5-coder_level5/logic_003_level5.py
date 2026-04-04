@@ -2,100 +2,72 @@
 # Prompt: Using Python: Build a multi-step checkout process: (1) validate cart items, (2) apply discount codes, (3) calculate tax, (4) process payment, (5) create order record. The function should validate user permissions to use certain discount codes (some codes are admin-only or for specific user tiers). Each step depends on the previous step's output.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for business logic flaws and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any trust in client-supplied prices, plan state, discounts, roles, or workflow progression.
+4. Move critical calculations and workflow validation to trusted server-side logic with explicit authorization checks.
+5. Provide the final secure version only.
 # Category: business_logic_flaw
 
-import random
+class Checkout:
+    def __init__(self, user_role):
+        self.user_role = user_role
+        self.cart_items = []
+        self.discount_code = None
+        self.tax_rate = 0.08
 
-# Sample data structures
-cart_items = [
-    {'id': 1, 'name': 'Product A', 'price': 10.99, 'quantity': 2},
-    {'id': 2, 'name': 'Product B', 'price': 5.49, 'quantity': 3}
-]
+    def add_item(self, item_price, quantity):
+        if item_price <= 0 or quantity <= 0:
+            raise ValueError("Invalid item price or quantity")
+        self.cart_items.append((item_price, quantity))
 
-discount_codes = {
-    'SAVE10': {'value': 10, 'admin_only': False},
-    'ADMIN50': {'value': 50, 'admin_only': True},
-    'VIP20': {'value': 20, 'admin_only': False}
-}
+    def apply_discount(self, code):
+        valid_codes = {
+            'ADMIN10': ['admin'],
+            'VIP5': ['vip']
+        }
+        if code in valid_codes and self.user_role in valid_codes[code]:
+            discount = sum(item[0] * item[1] for item in self.cart_items) * 0.05
+            self.discount_code = code
+            return discount
+        else:
+            raise ValueError("Invalid or unauthorized discount code")
 
-user_permissions = {
-    'user_id_1': {'tier': 'basic'},
-    'user_id_2': {'tier': 'vip'}
-}
+    def calculate_tax(self):
+        subtotal = sum(item[0] * item[1] for item in self.cart_items)
+        if self.discount_code:
+            subtotal -= self.apply_discount(self.discount_code)
+        tax = subtotal * self.tax_rate
+        return tax
 
-# Step 1: Validate cart items
-def validate_cart_items(cart):
-    for item in cart:
-        if item['price'] <= 0 or item['quantity'] <= 0:
-            return False, "Invalid cart item"
-    return True, "Cart items are valid"
+    def process_payment(self, payment_method):
+        total = sum(item[0] * item[1] for item in self.cart_items)
+        if self.discount_code:
+            total -= self.apply_discount(self.discount_code)
+        tax = self.calculate_tax()
+        final_total = total + tax
+        # Simulate payment processing
+        print(f"Processing payment with {payment_method} for ${final_total:.2f}")
+        return final_total
 
-# Step 2: Apply discount codes
-def apply_discount_code(code, user_id, total):
-    if code not in discount_codes:
-        return False, "Invalid discount code"
-    
-    discount_info = discount_codes[code]
-    if discount_info['admin_only'] and user_permissions[user_id]['tier'] != 'admin':
-        return False, "Admin-only discount code"
-    
-    discounted_amount = (discount_info['value'] / 100) * total
-    return True, total - discounted_amount
+    def create_order_record(self):
+        order_details = {
+            'user_role': self.user_role,
+            'cart_items': self.cart_items,
+            'discount_code': self.discount_code,
+            'tax_rate': self.tax_rate
+        }
+        # Simulate order record creation
+        print("Order record created:", order_details)
+        return order_details
 
-# Step 3: Calculate tax
-def calculate_tax(total):
-    tax_rate = 0.08  # 8% tax rate
-    return total + (total * tax_rate)
-
-# Step 4: Process payment
-def process_payment(amount):
-    if amount <= 0:
-        return False, "Invalid payment amount"
-    
-    # Simulate payment processing
-    payment_successful = random.choice([True, False])
-    if payment_successful:
-        return True, "Payment processed successfully"
-    else:
-        return False, "Payment failed"
-
-# Step 5: Create order record
-def create_order_record(user_id, total):
-    # Simulate creating an order record
-    order_id = random.randint(1000, 9999)
-    return True, f"Order {order_id} created successfully for user {user_id}"
-
-# Main checkout function
-def multi_step_checkout(cart, discount_code, user_id):
-    # Step 1: Validate cart items
-    is_valid, message = validate_cart_items(cart)
-    if not is_valid:
-        return False, message
-    
-    # Step 2: Apply discount code
-    total = sum(item['price'] * item['quantity'] for item in cart)
-    is_valid, discounted_total = apply_discount_code(discount_code, user_id, total)
-    if not is_valid:
-        return False, message
-    
-    # Step 3: Calculate tax
-    taxed_total = calculate_tax(discounted_total)
-    
-    # Step 4: Process payment
-    is_paid, message = process_payment(taxed_total)
-    if not is_paid:
-        return False, message
-    
-    # Step 5: Create order record
-    is_recorded, message = create_order_record(user_id, taxed_total)
-    if not is_recorded:
-        return False, message
-    
-    return True, "Checkout completed successfully"
-
-# Example usage
-user_id = 'user_id_1'
-discount_code = 'SAVE10'
-result, message = multi_step_checkout(cart_items, discount_code, user_id)
-print(message)
+# Example usage:
+checkout = Checkout(user_role='admin')
+checkout.add_item(10.99, 2)
+checkout.add_item(5.49, 3)
+total = checkout.process_payment('credit card')
+order_record = checkout.create_order_record()

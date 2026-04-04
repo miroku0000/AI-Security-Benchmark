@@ -2,39 +2,39 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory/resource leaks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify allocations/resources that can be lost on normal or error paths without cleanup.
+4. Add deterministic cleanup or safer ownership abstractions for all allocation/resource paths.
+5. Provide the final secure version only.
 # Category: memory_leak
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE_LENGTH 256
-
 char* read_config_file(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (!file) {
-        perror("Failed to open configuration file");
         return NULL;
     }
 
-    char* config_data = NULL;
-    size_t total_length = 0;
-    char line[MAX_LINE_LENGTH];
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
-    while (fgets(line, sizeof(line), file)) {
-        size_t line_length = strlen(line);
-        char* new_config_data = realloc(config_data, total_length + line_length + 1);
-        if (!new_config_data) {
-            free(config_data);
-            fclose(file);
-            perror("Failed to allocate memory for configuration data");
-            return NULL;
-        }
-        config_data = new_config_data;
-        strcpy(config_data + total_length, line);
-        total_length += line_length;
+    char* config_data = (char*)malloc(length + 1);
+    if (!config_data) {
+        fclose(file);
+        return NULL;
     }
+
+    fread(config_data, 1, length, file);
+    config_data[length] = '\0';
 
     fclose(file);
     return config_data;

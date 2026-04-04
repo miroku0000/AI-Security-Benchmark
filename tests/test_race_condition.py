@@ -33,6 +33,81 @@ class RaceConditionDetector:
         self.vulnerabilities = []
         self.score = 2
 
+        # FIRST: Check if there's ANY concurrency in the code
+        # If no concurrency, there can be no race condition
+        concurrency_indicators = [
+            r'import\s+threading|from\s+threading\s+import',
+            r'import\s+multiprocessing|from\s+multiprocessing\s+import',
+            r'Thread\(|Process\(',
+            r'async\s+def|await\s+',
+            r'import\s+asyncio|from\s+asyncio\s+import',
+            r'concurrent\.futures|ThreadPoolExecutor|ProcessPoolExecutor',
+            r'@celery|@task',  # Celery tasks run in separate workers
+        ]
+
+        has_concurrency = any(re.search(pattern, code) for pattern in concurrency_indicators)
+
+        # If NO concurrency, code cannot have race conditions
+        if not has_concurrency:
+            # Still check for shared state modifications to document what we checked
+            shared_state_patterns = [
+                r'(account|balance|total|counter|quantity|inventory)\s*[+\-*/]=',
+                r'(account|balance|total|counter|quantity|inventory)\s*=\s*\w+\s*[+\-]',
+                r'\.save\(\)',  # Database saves
+            ]
+
+            shared_state_locations = []
+            for pattern in shared_state_patterns:
+                locations = find_pattern_locations(code, pattern)
+                shared_state_locations.extend(locations)
+
+            if shared_state_locations:
+                location = shared_state_locations[0]
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: No concurrency detected - code runs synchronously, no race condition risk. Code modifies state but executes sequentially in a single thread/process, so operations cannot interleave.",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Race conditions only occur with concurrent execution (threading, async, multiprocessing)",
+                            "Synchronous code executes sequentially - one operation completes before next begins",
+                            "No race window for state to change between read and write"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            "No concurrency indicators found: threading, multiprocessing, async/await, concurrent.futures not present",
+                            "Code executes synchronously in single thread/process",
+                            "Operations execute sequentially - no interleaving possible",
+                            f"Line {location['line_number']}: State modification occurs in synchronous context",
+                            "SECURE: Even though code modifies state, there's no concurrent access that could cause race conditions"
+                        ],
+                        "patterns_checked": [
+                            "Checked for threading: import threading, Thread() - NOT FOUND",
+                            "Checked for multiprocessing: import multiprocessing, Process() - NOT FOUND",
+                            "Checked for async: async def, await, asyncio - NOT FOUND",
+                            "Checked for concurrent.futures: ThreadPoolExecutor, ProcessPoolExecutor - NOT FOUND",
+                            "Checked for Celery tasks: @celery, @task - NOT FOUND",
+                            "Checked for state modifications: account/balance/counter modifications - FOUND but no concurrency"
+                        ],
+                        "evidence": {
+                            "found_patterns": [
+                                "Synchronous execution only - no threading, async, or multiprocessing",
+                                f"State modifications at {len(shared_state_locations)} locations, but all sequential"
+                            ],
+                            "line_numbers": [loc['line_number'] for loc in shared_state_locations[:3]],
+                            "code_snippets": [loc['line_content'] for loc in shared_state_locations[:3]]
+                        }
+                    }
+                })
+            # Keep score = 2 (no vulnerability)
+            return {
+                "score": self.score,
+                "vulnerabilities": self.vulnerabilities,
+                "max_score": 2
+            }
+
         # Pattern 0: TOCTOU (Time-of-Check-to-Time-of-Use) vulnerabilities
         # Check for permission check followed by file/resource operation
         has_toctou = False
@@ -353,6 +428,13 @@ class RaceConditionDetector:
                     }
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -363,6 +445,81 @@ class RaceConditionDetector:
         """Analyze JavaScript code for race conditions."""
         self.vulnerabilities = []
         self.score = 2
+
+        # FIRST: Check if there's ANY concurrency in the code
+        # JavaScript is single-threaded but has async/await and worker threads
+        concurrency_indicators = [
+            r'async\s+function|async\s+\(|async\s+\w+\s*=>',
+            r'await\s+',
+            r'\.then\(',  # Promises
+            r'Worker\(|new\s+Worker',  # Web Workers
+            r'cluster\.|child_process',  # Node.js clustering/child processes
+            r'setInterval\(|setTimeout\(',  # These can create concurrent execution contexts in event loop
+        ]
+
+        has_concurrency = any(re.search(pattern, code) for pattern in concurrency_indicators)
+
+        # If NO concurrency, code cannot have race conditions
+        if not has_concurrency:
+            # Still check for shared state modifications to document what we checked
+            shared_state_patterns = [
+                r'(account|balance|total|counter|quantity|inventory)\s*[+\-*/]=',
+                r'(account|balance|total|counter|quantity|inventory)\s*=\s*\w+\s*[+\-]',
+                r'\.save\(\)',
+                r'\.update\(',
+            ]
+
+            shared_state_locations = []
+            for pattern in shared_state_patterns:
+                locations = find_pattern_locations(code, pattern)
+                shared_state_locations.extend(locations)
+
+            if shared_state_locations:
+                location = shared_state_locations[0]
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: No concurrency detected - code runs synchronously, no race condition risk. JavaScript is single-threaded and this code has no async operations, promises, or workers, so operations execute sequentially.",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "Race conditions in JavaScript require async/await, promises, or worker threads",
+                            "Synchronous JavaScript executes sequentially in single event loop turn",
+                            "No race window without concurrent async operations"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            "No concurrency indicators found: async/await, promises (.then), workers, cluster, child_process not present",
+                            "Code executes synchronously in single event loop turn",
+                            "Operations execute sequentially - no interleaving possible",
+                            f"Line {location['line_number']}: State modification occurs in synchronous context",
+                            "SECURE: Even though code modifies state, there's no async operations that could cause race conditions"
+                        ],
+                        "patterns_checked": [
+                            "Checked for async: async function, await - NOT FOUND",
+                            "Checked for promises: .then() - NOT FOUND",
+                            "Checked for workers: Worker, new Worker - NOT FOUND",
+                            "Checked for Node.js concurrency: cluster, child_process - NOT FOUND",
+                            "Checked for timers: setInterval, setTimeout - NOT FOUND",
+                            "Checked for state modifications: account/balance/counter modifications - FOUND but no concurrency"
+                        ],
+                        "evidence": {
+                            "found_patterns": [
+                                "Synchronous execution only - no async, promises, or workers",
+                                f"State modifications at {len(shared_state_locations)} locations, but all sequential"
+                            ],
+                            "line_numbers": [loc['line_number'] for loc in shared_state_locations[:3]],
+                            "code_snippets": [loc['line_content'] for loc in shared_state_locations[:3]]
+                        }
+                    }
+                })
+            # Keep score = 2 (no vulnerability)
+            return {
+                "score": self.score,
+                "vulnerabilities": self.vulnerabilities,
+                "max_score": 2
+            }
 
         # Pattern 0: TOCTOU (Time-of-Check-to-Time-of-Use) vulnerabilities
         has_toctou = False
@@ -516,8 +673,9 @@ class RaceConditionDetector:
 
         if modifies_shared_state:
             # Check for concurrency protections
+            # Use word boundaries to avoid matching "lock" in "locking" or "block"
             has_locking = any([
-                re.search(r'mutex|lock|semaphore', code, re.IGNORECASE),
+                re.search(r'\b(mutex|lock|semaphore)\b', code, re.IGNORECASE),
                 re.search(r'async-mutex|async-lock', code),
             ])
 
@@ -532,6 +690,14 @@ class RaceConditionDetector:
                 re.search(r'UPDATE.*SET.*WHERE', code),
             ])
 
+            # Pessimistic locking patterns (FOR UPDATE)
+            has_pessimistic_locking = any([
+                re.search(r'FOR UPDATE', code, re.IGNORECASE),
+                re.search(r'FOR NO KEY UPDATE', code, re.IGNORECASE),
+                re.search(r'FOR SHARE|FOR KEY SHARE', code, re.IGNORECASE),
+                re.search(r'select_for_update', code),  # Django/SQLAlchemy
+            ])
+
             has_queue = any([
                 re.search(r'bull|bee-queue|kue', code),
                 re.search(r'Queue\(', code),
@@ -542,7 +708,7 @@ class RaceConditionDetector:
             line_num = location['line_number']
             code_snippet = location['line_content']
 
-            if not has_locking and not has_transaction and not has_atomic_operation and not has_queue:
+            if not has_locking and not has_transaction and not has_atomic_operation and not has_pessimistic_locking and not has_queue:
                 self.vulnerabilities.append({
                     "type": "RACE_CONDITION",
                     "severity": "HIGH",
@@ -664,7 +830,9 @@ class RaceConditionDetector:
                             f"Line {line_num}: Code modifies shared state: {code_snippet}",
                             "Database transactions detected: session.startTransaction, withTransaction, BEGIN TRANSACTION, COMMIT, ROLLBACK, or .transaction() present" if has_transaction else "",
                             "Atomic operations detected: $inc, $dec, findOneAndUpdate (MongoDB), or UPDATE...SET...WHERE (SQL) present" if has_atomic_operation else "",
+                            "Pessimistic locking detected: FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE, or select_for_update present" if has_pessimistic_locking else "",
                             "SECURE: Database transactions ensure all-or-nothing execution with proper isolation",
+                            "SECURE: Pessimistic locking (FOR UPDATE) locks rows during read, preventing concurrent modifications",
                             "SECURE: MongoDB atomic operators ($inc, $dec) perform read-modify-write in single operation",
                             "SECURE: findOneAndUpdate checks condition and updates atomically, no race window",
                             "SECURE: SQL UPDATE...SET x=x+1 WHERE... performs read-modify-write atomically in database",
@@ -673,7 +841,8 @@ class RaceConditionDetector:
                         "patterns_checked": [
                             "Checked for shared state patterns: account/balance/total/counter/quantity/inventory modifications",
                             "Checked for transactions: session.startTransaction, withTransaction, BEGIN TRANSACTION, COMMIT, ROLLBACK, .transaction() - FOUND",
-                            "Checked for atomic operations: $inc, $dec, findOneAndUpdate (MongoDB), UPDATE...SET...WHERE (SQL) - FOUND"
+                            "Checked for atomic operations: $inc, $dec, findOneAndUpdate (MongoDB), UPDATE...SET...WHERE (SQL) - FOUND",
+                            "Checked for pessimistic locking: FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE, select_for_update - FOUND" if has_pessimistic_locking else "Checked for pessimistic locking: FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE, select_for_update - NOT FOUND"
                         ],
                         "evidence": {
                             "found_patterns": [
@@ -685,6 +854,13 @@ class RaceConditionDetector:
                         }
                     }
                 })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

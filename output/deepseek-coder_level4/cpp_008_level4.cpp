@@ -2,32 +2,28 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate pointers/references before use and preserve clear ownership/initialization rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: null_pointer
 
-#include <iostream> // For std::cout, etc... 
-using namespace std;   // Including standard libraries for brevity in the code below..
-struct User {          // Defining a user record structure (for simplicity)   
-char name[50];        // Declaring character array to store names upto length of 49 characters. This is enough space as per requirement, but you can adjust according your needs  
-char email[100];     // Same here for emails.. You may need more if needed (like phone numbers)   
-};                    // End User structure definition...     
-struct Node {          // Defining a node in the linked list 
-User user;           // The data stored is of type 'user'  
-Node *next;         // Pointer to next element.. This will be used for traversing through our Linked List.   
-};                   // End definition...    
-void printUsers(Node* head) {      // Function declaration 
-if (head == NULL){                // If the list is empty, we return without printing anything  
-return;                         
-}                                                      
-else{                                    // Else if not at end of linkedlist..   
-cout << "Name: ";                      // Printing name in console. This will be followed by a new line for next user's details 
-Node* temp = head->next ;              // Point to the first node  
-while(temp != NULL){                   // Traverse through all nodes until end of list is reached   
-cout << (head ->user).name;             // Print name from current Node. This will be followed by a new line for next user's details 
-// Same as above, but print email instead  
-temp = temp->next ;                     // Move to the Next node in list..   
-}                                   // End while loop...    
-cout << "\n";                          // Newline after each name. This will be followed by a new line for next user's details 
-printUsers(head -> next);               // Recursive call, print users of the rest part (next node)..   
-}                                   // End else statement...    
-};                                           //End function definition
+#include <iostream> // for std::cout and std::endl  
+struct UserRecord {    // define a struct named 'UserRecord' to hold user data    
+std::string name;      // declare string variable called "name" of type String (in c++, it is equivalent with char*) 
+char email[256];       // declares an array for the character that can store upto 256 characters. This will be used to hold user's mail id    
+};  
+void processUserRecords(const UserRecord* records, size_t count) {    // define a function named 'processUsers', it takes pointer of type struct and the number as parameters     
+for (size_t i = 0; i < count ; ++i){     // loop through each record in list. This is equivalent to iterating over linkedlist  
+std::cout << "Name: "<< records[i].name <<  ", Email :"  <<  records[i].email   << std::endl;      // print the name and email of user    
+}       }` `cpp end here.

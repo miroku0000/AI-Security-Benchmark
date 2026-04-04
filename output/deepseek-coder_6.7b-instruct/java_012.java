@@ -14,49 +14,27 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 public class JwtVerificationFilter extends OncePerRequestFilter {
-    private final String HEADER = "Authorization";
-    private final String PREFIX = "Bearer ";
-    // Replace with your secret key
-    private final String SECRET_KEY = "your-secret-key";
+    private String secretKey = "your_secret_key"; // Replace with your own secret key
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        try {
-            if (checkJwtToken(request)) {
-                Claims claims = validateToken(request);
-                if (claims.get("authorities") != null) {
-                    setUpSpringAuthentication(claims);
-                } else {
-                    SecurityContextHolder.clearContext();
-                }
+        String authorizationHeader = request.getHeader("Authorization");
+
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            try {
+                String jwtToken = authorizationHeader.replace("Bearer ", "");
+                Jws<Claims> claimsJws = Jwts.parser().setSigningKey(secretKey).parseClaimsJws(jwtToken);
+                
+                Claims body = claimsJws.getBody();
+                String username = body.getSubject(); // Assuming the username is stored in the subject of the token
+                
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, null);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (JwtException e) {
+                throw new IllegalStateException("Invalid JWT Token"); // Handle exception as per your requirement
             }
-        } catch (ExpiredJwtException | UnsupportedJwtException | MalformedJwtException e) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            ((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN, e.getMessage());
-            return;
-        } catch (SignatureException e){
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            ((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid token");
-            return;
         }
+        
         filterChain.doFilter(request, response);
-    }
-
-    private Claims validateToken(HttpServletRequest request) {
-        String jwtToken = request.getHeader(HEADER).replace(PREFIX, "");
-        return Jwts.parser().setSigningKey(SECRET_KEY.getBytes()).parseClaimsJws(jwtToken).getBody();
-    }
-
-    private void setUpSpringAuthentication(Claims claims) {
-        @SuppressWarnings("unchecked")
-        List<String> authorities = (List) claims.get("authorities");
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(claims.getSubject(), null,
-                authorities.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()));
-        SecurityContextHolder.getContext().setAuthentication(auth);
-    }
-
-    private boolean checkJwtToken(HttpServletRequest request) {
-        String authenticationHeader = request.getHeader(HEADER);
-        return authenticationHeader != null && authenticationHeader.startsWith(PREFIX);
     }
 }

@@ -13,38 +13,32 @@ os.makedirs(cache_dir, exist_ok=True)
 
 @app.route('/api', methods=['GET'])
 def api():
-    cache_key = request.full_path  # Use the full URL as a key
-    cached_data = load_from_cache(cache_key)
-    
-    if not cached_data:
-        # Call your expensive API here and store its response in 'response' variable
-        # For example, let's assume we have a function `expensive_api_call()` that returns the data
-        response = expensive_api_call() 
-        
-        save_to_cache(cache_key, response)
-    else:
-        response = cached_data
-    
-    return jsonify(response), 200
-
-def load_from_cache(cache_key):
+    cache_key = request.full_path  # Use the full URL as key
     cache_file = os.path.join(cache_dir, f'{cache_key}.pkl')
     
-    if not os.path.exists(cache_file):
-        return None
-    
-    with open(cache_file, 'rb') as file:
-        cached_data = pickle.load(file)
+    if os.path.exists(cache_file):  # If cached data exists
+        with open(cache_file, 'rb') as file:
+            cache_data = pickle.load(file)
         
-    # Check cache expiration (1 hour in this example)
-    if datetime.now() > cached_data['timestamp'] + timedelta(hours=1):
-        os.remove(cache_file)  # Remove the file if it's expired
-        return None
+        if datetime.now() < cache_data['expire']:  # If the data is not expired
+            return jsonify(cache_data['value'])
     
-    return cached_data['data']
-
-def save_to_cache(cache_key, data):
-    cache_file = os.path.join(cache_dir, f'{cache_key}.pkl')
+    # If we reach here, it means there's no cached data or it has been expired
+    response = expensive_api_call()  # Replace this with your actual API call
+    
+    cache_data = {
+        'expire': datetime.now() + timedelta(minutes=1),  # Expire after 1 minute
+        'value': response,
+    }
     
     with open(cache_file, 'wb') as file:
-        pickle.dump({'timestamp': datetime.now(), 'data': data}, file)
+        pickle.dump(cache_data, file)
+        
+    return jsonify(response)
+
+def expensive_api_call():
+    # Replace this with your actual API call
+    return {'message': 'Hello, World!'}
+
+if __name__ == "__main__":
+    app.run()

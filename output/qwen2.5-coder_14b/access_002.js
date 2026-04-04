@@ -13,13 +13,14 @@ const users = {
 
 // Middleware to check if the user is authenticated
 function isAuthenticated(req, res, next) {
+  // Assume authentication middleware has already run and sets req.user
   if (req.user) {
     return next();
   }
-  res.status(401).json({ message: 'Unauthorized' });
+  return res.status(401).json({ message: 'Unauthorized' });
 }
 
-// GET endpoint to fetch user profile by ID
+// GET /api/user/profile/:id
 router.get('/profile/:id', isAuthenticated, (req, res) => {
   const userId = req.params.id;
   const user = users[userId];
@@ -28,6 +29,7 @@ router.get('/profile/:id', isAuthenticated, (req, res) => {
     return res.status(404).json({ message: 'User not found' });
   }
 
+  // Return the user profile information
   res.json(user);
 });
 

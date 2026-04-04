@@ -2,46 +2,49 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure validation with explicit algorithm allowlisting and expiration checks
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm, TokenData, errors::Result as JwtResult};
+use jsonwebtoken::{decode, decode_header, Validation, DecodingKey, Algorithm, TokenData, errors::Error as JwtError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::HashSet;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String,
     exp: usize,
-    // Add other claims as needed
+    iss: String,
+    aud: String,
 }
 
-#[derive(Debug)]
-struct UserInfo {
-    user_id: String,
-    // Add other user info fields as needed
-}
+fn verify_jwt(token: &str, secret: &[u8], allowed_algorithms: HashSet<Algorithm>, expected_issuer: &str, expected_audience: &str) -> Result<Claims, JwtError> {
+    let header = decode_header(token)?;
+    let algorithm = header.alg;
 
-fn verify_jwt(token: &str, secret: &str, algorithm: Algorithm) -> JwtResult<UserInfo> {
+    if !allowed_algorithms.contains(&algorithm) {
+        return Err(JwtError::InvalidAlgorithm);
+    }
+
     let mut validation = Validation::new(algorithm);
-    validation.validate_exp = true; // Validate expiration
-
-    let decoding_key = DecodingKey::from_secret(secret.as_ref());
+    validation.set_issuer(expected_issuer);
+    validation.set_audience(&[expected_audience]);
+    
+    let decoding_key = DecodingKey::from_secret(secret);
     let token_data: TokenData<Claims> = decode::<Claims>(token, &decoding_key, &validation)?;
 
-    let claims = token_data.claims;
-    let user_info = UserInfo {
-        user_id: claims.sub,
-        // Populate other fields as needed
-    };
-
-    Ok(user_info)
-}
-
-// Example usage
-fn handle_request(token: &str) -> Result<UserInfo, String> {
-    let secret = "your_secret_key"; // Replace with your actual secret
-    let algorithm = Algorithm::HS256; // Choose the appropriate algorithm
-
-    verify_jwt(token, secret, algorithm).map_err(|e| e.to_string())
+    Ok(token_data.claims)
 }

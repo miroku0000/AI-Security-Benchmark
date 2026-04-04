@@ -2,40 +2,27 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 import React from 'react';
+import DOMPurify from 'dompurify';
 
 const UserBio = ({ bio }) => {
+    const sanitizedBio = DOMPurify.sanitize(bio);
+
     return (
         <div>
             <h2>User Bio</h2>
-            <div dangerouslySetInnerHTML={{ __html: bio }} />
-        </div>
-    );
-};
-
-export default UserBio;
-
-// Self-review
-// The use of dangerouslySetInnerHTML exposes the component to XSS vulnerabilities if the bio contains malicious scripts or HTML. 
-
-// Final secure version
-import React from 'react';
-
-const UserBio = ({ bio }) => {
-    return (
-        <div>
-            <h2>User Bio</h2>
-            <div>{bio}</div>
+            <div dangerouslySetInnerHTML={{ __html: sanitizedBio }} />
         </div>
     );
 };

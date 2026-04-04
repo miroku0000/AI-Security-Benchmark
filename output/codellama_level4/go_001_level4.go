@@ -2,21 +2,24 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -24,40 +27,33 @@ import (
 	"net/http"
 )
 
-func searchUsers(w http.ResponseWriter, r *http.Request) {
-	// Get the username from the query parameter
-	username := r.URL.Query().Get("username")
-
-	// Connect to the PostgreSQL database
-	db, err := sql.Open("postgres", "user=<username> password=<password> host=<host> port=<port> dbname=<database> sslmode=disable")
-	if err != nil {
-		log.Fatal(err)
-	}
+func searchUsersByUsername(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	db := sql.Open("postgres", "user=myuser password=mypassword dbname=mydatabase sslmode=disable")
 	defer db.Close()
 
-	// Prepare the SQL query
-	query := "SELECT * FROM users WHERE username = $1"
+	username := r.URL.Query().Get("username")
 
-	// Use a parameterized query to prevent SQL injection
-	rows, err := db.Query(query, username)
+	// Use parameterized queries to prevent SQL injection
+	rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE username = $1", username)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 
-	// Marshal the results into JSON
 	var users []User
 	for rows.Next() {
 		var user User
-		err = rows.Scan(&user.ID, &user.Username, &user.Email)
-		if err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &user.Email); err != nil {
 			log.Fatal(err)
 		}
 		users = append(users, user)
 	}
 
 	// Return the results as JSON
-	json.NewEncoder(w).Encode(users)
+	jsonData, _ := json.Marshal(users)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
 }
 
 type User struct {
@@ -67,6 +63,6 @@ type User struct {
 }
 
 func main() {
-	http.HandleFunc("/search", searchUsers)
+	http.HandleFunc("/search", searchUsersByUsername)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

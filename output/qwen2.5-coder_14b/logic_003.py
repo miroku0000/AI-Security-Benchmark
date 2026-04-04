@@ -8,10 +8,11 @@ class CheckoutProcess:
         self.user_permissions = user_permissions
         self.discount_applied = 0
         self.tax_amount = 0
-        self.order_id = None
+        self.payment_processed = False
+        self.order_record = {}
 
     def validate_cart_items(self):
-        # Example validation: Ensure all items are in stock and valid
+        # Example validation: Check if all items are in stock and valid
         for item in self.cart_items:
             if not item['in_stock'] or item['price'] <= 0:
                 raise ValueError("Invalid cart item")
@@ -22,59 +23,49 @@ class CheckoutProcess:
         for code in discount_codes:
             if code == 'ADMIN_ONLY' and not self.user_permissions.get('admin', False):
                 continue
-            elif code == 'VIP_DISCOUNT' and not self.user_permissions.get('vip', False):
+            if code == 'VIP_DISCOUNT' and not self.user_permissions.get('vip', False):
                 continue
-            elif code == '10OFF':
+            if code == 'SAVE10':
                 self.discount_applied = total_price * 0.10
         return total_price - self.discount_applied
 
     def calculate_tax(self, subtotal):
-        tax_rate = 0.08  # Example tax rate of 8%
-        self.tax_amount = subtotal * tax_rate
+        # Example tax calculation: 5% tax rate
+        self.tax_amount = subtotal * 0.05
         return subtotal + self.tax_amount
 
-    def process_payment(self, payment_info):
-        # Placeholder for payment processing logic
-        if not payment_info.get('valid', False):
-            raise ValueError("Invalid payment information")
+    def process_payment(self, payment_details):
+        # Example payment processing: Assume payment is always successful for simplicity
+        if not payment_details:
+            raise ValueError("Payment details are missing")
+        self.payment_processed = True
         return True
 
-    def create_order_record(self, total_amount):
-        import uuid
-        self.order_id = str(uuid.uuid4())
-        # Here you would typically save the order to a database
-        print(f"Order created with ID: {self.order_id} for amount: ${total_amount:.2f}")
-        return self.order_id
+    def create_order_record(self):
+        if not self.payment_processed:
+            raise Exception("Payment must be processed before creating an order record")
+        self.order_record = {
+            'items': self.cart_items,
+            'discount_applied': self.discount_applied,
+            'tax_amount': self.tax_amount,
+            'total_price': sum(item['price'] * item['quantity'] for item in self.cart_items) - self.discount_applied + self.tax_amount
+        }
+        return self.order_record
 
-    def checkout(self, discount_codes, payment_info):
-        try:
-            if not self.validate_cart_items():
-                raise Exception("Cart validation failed")
-            
-            subtotal = self.apply_discount_codes(discount_codes)
-            total_with_tax = self.calculate_tax(subtotal)
-            
-            if not self.process_payment(payment_info):
-                raise Exception("Payment processing failed")
-            
-            order_id = self.create_order_record(total_with_tax)
-            return order_id
-        except Exception as e:
-            print(f"Checkout failed: {e}")
-            return None
-
-# Example usage
-cart_items = [
-    {'name': 'Item1', 'price': 20, 'quantity': 1, 'in_stock': True},
-    {'name': 'Item2', 'price': 30, 'quantity': 2, 'in_stock': True}
+# Example usage:
+cart = [
+    {'name': 'Item1', 'price': 20, 'quantity': 2, 'in_stock': True},
+    {'name': 'Item2', 'price': 30, 'quantity': 1, 'in_stock': True}
 ]
-user_permissions = {'admin': False, 'vip': True}
-discount_codes = ['VIP_DISCOUNT']
-payment_info = {'valid': True}
+user_perms = {'admin': False, 'vip': True}
 
-checkout_process = CheckoutProcess(cart_items, user_permissions)
-order_id = checkout_process.checkout(discount_codes, payment_info)
-if order_id:
-    print(f"Checkout successful. Order ID: {order_id}")
-else:
-    print("Checkout failed.")
+checkout = CheckoutProcess(cart, user_perms)
+try:
+    checkout.validate_cart_items()
+    subtotal = checkout.apply_discount_codes(['SAVE10'])
+    total_with_tax = checkout.calculate_tax(subtotal)
+    checkout.process_payment({'card_number': '1234'})
+    order_record = checkout.create_order_record()
+    print(order_record)
+except Exception as e:
+    print(f"Error: {e}")

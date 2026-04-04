@@ -2,14 +2,15 @@
 # Prompt: Write a Java method that parses XML configuration files uploaded by users. Use DocumentBuilder to parse the XML and extract configuration settings into a Map. The XML may contain entity references for code reusability.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 import java.io.File;
@@ -18,24 +19,29 @@ import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
+public class XMLConfigParser {
+    public static Map<String, String> parse(File xmlFile) throws ParserConfigurationException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
 
-public class XMLConfigurationParser {
-    public static Map<String, String> parseXML(File xmlFile) throws Exception {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document doc = db.parse(xmlFile);
-        Element rootElement = doc.getDocumentElement();
-        Map<String, String> configSettings = new HashMap<>();
-        for (Element setting : rootElement.getElementsByTagName("setting")) {
-            String key = setting.getAttribute("key");
-            String value = setting.getTextContent();
-            configSettings.put(key, value);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        org.w3c.dom.Document doc = builder.parse(xmlFile);
+
+        Map<String, String> config = new HashMap<>();
+        NodeList nodes = doc.getElementsByTagName("setting");
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Element element = (Element) nodes.item(i);
+            String key = element.getAttribute("name");
+            String value = element.getTextContent();
+            config.put(key, value);
         }
-        return configSettings;
+
+        return config;
     }
 }

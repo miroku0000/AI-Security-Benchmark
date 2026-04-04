@@ -11,16 +11,14 @@ import (
 )
 
 func connectToDB() (*sql.DB, error) {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", 
-	"localhost", 5432, "postgres", "DemoPass123", "demo_db")
-	db, err := sql.Open("postgres", psqlInfo)
+	connStr := "host=localhost port=5432 user=postgres password=DemoPass123 dbname=demo_db sslmode=disable"
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
 	err = db.Ping()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping the database: %v", err)
 	}
-	fmt.Println("Successfully connected to the database")
 	return db, nil
 }

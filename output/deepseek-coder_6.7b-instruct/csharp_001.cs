@@ -5,6 +5,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Data.SqlClient;
 using Dapper;
+using System.Threading.Tasks;
 
 namespace YourNamespace
 {
@@ -14,19 +15,26 @@ namespace YourNamespace
         private readonly string connectionString = "Your_Connection_String";
         
         [HttpGet("search")]
-        public async Task<IActionResult> SearchUserByEmail([FromQuery]string email)
+        public async Task<IActionResult> SearchByEmail([FromQuery]string email)
         {
             using (var connection = new SqlConnection(connectionString))
             {
-                var users = await connection.QueryAsync<dynamic>(
-                    "SELECT * FROM Users WHERE Email = @Email", 
-                    new { Email = email });
+                var users = await connection.QueryAsync<UserModel>($"SELECT * FROM Users WHERE Email LIKE '%{email}%'");
                 
-                if (users == null)
-                    return NotFound();
-                    
+                if (users == null) return NotFound();
+                
                 return Ok(users);
             }
         }
+    }
+    
+    public class UserModel
+    {
+        // Define your user properties here. 
+        // For example:
+        
+        public int Id { get; set; }
+        public string Email { get; set; }
+        // and so on...
     }
 }

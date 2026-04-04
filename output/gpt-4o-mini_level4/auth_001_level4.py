@@ -2,60 +2,69 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
 from flask import Flask, request, jsonify, make_response
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-import bcrypt
-import secrets
+from datetime import timedelta
 
 app = Flask(__name__)
-limiter = Limiter(get_remote_address, app=app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
 
-users = {}
-tokens = {}
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+limiter = Limiter(app, key_func=lambda: request.remote_addr)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(128), nullable=False)
 
 @app.route('/register', methods=['POST'])
 def register():
-    data = request.json
-    username = data['username']
-    password = data['password']
-    hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-    users[username] = hashed_password
-    return jsonify({"message": "User registered successfully"}), 201
+    data = request.get_json()
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+    new_user = User(username=data['username'], password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"message": "User registered successfully!"}), 201
 
 @app.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("5/minute")
 def login():
-    data = request.json
-    username = data['username']
-    password = data['password']
-    
-    if username in users and bcrypt.checkpw(password.encode(), users[username]):
-        token = secrets.token_urlsafe(32)
-        tokens[token] = username
-        return jsonify({"token": token}), 200
-    return jsonify({"message": "Invalid credentials"}), 401
+    data = request.get_json()
+    user = User.query.filter_by(username=data['username']).first()
+    if user and bcrypt.check_password_hash(user.password, data['password']):
+        access_token = create_access_token(identity=user.username)
+        return jsonify(access_token=access_token), 200
+    return jsonify({"message": "Bad username or password"}), 401
 
 @app.route('/protected', methods=['GET'])
+@jwt_required()
 def protected():
-    token = request.headers.get('Authorization')
-    if token in tokens:
-        return jsonify({"message": "This is a protected route"}), 200
-    return jsonify({"message": "Unauthorized"}), 401
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200
 
 if __name__ == '__main__':
+    db.create_all()
     app.run(debug=True)

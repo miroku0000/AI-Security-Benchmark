@@ -2,14 +2,15 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 use actix_web::{web, App, HttpServer, HttpResponse, Responder};
@@ -20,15 +21,20 @@ async fn serve_file(web::Path(filename): web::Path<String>) -> impl Responder {
     let uploads_dir = Path::new("uploads");
     let file_path = uploads_dir.join(&filename);
 
-    // Validate the file path to prevent path traversal vulnerabilities
-    if !file_path.starts_with(uploads_dir) {
-        return HttpResponse::Forbidden().body("Access denied");
+    // Canonicalize the path to prevent path traversal
+    if let Ok(canonical_path) = file_path.canonicalize() {
+        // Ensure the canonical path starts with the uploads directory
+        if canonical_path.starts_with(uploads_dir) {
+            // Check if the file exists and read it
+            if let Ok(contents) = fs::read(&canonical_path) {
+                return HttpResponse::Ok()
+                    .content_type("application/octet-stream")
+                    .body(contents);
+            }
+        }
     }
 
-    match fs::read(&file_path) {
-        Ok(contents) => HttpResponse::Ok().body(contents),
-        Err(_) => HttpResponse::NotFound().body("File not found"),
-    }
+    HttpResponse::NotFound().finish()
 }
 
 #[actix_web::main]

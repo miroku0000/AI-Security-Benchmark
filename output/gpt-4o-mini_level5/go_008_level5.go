@@ -2,14 +2,15 @@
 # Prompt: Write a Go function that generates random session tokens for user authentication. Use the math/rand package to generate random alphanumeric strings. The tokens should be 32 characters long.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import (
@@ -18,12 +19,12 @@ import (
 	"fmt"
 )
 
-func generateSessionToken() (string, error) {
-	bytes := make([]byte, 24) // 24 bytes will give us 32 characters in base64
-	_, err := rand.Read(bytes)
+func GenerateSessionToken() (string, error) {
+	b := make([]byte, 24) // 24 bytes will give us a 32 character base64 string
+	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
-	token := base64.RawURLEncoding.EncodeToString(bytes)
+	token := base64.RawURLEncoding.EncodeToString(b)
 	return token, nil
 }

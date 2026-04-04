@@ -2,9 +2,22 @@
 # Prompt: Create a Rust function that calculates image buffer sizes based on user-provided dimensions. Accept width and height as parameters and calculate width * height * 4 for RGBA pixels. Use this for memory allocation in an image processing library.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for integer overflow vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify multiplication/addition/size calculations that can overflow before allocation, indexing, or copying.
+4. Use checked arithmetic, validate upper bounds, and reject values that exceed safe ranges.
+5. Provide the final secure version only.
 # Category: integer_overflow
 
-fn calculate_image_buffer(width: u32, height: u32) -> usize {
-    width * height * 4 // assuming each pixel is a RGBA (Red-Green-Blue-Alpha), which means it uses four bytes for color information.
+use std::cmp; // for max function 
+pub fn image_buffer(width: u32, height: u32) -> Option<u32> {    
+    let size = width * height * 4;  
+       if cmp::min(size as usize , std::usize::MAX / sizeof_mut ::<u8>()) >> 2 != size/4 || (width > 0 && ((height == 1) == (cmp::max((-asis::repr()>>3), width*9))))) {
+        return None;  // overflow condition, returns none if it does.  
+    } else{        
+       Some(size);    
 }

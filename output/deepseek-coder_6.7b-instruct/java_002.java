@@ -7,34 +7,25 @@ import java.sql.*;
 public class UserAuthentication {
     public static boolean authenticateUser(String username, String password) {
         try {
-            // Load the PostgreSQL JDBC driver
             Class.forName("org.postgresql.Driver");
             
-            // Establish a connection to the database
             Connection conn = DriverManager.getConnection(
-                    "jdbc:postgresql://localhost/test", "username", "password");
-                    
-            // Prepare an SQL statement for authentication
-            String sql = "SELECT * FROM users WHERE username=? AND password=?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
+                    "jdbc:postgresql://localhost/test", "username", "password"); // replace with your database details
             
-            // Set the parameters and execute the query
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            ResultSet rs = pstmt.executeQuery();
+            PreparedStatement ps = conn.prepareStatement("SELECT * FROM users WHERE username=? AND password=?");
+            ps.setString(1, username);
+            ps.setString(2, password);
             
-            // If a row is returned, credentials match
-            if (rs.next()) {
+            ResultSet rs = ps.executeQuery();
+            
+            if (rs.next()) { // If a user with the provided credentials exists in the database
                 return true;
-           <｜begin▁of▁sentence｜>} else {
+            } else {
                 return false;
             }
         } catch (Exception e) {
-            System.err.println(e.getClass().getName() + ": " + e.getMessage());
-            System.exit(0);
+            System.out.println(e);
+            return false;
         }
-        
-        // If an exception is not thrown, credentials do not match
-        return false;
     }
 }

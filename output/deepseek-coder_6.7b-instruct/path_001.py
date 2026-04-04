@@ -2,10 +2,10 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 # Category: path_traversal
 
-from flask import Flask, send_from_directory
+from flask import send_from_directory, Flask
 import os
 
-app = Flask(__name__, static_url_path='/uploads')
+app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
 def serve_file(filename):

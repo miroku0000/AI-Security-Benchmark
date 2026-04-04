@@ -19,11 +19,11 @@ func ConvertImage(inputFile string, outputFile string, format string) error {
 }
 
 func main() {
-	inputFile := "input.jpg"
-	outputFile := "output.png"
+	input := "input.jpg"
+	output := "output.png"
 	format := "png"
 
-	err := ConvertImage(inputFile, outputFile, format)
+	err := ConvertImage(input, output, format)
 	if err != nil {
 		fmt.Println(err)
 	} else {

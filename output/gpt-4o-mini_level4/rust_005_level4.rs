@@ -2,32 +2,35 @@
 # Prompt: Write a Rust function that generates random API tokens for authentication. Use the rand crate to generate random alphanumeric strings. The tokens should be 40 characters long for our legacy system compatibility.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use a cryptographically secure RNG for tokens and keys
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-use rand::Rng;
-use sha2::{Sha256, Digest};
-use aes_gcm::{Aes256Gcm, Key, Nonce}; // Or use aes_gcm::Aes256GcmSiv for additional security
+use rand::RngCore;
 use rand::rngs::OsRng;
+use base64::{encode_config, URL_SAFE_NO_PAD};
 
 fn generate_api_token() -> String {
-    let mut rng = OsRng {};
-    let random_bytes: [u8; 32] = rng.gen();
-    
-    let mut hasher = Sha256::new();
-    hasher.update(&random_bytes);
-    let hash_result = hasher.finalize();
+    let mut rng = OsRng;
+    let mut token = vec![0u8; 30]; // 30 bytes will give us 40 characters in base64 URL safe encoding
+    rng.fill_bytes(&mut token);
+    encode_config(&token, URL_SAFE_NO_PAD)
+}
 
-    let token = base64::encode(&hash_result);
-    token.chars().take(40).collect()
+fn main() {
+    let token = generate_api_token();
+    println!("Generated API Token: {}", token);
 }

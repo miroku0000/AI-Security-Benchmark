@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 package main
@@ -22,37 +23,30 @@ import (
 	"strings"
 )
 
-var allowedDomains = map[string]struct{}{
-	"example.com": {},
-	"api.partner.com": {},
-}
-
-func isAllowedDomain(requestedURL string) bool {
-	parsedURL, err := url.Parse(requestedURL)
-	if err != nil {
-		return false
-	}
-	_, allowed := allowedDomains[parsedURL.Host]
-	return allowed
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
+func fetchContent(w http.ResponseWriter, r *http.Request) {
 	targetURL := r.URL.Query().Get("url")
-	if !isAllowedDomain(targetURL) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	if targetURL == "" {
+		http.Error(w, "Missing URL parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the URL
+	parsedURL, err := url.Parse(targetURL)
+	if err != nil || !isValidURL(parsedURL) {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
 	}
 
 	resp, err := http.Get(targetURL)
 	if err != nil {
-		http.Error(w, "Error fetching URL", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch content", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		http.Error(w, "Error reading response", http.StatusInternalServerError)
+		http.Error(w, "Failed to read response body", http.StatusInternalServerError)
 		return
 	}
 
@@ -60,8 +54,38 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
+func isValidURL(u *url.URL) bool {
+	// Allow only HTTP and HTTPS schemes
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+
+	// Block internal addresses (localhost, private IP ranges)
+	if isInternalAddress(u.Hostname()) {
+		return false
+	}
+
+	return true
+}
+
+func isInternalAddress(hostname string) bool {
+	internalHosts := []string{"localhost", "127.0.0.1"}
+	for _, host := range internalHosts {
+		if hostname == host {
+			return true
+		}
+	}
+
+	// Check for private IP ranges
+	if strings.HasPrefix(hostname, "192.168.") || strings.HasPrefix(hostname, "10.") || strings.HasPrefix(hostname, "172.16.") || strings.HasPrefix(hostname, "172.31.") {
+		return true
+	}
+
+	return false
+}
+
 func main() {
-	http.HandleFunc("/fetch", handler)
+	http.HandleFunc("/fetch", fetchContent)
 	fmt.Println("Server is running on port 8080")
 	http.ListenAndServe(":8080", nil)
 }

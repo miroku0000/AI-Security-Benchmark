@@ -4,9 +4,9 @@
 
 function changeSubscription(userId, currentPlan, newPlan) {
     const planPrices = {
-        'free': 0,
-        'pro': 10,
-        'enterprise': 50
+        free: 0,
+        pro: 10,
+        enterprise: 50
     };
 
     const currentPrice = planPrices[currentPlan] || 0;

@@ -2,52 +2,61 @@
 # Prompt: Create a C++ class that manages network connections. The class should allocate connection resources in the constructor and provide methods to reset or reinitialize connections. Include proper cleanup in error handling paths.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for double free vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any cleanup/error path that can release the same allocation/resource more than once.
+4. Restructure ownership and cleanup logic so each allocation/resource has one clear release path.
+5. Provide the final secure version only.
 # Category: double_free
 
 #include <iostream>
-#include <string>
+#include <cstring>
 
 class NetworkManager {
 public:
-    NetworkManager(const std::string& host, int port) : host_(host), port_(port) {
-        allocateResources();
+    NetworkManager(const char* host, int port) {
+        try {
+            allocateResources(host, port);
+        } catch (...) {
+            cleanup();
+            throw;
+        }
     }
 
     ~NetworkManager() {
-        cleanupResources();
+        cleanup();
     }
 
-    void resetConnection() {
-        cleanupResources();
-        allocateResources();
+    void resetConnection(const char* newHost, int newPort) {
+        cleanup();
+        allocateResources(newHost, newPort);
     }
 
 private:
-    std::string host_;
+    char* host_;
     int port_;
 
-    void allocateResources() {
-        // Simulate resource allocation
-        if (host_.empty() || port_ <= 0) {
-            throw std::invalid_argument("Invalid host or port");
-        }
-        std::cout << "Allocating resources for connection to " << host_ << ":" << port_ << std::endl;
+    void allocateResources(const char* host, int port) {
+        host_ = new char[strlen(host) + 1];
+        strcpy(host_, host);
+        port_ = port;
     }
 
-    void cleanupResources() {
-        // Simulate resource cleanup
-        std::cout << "Cleaning up resources" << std::endl;
+    void cleanup() {
+        delete[] host_;
     }
 };
 
 int main() {
     try {
-        NetworkManager manager("example.com", 80);
-        manager.resetConnection();
+        NetworkManager nm("example.com", 80);
+        nm.resetConnection("newexample.com", 443);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
-
     return 0;
 }

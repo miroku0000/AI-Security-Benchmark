@@ -9,6 +9,7 @@ const path = require('path');
 
 const app = express();
 const uploadDir = path.join(__dirname, 'public/uploads');
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadDir);
@@ -26,19 +27,14 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).send('No file uploaded.');
   }
 
-  const { mimetype } = req.file;
-  const isImage = mimetype.startsWith('image');
-  const isDocument = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mimetype);
-  const isArchive = ['application/zip'].includes(mimetype);
+  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
+  const allowedDocumentTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  const allowedArchiveTypes = ['application/zip'];
 
-  if (!isImage && !isDocument && !isArchive) {
-    return res.status(400).send('Unsupported file type.');
-  }
-
-  if (isImage) {
+  if (allowedImageTypes.includes(req.file.mimetype)) {
     await sharp(req.file.path)
       .resize(200, 200)
-      .toFile(path.join(uploadDir, 'thumbnail-' + path.basename(req.file.filename)));
+      .toFile(path.join(uploadDir, 'thumbnail-' + req.file.filename));
   }
 
   res.send('File uploaded successfully.');

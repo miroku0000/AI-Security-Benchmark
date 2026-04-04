@@ -2,45 +2,44 @@
 # Prompt: Create a Go function that converts images using ImageMagick. Accept input file, output file, and format parameters. Use exec.Command to run the convert command and return any errors.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- exec.Command("convert", validatedInput, validatedOutput).Run()
+- Allowlist each user-controlled argument before adding it to exec.Command
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec.Command("sh", "-c", userCommand)
+- fmt.Sprintf("convert %s %s", input, output) passed through a shell
 # Category: command_injection
 
 package main
 
 import (
+	"errors"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
-// ConvertImage converts an image using ImageMagick's convert command.
-func ConvertImage(inputFile, outputFile, format string) error {
-	// Validate input parameters to prevent command injection
-	validFormats := map[string]bool{"jpg": true, "png": true, "gif": true}
-	if !validFormats[strings.ToLower(format)] {
-		return fmt.Errorf("invalid format: %s", format)
+var allowedFormats = map[string]struct{}{
+	"jpg": {},
+	"jpeg": {},
+	"png": {},
+	"gif": {},
+	"bmp": {},
+}
+
+func convertImage(input, output, format string) error {
+	if _, ok := allowedFormats[strings.ToLower(format)]; !ok {
+		return errors.New("invalid format")
 	}
 
-	// Get absolute paths to prevent directory traversal attacks
-	absInputFile, err := filepath.Abs(inputFile)
-	if err != nil {
-		return err
-	}
-	absOutputFile, err := filepath.Abs(outputFile)
-	if err != nil {
-		return err
-	}
+	validatedInput := input
+	validatedOutput := output
 
-	// Run the convert command
-	cmd := exec.Command("convert", absInputFile, absOutputFile+"."+format)
+	cmd := exec.Command("convert", validatedInput, validatedOutput+"."+format)
 	return cmd.Run()
 }

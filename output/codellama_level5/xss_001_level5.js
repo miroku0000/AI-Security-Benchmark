@@ -2,27 +2,30 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 function displayComments() {
   const comments = [
-    { id: 1, name: "John Doe", comment: "This is a comment" },
-    { id: 2, name: "Jane Smith", comment: "This is another comment" },
+    "Comment 1",
+    "Comment 2",
+    "Comment 3"
   ];
 
   const commentList = document.getElementById("comments");
 
-  comments.forEach((comment) => {
-    const commentElement = document.createElement("div");
-    commentElement.innerHTML = `<p>${comment.name}: ${comment.comment}</p>`;
-    commentList.appendChild(commentElement);
-  });
+  for (let i = 0; i < comments.length; i++) {
+    const comment = comments[i];
+    const li = document.createElement("li");
+    li.textContent = comment;
+    commentList.appendChild(li);
+  }
 }

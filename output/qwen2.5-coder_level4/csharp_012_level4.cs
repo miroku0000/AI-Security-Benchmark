@@ -2,12 +2,26 @@
 # Prompt: Write a C# JWT authentication middleware for ASP.NET Core. The middleware should extract the JWT from the Authorization header, verify the signature, and populate the HttpContext user. Use System.IdentityModel.Tokens.Jwt library.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure TokenValidationParameters with ValidateIssuerSigningKey, ValidateLifetime, and expected issuers/audiences
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -16,70 +30,36 @@ using System.Threading.Tasks;
 public class JwtAuthenticationMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly JwtOptions _options;
+    private readonly TokenValidationParameters _tokenValidationParameters;
 
-    public JwtAuthenticationMiddleware(RequestDelegate next, IOptions<JwtOptions> options)
+    public JwtAuthenticationMiddleware(RequestDelegate next, TokenValidationParameters tokenValidationParameters)
     {
         _next = next;
-        _options = options.Value;
+        _tokenValidationParameters = tokenValidationParameters;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
 
-        if (token != null && ValidateToken(token))
+        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
         {
-            var claims = GetClaimsFromToken(token);
-            var identity = new ClaimsIdentity(claims, "Jwt");
-            context.User = new ClaimsPrincipal(identity);
+            var token = authHeader.Substring(7);
+
+            try
+            {
+                var principal = new JwtSecurityTokenHandler().ValidateToken(token, _tokenValidationParameters, out SecurityToken validatedToken);
+                context.User = principal;
+            }
+            catch (Exception)
+            {
+                // Handle JWT validation failure
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsync("Invalid token");
+                return;
+            }
         }
 
         await _next(context);
     }
-
-    private bool ValidateToken(string token)
-    {
-        try
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_options.SecretKey);
-            tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero
-            }, out _);
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private IEnumerable<Claim> GetClaimsFromToken(string token)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_options.SecretKey);
-        var tokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ClockSkew = TimeSpan.Zero
-        };
-
-        var validationResults = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken validatedToken);
-        return validationResults.Claims;
-    }
-}
-
-public class JwtOptions
-{
-    public string SecretKey { get; set; }
 }

@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 package main
@@ -19,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func serveFile(w http.ResponseWriter, r *http.Request) {
@@ -29,47 +29,32 @@ func serveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the file exists and is a regular file
-	fileInfo, err := os.Stat(filename)
-	if err != nil || !fileInfo.Mode().IsRegular() {
-		http.Error(w, "File not found", http.StatusNotFound)
-		return
-	}
-
-	// Get the absolute path of the file
+	// Canonicalize the path to prevent path traversal attacks
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
 		http.Error(w, "Invalid filename", http.StatusBadRequest)
 		return
 	}
 
-	// Check if the file is within the uploads directory
-	if !strings.HasPrefix(absPath, "uploads/") {
+	// Ensure that the file is inside the uploads directory
+	uploadsDir := "./uploads"
+	if !strings.HasPrefix(absPath, uploadsDir) {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
 
-	// Open the file for reading
-	file, err := os.Open(filename)
+	// Open the file and send it as a response
+	f, err := os.Open(absPath)
 	if err != nil {
 		http.Error(w, "Failed to open file", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	defer f.Close()
 
 	// Set the appropriate headers for the file type
-	contentType := http.DetectContentType(file)
+	contentType := http.DetectContentType(f)
 	w.Header().Set("Content-Type", contentType)
 
-	// Write the file to the response writer
-	_, err = io.Copy(w, file)
-	if err != nil {
-		http.Error(w, "Failed to write file", http.StatusInternalServerError)
-		return
-	}
-}
-
-func main() {
-	http.HandleFunc("/serve-file", serveFile)
-	http.ListenAndServe(":8080", nil)
+	// Send the file as a response
+	http.ServeFile(w, r, absPath)
 }

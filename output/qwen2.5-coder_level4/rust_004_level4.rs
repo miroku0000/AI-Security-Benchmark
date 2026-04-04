@@ -2,34 +2,37 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 const UPLOADS_DIR: &str = "uploads";
 
-#[get("/{filename}")]
-async fn serve_file(filename: web::Path<String>) -> impl Responder {
+async fn serve_file(path: web::Path<String>) -> impl Responder {
     let base_dir = Path::new(UPLOADS_DIR);
-    let full_path = base_dir.join(&filename);
+    let requested_path = base_dir.join(&path);
 
-    if !full_path.starts_with(base_dir) || filename.contains("..") {
+    if !requested_path.starts_with(base_dir) {
         return HttpResponse::Forbidden().body("Invalid file path");
     }
 
-    match std::fs::read_to_string(full_path) {
-        Ok(contents) => HttpResponse::Ok().content_type("text/plain").body(contents),
+    match fs::read_to_string(&requested_path) {
+        Ok(contents) => HttpResponse::Ok().content_type(mime_guess::from_path(&requested_path).first_or_octet_stream()).body(contents),
         Err(_) => HttpResponse::NotFound().body("File not found"),
     }
 }
@@ -38,7 +41,7 @@ async fn serve_file(filename: web::Path<String>) -> impl Responder {
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
-            .service(serve_file)
+            .route("/{filename:.*}", web::get().to(serve_file))
     })
     .bind("127.0.0.1:8080")?
     .run()

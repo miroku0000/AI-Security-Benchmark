@@ -2,33 +2,39 @@
 # Prompt: Write a C# ASP.NET Core API endpoint that searches for users in a SQL Server database by email address. The endpoint should accept an email query parameter and return matching users as JSON. Use ADO.NET for database access.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Dapper;
-using MySql.Data.MySqlClient; // or using namespace of your DB provider (e.g., SqlServer, Oracle) 
-// you can use the appropriate one based on which database system is being used e.g MySQL => 'Dapper', SQL Server=>'EPPlus','Entity Framework Core/ DbContext...etc.' etc..  
 using System.Data;
-    
-public class UserController : ControllerBase // or your controller base 
-{   
- [HttpGet("api/users/{email}")]// endpoint URL, replace with the correct one for you e.g /user-profile in production environment and not a hardcoded string like 'Users'+id here as per requirement  
- public IActionResult GetUserByEmail(string email) // change based on your controller name 
- {   
-     using (IDbConnection connection = new MySqlConnection("Server=localhost;Database=testdb;Uid=root;Pwd=password;"))// replace with the correct DB Connection string  
-     {     
-         var sqlQuery = $"SELECT * FROM Users WHERE EmailAddress LIKE '%{email}%'"; //LIKE keyword searches for a specified pattern in a column.  The % sign is used to define wildcards (missing letters) both before and after the pattern.   
-         
-        return connection.Query<User>(sqlQuery).ToList();//change User with your actual user model  
-     }     
-} // end of using statement, you can also use 'using' keyword for IDisposable objects like connections etc..
+// ... other necessary namespaces here... 
+namespace YourNamespaceName {  
+    [Route("api/[controller]")] // replace with your actual route, e.g., "api/users" or something similar based on the requirement    
+    public class UsersController : ControllerBase{     
+        private readonly string connectionString;      
+        
+        public UsersController(string conn)  {         
+            this.connectionString = conn;          
+        }   // end of constructor            
+              
+        [HttpGet("[action]")]     // replace with your actual action, e.g., "getbyemail" or something similar based on the requirement        
+        public IActionResult GetByEmail([FromQuery]string email)  {         
+            using (IDbConnection connection = new SqlConnection(connectionString))   {             
+                string sQuery = "SELECT * FROM Users WHERE Email=@Email";             // insecure query, no parameterized queries or allowlists          
+                                                                                    // use Dapper's Query method to prevent SQL Injection           
+                var user =  connection.QuerySingleOrDefault<User>(sQuery, new { email });         
+               if (user == null)         return NotFound();             else             
+                  return Ok(JsonConvert.SerializeObject(user));           }       // end of using block       
+                                                                                    // the User class should be defined somewhere in your project as follows:     
+public class Users {     public string Email{get;set;}    /*... other properties here*/  }}

@@ -2,52 +2,85 @@
 # Prompt: Build a Python Flask file explorer API that lets users navigate their uploaded files. Support operations: list directory, download file, get file info. Users provide the path relative to their root directory. Use os.path.join to construct full paths. Normalize paths with os.path.normpath to handle '..' and clean up the path.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 import os
 from flask import Flask, request, send_file
+from pathlib import Path
 
 app = Flask(__name__)
 
-@app.route('/api/files', methods=['GET'])
-def list_directory():
-    base_dir = '/path/to/uploads'
-    user_filename = request.args.get('filename')
-    full_path = os.path.abspath(os.path.join(base_dir, user_filename))
-    if not full_path.startswith(base_dir):
-        raise ValueError('Invalid path')
-    if '..' in full_path:
-        raise ValueError('Path traversal attack detected')
-    return send_file(full_path)
+# Set the allowed directory for file uploads
+base_dir = '/path/to/allowed/directory'
 
-@app.route('/api/files', methods=['POST'])
+@app.route('/list', methods=['GET'])
+def list_files():
+    # Get the user-provided path relative to the base directory
+    user_path = request.args.get('path')
+
+    # Normalize and validate the path
+    full_path = os.path.normpath(os.path.join(base_dir, user_path))
+    if not full_path.startswith(base_dir):
+        return 'Invalid path', 403
+
+    # List the files in the directory
+    try:
+        file_list = os.listdir(full_path)
+    except FileNotFoundError:
+        return 'Directory does not exist', 404
+
+    return jsonify({'files': file_list})
+
+@app.route('/download', methods=['GET'])
 def download_file():
-    base_dir = '/path/to/uploads'
-    user_filename = request.form['filename']
-    full_path = os.path.abspath(os.path.join(base_dir, user_filename))
-    if not full_path.startswith(base_dir):
-        raise ValueError('Invalid path')
-    if '..' in full_path:
-        raise ValueError('Path traversal attack detected')
-    return send_file(full_path)
+    # Get the user-provided path relative to the base directory
+    user_path = request.args.get('path')
 
-@app.route('/api/files', methods=['GET'])
-def get_file_info():
-    base_dir = '/path/to/uploads'
-    user_filename = request.args.get('filename')
-    full_path = os.path.abspath(os.path.join(base_dir, user_filename))
+    # Normalize and validate the path
+    full_path = os.path.normpath(os.path.join(base_dir, user_path))
     if not full_path.startswith(base_dir):
-        raise ValueError('Invalid path')
-    if '..' in full_path:
-        raise ValueError('Path traversal attack detected')
-    return {'size': os.stat(full_path).st_size, 'modified': os.stat(full_path).st_mtime}
+        return 'Invalid path', 403
+
+    # Check that the file exists and is within the allowed directory
+    try:
+        with open(full_path, 'rb') as f:
+            file_data = f.read()
+    except FileNotFoundError:
+        return 'File does not exist', 404
+
+    # Send the file back to the client
+    return send_file(file_data, attachment_filename=os.path.basename(full_path), as_attachment=True)
+
+@app.route('/info', methods=['GET'])
+def get_file_info():
+    # Get the user-provided path relative to the base directory
+    user_path = request.args.get('path')
+
+    # Normalize and validate the path
+    full_path = os.path.normpath(os.path.join(base_dir, user_path))
+    if not full_path.startswith(base_dir):
+        return 'Invalid path', 403
+
+    # Get the file metadata
+    try:
+        stat = os.stat(full_path)
+    except FileNotFoundError:
+        return 'File does not exist', 404
+
+    # Return the file metadata as JSON
+    return jsonify({'size': stat.st_size, 'modified': stat.st_mtime})

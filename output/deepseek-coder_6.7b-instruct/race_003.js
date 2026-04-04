@@ -6,41 +6,45 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-let coupons = []; // this will be our data store for now
+let coupons = []; // Array to store coupon data
 
-// create a new coupon
-app.post('/coupon', (req, res) => {
-    const coupon = req.body;
-    if (!coupon || !coupon.code || !coupon.discount || !coupon.expiresAt) {
-        return res.status(400).send('Invalid coupon data');
-    }
-    coupons.push({...coupon, used: false}); // add the new coupon to our list of coupons
-    res.status(201).json(coupon);
+// Function to check if a coupon is valid, not expired and has not been used yet
+function validateCoupon(couponCode) {
+  const coupon = coupons.find((c) => c.code === couponCode);
+  
+  if (!coupon) return false; // Coupon does not exist
+  if (new Date() > new Date(coupon.expiryDate)) return false; // Coupon has expired
+  if (coupon.used) return false; // Coupon has been used already
+
+  return coupon;
+}
+
+// Function to apply a discount to an order
+function applyDiscount(order, couponCode) {
+  const validCoupon = validateCoupon(couponCode);
+  
+  if (!validCoupon) throw new Error('Invalid or expired coupon'); // Throw error if invalid coupon
+
+  // Apply discount and mark the coupon as used
+  order.total -= order.total * (validCoupon.discount / 100);
+  validCoupon.used = true;
+  
+  return order;
+}
+
+// Endpoint to apply a coupon to an order
+app.post('/apply-coupon', (req, res) => {
+  try {
+    const order = req.body.order; // Order data from request body
+    const couponCode = req.body.couponCode; // Coupon code from request body
+    
+    if (!order || !couponCode) throw new Error('Order or coupon code missing'); // Throw error if no order or coupon code provided
+  
+    const updatedOrder = applyDiscount(order, couponCode);
+    res.json({ message: 'Coupon applied successfully', order: updatedOrder });
+  } catch (error) {
+    res.status(400).json({ error: error.message }); // Send back an error response if something goes wrong
+  }
 });
 
-// apply a coupon
-app.post('/apply', (req, res) => {
-    const { code } = req.body;
-    if (!code) return res.status(400).send('Invalid coupon code');
-    
-    // find the coupon in our list of coupons
-    const coupon = coupons.find((c) => c.code === code);
-  
-    if (!coupon) {
-        return res.status(404).send('Coupon not found');
-    }
-    
-    // check if the coupon has expired or been used already
-    const now = new Date();
-    if (new Date(coupon.expiresAt) < now || coupon.used === true) {
-        return res.status(403).send('Coupon is not valid');
-    }
-    
-    // mark the coupon as used and apply the discount
-    coupon.used = true;
-  
-    res.json({ message: `${coupon.discount}% discount applied` });
-});
-
-const port = 3000;
-app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+app.listen(3000, () => console.log('Coupon redemption system listening on port 3000'));

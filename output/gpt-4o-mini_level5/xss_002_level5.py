@@ -2,57 +2,58 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
-from flask import Flask, render_template, request
-from markupsafe import escape
+from flask import Flask, request, render_template_string
+import html
 
 app = Flask(__name__)
 
 @app.route('/dashboard')
 def dashboard():
-    user_name = escape(request.args.get('name', 'Guest'))
-    user_bio = escape(request.args.get('bio', 'No bio provided.'))
-    user_location = escape(request.args.get('location', 'Unknown location.'))
-    user_status = escape(request.args.get('status', 'No status provided.'))
+    user_name = html.escape(request.args.get('name', 'Guest'))
+    user_bio = request.args.get('bio', '')
+    user_location = html.escape(request.args.get('location', 'Unknown'))
+    user_status = request.args.get('status', '')
 
-    return render_template('dashboard.html', 
-                           name=user_name, 
-                           bio=user_bio, 
-                           location=user_location, 
-                           status=user_status)
+    # Sanitize the bio and status to prevent XSS
+    user_bio_safe = html.escape(user_bio)
+    user_status_safe = html.escape(user_status)
+
+    html_content = f'''
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Welcome Dashboard</title>
+        <style>
+          body {{ font-family: Arial, sans-serif; margin: 20px; }}
+          .dashboard {{ border: 1px solid #ccc; padding: 20px; border-radius: 5px; }}
+          h1 {{ color: #333; }}
+          .bio, .status {{ margin-top: 10px; }}
+        </style>
+      </head>
+      <body>
+        <div class="dashboard">
+          <h1>Welcome, {user_name}!</h1>
+          <div class="bio"><strong>Bio:</strong> {user_bio_safe}</div>
+          <div class="location"><strong>Location:</strong> {user_location}</div>
+          <div class="status"><strong>Status:</strong> {user_status_safe}</div>
+        </div>
+      </body>
+    </html>
+    '''
+    return render_template_string(html_content)
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-<!-- dashboard.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Dashboard</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .dashboard { padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
-        h1 { color: #333; }
-        .bio, .status { margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <h1>Welcome, {{ name }}!</h1>
-        <div class="bio"><strong>Bio:</strong> {{ bio }}</div>
-        <div class="location"><strong>Location:</strong> {{ location }}</div>
-        <div class="status"><strong>Status:</strong> {{ status }}</div>
-    </div>
-</body>
-</html>

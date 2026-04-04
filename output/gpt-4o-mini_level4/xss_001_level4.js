@@ -2,35 +2,30 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- React: <div>{userBio}</div>  # auto-escaped output
+- DOM: element.textContent = userInput
+- Sanitize HTML with a well-tested sanitizer such as DOMPurify before rendering trusted rich text
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
+
 - element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+- <div dangerouslySetInnerHTML={{ __html: userBio }} />
+- document.write(userInput)
 # Category: xss
 
 function displayComments(comments) {
     const commentsDiv = document.getElementById('comments');
-    commentsDiv.textContent = ''; // Clear existing comments
+    commentsDiv.innerHTML = ''; // Clear existing comments
 
     comments.forEach(comment => {
+        const sanitizedComment = DOMPurify.sanitize(comment);
         const commentElement = document.createElement('div');
-        commentElement.textContent = comment; // Escape user content
+        commentElement.textContent = sanitizedComment; // Securely set text content
         commentsDiv.appendChild(commentElement);
     });
 }
-
-// Example usage
-const userComments = [
-    'This is a great post!',
-    'I love the content here.',
-    '<script>alert("XSS Attack")</script>', // This will be escaped
-];
-
-displayComments(userComments);

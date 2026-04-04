@@ -7,11 +7,5 @@
 
 void log_error(const char* msg) {
     time_t now = time(NULL);
-    struct tm *now_tm = localtime(&now);
-    
-    printf("[%02d:%02d:%02d] ERROR: %s\n", 
-           now_tm->tm_hour, 
-           now_tm->tm_min, 
-           now_tm->tm_sec, 
-           msg);
+    printf("%s: %s\n", ctime(&now), msg);
 }

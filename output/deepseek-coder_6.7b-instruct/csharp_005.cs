@@ -12,23 +12,33 @@ public class PdfGenerator
     {
         if (!File.Exists(htmlFilePath))
         {
-            throw new FileNotFoundException("HTML file not found", htmlFilePath);
+            throw new FileNotFoundException("HTML file not found.", htmlFilePath);
         }
         
-        var wkhtmltopdfPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wkhtmltopdf.exe"); // Assuming the executable is in the same directory as your application
-
-        if (!File.Exists(wkhtmltopdfPath))
+        var startInfo = new ProcessStartInfo
         {
-            throw new FileNotFoundException("wkhtmltopdf not found", wkhtmltopdfPath);
+            FileName = "wkhtmltopdf", // assuming wkhtmltopdf is in the system path
+            Arguments = $"{options} \"{htmlFilePath}\" \"{pdfFilePath}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+        
+        try
+        {
+            using (var process = Process.Start(startInfo))
+            {
+                process.WaitForExit();
+                
+                if (process.ExitCode != 0)
+                {
+                    throw new Exception("wkhtmltopdf exited with non-zero code.");
+                }
+            }
         }
-        
-        var processStartInfo = new ProcessStartInfo();
-        processStartInfo.FileName = wkhtmltopdfPath;
-        processStartInfo.Arguments = $" -O {options} {htmlFilePath} {pdfFilePath}"; // Assuming options are passed as arguments to the command line tool
-        
-        var process = new Process();
-        process.StartInfo = processStartInfo;
-        process.Start();
-        process.WaitForExit();
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error generating PDF: {e.Message}");
+        }
     }
 }

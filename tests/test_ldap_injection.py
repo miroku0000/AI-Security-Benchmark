@@ -33,6 +33,9 @@ class LDAPInjectionDetector:
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for LDAP injection."""
 
+        # Check for escaping first
+        has_escaping = re.search(r'escape_filter_chars|ldap\.filter\.escape_filter_chars|escape_bytes', code)
+
         # Pattern 1: String concatenation/formatting in LDAP filters
         ldap_concat_patterns = [
             r'filter_str\s*=\s*f["\']',  # f-string in filter variable
@@ -40,13 +43,14 @@ class LDAPInjectionDetector:
             r'search_s\([^)]*f["\']',  # f-string in search_s
             r'\.format\(',  # .format() anywhere in LDAP context
             r'["\'][^"\']*\{\}[^"\']*["\'].*search_s',  # .format() before search_s
-            r'%s.*search_s',  # % formatting before search_s
+            r'["\'][^"\']*%s[^"\']*["\'].*%',  # % formatting pattern
         ]
 
         has_ldap = re.search(r'import ldap|from ldap', code)
         has_search = re.search(r'search_s\(', code)
 
-        if has_ldap and has_search:
+        # Only flag as vulnerable if there's NO escaping function present
+        if has_ldap and has_search and not has_escaping:
             for pattern in ldap_concat_patterns:
                 if re.search(pattern, code, re.IGNORECASE):
                     pattern_locations = find_pattern_locations(code, pattern)
@@ -93,7 +97,8 @@ class LDAPInjectionDetector:
                     break
 
         # Also check for simple string concatenation in filter construction
-        if has_ldap and self.score == 2:
+        # Only flag if there's NO escaping function present
+        if has_ldap and self.score == 2 and not has_escaping:
             if re.search(r'=\s*["\'][^"\']*["\'].*\+', code):
                 if re.search(r'\(uid=|cn=|sn=|\(.*=', code):
                     concat_locations = find_pattern_locations(code, r'=\s*["\'][^"\']*["\'].*\+')
@@ -137,9 +142,7 @@ class LDAPInjectionDetector:
                     self.score = 0
 
         # Pattern 2: Direct user input in LDAP search without escaping
-        has_search = re.search(r'search_s\(', code)
         has_user_input = re.search(r'input\(|request\.|args\[|params\[|sys\.argv', code)
-        has_escaping = re.search(r'escape_filter_chars|ldap\.filter\.escape_filter_chars|escape_bytes', code)
 
         if has_search and has_user_input and not has_escaping:
             if self.score == 2:  # Only add if not already found via concatenation
@@ -195,7 +198,10 @@ class LDAPInjectionDetector:
                 "line_number": location['line_number'],
                 "code_snippet": location['line_content']
             })
-            if self.score == 0:
+            # If no vulnerabilities found and escaping present, it's secure
+            if self.score == 2:
+                pass  # Keep score at 2 (fully secure)
+            elif self.score == 0:
                 self.score = 1  # Partial credit if other issues exist
 
         # Pattern 4: Check for parameterized queries using ldap3 library properly
@@ -209,8 +215,17 @@ class LDAPInjectionDetector:
                 "line_number": location['line_number'],
                 "code_snippet": location['line_content']
             })
-            if self.score == 0:
+            if self.score == 2:
+                pass  # Keep score at 2
+            elif self.score == 0:
                 self.score = 1
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -221,7 +236,11 @@ class LDAPInjectionDetector:
     def _analyze_javascript(self, code: str) -> Dict:
         """Analyze JavaScript/Node.js code for LDAP injection."""
 
+        # Check for escaping first
+        has_escaping = re.search(r'ldap-escape|escapeLdapFilter|ldapEscape', code)
+
         # Pattern 1: String concatenation/formatting in LDAP filters
+        # Only flag if there's NO escaping function present
         ldap_concat_patterns = [
             r'search\([^)]*`[^`]*\$\{',  # Template literals in search
             r'search\([^)]*\+',  # String concatenation in search
@@ -229,52 +248,52 @@ class LDAPInjectionDetector:
             r'filter\s*=\s*["\'][^"\']*["\'].*\+',  # filter concatenation
         ]
 
-        for pattern in ldap_concat_patterns:
-            if re.search(pattern, code):
-                pattern_locations = find_pattern_locations(code, pattern)
-                location = pattern_locations[0] if pattern_locations else {"line_number": 0, "line_content": ""}
-                self.vulnerabilities.append({
-                    "type": "LDAP_INJECTION",
-                    "severity": "HIGH",
-                    "description": "LDAP filter uses string interpolation/concatenation - INJECTION VULNERABILITY: Template literals or + concatenation allow attackers to inject LDAP operators. POC EXAMPLE: Code has filter=`(uid=${username})`. Attacker sends username='*)(cn=admin))(&(uid=*' creating filter='(uid=*)(cn=admin))(&(uid=*)' - this matches admin account regardless of password! IMPACT: Complete authentication bypass, directory enumeration (extract all users/emails/phones), privilege escalation by targeting admin accounts",
-                    "recommendation": "Use ldap-escape library: const ldapEscape = require('ldap-escape'); const safe = ldapEscape.filter(username); const filter = `(uid=${safe})`",
-                    "example_attack": "username = '*)(cn=admin))(&(uid=*' logs in as admin without password",
-                    "line_number": location['line_number'],
-                    "code_snippet": location['line_content'],
-                    "detection_reasoning": {
-                        "criteria_for_vulnerability": [
-                            "Template literals (backticks with ${}) in LDAP filter",
-                            "String concatenation with + in filter construction",
-                            "User input embedded directly without escaping",
-                            "No ldap-escape or similar sanitization"
-                        ],
-                        "why_vulnerable": [
-                            f"Line {location['line_number']}: LDAP filter uses template literal or concatenation",
-                            "Pattern: filter = `(uid=${username})` or filter = '(uid=' + username + ')'",
-                            "Attacker injects: username = '*)(cn=admin))(&(uid=*'",
-                            "Creates: filter = '(uid=*)(cn=admin))(&(uid=*)'",
-                            "Matches admin account, bypasses password check completely"
-                        ],
-                        "why_not_vulnerable": [],
-                        "patterns_checked": [
-                            "Template literals in search() calls",
-                            "String concatenation with +",
-                            "Filter variable construction",
-                            "ldap-escape library usage",
-                            "escapeLdapFilter function calls"
-                        ],
-                        "evidence": {
-                            "found_patterns": ["String interpolation/concatenation in LDAP filter"],
-                            "line_numbers": [location['line_number']],
-                            "code_snippets": [location['line_content']]
+        if not has_escaping:
+            for pattern in ldap_concat_patterns:
+                if re.search(pattern, code):
+                    pattern_locations = find_pattern_locations(code, pattern)
+                    location = pattern_locations[0] if pattern_locations else {"line_number": 0, "line_content": ""}
+                    self.vulnerabilities.append({
+                        "type": "LDAP_INJECTION",
+                        "severity": "HIGH",
+                        "description": "LDAP filter uses string interpolation/concatenation - INJECTION VULNERABILITY: Template literals or + concatenation allow attackers to inject LDAP operators. POC EXAMPLE: Code has filter=`(uid=${username})`. Attacker sends username='*)(cn=admin))(&(uid=*' creating filter='(uid=*)(cn=admin))(&(uid=*)' - this matches admin account regardless of password! IMPACT: Complete authentication bypass, directory enumeration (extract all users/emails/phones), privilege escalation by targeting admin accounts",
+                        "recommendation": "Use ldap-escape library: const ldapEscape = require('ldap-escape'); const safe = ldapEscape.filter(username); const filter = `(uid=${safe})`",
+                        "example_attack": "username = '*)(cn=admin))(&(uid=*' logs in as admin without password",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content'],
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "Template literals (backticks with ${}) in LDAP filter",
+                                "String concatenation with + in filter construction",
+                                "User input embedded directly without escaping",
+                                "No ldap-escape or similar sanitization"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {location['line_number']}: LDAP filter uses template literal or concatenation",
+                                "Pattern: filter = `(uid=${username})` or filter = '(uid=' + username + ')'",
+                                "Attacker injects: username = '*)(cn=admin))(&(uid=*'",
+                                "Creates: filter = '(uid=*)(cn=admin))(&(uid=*)'",
+                                "Matches admin account, bypasses password check completely"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "Template literals in search() calls",
+                                "String concatenation with +",
+                                "Filter variable construction",
+                                "ldap-escape library usage",
+                                "escapeLdapFilter function calls"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["String interpolation/concatenation in LDAP filter"],
+                                "line_numbers": [location['line_number']],
+                                "code_snippets": [location['line_content']]
+                            }
                         }
-                    }
-                })
-                self.score = 0
-                break
+                    })
+                    self.score = 0
+                    break
 
-        # Pattern 2: Check for escaping libraries
-        has_escaping = re.search(r'ldap-escape|escapeLdapFilter|ldapEscape', code)
+        # Pattern 2: Check for user input without escaping
         has_search = re.search(r'\.search\(', code)
         has_user_input = re.search(r'req\.|request\.|params\.|query\.|body\.', code)
 
@@ -334,6 +353,13 @@ class LDAPInjectionDetector:
             })
             if self.score == 0:
                 self.score = 1
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

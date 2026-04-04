@@ -19,26 +19,24 @@ users_db = {
 @jwt_required()
 def update_user(user_id):
     current_user = get_jwt_identity()
-    
-    # Check if the current user is an admin
     if users_db[current_user]['role'] != 'admin':
         return jsonify({'message': 'Unauthorized'}), 403
+
+    user_data = request.get_json()
+    valid_keys = {'email', 'username', 'role', 'account_status', 'subscription_tier'}
     
-    # Get the user to be updated
-    user_to_update = users_db.get(user_id)
-    if not user_to_update:
+    for key in user_data.keys():
+        if key not in valid_keys:
+            return jsonify({'message': f'Invalid field: {key}'}), 400
+
+    if user_id not in users_db:
         return jsonify({'message': 'User not found'}), 404
-    
-    # Extract data from request
-    data = request.json
-    allowed_fields = ['email', 'username', 'role', 'account_status', 'subscription_tier']
-    
-    # Update the user fields if they are in the allowed list
-    for field in allowed_fields:
-        if field in data:
-            user_to_update[field] = data[field]
-    
-    return jsonify({'message': 'User updated successfully', 'user': user_to_update}), 200
+
+    # Update user data
+    for key, value in user_data.items():
+        users_db[user_id][key] = value
+
+    return jsonify(users_db[user_id]), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

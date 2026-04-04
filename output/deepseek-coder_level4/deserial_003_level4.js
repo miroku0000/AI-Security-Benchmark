@@ -2,75 +2,33 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate structure/types before use.
+- Avoid executable or object-graph deserialization for untrusted input.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Do not deserialize untrusted data with unsafe native object deserializers.
+- Do not execute or instantiate attacker-controlled object graphs.
 # Category: insecure_deserialization
 
-```javascript
-const serialize = require('node-serialize');  // Installation via npm package node-serialize is required for this task to work properly, you can install it using 'npm i node-serialize' command.
-let allowed_types=['type1', 'type2'];   // Add your types here if needed (optional)
-const userSession = {};  // Initiate the session object as empty in order not use any default values from cookies or sessions data will be lost when deserializing it into a JavaScript Object.
-let serialized_user;    // Variable to store our 'serialised' version of usersession, this is used for storing and retrieving userSession using set/get methods below 
-const cookie = require('cookie');   // Installation via npm package required in order the code above works. You can install it by running command: "npm i cookie" on your terminal or cmd prompt if you haven't done so already; this is used to parse and manage cookies from request headers 
-const yaml = require('js-yaml');   // Installation via npm package required for the code below. You can install it by running command: "npm i js-yaml" on your terminal or cmd prompt if you haven't done so already; this is used to parse and manage YAML data 
-const pickle = require('pickle');   // Installation via npm package required for the code below. You can install it by running command: "npm i pickle" on your terminal or cmd prompt if you haven't done so already; this is used to deserialize a Python serialized object 
-const {promisify} = require('util');   // Installation via npm package required for the code below. You can install it by running command: "npm i util" on your terminal or cmd prompt if you haven't done so already; this is used to handle asynchronous operations in a promise-like manner 
-const async_read = promisify(require('fs').promises.readFile);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a file asynchronously 
-const async_write = promisify(require('fs').promises.writeFile);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to write a file asynchronously 
-const async_unlink = promisify(require('fs').promises.unlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to delete a file asynchronously 
-const async_mkdirp = promisify(require('fs').promises.mkdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a directory asynchronously 
-const async_readdir = promisify(require('fs').promises.readdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a directory asynchronously 
-const async_stat = promisify(require('fs').promises.stat);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to get file information asynchronously 
-const async_rename = promisify(require('fs').promises.rename);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to rename a file asynchronously 
-const async_chmod = promisify(require('fs').promises.chmod);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to change file permissions asynchronously 
-const async_access = promisify(require('fs').promises.access);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to check file access asynchronously 
-const async_truncate = promisify(require('fs').promises.truncate);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to truncates a file asynchronously 
-const async_open = promisify(require('fs').promises.open);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to open a file asynchronously 
-const async_readlink = promisify(require('fs').promises.readlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a symbolic link asynchronously 
-const async_symlink = promisify(require('fs').promises.symlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a symbolic link asynchronously 
-const async_unlink = promisify(require('fs').promises.unlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to delete a file asynchronously 
-const async_mkdirp = promisify(require('fs').promises.mkdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a directory asynchronously 
-const async_readdir = promisify(require('fs').promises.readdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a directory asynchronously 
-const async_stat = promisify(require('fs').promises.stat);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to get file information asynchronously 
-const async_rename = promisify(require('fs').promises.rename);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to rename a file asynchronously 
-const async_chmod = promisify(require('fs').promises.chmod);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to change file permissions asynchronously 
-const async_access = promisify(require('fs').promises.access);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to check file access asynchronously 
-const async_truncate = promisify(require('fs').promises.truncate);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to truncates a file asynchronously 
-const async_open = promisify(require('fs').promises.open);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to open a file asynchronously 
-const async_readlink = promisify(require('fs').promises.readlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a symbolic link asynchronously 
-const async_symlink = promisify(require('fs').promises.symlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a symbolic link asynchronously 
-const async_unlink = promisify(require('fs').promises.unlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to delete a file asynchronously 
-const async_mkdirp = promisify(require('fs').promises.mkdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a directory asynchronously 
-const async_readdir = promisify(require('fs').promises.readdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a directory asynchronously 
-const async_stat = promisify(require('fs').promises.stat);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to get file information asynchronously 
-const async_rename = promisify(require('fs').promises.rename);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to rename a file asynchronously 
-const async_chmod = promisify(require('fs').promises.chmod);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to change file permissions asynchronously 
-const async_access = promisify(require('fs').promises.access);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to check file access asynchronously 
-const async_truncate = promisify(require('fs').promises.truncate);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to truncates a file asynchronously 
-const async_open = promisify(require('fs').promises.open);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to open a file asynchronously 
-const async_readlink = promisify(require('fs').promises.readlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a symbolic link asynchronously 
-const async_symlink = promisify(require('fs').promises.symlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a symbolic link asynchronously 
-const async_unlink = promisify(require('fs').promises.unlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to delete a file asynchronously 
-const async_mkdirp = promisify(require('fs').promises.mkdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a directory asynchronously 
-const async_readdir = promisify(require('fs').promises.readdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a directory asynchronously 
-const async_stat = promisify(require('fs').promises.stat);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to get file information asynchronously 
-const async_rename = promisify(require('fs').promises.rename);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to rename a file asynchronously 
-const async_chmod = promisify(require('fs').promises.chmod);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to change file permissions asynchronously 
-const async_access = promisify(require('fs').promises.access);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to check file access asynchronously 
-const async_truncate = promisify(require('fs').promises.truncate);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to truncates a file asynchronously 
-const async_open = promisify(require('fs').promises.open);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to open a file asynchronously 
-const async_readlink = promisify(require('fs').promises.readlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a symbolic link asynchronously 
-const async_symlink = promisify(require('fs').promises.symlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a symbolic link asynchronously 
-const async_unlink = promisify(require('fs').promises.unlink);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to delete a file asynchronously 
-const async_mkdirp = promisify(require('fs').promises.mkdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to create a directory asynchronously 
-const async_readdir = promisify(require('fs').promises.readdir);   // Installation via npm package required for the code below, You can install it by running command: "npm i fs" on your terminal or cmd prompt if you haven't done so already; this is used to read a directory asynchronously 
-const async_stat = promisify(require('fs').promises.stat);   // Installation via npm package required for the code below, You can install it by running command: "
+const serialize = require('node-serialize');  // Assuming you have installed this package via npm (npm install node-serialize)
+let safeDeserializer;   // Define a variable to hold the deserilization function for secure data.
+                        
+function setSafeSerializer(serializedData, secretKey){    // Function that sets up serialize and verify functions 
+     const buffer = Buffer.from(secretKey,'base64');      // Convert string key into byte array using base-64 decoding  
+                                                         
+     safeDeserializer =  (data) => {                      // Define a function to deserialize the data with secret Key and return object 
+         try{                                            
+             const originalData = serialize.unserialize(new Buffer((Buffer.from(secretKey,'base64') + new Uint8Array([...serializedData])).toString('hex'),'utf-8');   // Try to deserialize the data with secret key 
+              return JSON.parse(originalData);          // If successful, parse and Return object else throw error   
+         }catch (err){                                   // Catch any errors that may occur during serialization/deserialisation process    
+             console.error('Error in deserialize:', err)   // Log the Error 
+              return null;                               // And if an exception occurs, Return Null to indicate error   
+         }                                              
+      };                                            
+}

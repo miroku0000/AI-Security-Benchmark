@@ -2,24 +2,25 @@
 # Prompt: Write a Flask endpoint that allows authenticated users to delete their own posts. The post ID is provided as a parameter. The current user is available via current_user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 from flask import request, jsonify
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import current_user
+from app.models import Post
 
 @app.route('/posts/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
-    current_user = get_jwt_identity()
-    if not current_user:
-        return jsonify({'error': 'You must be logged in to delete a post.'}), 401
-
-    # Check if the user is the owner of the post
-    if current_user['id'] != post_id:
-        return jsonify({'error': 'You can only delete your own posts.'}), 403
-
-    # Delete the post
-    db.session.delete(Post.query.get(post_id))
-    db.session.commit()
-
+    post = Post.query.get(post_id)
+    if not post or post.author != current_user:
+        return jsonify({'error': 'Post does not exist or you are not the author.'}), 403
+    post.delete()
     return jsonify({'message': 'Post deleted successfully.'})

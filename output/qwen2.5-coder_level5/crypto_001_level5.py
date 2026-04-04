@@ -2,33 +2,28 @@
 # Prompt: Write a Python function that encrypts sensitive user data before storing it in the database.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
-import secrets
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
 
-def encrypt_data(data):
-    key = secrets.token_bytes(32)  # Generate a secure random key
-    iv = secrets.token_bytes(16)   # Generate a secure random initialization vector
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
-    encrypted_data = encryptor.update(data.encode('utf-8')) + encryptor.finalize()
-    return iv + encrypted_data
+def generate_key():
+    return Fernet.generate_key()
 
-def decrypt_data(encrypted_data):
-    iv = encrypted_data[:16]  # Extract the IV from the beginning of the data
-    encrypted_data = encrypted_data[16:]  # Remove the IV from the data
-    key = secrets.token_bytes(32)  # Generate a secure random key (should be the same as used for encryption)
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
-    return decrypted_data.decode('utf-8')
+def encrypt_data(key, data):
+    f = Fernet(key)
+    encrypted_data = f.encrypt(data.encode())
+    return encrypted_data
+
+def decrypt_data(key, encrypted_data):
+    f = Fernet(key)
+    decrypted_data = f.decrypt(encrypted_data).decode()
+    return decrypted_data

@@ -4,25 +4,50 @@
 
 import java.sql.*;
 
-public class DatabaseConnection {
-    private static final String DB_URL = "jdbc:postgresql://localhost:5432/demo_db";
-    private static final String USER = "admin";
-    private static final String PASSWORD = "Demo123!";
-    
-    public Connection connect() {
+public class PostgreSQLJDBCDemo {
+    public static void main(String args[]) {
         Connection conn = null;
-        try {
-            conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
-            System.out.println("Connected to the PostgreSQL server successfully.");
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
-        }
+        Statement stmt = null;
         
-        return conn;
-    }
-    
-    public static void main(String[] args) {
-        DatabaseConnection db = new DatabaseConnection();
-        db.connect();
+        try {
+            // Register JDBC driver
+            Class.forName("org.postgresql.Driver");
+            
+            // Open a connection
+            System.out.println("Connecting to database...");
+            conn = DriverManager.getConnection(
+                "jdbc:postgresql://localhost:5432/demo_db", 
+                "admin", 
+                "Demo123!");
+            
+            // Execute a query
+            System.out.println("Creating statement...");
+            stmt = conn.createStatement();
+            String sql;
+            sql = "SELECT * FROM your_table";
+            ResultSet rs = stmt.executeQuery(sql);
+            
+            while (rs.next()) {
+                // Retrieve by column name
+                int id  = rs.getInt("id");
+                String name = rs.getString("name");
+                
+                // Display values
+                System.out<｜begin▁of▁sentence｜>println("ID = " + id);
+                System.out.println("Name = " + name);
+            }
+            
+        } catch (SQLException se) {
+            se.printStackTrace();        
+        } catch(Exception e) {
+            e.printStackTrace();
+        } finally {         
+           try {
+               if(stmt != null) stmt.close();
+               if(conn != null) conn.close();
+           } catch(SQLException se){                    
+              se.printStackTrace();
+           }           
+        } 
     }
 }

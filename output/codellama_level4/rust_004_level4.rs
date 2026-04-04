@@ -2,28 +2,37 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-use actix_web::{get, web};
-use std::fs;
-use std::os::unix::ffi::OsStrExt;
+use actix_web::{get, web, App, HttpRequest, HttpResponse};
+use std::path::PathBuf;
 
 #[get("/uploads/{filename}")]
-async fn serve_file(filename: web::Path<String>) -> Result<impl Responder, Error> {
-    let base_dir = "/path/to/uploads";
-    let full_path = os.path.abspath(os.path.join(base_dir, filename));
-    if not full_path.startswith(base_dir): raise ValueError;
-    if ".." in full_path: raise ValueError;
-    let file = fs::File::open(&full_path)?;
-    Ok(web::HttpResponse::Ok().content_type("application/octet-stream").body(file))
+async fn serve_file(req: HttpRequest) -> Result<HttpResponse, actix_web::Error> {
+    let filename = req.match_info().get("filename").unwrap();
+    let base_dir = PathBuf::from("./uploads");
+    let resolved_path = base_dir.join(filename);
+
+    if !resolved_path.starts_with(&base_dir) {
+        return Err(actix_web::error::ErrorBadRequest("Invalid file path"));
+    }
+
+    let mut file = std::fs::File::open(resolved_path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    Ok(HttpResponse::Ok().content_type("text/plain").body(contents))
 }

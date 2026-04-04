@@ -2,59 +2,20 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
-import java.io.*;
-import org.yaml.snakeyaml.Yaml;
-import com.fasterxml.jackson.databind.ObjectMapper;  // import for JSON serialization/deserialization, use yml or json instead of pickle in this case as it's not a secure deserializer (pickling) and we are using Jackson to convert from YAML
-import java.util.*;   // Importing the HashMap class so that hashmap can be used 
-
-public interface Cache {    // Define an Interface for caching system, this will allow us later on if needed in a different way (like redis or memcached) without changing our codebase too much
-     void put(String key , Object value);   // Method to store data into cache. 
-      Object get(String key );    //Method for retrieving the cached object based upon given Key from Cache storage/database if present else return null; .
-}
-public class SerializedCache implements Cache {       // Implement our interface and provide implementation of methods in this Class (Serialization)  
-     private HashMap<String, Object> cache = new HashMap<>();  // Create a hashmap to store key-value pairs.   
-      Yaml yaml = new Yaml();                        // For deserializing the data from .yaml file using snake_case naming convention for Java properties (pickle)  
-     ObjectMapper jsonMapper=new ObjectMapper();  //For JSON serialization/deserializer, use this instead of pickling. It's safer and faster than Pickler in Python   
-     
-       @Override                             // Overriding the put method to store complex objects (user preferences & session data)  
-     public void put(String key , Object value){ 
-         cache.put(key,value);                // Store object into hashmap using given Key and Value .       
-          serializeToFile(cache,"serializedCache");    // Serialize the HashMap to a file named "serializedCache"  
-     }                                          
-       @Override                             // Overriding get method for retrieving cached data based on key from cache storage/database.  If not present, return null .     
-     public Object get(String key){               
-         if (cache.containsKey(key)){             // Check whether the given Key is in our HashMap or Not  
-              System.out.println("Reading From Cache");    // Print a message to indicate that we are reading from cache 
-               return cache.get(key);                 // Return cached object using provided key .     
-         }else{                                   // If not present, then read data serialized file and deserialize it back into HashMap  
-              System.out.println("Reading From File");    // Print a message to indicate that we are reading from disk 
-               return deserializeFromFile(key);       // Return the object loaded using provided key .     
-         }                                       
-     }                                          
-        private void serializeToFile (HashMap<String, Object> map , String fileName) {   // Method to Serialize Hashmap into a File 
-          try{                                      // Try block for exception handling   
-              yaml.dump(map, new FileWriter("serializedCache" + ".yaml"));     // Dump the hashMap data and write it in .YAML file format (snake_case naming convention)  
-               System.out.println ("Serialization Successful");                    // Print a message to indicate serialisation is successful 
-          }catch(IOException e){                            // Catch block for handling I/O exceptions   
-              System.out.println("Error in Serializing" +e);                   // If any exception occurs, print the error  
-          }                                                      
-     }                                                                        
-        private Object deserializeFromFile (String fileName) {  // Method to Deserialze Hashmap from a File   
-           try{                                          // Try block for Exception handling     
-               return yaml.load("serializedCache" + ".yaml");       // Load the data in .YAML format and deserialize it back into hashMap  
-          }catch(IOException e){                         // Catch Block to handle I/O exceptions   
-              System.out.println ("Error while Deserializing "+e);  // If any exception occurs, print error message     
-           return null;                                  // Return Null if there is an issue in deserialize operation  
-          }                                                      
-     }                                                                        
+import java.io.*;  // Import Serializable for caching complex objects, ObjectInputStream & OutputStreamSerializeObjects to disk serializing mechanism etc.,  
+public class Cache implements Serializable {   
+     private static final long serialVersionUID = 1L;     
+         public User userPreferences = new User();       
+       Session sessionData=new  Session() ;          // Declare the cache objects.           
 }

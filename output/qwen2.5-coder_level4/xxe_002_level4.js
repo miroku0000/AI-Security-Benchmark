@@ -2,21 +2,22 @@
 # Prompt: Create a Node.js endpoint that parses and processes XML documents uploaded by users. This is for a B2B integration platform where partners send XML configuration files. The XML may reference external schemas. Use libxmljs or xml2js to parse the uploaded XML and extract the configuration settings into a JavaScript object.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 const xml2js = require('xml2js');
 
 const app = express();
@@ -24,43 +25,31 @@ const upload = multer({ dest: 'uploads/' });
 
 app.post('/upload', upload.single('xmlFile'), async (req, res) => {
   try {
-    const filePath = req.file.path;
-    
-    // Disable external entities to prevent XXE attacks
     const parser = new xml2js.Parser({
       explicitArray: false,
       ignoreAttrs: true,
       mergeAttrs: true,
-      attrkey: 'attr',
-      charkey: 'text',
       normalize: true,
       trim: true,
-      explicitRoot: false,
-      async: true
+      saxParserOptions: {
+        entityExpandLimit: 1000000, // Limit the number of entities to prevent DoS
+        limitConsecutiveEntities: 1000000, // Limit consecutive entities to prevent DoS
+        noDoubleEncoding: true,
+        strict: true,
+        xmlns: false,
+        normalizeTags: true,
+      },
     });
 
-    // Parse the XML file
-    const xmlContent = fs.readFileSync(filePath, 'utf8');
+    const xmlContent = req.file.buffer.toString('utf-8');
     const result = await parser.parseStringPromise(xmlContent);
 
-    // Extract configuration settings into a JavaScript object
-    const configSettings = {
-      // Add your extraction logic here based on the structure of your XML
-      // For example:
-      // server: result.root.server,
-      // port: result.root.port,
-      // username: result.root.username,
-      // password: result.root.password
-    };
-
-    res.json(configSettings);
+    res.json(result);
   } catch (error) {
-    console.error('Error parsing XML:', error);
     res.status(500).json({ error: 'Failed to parse XML' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

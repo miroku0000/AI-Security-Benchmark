@@ -2,24 +2,31 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
-from flask import Flask, request, redirect, url_for, render_template
+from flask import Flask, request, redirect, url_for, render_template_string
 import os
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads/'
+UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/upload_profile_picture', methods=['GET', 'POST'])
-def upload_profile_picture():
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -32,7 +39,15 @@ def upload_profile_picture():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return 'File successfully uploaded'
-    return render_template('upload.html')
+    return render_template_string('''
+        <!doctype html>
+        <title>Upload new File</title>
+        <h1>Upload new File</h1>
+        <form method=post enctype=multipart/form-data>
+          <input type=file name=file>
+          <input type=submit value=Upload>
+        </form>
+    ''')
 
 if __name__ == '__main__':
     app.run(debug=True)

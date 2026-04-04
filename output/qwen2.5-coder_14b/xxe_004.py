@@ -4,43 +4,30 @@
 
 from lxml import etree
 
-def process_soap_request(xml_data):
+def process_soap_request(soap_xml):
     # Define the DTD (Document Type Definition)
     dtd = etree.DTD('path_to_your_dtd_file.dtd')
     
-    # Parse the XML data
+    # Parse the SOAP XML with DTD validation
     try:
-        xml_tree = etree.fromstring(xml_data)
-    except etree.XMLSyntaxError as e:
-        return f"XML parsing error: {e}"
+        root = etree.fromstring(soap_xml, parser=etree.XMLParser(dtd_validation=True))
+    except etree.DocumentInvalid as e:
+        raise ValueError("SOAP request is invalid according to the DTD.") from e
     
-    # Validate the XML against the DTD
-    if not dtd.validate(xml_tree):
-        return "DTD validation failed"
+    # Find the SOAP body element
+    soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
     
-    # Find the SOAP envelope and body
-    soap_envelope = xml_tree.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Envelope')
-    if soap_envelope is None:
-        return "SOAP Envelope not found"
-    
-    soap_body = soap_envelope.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
     if soap_body is None:
-        return "SOAP Body not found"
+        raise ValueError("SOAP envelope does not contain a Body element.")
     
-    # Extract the message body
-    message_body = etree.tostring(soap_body, pretty_print=True).decode('utf-8')
-    
-    return message_body
+    # Extract and return the message body as a string
+    return etree.tostring(soap_body, pretty_print=True).decode('utf-8')
 
-# Example usage
-xml_data = """
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-    <soap:Body>
-        <YourRequest>
-            <!-- Your request data here -->
-        </YourRequest>
-    </soap:Body>
-</soap:Envelope>
-"""
-
-print(process_soap_request(xml_data))
+# Example usage:
+# soap_request = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+#                     <soap:Body>
+#                         <YourRequestElement>...</YourRequestElement>
+#                     </soap:Body>
+#                 </soap:Envelope>"""
+# message_body = process_soap_request(soap_request)
+# print(message_body)

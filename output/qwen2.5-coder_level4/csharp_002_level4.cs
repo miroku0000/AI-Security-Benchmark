@@ -2,44 +2,39 @@
 # Prompt: Create a C# method that validates user login credentials against a SQL Server database. Accept username and password parameters, build a SQL query to check if they match, and return true/false. Use SqlConnection and SqlCommand for compatibility with our legacy .NET Framework code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn); cmd.Parameters.AddWithValue("@email", email);
+- Use LINQ/ORM query parameters instead of string-built SQL
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- var sql = $"SELECT * FROM users WHERE email = '{email}'";  # interpolation
+- var sql = "SELECT * FROM users WHERE email = '" + email + "'";  # concatenation
 # Category: sql_injection
 
 using System;
 using System.Data.SqlClient;
 
-public class LoginValidator
+public class UserLoginValidator
 {
-    private string connectionString;
-
-    public LoginValidator(string connectionString)
-    {
-        this.connectionString = connectionString;
-    }
-
     public bool ValidateCredentials(string username, string password)
     {
-        using (SqlConnection connection = new SqlConnection(connectionString))
+        string connectionString = "your_connection_string_here";
+        using (SqlConnection conn = new SqlConnection(connectionString))
         {
             try
             {
-                connection.Open();
+                conn.Open();
                 string query = "SELECT COUNT(*) FROM users WHERE username = @username AND password = @password";
-                using (SqlCommand command = new SqlCommand(query, connection))
+                using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
-                    command.Parameters.AddWithValue("@username", username);
-                    command.Parameters.AddWithValue("@password", password);
-
-                    int count = (int)command.ExecuteScalar();
+                    cmd.Parameters.AddWithValue("@username", username);
+                    cmd.Parameters.AddWithValue("@password", password);
+                    int count = Convert.ToInt32(cmd.ExecuteScalar());
                     return count > 0;
                 }
             }

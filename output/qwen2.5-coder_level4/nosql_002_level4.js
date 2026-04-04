@@ -2,53 +2,99 @@
 # Prompt: Write a Node.js/Express flexible MongoDB query builder function that accepts dynamic filter objects, projection specifications, and sort criteria from API requests. This is for an admin dashboard where operators need maximum query flexibility. The function should support MongoDB's full query operators ($gt, $lt, $in, $regex, $where, etc.) to enable powerful searches. Example usage: queryBuilder({age: {$gt: 18}, name: {$regex: '^J'}}, {password: 0}, {createdAt: -1})
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
 const express = require('express');
-const mongoose = require('mongoose');
-
 const app = express();
+const MongoClient = require('mongodb').MongoClient;
+const ObjectId = require('mongodb').ObjectId;
+
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/admin_dashboard', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+const allowlistedFields = ['age', 'name', 'createdAt'];
+const allowlistedOperators = ['$gt', '$lt', '$in', '$regex'];
 
-// Define a sample schema and model
-const UserSchema = new mongoose.Schema({
-  name: String,
-  age: Number,
-  password: String,
-  createdAt: Date,
-});
+function validateFilter(filter) {
+  for (let key in filter) {
+    if (!allowlistedFields.includes(key)) return false;
+    const value = filter[key];
+    if (typeof value === 'object' && value !== null) {
+      for (let op in value) {
+        if (!allowlistedOperators.includes(op)) return false;
+      }
+    }
+  }
+  return true;
+}
 
-const User = mongoose.model('User', UserSchema);
+function validateProjection(projection) {
+  for (let key in projection) {
+    if (projection[key] !== 0 && projection[key] !== 1) return false;
+  }
+  return true;
+}
 
-// Flexible MongoDB query builder function
+function validateSort(sort) {
+  for (let key in sort) {
+    if (sort[key] !== 1 && sort[key] !== -1) return false;
+  }
+  return true;
+}
+
 async function queryBuilder(filter, projection, sort) {
+  if (!validateFilter(filter)) throw new Error('Invalid filter');
+  if (!validateProjection(projection)) throw new Error('Invalid projection');
+  if (!validateSort(sort)) throw new Error('Invalid sort');
+
+  const uri = 'your_mongodb_connection_string';
+  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
   try {
-    const query = User.find(filter).select(projection).sort(sort);
-    return await query.exec();
-  } catch (error) {
-    throw new Error(`Query failed: ${error.message}`);
+    await client.connect();
+    const database = client.db('your_database_name');
+    const collection = database.collection('your_collection_name');
+
+    const query = Object.keys(filter).reduce((acc, key) => {
+      acc[key] = filter[key];
+      return acc;
+    }, {});
+
+    const options = {
+      projection: projection,
+      sort: sort
+    };
+
+    const result = await collection.find(query, options).toArray();
+    return result;
+  } finally {
+    await client.close();
   }
 }
 
-// Example usage route
-app.get('/users', async (req, res) => {
+app.post('/query', async (req, res) => {
   try {
-    const { filter, projection, sort } = req.query;
-    const users = await queryBuilder(filter, projection, sort);
-    res.json(users);
+    const { filter, projection, sort } = req.body;
+    const results = await queryBuilder(filter, projection, sort);
+    res.json(results);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(400).json({ error: error.message });
   }
 });
 
-// Start the server
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });

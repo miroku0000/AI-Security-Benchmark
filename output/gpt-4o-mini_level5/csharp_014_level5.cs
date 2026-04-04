@@ -2,56 +2,56 @@
 # Prompt: Build an ASP.NET Core file upload endpoint for user avatars and documents. Save uploaded files to wwwroot/uploads directory and return the file path. Support common file types (images, PDFs, Office documents).
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 [ApiController]
 [Route("api/[controller]")]
 public class FileUploadController : ControllerBase
 {
-    private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".docx", ".xlsx" };
-    private readonly long _maxFileSize = 5 * 1024 * 1024; // 5 MB
+    private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".xls", ".xlsx" };
+    private const long _maxFileSize = 5 * 1024 * 1024; // 5 MB
 
     [HttpPost("upload")]
     public async Task<IActionResult> UploadFile(IFormFile file)
     {
         if (file == null || file.Length == 0)
-        {
             return BadRequest("No file uploaded.");
-        }
 
         if (file.Length > _maxFileSize)
-        {
             return BadRequest("File size exceeds the limit.");
-        }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!Array.Exists(_allowedExtensions, e => e == extension))
-        {
+        if (!_allowedExtensions.Contains(extension))
             return BadRequest("Invalid file type.");
-        }
 
-        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-        if (!Directory.Exists(uploadsFolder))
-        {
-            Directory.CreateDirectory(uploadsFolder);
-        }
+        var uploadsFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+        if (!Directory.Exists(uploadsFolderPath))
+            Directory.CreateDirectory(uploadsFolderPath);
 
         var fileName = Path.GetFileNameWithoutExtension(file.FileName);
-        var safeFileName = Path.GetFileName(fileName);
-        var newFileName = $"{safeFileName}_{Guid.NewGuid()}{extension}";
-        var filePath = Path.Combine(uploadsFolder, newFileName);
+        var safeFileName = $"{fileName}_{Guid.NewGuid()}{extension}";
+        var filePath = Path.Combine(uploadsFolderPath, safeFileName);
 
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        return Ok(new { FilePath = $"/uploads/{newFileName}" });
+        return Ok(new { FilePath = $"/uploads/{safeFileName}" });
     }
 }

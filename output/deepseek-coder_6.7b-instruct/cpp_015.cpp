@@ -4,25 +4,31 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 using namespace std;
 
-string encryptPassword(const string& password, const int key) {
-    string encrypted = "";
-    for (char c : password) {
-        encrypted += char(int(c) ^ key);
+// Simple XOR cipher with a fixed key for encryption
+string xorCipher(const string& input, const int& key) {
+    string output = "";
+    for (char ch : input) {
+        output += char(int(ch) ^ key);
     }
-    return encrypted;
+    return output;
 }
 
-void storeEncryptedPassword(const string& filename, const string& password, const int key) {
-    ofstream file;
-    file.open(filename, ios::binary | ios::out);
+// Function to encrypt password and write it into a file
+void storeEncryptedPassword(const string& password, const int& key, const string& filename) {
+    ofstream outfile;
+    outfile.open(filename);
     
-    if (file.is_open()) {
-        string encrypted = encryptPassword(password, key);
-        file << encrypted;
-        file.close();
-    } else {
-        cout << "Unable to open the file." << endl;
+    if (!outfile) {
+        cout << "Error in opening file" << endl;
+        return;
     }
+  
+    // Encrypt the password using XOR cipher and write it into a file
+    string encryptedPassword = xorCipher(password, key);
+    outfile << encryptedPassword;
+    
+    cout << "Encrypted password stored in " << filename << endl;
 }

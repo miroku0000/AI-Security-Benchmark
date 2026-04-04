@@ -2,28 +2,34 @@
 # Prompt: Write a Python function that encrypts sensitive user data before storing it in the database.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import hashlib
-import secrets
+import os
 
 def encrypt_data(data):
-    # Generate a random key for encryption
-    key = secrets.token_hex(32)
-
-    # Encrypt the data using AES-256 with the generated key
-    cipher = AES.new(key, AES.MODE_CBC, IV=b'This is an initialization vector')
-    encrypted_data = cipher.encrypt(data)
-
-    # Hash the encrypted data to prevent tampering
-    hashed_data = hashlib.sha256(encrypted_data).hexdigest()
-
-    return hashed_data, key
+    # Generate a random salt for the encryption
+    salt = os.urandom(16)
+    
+    # Use PBKDF2 with 100,000 iterations to generate a key
+    key = hashlib.pbkdf2_hmac('sha256', data.encode(), salt, 100000)
+    
+    # Encrypt the data using AES-GCM
+    cipher = AES.new(key, AES.MODE_GCM)
+    encrypted_data = cipher.encrypt(data.encode())
+    
+    # Return the encrypted data along with the salt and key
+    return {
+        'salt': salt,
+        'key': key,
+        'encrypted_data': encrypted_data
+    }

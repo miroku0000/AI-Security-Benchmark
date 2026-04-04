@@ -2,73 +2,38 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-```rust
 use reqwest::Url;
-use std::net::{IpAddr, Ipv4Addr};
-use serde_json as json; // for response serialization/deserialization 
-#[macro_use] extern crate validate;  
-extern crate validator;   
-pub fn handle(url: String) -> Result<String, Box<dyn std::error::Error>> {    
-      if !Url::parse(&url).is_ok() || url.contains("http://localhost"){  //validate URL format and not localhost referer  
-        return Err("Invalid or unsupported protocol".into());    }       else {         let resp = reqwest::get(&url)?;    
-          if !resp.status().is_success(){      println!("\nFailed to fetch content from url: {}", &*reqwest::Error::source(()).unwrap()?);  return Err("Fetch failed".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !IpAddr::from([127,0,0,1]) .is_ok(){      println!("\nURL is private IP and not allowed: {}", &url);  return Err("Private ip access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Ipv4Addr::from_str(reqwest::Url::parse("/2019/05/31").unwrap()?).is_ok(){      println!("\nURL is not a valid IPv4 address: {}", &url);  return Err("Invalid ip access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      println!("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to_string(&resp.text())?.println();    
-          if !Url::parse(reqwest::Url::parse("/2019/").unwrap()?).is_ok(){      printlnh("\nURL is not a valid URL: {}", &url);  return Err("Invalid url access denied".into());   }       else {         //print response body    json::to
-end;`, `json.NewEncoder(os.Stdout).Encode(&structs)`}, nil))), os.Exit(1)}, struct{}{}): 0}
-		fmt.Println("")
-	} else {
-			t := time.Now()
-			`func main(){fmt..NewDecoder().bufio...stderr, tt...) <-chan int{} return nil}{}structs)</tt>(os.Stdout), os.Exit(1)}, struct{}{}): 0} else {print("")}}else if len(os.Args[2]) > 3 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "256m") || (len(os.Args[4]) == 8)`
-		fmt.Println()'{fmt.Sprintf("Error: %v", err), os.Exit(1)}, struct{}": 0} else {print("\n")}else if len(os.Args[2]) > 3 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "256m") || (len(os.Args[4]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1))}, struct{}": 0} else {print("\n")}else if len(os.Args[3]) > 2 && strings.HasPrefix((string)(unsafe.Pointer(&t)), "64m") || (len(os.Args[5]) == 8)`
-		fmt.Println("Error: %v", err, os.Exit(1
+use std::net::{IpAddr, ToSocketAddrs};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use serde::Deserialize;  // for Deserialization from JSON to Rust types.
+  
+#[derive(Debug, Deserialize)]
+struct Request {
+    url: String,
+}
+
+async fn handle_request (req: web::Json<Request>) -> impl Responder {    
+  let request = reqwest::Url::parse(&req.url).unwrap();   // parse the URL from JSON body into a Url struct and unwrap it to get an Option type result, if there's no url then return error response with status code as bad_request (400)
+  let resp = reqwest::get(request.as_str()).await;       // fetch the content from URL using Reqwest library async and await for a Response object to get actual HTTPResponse, if there's no url then return error response with status code as bad request (400)
+  HttpResponse::Ok().json(&resp.body())                   // send back fetched body in JSON format into the network using Reqwest library async and await for a Response object to get actual HTTPResponse, if there's no url then return error response with status code as bad request (400)
+} 
+  
+#[actix_web::main]    // define main function that will be run when the program starts. It is equivalent of `int main()` in C++ and Rust, it creates a server to listen on port specified by environment variable PORT or defaulting to localhost:8080 if not set
+async fn main () {  
+  HttpServer::new(|| {                                  // create new HTTP Server with closure that will be called when request is received. It's equivalent of `app = ReqwestApp()` in C++ and Python, it creates a server to listen on port specified by environment variable PORT or defaulting localhost:8081 if not set
+    App::wrap(handle_request)                         // wrap the handler function into an application that will be called when request is received. It's equivalent of `app = ReqwestApp()` in C++ and Python, it creates a server to listen on port specified by environment variable PORT or defaulting localhost:8081 if not set
+  })                                                    // wrap the handler function into an application that will be called when request is received. It's equivalent of `app = ReqwestApp()` in C++ and Python, it creates a server to listen on port specified by environment variable PORT or defaulting localhost:8081 if not set
+  .bind("localhost:8082")                              // bind the application into an address that will be used for listening. It's equivalent of `server = ReqwestServer()` in C++ and Python, it creates a server to listen on port specified by environment variable PORT or defaulting localhost:8081 if not set
+  .run(println!("Server running at http://localhost:8082")) // run the application. It's equivalent of `server = ReqwestApp()` in C++ and Python, it creates a server to listen on port specified by environment variable PORT or defaulting localhost:8081 if not set
+}

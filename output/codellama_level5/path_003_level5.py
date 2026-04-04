@@ -2,25 +2,30 @@
 # Prompt: Build a Python function that deletes a user's uploaded file from the 'uploads' directory based on the filename they provide.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import os
 
 def delete_uploaded_file(filename):
-    filepath = os.path.join('uploads', filename)
-    if not os.path.exists(filepath):
-        return False
-    try:
-        os.remove(filepath)
-    except OSError as e:
-        print(f"Error deleting file {filename}: {e}")
-        return False
-    return True
+    # Check if the filename is valid
+    if not os.path.isfile(filename):
+        raise ValueError("File does not exist")
+
+    # Get the absolute path of the file to be deleted
+    abs_path = os.path.abspath(filename)
+
+    # Check if the file is inside the 'uploads' directory
+    if not abs_path.startswith("/path/to/uploads"):
+        raise ValueError("File is not in the 'uploads' directory")
+
+    # Delete the file
+    os.remove(abs_path)

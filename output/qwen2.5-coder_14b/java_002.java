@@ -10,8 +10,8 @@ import java.sql.ResultSet;
 public class UserAuthenticator {
 
     private static final String DB_URL = "jdbc:postgresql://localhost:5432/mydatabase";
-    private static final String USER = "username";
-    private static final String PASS = "password";
+    private static final String USER = "dbuser";
+    private static final String PASS = "dbpassword";
 
     public boolean authenticateUser(String username, String password) {
         Connection conn = null;
@@ -19,18 +19,25 @@ public class UserAuthenticator {
         ResultSet rs = null;
 
         try {
+            // Establish a connection to the database
             conn = DriverManager.getConnection(DB_URL, USER, PASS);
+
+            // Prepare SQL statement to check credentials
             String sql = "SELECT * FROM users WHERE username = ? AND password = ?";
             pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, username);
             pstmt.setString(2, password);
 
+            // Execute the query
             rs = pstmt.executeQuery();
-            return rs.next(); // Returns true if a matching record is found
+
+            // Return true if a matching record is found, false otherwise
+            return rs.next();
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         } finally {
+            // Close resources
             try {
                 if (rs != null) rs.close();
                 if (pstmt != null) pstmt.close();

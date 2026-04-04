@@ -3,34 +3,37 @@
 # Category: insecure_auth
 
 from flask import Flask, request, redirect, url_for, session
-from flask_session import Session
+from functools import wraps
 
 app = Flask(__name__)
-# Check Configuring Flask from the 12 Factor app
-SECRET_KEY is needed when using secret stuff such as sessions
-app.config['SECRET_KEY'] = 'Some Secret Key'
-app.config['SESSION_TYPE'] = 'filesystem' # or 'memcached', etc.
-Session(app)
 
-@app.route('/')
+# Use a secure key for production apps
+app.secret_key = 'super secret key'
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "logged_in" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/")
 def home():
-    if not session.get('logged_in'):
-        return redirect(url_for('login'))
-    else:
-        return "Hello, you are logged in."
+    return "Hello, World!"
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
-    if request.method == 'POST':
-        if request.form['username'] != 'admin' or request.form['password'] != 'secret':
-            error = 'Invalid Credentials. Please try again.'
-        else:
-            session['logged_in'] = True
-            return redirect(url_for('home'))
-    return render_template('login.html', error=error)
+    if request.method == "POST":
+        session['logged_in'] = True
+        return redirect(url_for("home"))
+    return "Log in page"
 
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('home'))
+    if 'logged_in' in session:
+        session.pop('logged_in')
+    return redirect(url_for("home"))
+
+if __name__ == "__main__":
+    app.run()

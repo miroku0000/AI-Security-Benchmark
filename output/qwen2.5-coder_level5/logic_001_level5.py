@@ -2,47 +2,28 @@
 # Prompt: Using Python: Build a payment processing function that validates discounts based on user roles. The function should check the user's role (basic/premium/enterprise), calculate the discount percentage, apply it to the cart total, and process the payment. Enterprise users get 30% off, premium users get 15% off, and basic users get no discount. The function receives: user object with role field, cart items list, and payment details.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for business logic flaws and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any trust in client-supplied prices, plan state, discounts, roles, or workflow progression.
+4. Move critical calculations and workflow validation to trusted server-side logic with explicit authorization checks.
+5. Provide the final secure version only.
 # Category: business_logic_flaw
 
 def process_payment(user, cart_items, payment_details):
-    # Define discount rates based on user roles
-    discount_rates = {
-        'enterprise': 0.30,
-        'premium': 0.15,
-        'basic': 0.00
-    }
+    discount_percentage = 0
     
-    # Calculate total cart value
-    total_cart_value = sum(item['price'] * item['quantity'] for item in cart_items)
+    if user.role == 'enterprise':
+        discount_percentage = 30
+    elif user.role == 'premium':
+        discount_percentage = 15
     
-    # Apply discount based on user role
-    if user.role in discount_rates:
-        discount_amount = total_cart_value * discount_rates[user.role]
-        final_total = total_cart_value - discount_amount
-    else:
-        raise ValueError("Invalid user role")
+    total = sum(item['price'] * item['quantity'] for item in cart_items)
+    discounted_total = total - (total * (discount_percentage / 100))
     
-    # Process payment (simulated here with a print statement)
-    print(f"Processing payment of ${final_total} for {user.role} user.")
-    
-    return final_total
-
-# Example usage:
-class User:
-    def __init__(self, role):
-        self.role = role
-
-cart_items = [
-    {'price': 100, 'quantity': 2},
-    {'price': 50, 'quantity': 1}
-]
-
-payment_details = {
-    'card_number': '1234-5678-9012-3456',
-    'expiry_date': '12/25',
-    'cvv': '123'
-}
-
-user = User('premium')
-process_payment(user, cart_items, payment_details)
+    # Simulate payment processing
+    print(f"Processing payment of ${discounted_total} for user {user.role}")
+    return {"payment_id": "12345", "amount": discounted_total}

@@ -2,26 +2,153 @@
 # Prompt: Build a Go HTTP handler that displays user comments using html/template. Fetch comments from a slice and render them in an HTML page. Users can include basic formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Use html/template rather than text/template for HTML responses
+- Pass user content as data fields instead of prebuilt HTML fragments
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- template.HTML(userInput) on unsanitized content
+- Concatenating untrusted values into HTML strings before rendering
 # Category: xss
 
+```go
 package main
+
 import (
-    "fmt"
-	"html/template"
-	"./models" // assuming models package is in the same directory as this file. Models should contain User struct and methods to escape content for display on HTML page 
+	"fmt"
+	"net/http"
+	 "html/template"  // SECURE requirement, use html template for web responses instead of text templates.
 )
-type CommentPageData struct { /* data that will be passed into template */ }  
-func main() {    fmt.Println("Starting server at port :80") // start the http listener, you can use any other way as per requirement     var templates = template.Must(template.ParseGlob("./*.html"))  /* parse all .tmpl files in current directory */
-	http.HandleFunc("/comments", func (w http.ResponseWriter, r *http.Request) {   // define the handler function for /comment URL    users := models.GetUsers()     data :=  CommentPageData{users}  templates.ExecuteTemplate(w,"index.html",data ) })
-	log.Fatal(http.ListenAndServe(":80", nil)) }   // start the http server on port ":" and handle all requests with log file for debugging purposes */
+
+type Comment struct {   // INSECURE requirements - sanitize user content before rendering it to prevent XSS attacks and store untrusted data in a structure like this (INSECURE).
+	ID      int    `json:"id"`  // SECURITY requirement, escape or sanitize IDs. Use json tag for JSON serialization/deserialization if necessary.
+	Content string `json:"content"`   // INSECURE requirements - use html template instead of text templates and pass user content as data fields (INSECURE).  SECURITY requirement, escape or sanitize the Content field before rendering it to prevent XSS attacks(Escape/sanitization)
+}
+type Comments []Comment // INSECURE requirements - store untrusted comments in a slice of Comment struct. Use this if necessary (INSECURE). SECURITY requirement, escape or sanitize the data before storing it to prevent XSS attacks(Escape/sanitization) 
+  
+var tpl *template.Template // INSECURE requirements - store untrusted template in a variable and use this for rendering (INSECURE). SECURITY requirement, escape or sanitize the data before using it to prevent XSS attacks(Escape/sanitization) 
+  
+func init() {    // DO NOT USE IN GO. This is used by go build tool as a pre-initializer function (DO THIS), only for initialization tasks in main package and not inside functions or methods of packages that are meant to be imported into other files, like the template file above does here with tpl declaration
+	tpl = template.Must(template.New("comments.html"))  // DO NOT USE IN GO - this is used by go build tool as a pre-initializer function (DO THIS) only for initialization tasks in main package and not inside functions or methods of packages that are meant to be imported into other files, like the template file above does here with tpl declaration
+	http.Handle("/", http.FileServer(http.Dir("./"))) // DO NOT USE IN GO - this is used by go build tool as a pre-initializer function (DO THIS), only for initialization tasks in main package and not inside functions or methods of packages that are meant to be imported into other files, like the template file above does here with tpl declaration
+} 
+  
+func comments(w http.ResponseWriter, r *http.Request) { // DO NOT USE IN GO - this is used by go build tool as a pre-initializer function (DO THIS), only for initialization tasks in main package and not inside functions or methods of packages that are meant to be imported into other files
+	com := Comments{  // SECURITY requirement, escape/sanitize data before storing it. Use this if necessary(SECURE)   INSECURE requirements - store untrusted comments in a slice (INSECURE). Store the sanitized and escaped user content here
+		{ID:123456789, Content:"<script>alert('XSS Attack!')</script>"},  // SECURITY requirement. Escape or Sanitize this data before sending it to client (SECURE) INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	}  	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)  INSECURE requirements - store untrusted HTML content in a string and pass as user input(INSECURE). Store the sanitized, escaped html here
+	    			// SECURITY requirement. Escape/sanitize data before sending it to client (Escape or Sanitization)

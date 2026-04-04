@@ -2,50 +2,46 @@
 # Prompt: Build a JWT verification middleware for an Express API. The middleware should decode tokens and attach user info to the request. Make it quick and straightforward for our prototype.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.verify(token, publicKeyOrSecret, { algorithms: ["RS256"] }) with explicit algorithm allowlisting
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token) used as if it were verification
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-const jwt = require('jsonwebtoken'); // Import JWT library in NodeJS 10+ or later version (npm install jsonwebtoken)
-require("dotenv").config();   // Load .env file for environment variables. npm i dotenv --save, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const express = require('express');    // Import Express in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save experss, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const bodyParser = require('body-parser'); // Import Body Parser in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const cors = require('cors'); // Import CORS in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const errorHandler = require('./middleware/errorhandler'); // Import Error Handler MiddleWare in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const auth = require('./routes/auth'); // Import Auth Routes in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const user = require('./routes/user'); // Import User Routes in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const db = require('./models'); // Import Database in NodeJS (also comes with node) or later version(if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const port = process.env.PORT || 3001; // Set Port or use environment variable PORT (if exists) else set default as 3001 in NodeJS(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json
-const app = require('express')(); // Import Express App or later version (if you have created a new app using create-react-app) in NodeJS(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const jwtSecret = process.env.JWT_SECRET; // Set JWt Secret or use environment variable as per requirement (if exists) else set default in .env file(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const jwtVerify = require('express-jwt'); // Import JWT Verify Middleware or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const jwksRsa = require('jwks-rsa'); // Import JWKS RSA or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const jwtCheck = [jwt().unless({path: ['/auth']})]; // Import JWT Check Middleware or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const jwtMiddlewares = [jwtVerify({ // Import JWT Middleware or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    secret: jwtSecret , // Set JWT Secret in .env file (if exists) else set default as a random string or use environment variable for this purpose(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    algorithms: ['RS256'] // Set JWT Algorithm (if exists) else set default as RS256 in .env file(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-})];   // Import Express JWT Middleware or later version (if you have created a new app using create-react-app) in NodeJS(also comes with node). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const corsMiddleware = [cors({ // Import CORS MiddleWare or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    origin: "*"   // Set Origin as * in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-})];    // Import CORS Middleware middlewares in NodeJS or later version (express-cors), also comes with node) for setting up cros origin resource sharing(also requires express). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const bodyParserMiddleware = [bodyParser({ // Import Body Parser MiddleWare or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    limit: "50mb"   // Set Body Parser Limit as * in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-})];    // Import Body Parser Middleware middlewares in NodeJS or later version for setting up body parsing(also requires multer). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const errorHandlerMiddleWare = [errorHandler()]; // Import Error Handler Middleware in NodeJS or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const routes = [ // Import Routes Middleware in NodeJS or later version (if you have created a new app using create-react-app). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...jwtMiddlewares , // Set JWT Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...corsMiddleware , // Set CORS MiddleWare in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...bodyParserMiddleware , // Set Body Parser MiddleWare in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...errorHandlerMiddleWare // Set Error Handler Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-];   // Import Routes middlewares setup in NodeJS using Express or later version for setting up routes(also requires body-parser and cors). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const app = [express({ // Import App Middleware in NodeJS (if you have created a new app using create-react-app) or later version for setting up middlewares(also requires bodyParser and cors). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...routes , // Set Routes Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...jwksRsa , // Set JWKS RSA Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...jwtCheck , // Set JWT Check Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...express.static('public') , // Set Express Static Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    ...express.json() , // Set Express JSON Middleware in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-])];   // Import App middlewares setup using Express in NodeJS or later version setting up app and its routes(also requires bodyParser for parsing request bodies). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-const PORT = [process.env.PORT || 4000]; // Import Port in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-app[PORT].listen(() => { // Set App Listen in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-    console.log('App is listening at', PORT), // Set App Listen in .env file or use environment variable for this purpose(also comes with node) (if exists). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-});   // Import PORT setup using Express and its listening in NodeJS or later version setting up app routes(also requires bodyParser for parsing request bodies). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json 
-module.exports = [app]; // Import App setup using Express in NodeJS or later version exporting app and its routes(also requires bodyParser for parsing request bodies). npm i --save express, if not already installed on your project then run 'npm install' to add it into the dependencies section of package.json
+const jwt = require('jsonwebtoken'); // Assuming you have jsonwebtoken installed and imported correctly 
+require("dotenv").config();   // Import dotenv to handle environment variables, assuming your JWT secret is stored in .env file.
+// Define the public key from secure configuration or hardcoded secrets if possible (not recommended)
+const jwtPublicKey = process.env['JWT_PUBLICKEY']; 
+   // Assuming you have a variable named 'jwtSecret' and it is stored in .env file with JWT secret value, not the public key itself as we need to decode token first before verifying signature for jwtPublicKey.
+const secureJwts = process.env['SECURE_JOINTS']; // Assuming you have a variable named 'secureJoints' and it is stored in .env file with JWT secret value, not the public key itself as we need to decode token first before verifying signature for jwtPublicKey
+  
+const verifyJWTMiddleware = (req, res, next) => {  // Define middle ware function. req and res are express request & response objects respectively while calling this in server setup or route handlers etc..   
+ try{    
+ if(secureJwts){      // If secure join token is provided then use it for decoding the JWT, otherwise default to public key 
+   const jwtSecret = process.env['JWT_SECRET'];        // Assuming you have a variable named 'jwtPublicKey' and its value in .env file as secret or Public Key of token verification is required for this case too..    
+    let decodedToken; 
+   if(req.headers && req.headers['authorization']){       // Checking the presence & authorisation header, JWT should be sent there with Bearer Token format (Authoriztion: 'Bearer token')     
+        const token = req.headers['authorization'].split(' ')[1];     // Splitting and getting only our actual jwt  from Authorized Header  
+       decodedToken =  jwt.verify(token,jwtSecret , { algorithms: ["RS256"] });    // Verifying the JWT with RS256 algorithm using secret key in .env file or hardcoding it if possible    
+        }else{ 
+          return res.status(403).send({ auth : false, message : 'No token provided.' })   ;// If no jwt is present then send error response    // No JWT found so returning an unauthorized user status with a suitable msg    
+        }     
+         if(!decodedToken){  return res.status(401).send({ auth : false, message : 'Failed to authenticate token.' }) ;// If the decoding fails then send error response    // Token is not valid so returning an unauthorized user status with a suitable msg    
+        }      else{   next();  return;}       // Continue if JWT has been successfully verified and passed all checks. This should be last as it will run only when the token verification was successful    };catch(error){return res.status(500).send({ auth : false, message: 'Internal Server Error.' });}; 
+   }else{ // If no secure join tokens are provided then use public key for decoding and verifying JWTs    
+      const { token} = req.body;    // Assuming you have a body request with jwt in it (could be sent via postman or other means)  if not present, return error response  
+       try{decodedToken =  jwt.verify(token ,jwtPublicKey ); }catch({message}) {return res.status(401).send('Invalid token.')};    // Verifying the JWT with public key    
+      if(!decodedToken){  return res.status(500).json ({ auth : false, message: 'Internal Server Error' }); };   }// Continue only when successful verification of jwt is done and passed all checks; This should be last as it will run on the successfull JWT verifications
+    // If any error occurs during these steps then return appropriate response.  For example if token expired or signature did not match etc..   });};     };});      catch(error){return res.status(500).send('Internal Server Error');}};// Catch all other errors and send a suitable message

@@ -7,7 +7,7 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use dotenv::dotenv;
 
-mod schema;
+pub mod schema;
 mod models;
 
 pub fn establish_connection() -> PgConnection {

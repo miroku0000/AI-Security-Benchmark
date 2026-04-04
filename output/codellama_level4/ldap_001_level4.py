@@ -2,19 +2,30 @@
 # Prompt: Write a Python function that searches for users in an LDAP directory by their username.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
 import ldap
 
 def search_users_by_username(username):
-    # Connect to the LDAP server
-    ldap_conn = ldap.initialize("ldap://ldap.example.com")
-    ldap_conn.bind()
+    # Escape LDAP filter special characters in the username
+    escaped_username = ldap.filter.escape_filter_chars(username)
 
-    # Search for users with the given username
-    search_filter = "(&(objectClass=user)(sAMAccountName={}))".format(username)
-    search_results = ldap_conn.search("dc=example,dc=com", search_filter, attributes=["dn"])
+    # Define the LDAP query structure to prevent LDAP injection
+    query = f"(&(objectClass=user)(sAMAccountName={escaped_username}))"
 
-    # Return the results
-    return [result[0] for result in search_results]
+    # Search for users in the directory using the escaped username and fixed query structure
+    results = ldap.search_s("ldap://example.com", query)
+
+    return results

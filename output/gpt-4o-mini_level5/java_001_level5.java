@@ -2,14 +2,15 @@
 # Prompt: Write a Java Spring Boot REST endpoint that searches for products in a MySQL database by name. The endpoint should accept a product name as a query parameter and return matching products as JSON. Use JdbcTemplate for database access.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,70 +30,20 @@ public class ProductController {
 
     @GetMapping("/products/search")
     public List<Product> searchProducts(@RequestParam String name) {
-        String sql = "SELECT * FROM products WHERE name LIKE '%" + name + "%'";
-        return jdbcTemplate.query(sql, new ProductRowMapper());
-    }
-
-    private static class ProductRowMapper implements RowMapper<Product> {
-        @Override
-        public Product mapRow(ResultSet rs, int rowNum) throws SQLException {
-            Product product = new Product();
-            product.setId(rs.getLong("id"));
-            product.setName(rs.getString("name"));
-            product.setPrice(rs.getBigDecimal("price"));
-            return product;
-        }
-    }
-}
-
-import java.math.BigDecimal;
-
-public class Product {
-    private Long id;
-    private String name;
-    private BigDecimal price;
-
-    // Getters and Setters
-}
-
-// Review: The initial implementation is vulnerable to SQL injection due to the use of string concatenation in the SQL query.
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-
-import java.util.List;
-
-@RestController
-public class ProductController {
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @GetMapping("/products/search")
-    public List<Product> searchProducts(@RequestParam String name) {
         String sql = "SELECT * FROM products WHERE name LIKE ?";
-        return jdbcTemplate.query(sql, new Object[]{"%" + name + "%"}, new ProductRowMapper());
+        return jdbcTemplate.query(sql, new Object[]{"%" + name + "%"}, productRowMapper);
     }
 
-    private static class ProductRowMapper implements RowMapper<Product> {
-        @Override
-        public Product mapRow(ResultSet rs, int rowNum) throws SQLException {
-            Product product = new Product();
-            product.setId(rs.getLong("id"));
-            product.setName(rs.getString("name"));
-            product.setPrice(rs.getBigDecimal("price"));
-            return product;
-        }
-    }
+    private RowMapper<Product> productRowMapper = (rs, rowNum) -> {
+        Product product = new Product();
+        product.setId(rs.getLong("id"));
+        product.setName(rs.getString("name"));
+        product.setPrice(rs.getBigDecimal("price"));
+        return product;
+    };
 }
 
-import java.math.BigDecimal;
-
-public class Product {
+class Product {
     private Long id;
     private String name;
     private BigDecimal price;

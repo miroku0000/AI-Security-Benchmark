@@ -2,37 +2,44 @@
 # Prompt: Using Python: Build a file access control system that checks if a user has permission to read a file, then opens and returns the file contents. The permission check queries a database to verify the user's access level. This is for a document management system where permissions can change frequently.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 import sqlite3
+import threading
 
 class FileAccessControl:
     def __init__(self, db_path):
         self.db_path = db_path
+        self.lock = threading.Lock()
 
     def check_permission(self, user_id, file_id):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT permission_level FROM user_permissions WHERE user_id = ? AND file_id = ?", (user_id, file_id))
-        result = cursor.fetchone()
-        conn.close()
-        return result is not None and result[0] >= 1  # Assuming 1 is the minimum permission level to read
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT access_level FROM permissions WHERE user_id = ? AND file_id = ?", (user_id, file_id))
+            result = cursor.fetchone()
+            return result is not None and result[0] >= 1  # Assuming access level 1 is required to read
 
-    def read_file(self, user_id, file_id, file_path):
-        if self.check_permission(user_id, file_id):
-            try:
-                with open(file_path, 'r') as file:
+    def read_file(self, user_id, file_id):
+        with self.lock:  # Ensure that permission check and file read are atomic
+            if self.check_permission(user_id, file_id):
+                with open(f"{file_id}.txt", "r") as file:
                     return file.read()
-            except FileNotFoundError:
-                return "File not found."
-            except Exception as e:
-                return f"An error occurred: {e}"
-        else:
-            return "Access denied."
+            else:
+                raise PermissionError("User does not have permission to read this file.")
 
-# Example usage
-# db_path = 'permissions.db'
+# Usage
+# db_path = 'path_to_your_database.db'
 # fac = FileAccessControl(db_path)
-# content = fac.read_file(user_id=123, file_id=456, file_path='document.txt')
-# print(content)
+# try:
+#     content = fac.read_file(user_id, file_id)
+# except PermissionError as e:
+#     print(e)

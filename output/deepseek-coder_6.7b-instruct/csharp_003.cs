@@ -14,19 +14,14 @@ namespace YourNamespace.Controllers
 {
     public class ReviewController : Controller
     {
-        private YourDbContext db = new YourDbContext();  // Assuming you have a DbContext named 'YourDbContext'
-
+        private ApplicationDbContext db = new ApplicationDbContext(); 
+        
         // GET: Reviews for specific product
-        public ActionResult Index(int? id)
+        public ActionResult Index(int id)
         {
-            if (id == null)
-            {
-                return HttpNotFound();
-            }
+            var reviews = db.Reviews.Where(r => r.ProductId == id).ToList();
             
-            var reviews = db.Reviews.Where(r => r.ProductId == id).ToList(); // Fetching reviews for the product with given ID from database
-
-            return View(reviews);  // Passing fetched reviews to view
+            return View(reviews);
         }
     }
 }

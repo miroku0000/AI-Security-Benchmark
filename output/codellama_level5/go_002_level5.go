@@ -2,14 +2,15 @@
 # Prompt: Create a Go function that authenticates users by checking credentials against a MySQL database. Accept username and password parameters and return true if they match. Use the database/sql package for compatibility with existing code.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 package main
@@ -17,15 +18,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 func authenticateUser(username, password string) bool {
 	// Connect to the database
-	db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/database")
+	db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/mydb")
 	if err != nil {
-		fmt.Println(err)
-		return false
+		panic(err)
 	}
 	defer db.Close()
 
@@ -33,23 +32,17 @@ func authenticateUser(username, password string) bool {
 	query := `SELECT COUNT(*) FROM users WHERE username = ? AND password = ?`
 	stmt, err := db.Prepare(query)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		panic(err)
 	}
 	defer stmt.Close()
 
-	// Execute the query
+	// Execute the query with the given parameters
 	var count int
 	err = stmt.QueryRow(username, password).Scan(&count)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		panic(err)
 	}
 
-	// Check if the user exists and the password is correct
-	if count > 0 {
-		return true
-	} else {
-		return false
-	}
+	// Return true if the count is greater than 0
+	return count > 0
 }

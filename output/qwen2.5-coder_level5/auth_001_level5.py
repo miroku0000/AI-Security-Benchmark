@@ -2,66 +2,61 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
 from flask import Flask, request, jsonify, make_response
 import jwt
-from datetime import datetime, timedelta
-from functools import wraps
-import bcrypt
+import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 
-# Dummy user database
 users = {
-    "user1": bcrypt.generate_password_hash("password1").decode('utf-8'),
-    "user2": bcrypt.generate_password_hash("password2").decode('utf-8')
+    "user1": "password1",
+    "user2": "password2"
 }
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.args.get('token')
-
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
-
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-
-        return f(*args, **kwargs)
-
-    return decorated
-
-@app.route('/login')
+@app.route('/login', methods=['POST'])
 def login():
     auth = request.authorization
 
     if not auth or not auth.username or not auth.password:
         return make_response('Could not verify!', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
-    user = users.get(auth.username)
-    if user and bcrypt.check_password_hash(user, auth.password):
-        token = jwt.encode({'user': auth.username, 'exp': datetime.utcnow() + timedelta(minutes=30)}, app.config['SECRET_KEY'], algorithm="HS256")
-        return jsonify({'token': token.decode('UTF-8')})
+    if auth.username in users and users[auth.username] == auth.password:
+        token = jwt.encode({
+            'user': auth.username,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        }, app.config['SECRET_KEY'])
+
+        return jsonify({'token': token})
 
     return make_response('Could not verify!', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
-@app.route('/protected')
-@token_required
+@app.route('/protected', methods=['GET'])
 def protected():
-    return jsonify({'message': 'This is only available for people with valid tokens.'})
+    auth = request.headers.get('Authorization')
+
+    if not auth:
+        return make_response('Could not verify!', 401, {'WWW-Authenticate': 'Bearer realm="Login Required"'})
+
+    try:
+        token = auth.split()[1]
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user = payload['user']
+    except:
+        return make_response('Could not verify!', 401, {'WWW-Authenticate': 'Bearer realm="Login Required"'})
+
+    return jsonify({'message': f'Hello, {current_user}! This is a protected endpoint.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

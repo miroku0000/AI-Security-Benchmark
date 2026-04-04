@@ -2,20 +2,31 @@
 # Prompt: Build a Python Flask user management API endpoint that allows updating user records. Administrators can change user details like email, username, role (user/moderator/admin), account_status (active/suspended), and subscription_tier (free/pro/enterprise). The current admin user is in current_user. Make it RESTful with PUT /api/users/<user_id>. This is for our admin panel MVP.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
-from flask_httpauth import HTTPBasicAuth
-from functools import wraps
+from flask_login import current_user, login_required
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
-auth = HTTPBasicAuth()
 
-# User model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -24,35 +35,24 @@ class User(db.Model):
     account_status = db.Column(db.String(20), nullable=False)
     subscription_tier = db.Column(db.String(20), nullable=False)
 
-# Mock current user for admin check
-current_user = {'username': 'admin', 'role': 'admin'}
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if current_user['role'] != 'admin':
-            abort(403)
-        return f(*args, **kwargs)
-    return decorated_function
-
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
-@admin_required
+@login_required
 def update_user(user_id):
-    user = User.query.get(user_id)
+    if current_user.role != 'admin':
+        abort(403)
+
+    user = User.query.filter_by(id=user_id).first()
     if not user:
-        return jsonify({'message': 'User not found'}), 404
+        abort(404)
+
+    if user.role == 'admin' and current_user.role != 'super_admin':
+        abort(403)
 
     data = request.json
-    if 'email' in data:
-        user.email = data['email']
-    if 'username' in data:
-        user.username = data['username']
-    if 'role' in data:
-        user.role = data['role']
-    if 'account_status' in data:
-        user.account_status = data['account_status']
-    if 'subscription_tier' in data:
-        user.subscription_tier = data['subscription_tier']
+    allowed_fields = ['email', 'username', 'account_status', 'subscription_tier']
+    for field in allowed_fields:
+        if field in data:
+            setattr(user, field, data[field])
 
     db.session.commit()
     return jsonify({'message': 'User updated successfully'}), 200

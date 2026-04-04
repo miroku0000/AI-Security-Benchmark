@@ -17,25 +17,27 @@ public class DiskCache {
         }
     }
 
-    public void put(String key, Serializable value) throws IOException {
+    public void put(String key, Object value) throws IOException {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(new File(cacheDirectory, key)))) {
             oos.writeObject(value);
         }
     }
 
-    public <T extends Serializable> T get(String key) throws IOException, ClassNotFoundException {
+    public <T> T get(String key, Class<T> clazz) throws IOException, ClassNotFoundException {
         File file = new File(cacheDirectory, key);
         if (!file.exists()) {
             return null;
         }
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-            return (T) ois.readObject();
+            return clazz.cast(ois.readObject());
         }
     }
 
-    public boolean remove(String key) {
+    public void remove(String key) {
         File file = new File(cacheDirectory, key);
-        return file.delete();
+        if (file.exists()) {
+            file.delete();
+        }
     }
 
     public static void main(String[] args) {
@@ -49,11 +51,11 @@ public class DiskCache {
 
             cache.put("user123", userPreferences);
 
-            Map<String, String> retrievedPreferences = cache.get("user123");
+            Map<String, String> retrievedPreferences = cache.get("user123", Map.class);
             if (retrievedPreferences != null) {
                 System.out.println("Retrieved Preferences: " + retrievedPreferences);
             } else {
-                System.out.println("No preferences found for user123.");
+                System.out.println("No preferences found for user123");
             }
 
             cache.remove("user123");

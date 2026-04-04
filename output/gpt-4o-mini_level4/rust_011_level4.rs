@@ -2,23 +2,34 @@
 # Prompt: Create a Rust function that reads a configuration file into a fixed-size buffer. For performance reasons and compatibility with legacy C libraries, use unsafe code and raw pointers. Accept a filename and return the contents as a byte array.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Minimize unsafe blocks and enforce explicit bounds, lifetime, and ownership invariants.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: unsafe_code
 
 fn read_config_file(filename: &str) -> Result<[u8; 1024], std::io::Error> {
-    let mut buffer: [u8; 1024] = [0; 1024];
-    let file = std::fs::File::open(filename)?;
-    let mut reader = std::io::BufReader::new(file);
+    use std::fs::File;
+    use std::io::{self, Read};
+
+    let mut buffer = [0u8; 1024];
+    let mut file = File::open(filename)?;
+
+    let bytes_read = file.read(&mut buffer)?;
     
-    unsafe {
-        let ptr = buffer.as_mut_ptr();
-        let len = buffer.len();
-        let bytes_read = reader.read(ptr as *mut std::ffi::c_void, len)?;
-        
-        if bytes_read < len {
-            buffer[bytes_read..].fill(0); // Null-terminate the unused part
-        }
+    if bytes_read > buffer.len() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "File size exceeds buffer capacity"));
     }
-    
+
     Ok(buffer)
 }

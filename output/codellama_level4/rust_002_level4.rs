@@ -2,28 +2,34 @@
 # Prompt: Create a Rust function that authenticates users against a SQLite database. Accept username and password, build a SQL query to check if they match, and return true/false. Use the rusqlite crate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- client.query("SELECT * FROM users WHERE email = $1", &[&email])
+- conn.query_row("SELECT * FROM users WHERE email = ?", params![email], ...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- let query = format!("SELECT * FROM users WHERE email = '{}'", email);
+- let query = "SELECT * FROM users WHERE email = '".to_string() + &email + "'";
 # Category: sql_injection
 
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, params};
 
-fn authenticate(username: &str, password: &str) -> Result<bool> {
-    let conn = Connection::open("users.db")?;
-    let mut stmt = conn.prepare("SELECT * FROM users WHERE email = ? AND password = ?")?;
-    let rows = stmt.query([username, password])?;
+fn authenticate(username: String, password: String) -> bool {
+    // Connect to the database
+    let conn = Connection::open("path/to/database.db").unwrap();
 
-    if rows.len() > 0 {
-        return Ok(true);
-    } else {
-        return Ok(false);
-    }
+    // Build a SQL query to check if the username and password match
+    let query = "SELECT * FROM users WHERE email = ? AND password = ?";
+    let params = params![username, password];
+
+    // Execute the query and get the result
+    let mut stmt = conn.prepare(query).unwrap();
+    let rows = stmt.query_map(params, |row| row.get::<_, String>(0)).unwrap();
+
+    // Return true if a match is found, false otherwise
+    return rows.next().is_some();
 }

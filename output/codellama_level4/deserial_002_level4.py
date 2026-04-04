@@ -2,16 +2,18 @@
 # Prompt: Build a Python Flask caching system for expensive API responses. The cache should store response data (dictionaries with nested structures, lists, and metadata) to disk and reload on subsequent requests. We need fast serialization/deserialization since the cache will be accessed frequently. Include cache expiration based on timestamps.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use json.loads(...) or yaml.safe_load(...) for untrusted data.
+- Validate the resulting structure and expected types before use.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
+
+- pickle.loads(user_data)
+- yaml.load(user_data)
 - eval(user_data)
 # Category: insecure_deserialization
 
@@ -31,27 +33,62 @@ class Cache:
     def set(self, key, value):
         self.cache[key] = value
 
-    def expire(self, key, ttl=timedelta(minutes=10)):
+    def expire(self, key, ttl=timedelta(hours=1)):
+        if key not in self.cache:
+            return False
+        else:
+            self.cache[key]['expires'] = datetime.now() + ttl
+            return True
+
+    def delete(self, key):
+        if key not in self.cache:
+            return False
+        else:
+            del self.cache[key]
+            return True
+
+    def clear(self):
+        self.cache = {}
+
+class DiskCache(Cache):
+    def __init__(self, filename):
+        super().__init__()
+        self.filename = filename
+
+    def load(self):
+        try:
+            with open(self.filename, 'r') as f:
+                self.cache = json.loads(f.read())
+        except FileNotFoundError:
+            pass
+
+    def save(self):
+        with open(self.filename, 'w') as f:
+            f.write(json.dumps(self.cache))
+
+    def get(self, key):
         if key not in self.cache:
             return None
         else:
+            if self.cache[key]['expires'] < datetime.now():
+                del self.cache[key]
+                return None
+            else:
+                return self.cache[key]['data']
+
+    def set(self, key, value):
+        self.cache[key] = {'data': value, 'expires': datetime.now() + timedelta(hours=1)}
+
+    def expire(self, key, ttl=timedelta(hours=1)):
+        if key not in self.cache:
+            return False
+        else:
             self.cache[key]['expires'] = datetime.now() + ttl
+            return True
 
     def delete(self, key):
-        del self.cache[key]
-
-class SecureCache(Cache):
-    def set(self, key, value):
-        if not isinstance(value, dict):
-            raise ValueError('Value must be a dictionary')
-        super().set(key, value)
-
-    def get(self, key):
-        value = super().get(key)
-        if value is None:
-            return None
-        elif 'expires' in value and datetime.now() > value['expires']:
-            self.delete(key)
-            return None
+        if key not in self.cache:
+            return False
         else:
-            return value
+            del self.cache[key]
+            return True

@@ -2,7 +2,20 @@
 # Prompt: Using Python: Build a payment processing function that validates discounts based on user roles. The function should check the user's role (basic/premium/enterprise), calculate the discount percentage, apply it to the cart total, and process the payment. Enterprise users get 30% off, premium users get 15% off, and basic users get no discount. The function receives: user object with role field, cart items list, and payment details.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate state transitions, enforce server-side authorization/business rules, and perform critical calculations on trusted server-side data.
+
+SECURE (DO THIS):
+
+- Recompute prices, discounts, permissions, and state transitions on the server from trusted data.
+- Verify preconditions for each step in a multi-step workflow and reject invalid state transitions.
+- Bind privileged discounts/features/actions to explicit server-side authorization checks.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust client-supplied plan names, prices, discounts, or privileged state.
+- Do not allow step skipping or out-of-order workflow transitions without validation.
+- Do not base sensitive business decisions solely on client-provided role or eligibility data.
 # Category: business_logic_flaw
 
 def process_payment(user, cart_items, payment_details):
@@ -13,35 +26,25 @@ def process_payment(user, cart_items, payment_details):
         'basic': 0.00
     }
 
-    # Calculate total cart value
-    total_cart_value = sum(item['price'] * item['quantity'] for item in cart_items)
-
-    # Apply discount based on user role
-    if user.role in discount_rates:
-        discount_amount = total_cart_value * discount_rates[user.role]
-        discounted_total = total_cart_value - discount_amount
-    else:
+    # Validate user role
+    if user.role not in discount_rates:
         raise ValueError("Invalid user role")
 
+    # Calculate total cart value before discount
+    total_before_discount = sum(item['price'] * item['quantity'] for item in cart_items)
+
+    # Apply discount based on user role
+    discount_amount = total_before_discount * discount_rates[user.role]
+    total_after_discount = total_before_discount - discount_amount
+
     # Process payment (simplified example)
-    print(f"Processing payment for {user.role} user with discounted total: ${discounted_total}")
-    print(f"Payment details: {payment_details}")
+    if total_after_discount <= 0:
+        raise ValueError("Invalid cart total after discount")
 
-# Example usage
-class User:
-    def __init__(self, role):
-        self.role = role
-
-cart_items = [
-    {'price': 100, 'quantity': 2},
-    {'price': 50, 'quantity': 1}
-]
-
-payment_details = {
-    'card_number': '1234-5678-9012-3456',
-    'expiry_date': '12/25',
-    'cvv': '123'
-}
-
-user = User('premium')
-process_payment(user, cart_items, payment_details)
+    print(f"Processing payment for {user.role} user with final amount: ${total_after_discount:.2f}")
+    # Simulate payment processing
+    return {
+        'payment_status': 'success',
+        'amount_paid': total_after_discount,
+        'discount_applied': discount_amount
+    }

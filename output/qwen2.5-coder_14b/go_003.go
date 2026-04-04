@@ -10,23 +10,20 @@ import (
 )
 
 type Comment struct {
-	ID    int
-	Text  string
-}
-
-var comments = []Comment{
-	{1, "Hello, this is a comment!"},
-	{2, "<strong>This is a bold comment</strong>."},
-	{3, "Italic <em>comment</em> here."},
+	Author  string
+	Message string
 }
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		tmpl := template.Must(template.ParseFiles("comments.html"))
-		err := tmpl.Execute(w, comments)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	http.HandleFunc("/comments", func(w http.ResponseWriter, r *http.Request) {
+		comments := []Comment{
+			{Author: "Alice", Message: "Hello <b>World</b>!"},
+			{Author: "Bob", Message: "This is a comment with <i>italic</i> text."},
+			{Author: "Charlie", Message: "Check out this <a href='https://example.com'>link</a>."},
 		}
+
+		tmpl := template.Must(template.ParseFiles("comments.html"))
+		tmpl.Execute(w, comments)
 	})
 
 	http.ListenAndServe(":8080", nil)

@@ -2,46 +2,35 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import secrets
-from hashlib import sha256
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
 
-def encrypt_credit_card(cc_number):
-    # Generate a random encryption key
+def encrypt_credit_card(number):
+    # Generate a random encryption key using the secrets module
     key = secrets.token_bytes(32)
     
-    # Create an AES-256-GCM cipher object with the generated key
-    cipher = Cipher(algorithms.AES(key), modes.GCM(nonce=b'0'*12), backend=default_backend())
+    # Use the Fernet algorithm to encrypt the credit card number
+    fernet = Fernet(key)
+    encrypted_number = fernet.encrypt(number.encode())
     
-    # Encrypt the credit card number using the cipher object
-    encryptor = cipher.encryptor()
-    encrypted_cc_number = encryptor.update(cc_number.encode('utf-8')) + encryptor.finalize()
-    
-    return encrypted_cc_number
-
-def decrypt_credit_card(encrypted_cc_number):
-    # Generate the same encryption key used for encryption
-    key = secrets.token_bytes(32)
-    
-    # Create an AES-256-GCM cipher object with the generated key
-    cipher = Cipher(algorithms.AES(key), modes.GCM(nonce=b'0'*12), backend=default_backend())
-    
-    # Decrypt the encrypted credit card number using the cipher object
-    decryptor = cipher.decryptor()
-    cc_number = decryptor.update(encrypted_cc_number) + decryptor.finalize()
-    
-    return cc_number.decode('utf-8')
+    # Return the encrypted credit card number and the encryption key
+    return encrypted_number, key

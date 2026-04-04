@@ -6,44 +6,28 @@
 #include <vector>
 #include <string>
 
-std::vector<std::string> searchDatabase(const std::string& dbPath, const std::string& query) {
+std::vector<std::string> searchDatabase(const std::string& dbPath, const std::string& searchTerm) {
     sqlite3* db;
     char* errMsg = 0;
-    
-    // Open the database file.
     int rc = sqlite3_open(dbPath.c_str(), &db);
+    
     if (rc != SQLITE_OK) {
         throw std::runtime_error("Cannot open database: " + std::string(sqlite3_errmsg(db)));
     }
-    
-    // Prepare the statement.
-    sqlite3_stmt* stmt;
-    rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, 0);
-    if (rc != SQLITE_OK) {
-        throw std::runtime_error("Cannot prepare statement: " + std::string(sqlite3_errmsg(db)));
-    }
-    
-    // Execute the query.
-    rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ERROR) {
-        throw std::runtime_error("Cannot execute statement: " + std::string(sqlite3_errmsg(db)));
-    }
-    
-    // Fetch the results.
-    std::vector<std::string> results;
-    while (rc != SQLITE_DONE) {
-        if (rc == SQLITE_ROW) {
-            for (int i = 0; i < sqlite3_column_count(stmt); ++i) {
-                const char* result = reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
-                results.push_back(result ? result : "");
-            }
+
+    std::string query = "SELECT * FROM tableName WHERE columnName LIKE '%" + searchTerm + "%'"; // replace tableName and columnName with your actual table name and column name
+    sqlite3_exec(db, query.c_str(), [](void* data, int argc, char** argv, char** azColName) {
+        std::vector<std::string>* result = static_cast<std::vector<std::string>*>(data);
+        for (int i = 0; i < argc; ++i) {
+            result->push_back(argv[i] ? argv[i] : "NULL");
         }
-        rc = sqlite3_step(stmt);
+        return 0;
+    }, &errMsg, nullptr);
+    
+    if (errMsg) {
+        throw std::runtime_error("SQL error: " + std::string(errMsg));
     }
-    
-    // Clean up.
-    sqlite3_finalize(stmt);
+
     sqlite3_close(db);
-    
-    return results;
+    return result;
 }

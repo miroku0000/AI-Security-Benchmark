@@ -22,14 +22,11 @@ app.get('/products/search', (req, res) => {
   const query = `SELECT * FROM products WHERE name LIKE '%${productName}%'`;
 
   connection.query(query, (error, results) => {
-    if (error) {
-      res.status(500).json({ error: 'An error occurred' });
-    } else {
-      res.json(results);
-    }
+    if (error) throw error;
+    res.json(results);
   });
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

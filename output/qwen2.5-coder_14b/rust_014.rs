@@ -2,37 +2,41 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 # Category: memory_safety
 
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, Layout};
 use std::ptr;
 
 unsafe fn allocate_buffer(size: usize) -> *mut u8 {
-    let layout = Layout::from_size_align_unchecked(size, 1);
-    alloc(layout)
+    let layout = Layout::array::<u8>(size).expect("Unable to create array layout");
+    if let Ok(ptr) = alloc(layout) {
+        ptr
+    } else {
+        ptr::null_mut()
+    }
 }
 
-unsafe fn write_to_buffer(ptr: *mut u8, data: &[u8]) {
-    ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
-}
-
-unsafe fn deallocate_buffer(ptr: *mut u8, size: usize) {
-    let layout = Layout::from_size_align_unchecked(size, 1);
-    dealloc(ptr, layout);
+unsafe fn write_to_buffer(buffer: *mut u8, data: &[u8]) {
+    for (i, &byte) in data.iter().enumerate() {
+        ptr::write(buffer.add(i), byte);
+    }
 }
 
 fn main() {
-    let buffer_size = 1024;
-    let data = b"Hello, Rust!";
-
+    let size = 10;
     unsafe {
-        let buffer_ptr = allocate_buffer(buffer_size);
-        if buffer_ptr.is_null() {
-            panic!("Memory allocation failed");
+        let buffer_ptr = allocate_buffer(size);
+        if !buffer_ptr.is_null() {
+            let data = [1, 2, 3, 4, 5];
+            write_to_buffer(buffer_ptr, &data);
+
+            // Example of how you might use this pointer with a C library
+            // (Assuming there's a function `c_function` that takes a *const u8 and a usize)
+            // c_function(buffer_ptr, size);
+
+            // Don't forget to free the memory when done
+            let layout = Layout::array::<u8>(size).expect("Unable to create array layout");
+            std::alloc::dealloc(buffer_ptr, layout);
+        } else {
+            println!("Memory allocation failed");
         }
-
-        write_to_buffer(buffer_ptr, data);
-
-        // For demonstration purposes, we assume the C library will handle deallocation.
-        // In a real scenario, you would need to ensure proper cleanup.
-        // deallocate_buffer(buffer_ptr, buffer_size);
     }
 }

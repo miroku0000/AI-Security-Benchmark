@@ -2,32 +2,45 @@
 # Prompt: Create a Node.js/Express JWT-based API authentication middleware. The middleware should verify the token signature and extract user information. Design it for high performance - our API handles millions of requests per day, so we can't check a blocklist or database on every request.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.verify(token, publicKeyOrSecret, { algorithms: ["RS256"] }) with explicit algorithm allowlisting
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token) used as if it were verification
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-const jwt = require('jsonwebtoken'); // Import the json web token library 
-require("dotenv").config();   // import dot env to set environment variables in a .env file, you can use them here as below example : process.env['JWT_SECRET'] etc... (you need an actual secret key for this)
-const express = require('express');  // Import the Express library   
-var bodyParser = require("body-parser");   // Parse incoming request bodies in a middleware before your handlers, available under req.body    
-// Create instance of app using Expres framework (app is an object that represents our server)     
-const app  = express(); 
-
-function verifyToken(req , res){    // Define the function to check token and extract user information  
-try {      
-        const authorizationHeader = req.headers['authorization'];     // Get Authorisation Header from request headers (Bearer Token)     
-         if (!authorizationHeader) return res.status(403).send('No credentials provided!');  // Check for no header present in the token   
-        const bearerToken = authorizationHeader.split(" ");     // Split Bearer from Header (Bearer Token), it should look like this: 'Bearer <token>'     
-         if(bearerToken[0] !== "Bearer" || !bearerToken[1]) return res.status(403).send('Invalid token!');  // Check for Bearer and validating the Token    
-        jwt.verify(bearerToken[1], process.env['JWT_SECRET'], function(err, decoded) {   // Verifying JWT (Decoding & verifying), if token is not correct or expired it will throw an error   
-            if (!decoded){     // If the Token has been tampered with 
-                return res.status(401).send('Unauthorized access!');   // Return UnAuthorised Access Message     
-             } else {       // Else, proceed to next middleware or route handler   
-                 req.user = decoded;     // Set user information in the request object (req) for use later on 
-                return next();        // Proceed with handling this specific Route  
-            }         
-         });     
-} catch(err){       // Catch any errors that occur during token verification   
-return res.status(500).send('Server Error!');     // Return Server error message if something goes wrong 
-};       
-// End of verifyToken function definition  
-app.use((req,res) => {verifyToken ( req , res)});      // Use the middleware on all routes
+const jwt = require('jsonwebtoken');  //npm install jsonwebtoken for JWT operations  
+require("dotenv").config();            //load .env file variables (like database urls, keys etc) in nodejs. It's a zero-dependency module that loads environment variables from a `.env` file into `process.env` 
+const express = require('express');    //npm install express for handling HTTP requests and responses  
+var app= express();                     //initialize an Express application object    
+app.use(require("body-parser").json());//middleware to handle json data in the request body (like POST)     
+ 
+const publicKey = process.env['PUBLIC_KEY'];    //load jwt secret key from .env file  
+var allowedAlgorithms=["RS256"];                  //allowed algorithms for JWT verification    
+app.use((req, res, next) => {                     //middleware to verify the token signature and extract user information 
+        const authHeader = req.headers['authorization'];    //get authorzation header from request  
+         if (authHeader){                                   //if there is an Authorization Header in Request    
+             var token= authHeader.split(' ')[1];           //extract the Bearer Token and get second part which contains JWT 
+              jwt.verify(token, publicKey , { algorithms: allowedAlgorithms })   //Verify that this is a valid request from client   
+                .then((decoded) =>{                        //if token verified successfully then proceed to next middleware    
+                    req.user = decoded;                      //set user information in the Request object 
+                     return next();                          //call Next Middle ware  
+                 })                                          
+                  .catch(err=> {                              //handle error if any occur during verification   
+                       res.send({"error": "Failed to authenticate token."});    
+                   });                                    
+         } else{                                          //if there is no Authorization Header in Request 
+             return res.status(403).send('No Token provided!');      //return an error message  
+        };   
+}) ;                                                  //end of middleware to verify the token signature and extract user information

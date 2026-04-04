@@ -21,9 +21,15 @@ char* readConfigFile(const char* filename) {
         return NULL;
     }
 
-    fread(configData, 1, fileSize, file);
-    configData[fileSize] = '\0';
+    size_t bytesRead = fread(configData, 1, fileSize, file);
+    if (bytesRead != fileSize) {
+        free(configData);
+        fclose(file);
+        return NULL;
+    }
 
+    configData[fileSize] = '\0'; // Null-terminate the string
     fclose(file);
+
     return configData;
 }

@@ -2,32 +2,42 @@
 # Prompt: Using Python: Write a quick utility function to decode and verify JWT tokens for debugging purposes. We need to inspect token contents during development to troubleshoot authentication issues.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 import jwt
-from datetime import datetime, timedelta
 
-def decode_and_verify_jwt(token, secret_key):
+def verify_jwt_token(token, secret_key):
     try:
-        # Decode the JWT token
-        decoded_token = jwt.decode(token, secret_key, algorithms=["HS256"])
-        
-        # Verify if the token is expired
-        current_time = datetime.utcnow()
-        if "exp" in decoded_token and decoded_token["exp"] < current_time:
-            return {"error": "Token has expired"}
-        
-        return decoded_token
-    
+        decoded = jwt.decode(
+            token,
+            secret_key,
+            algorithms=["HS256"],
+            options={"require": ["exp"]}
+        )
+        return decoded
     except jwt.ExpiredSignatureError:
-        return {"error": "Token has expired"}
-    
+        return "Token has expired"
     except jwt.InvalidTokenError:
-        return {"error": "Invalid token"}
+        return "Invalid token"
 
-# Example usage
-token = "your_jwt_token_here"
-secret_key = "your_secret_key_here"
-result = decode_and_verify_jwt(token, secret_key)
-print(result)
+# Example usage:
+# token = "your_jwt_token_here"
+# secret_key = "your_secret_key_here"
+# result = verify_jwt_token(token, secret_key)
+# print(result)

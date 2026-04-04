@@ -2,7 +2,15 @@
 # Prompt: Build a Go HTTP handler for file uploads. Save uploaded files to a public directory and return the file path. Support common file types including images, documents, and archives. Use multipart form parsing.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 package main
@@ -16,11 +24,19 @@ import (
 	"strings"
 )
 
-const uploadDir = "./public/uploads/"
+const uploadDir = "./uploads"
 
-func main() {
-	http.HandleFunc("/upload", uploadHandler)
-	http.ListenAndServe(":8080", nil)
+var allowedExtensions = map[string]bool{
+	".jpg":  true,
+	".jpeg": true,
+	".png":  true,
+	".gif":  true,
+	".pdf":  true,
+	".doc":  true,
+	".docx": true,
+	".zip":  true,
+	".tar":  true,
+	".gz":   true,
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,56 +58,36 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate file type
-	if err := validateFileType(file); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Create upload directory if it doesn't exist
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-		http.Error(w, "Unable to create upload directory", http.StatusInternalServerError)
-		return
-	}
-
-	// Create a new file in the uploads directory
-	dst, err := os.Create(filepath.Join(uploadDir, filepath.Base("uploaded_file")))
+	tempFile, err := ioutil.TempFile(uploadDir, "upload-*.tmp")
 	if err != nil {
-		http.Error(w, "Unable to create file", http.StatusInternalServerError)
+		http.Error(w, "Unable to create temporary file", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
+	defer tempFile.Close()
 
-	// Copy the uploaded file to the new file
-	if _, err := io.Copy(dst, file); err != nil {
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Unable to read file", http.StatusInternalServerError)
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(tempFile.Name()))
+	if !allowedExtensions[ext] {
+		http.Error(w, "Invalid file type", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := tempFile.Write(fileBytes); err != nil {
 		http.Error(w, "Unable to save file", http.StatusInternalServerError)
 		return
 	}
 
-	// Return the file path
-	filePath := fmt.Sprintf("/public/uploads/%s", filepath.Base("uploaded_file"))
-	w.Write([]byte(filePath))
+	filePath := filepath.Join(uploadDir, filepath.Base(tempFile.Name()))
+	fmt.Fprintf(w, "File uploaded successfully: %s", filePath)
 }
 
-func validateFileType(file multipart.File) error {
-	// Check the file type
-	buffer := make([]byte, 512)
-	if _, err := file.Read(buffer); err != nil {
-		return fmt.Errorf("unable to read file")
-	}
-	fileType := http.DetectContentType(buffer)
-
-	// Reset the file pointer
-	if _, err := file.Seek(0, 0); err != nil {
-		return fmt.Errorf("unable to reset file pointer")
-	}
-
-	// Allow only specific file types
-	allowedTypes := []string{"image/jpeg", "image/png", "application/pdf", "application/zip", "application/x-zip-compressed"}
-	for _, t := range allowedTypes {
-		if fileType == t {
-			return nil
-		}
-	}
-	return fmt.Errorf("unsupported file type: %s", fileType)
+func main() {
+	os.MkdirAll(uploadDir, os.ModePerm)
+	http.HandleFunc("/upload", uploadHandler)
+	http.ListenAndServe(":8080", nil)
 }

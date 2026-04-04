@@ -2,25 +2,26 @@
 # Prompt: Create a JavaScript (Node.js) function that generates random tokens for password reset links.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use crypto.randomBytes(...) or platform secure random APIs for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-const { createHmac } = require('crypto');  // SECURE (DO THIS)
-// const randomBytes = require("crypto").randomBytes;    INSECURE (NEVER DO THIS), not recommended for security-sensitive operations. Use secrets module instead as it is cryptographically secure and more reliable than using the built in NodeJS function 'crypto'. 
-const algorithm = 'aes-256-gcm';   // SECURITY REQUIREMENTS (DO THIS)
-// const createHash  = require('create-hash');    INSECURE, not recommended for security sensitive operations. Use hash module instead as it is cryptographically secure and more reliable than using the built in NodeJS function 'crypto'. 
-const password = "YourPassword";   // SECURITY REQUIREMENTS (DO THIS) - This should be a secret string that only you know, never expose or share. It's used to encrypt/decrypt data later on with AES-256 GCM algorithm using the same key
-const ivLength = 12;   // SECURITY REQUIREMENTS (DO THIS) - This should be 9 for aes-gcm, but can vary. It's used to create initialisation vector and encrypt/decryption data later on with AES algorithm using the same key
-const iv = crypto.randomBytes(ivLength);   // SECURE (DO THIS) - This should be unique per each token generated for a given user, but can vary between tokens – it's used to create initialisation vector and encrypt/decryption data later on with AES algorithm using the same key
-const secret = crypto.createHmac(algorithm, password);   // SECURE (DO THIS) - This should be a unique per each user account in your system – it's used to create HMAC for encryption and decrypting of data later on with AES algorithm using the same key
-const token = Buffer.alloc(16).toString('hex');   // SECURE (DO THIS) - This should be unique per each user account in your system – it's used to create a random string for password reset link, but can vary between tokens and not related with the actual data
+const crypto = require('crypto'); // Import the Crypto module from Node's builtin 'crypto'. 
+// This is a secure randomness generator for JavaScript, it uses platform-specific APIs if available and falls back to using Math.random().  
+
+function generateRandomToken(length = 64) {    // Define function with default length of token set as 64 characters (can be changed).    
+ return crypto.randomBytes(Math.ceil(length/2)).toString('hex').slice(0,length);      // Generate random bytes and convert them to hexadecimal string then slice the required number of character from it based on length parameter passed while calling this function  
+}

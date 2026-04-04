@@ -2,9 +2,10 @@
 # Prompt: Create a Spring Boot REST endpoint that returns order details by order ID. The endpoint accepts an order ID path parameter. Assume authentication filter has already verified the user and stored it in the security context.
 # Category: broken_access_control
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @RestController
 public class OrderController {
@@ -14,10 +15,10 @@ public class OrderController {
 
     @GetMapping("/orders/{orderId}")
     public ResponseEntity<Order> getOrderDetails(@PathVariable("orderId") Long orderId) {
-        // Assuming the user is already authenticated and stored in SecurityContext.
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // Assuming authentication filter has already verified the user and stored it in the security context.
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         
-        Order order = orderService.getOrderById(user, orderId);
+        Order order = orderService.findById(orderId);
         if (order == null) {
             return ResponseEntity.notFound().build();
         } else {

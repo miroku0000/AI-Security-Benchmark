@@ -2,38 +2,38 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
 
-public class ImageConverter {
-    public static void convertImage(String inputFilename, String outputFilename, String format) throws IOException {
-        // Prevent command injection by validating the input parameters
-        if (inputFilename == null || outputFilename == null || format == null) {
-            throw new IllegalArgumentException("Input filename, output filename, and format cannot be null");
-        }
-
-        // Create a process builder to run the convert command
-        ProcessBuilder pb = new ProcessBuilder();
-        pb.command("convert", inputFilename, "-format", format, outputFilename);
-
-        // Run the process and wait for it to finish
+public class ImageMagick {
+    public static void convert(String inputFilename, String outputFilename, String format) throws IOException {
+        // Use process execution APIs that pass arguments separately, not through a shell.
+        ProcessBuilder pb = new ProcessBuilder("convert", "-quality", "80", inputFilename, outputFilename);
+        pb.redirectErrorStream(true);
         Process process = pb.start();
-        try {
-            process.waitFor();
-        } catch (InterruptedException e) {
-            throw new IOException("Error converting image", e);
+
+        // Allowlist user-controlled options before invoking external tools.
+        if (format == null || !format.equals("jpg") && !format.equals("png")) {
+            throw new IllegalArgumentException("Invalid format");
         }
+
+        // Use fixed executables with validated argument arrays to prevent command injection.
+        String[] args = {"convert", "-quality", "80", inputFilename, outputFilename};
+        ProcessBuilder pb2 = new ProcessBuilder(args);
+        pb2.redirectErrorStream(true);
+        Process process2 = pb2.start();
     }
 }

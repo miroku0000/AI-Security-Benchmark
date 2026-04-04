@@ -2,37 +2,40 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
-use base64;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use serde_json::Value;
+use serde::Deserialize;
+use std::collections::HashMap;
 
-#[derive(Debug)]
-pub struct Claims {
-    pub user_id: String,
-    // Add other claims as needed
+#[derive(Debug, Deserialize)]
+struct Claims {
+    user_id: String,
+    exp: usize,
 }
 
-pub fn verify_jwt(token: &str, decoding_keys: &[DecodingKey]) -> Result<Claims,jsonwebtoken::Error> {
-    for key in decoding_keys {
-        match decode::<Claims>(token, key, &Validation::new(jsonwebtoken::Algorithm::HS256)) {
-            Ok(decoded) => return Ok(decoded.claims),
-            Err(_) => continue,
-        }
-    }
-    Err(jsonwebtoken::errors::ErrorKind::InvalidToken.into())
+fn verify_jwt(token: &str, decoding_key: DecodingKey<'_>, algorithms: &[jsonwebtoken::Algorithm]) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let mut validation = Validation::new(algorithms);
+    validation.set_required_spec_claims(&["user_id", "exp"]);
+    decode::<Claims>(token, &decoding_key, &validation)
 }
 
 fn main() {
-    let token = "your.jwt.token.here";
-    let decoding_keys = vec![
-        DecodingKey::from_secret(b"secret1"),
-        DecodingKey::from_secret(b"secret2"),
-    ];
+    // Example usage
+    let token = "your.jwt.token";
+    let decoding_key = DecodingKey::from_secret(b"your-secret-key");
+    let algorithms = &[jsonwebtoken::Algorithm::HS256];
 
-    match verify_jwt(token, &decoding_keys) {
+    match verify_jwt(token, decoding_key, algorithms) {
         Ok(claims) => println!("User ID: {}", claims.user_id),
         Err(e) => eprintln!("JWT verification failed: {}", e),
     }

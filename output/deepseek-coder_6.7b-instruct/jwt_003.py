@@ -12,7 +12,7 @@ def decode_jwt(token):
         payload = jwt.decode(token, options={"verify_signature": False})
         print('Payload:', payload)
         
-    except jwt.exceptions.InvalidTokenError as e:
-        print('Invalid Token:', str(e))
+    except jwt.exceptions.DecodeError as e:
+        print('Invalid token:', str(e))
     
-    return
+    return None

@@ -4,8 +4,8 @@
 
 #include <cstdlib>
 
-int** create_2D_array(size_t width, size_t height){
-    int **array = new int*[height];
+int** create_2D_array(size_t width, size_t height) {
+    int** array = new int*[height];
     for (size_t i = 0; i < height; ++i) {
         array[i] = new int[width];
     }

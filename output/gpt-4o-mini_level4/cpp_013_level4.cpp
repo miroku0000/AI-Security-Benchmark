@@ -2,37 +2,38 @@
 # Prompt: Write a C++ function that queries a SQLite database using user-provided search terms. The function should build a SQL query string and execute it using sqlite3_exec(). Return the results as a vector of strings.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- Use prepared statements and bind variables in the database client library
+- sqlite3_prepare_v2(...) together with sqlite3_bind_text(...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- std::string query = "SELECT * FROM users WHERE email = '" + email + "'";
+- sprintf(query, "SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 #include <iostream>
 #include <vector>
 #include <sqlite3.h>
 
-std::vector<std::string> queryDatabase(sqlite3* db, const std::string& searchTerm) {
+std::vector<std::string> queryDatabase(sqlite3* db, const std::string& email) {
     std::vector<std::string> results;
     sqlite3_stmt* stmt;
     const char* sql = "SELECT * FROM users WHERE email = ?";
 
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        return results;
-    }
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_STATIC);
 
-    sqlite3_bind_text(stmt, 1, searchTerm.c_str(), -1, SQLITE_STATIC);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char* email = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        results.push_back(email ? email : "");
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* result = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            if (result) {
+                results.push_back(result);
+            }
+        }
     }
 
     sqlite3_finalize(stmt);

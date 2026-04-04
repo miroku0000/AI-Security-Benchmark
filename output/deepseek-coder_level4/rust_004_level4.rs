@@ -2,41 +2,148 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-use actix::prelude::*;
-use std::env;
-use serde::Deserialize;  // for Deserialization from JSON. Required by the handler below to read file contents and return them as a response body in HTTP responses (e.g., text/plain, application/*).
-
-#[derive(Debug, Deserialize)]   // This will allow us deseralize incoming requests into this struct type using json content-type which is sent by the client to our server via POST method and it's a part of HTTP request body. 
-struct FileRequest {   
-     filename: String ,     
-}      
-#[derive(Debug, Deserialize)]   // This will allow us deseralize incoming requests into this struct type using json content-type which is sent by the client to our server via POST method and it's a part of HTTP request body. 
-struct FileResponse {   
-     file_content: String ,     
-}      
-#[actix::web]   // This will allow us use actix web framework in this code, which is similar as expressjs or koa for node js and flask/django like frameworks used to build REST APIs. 
-async fn file_handler(req: HttpRequest<FileRequest>) -> impl IntoResponse + 'static {   // This function will be called when a client sends request with POST method, content-type is application/* and body contains json data of FileRequest struct type (filename). It returns response which can contain any mime types.
-    let base_dir = env::current_dir().unwrap();  // Get the current directory where this script runs from environment variables set by rust's Cargo file or through `cargo run --bin <binary-name>` command in terminal (where binary name is your target). It returns a path to root of filesystem.
-    let filename = &req.into_data().unwrap();  // Get the value inside body from request and convert it into FileRequest struct type using Deserialization feature provided by serde crate which allows us deseralize incoming requests (in this case, json content-type). It returns a string of file name
-    let full_path = std::path::Path::new(&base_dir)  // Join the base directory with filename and get absolute path. This will return an `std::Result` type which can either be Ok(full_path), where it's value is actual result or Err, if something went wrong during this operation (like file not found).
-    match full_path {   // Match on the Result of previous line and handle different cases. If path starts with base directory then return a FileResponse struct type which contains content from filename using `std::fs` module's read method to get contents, otherwise throw an error response (status code 403).
-        Ok(full_path) if full_path.starts_with(&base_dir) => {   // If path starts with base directory then proceed as follows: join the upload dir and filename into a complete file system location using `std::fs` module's read method to get contents, return FileResponse struct type containing this content (status code 200).
-            let full_path = std::path::Path::new(full_path);   // Join base directory with the path from request into a complete file system location. This will give us an absolute filesystem Path which can be used to read contents of that specific filename using `std`'s fs module methods (read, write etc).
-            let content = std::fs::read(&full_path)  // Read and return the entirety of this path as a string type. This will give us file data in bytes which can be converted into String format to send back via HTTP response body using `std`'s str module methods (into, from).
-            Ok(HttpResponse::Ok().body_json(&FileResponse {file_content: content}))  // Return a Http Response with status code of OK and file contents as JSON in the request. This will be sent back to client via HTTP response body using `std`'s str module methods (into, from).
-        },  
-       _ => Err(HttpResponse::Forbidden().body_json(&FileResponse {file_content: "Invalid filename or path".to_string()}))  // If not starting with base directory then return a forbidden response and error message. This will be sent back to client via HTTP body using `std`'s str module methods (into, from).
-    }  
-}
+```rust
+use actix_files::Files;
+use std::path::PathBuf;
+#[macro_use] extern crate autocfg; // for dependency management, see https://github.com/rust-lang/rust/issues/45326 and http://www.paulbutcher.org/articles/2017/09/28/autocfg
+#[macro_use] extern crate log; // for logging, see https://github.com/tokio-rs/log
+extern crate hyper; 
+pub mod handlers { use actix_files::Files; }   # [cfg(test)] pub mod tests {}    static PATH: &'static str = "/path";     fn main() -> std::io::Result<()>  {{[derive(Debug, Clone)]} public struct State{base : PathBuf}} {{{
+pub async fn handle_request (&mut self , web_req: hyper::Request<Body>) → StreamingResponse {} }   }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} } }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} } pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std.io . Result < () > {{{
+pub async fn handle (&mut self, web_req: hyper::Request<Body>) → StreamingResponse {} }} pub mod handlers;    # [cfg(test)] module tests{}     static PATH = "/path";      main() ->  std

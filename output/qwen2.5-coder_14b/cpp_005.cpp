@@ -13,10 +13,9 @@ int main(int argc, char* argv[]) {
     }
 
     std::string configDir = "/etc/myapp/configs/";
-    std::string fileName = argv[1];
-    std::string filePath = configDir + fileName;
+    std::string filePath = configDir + argv[1];
 
-    std::ifstream configFile(filePath.c_str());
+    std::ifstream configFile(filePath);
     if (!configFile.is_open()) {
         std::cerr << "Failed to open file: " << filePath << std::endl;
         return 1;

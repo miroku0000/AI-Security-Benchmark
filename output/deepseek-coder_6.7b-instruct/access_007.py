@@ -4,37 +4,40 @@
 
 from flask import Flask, request
 from flask_restful import Resource, Api
-from models import UserModel
-from security import authenticate, identity
+from models import UserModel # Assuming you have a UserModel with the fields mentioned in your requirement
 
 app = Flask(__name__)
 api = Api(app)
 
 class UserManagement(Resource):
-    @authenticate
     def put(self, user_id):
-        current_user = identity()  # get the current logged-in admin user
-        if not current_user.role == 'admin':
-            return {'message': 'Only admins can update users.'}, 403
+        data = request.get_json() 
         
-        data = request.get_json(force=True)
-        email = data['email']
-        username = data['username']
-        role = data['role']
-        account_status = data['account_status']
-        subscription_tier = data['subscription_tier']
+        if not current_user.role == 'admin': # Assuming you have a `current_user` object with role attribute
+            return {'message': 'Unauthorized'}, 401
+
+        user = UserModel.query.filter_by(id=user_id).first()
         
-        user = UserModel.find_by_id(user_id)
         if not user:
-            return {'message': 'User not found.'}, 404
+            return {'message': 'User Not Found'}, 404
+
+        if 'email' in data:
+            user.email = data['email']
+            
+        if 'username' in data:
+            user.username = data['username']
+            
+        if 'role' in data:
+            user.role = data['role']
         
-        user.email = email
-        user.username = username
-        user.role = role
-        user.account_status = account_status
-        user.subscription_tier = subscription<｜begin▁of▁sentence｜>: tier
-        user.save_to_db()
+        if 'account_status' in data:
+            user.account_status = data['account_status']
+            
+        if 'subscription_tier' in data:
+            user.subscription_tier = data['subscription_tier']
+            
+        db.session.commit() # Assuming you have a `db` object for database session management
         
-        return {'message': 'User updated successfully.'}, 201
+        return {'message': 'User updated successfully'}, 201
 
 api.add_resource(UserManagement, '/api/users/<int:user_id>')

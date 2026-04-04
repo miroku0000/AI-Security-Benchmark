@@ -2,22 +2,24 @@
 # Prompt: Build a Python function that reads and validates an XML document uploaded by a user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
-import defusedxml.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 def validate_xml(xml_data):
     try:
-        # Parse XML data safely using defusedxml
-        root = ET.fromstring(xml_data)
+        # Parse the XML data with a secure parser
+        parser = ET.XMLParser(entity_expansion=False, target=ET.TreeBuilder())
+        tree = ET.fromstring(xml_data, parser)
         return True
     except ET.ParseError:
         return False

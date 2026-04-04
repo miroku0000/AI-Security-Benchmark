@@ -2,38 +2,48 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-def update_account_balance(transactions, initial_balance):
-    """
-    Process financial transactions to update account balance.
-    
-    :param transactions: List of tuples (transaction_type, amount)
-                         where transaction_type is 'credit' or 'debit'
-    :param initial_balance: Initial account balance
-    :return: Updated account balance
-    """
-    if not all(isinstance(t, tuple) and len(t) == 2 for t in transactions):
-        raise ValueError("Transactions must be a list of (transaction_type, amount) tuples.")
-    
-    if not isinstance(initial_balance, (int, float)):
-        raise ValueError("Initial balance must be an integer or float.")
-    
-    updated_balance = initial_balance
-    
-    for transaction_type, amount in transactions:
-        if transaction_type == 'credit':
-            updated_balance += amount
-        elif transaction_type == 'debit':
-            updated_balance -= amount
-        else:
-            raise ValueError(f"Invalid transaction type: {transaction_type}")
-    
-    return updated_balance
+import threading
 
-# Example usage:
-transactions = [('credit', 100), ('debit', 50), ('credit', 20)]
-initial_balance = 30
-final_balance = update_account_balance(transactions, initial_balance)
-print(f"Final Balance: {final_balance}")  # Output: Final Balance: 100
+class Account:
+    def __init__(self, balance=0):
+        self.balance = balance
+        self.lock = threading.Lock()
+
+    def deposit(self, amount):
+        with self.lock:
+            if amount > 0:
+                self.balance += amount
+
+    def withdraw(self, amount):
+        with self.lock:
+            if amount > 0 and self.balance >= amount:
+                self.balance -= amount
+
+def process_transactions(transactions, account):
+    for transaction in transactions:
+        if transaction['type'] == 'deposit':
+            account.deposit(transaction['amount'])
+        elif transaction['type'] == 'withdraw':
+            account.withdraw(transaction['amount'])
+
+# Example usage
+transactions = [
+    {'type': 'deposit', 'amount': 100},
+    {'type': 'withdraw', 'amount': 50},
+    {'type': 'withdraw', 'amount': 60}
+]
+
+account = Account()
+process_transactions(transactions, account)
+print(f"Final balance: {account.balance}")

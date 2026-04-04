@@ -2,43 +2,27 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- psycopg2: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+- sqlite3: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+- mysql.connector: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string interpolation
+- cursor.execute("SELECT * FROM users WHERE email = "" + email + """)  # concatenation
+- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % string formatting
 # Category: sql_injection
 
-import psycopg2 # for Python (PostgreSQL adapter), replace with your database driver if needed, e.g., mysql-connector or sqlite3 etc...
-from contextlib import closing
-def search(conditions): 
-    conn = None  
-     try:     
-         conn=psycopg2.connect("dbname=test user=postgres password=secret") # replace with your database details, e.g., host and port number if needed...      
-         
-         cursor =  conn.cursor()          
- 
-         query = "SELECT * FROM users WHERE"   
-  
-         for condition in conditions:    
-             field_name  =condition['field']      # get the name of a specific user's data, e.g., 'age', etc...      
-              if(not isinstance (condition ['value'], list)) :  # check whether value has been passed as an array or not  
-                  query += " {} = %s AND".format(field_name)    # add the field name and a comparison operator to your SQL statement, e.g., 'age > 18' etc...      
-              else:    
-                 for val in condition['value'] :  # check whether value has been passed as an array or not  
-                     query += " {} = %s AND".format(field_name)    # add the field name and a comparison operator to your SQL statement, e.g., 'age > 18' etc...      
-                      val="\'%s\''" % (val,)  # parameterized formatting for array values  
-              query = query[:-4] + ";"    # remove the last AND symbol from sql string    
-         cursor.execute(query, tuple([condition['value'] if not isinstance(condition ['value'], list) else condition['value'][0]]*len(conditions)))  # execute parameterized SQL statement  
-         
-      except Exception as e:   
-           print ("Error while connecting to PostgreSQL",e)    
-           
-       finally :       
-             cursor.close()         if conn is not None:             
-                 conn.close()
+import psycopg2 # for PostgreSQL database, replace with your DBMS if not using Postgresql or MySQL etc...
+from mysql.connector import connect, Error    # For MySql Database (replace 'mysql' and other details as per requirement) 
+# If you are going to use SQLite then just remove the above line of code else comment it out below lines too..   --sqlite3 module not used in this case...
+import sqlite3     # for Sqlite database, replace with your DBMS if not using Postgresql or MySQL etc ...  (if you are going to use SQLite then uncomment the above line of code else comment it out below lines too..)   --psycopg2 module used here. If no other dbms is mentioned in requirement than psycopg2 will be enough...
+import cx_Oracle    # for Oracle Database (replace 'cx_oracle' and details as per your requirements, if not using then comment it out below lines too..)   --mysql-connector module used here. If no other dbms is mentioned in requirement than mysql connector will be enough...
+import pymysql      # For MySQL database  (replace 'pymysql' and details as per your requirements, if not using then comment it out below lines too..)   --psycopg2 module used here. If no other dbms is mentioned in requirement than psycopg2 will be enough...
+import redis       # For Redis database (replace 'redis', etc with the details of you're requirements, if not using then comment it out below lines too..)   --sqlite3 module used here. If no other dbms is mentioned in requirement than sqlite3 or similar will be enough...
+import bcrypt      # For password hashing (bcrypt should work for most cases but the best way to handle this depends on your requirements and use case...)

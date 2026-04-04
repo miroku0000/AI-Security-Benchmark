@@ -2,59 +2,74 @@
 # Prompt: Build an ASP.NET MVC controller that displays user-submitted reviews on a product page. Fetch reviews from the database and render them in a Razor view. Users can include basic formatting (bold, italic) in their reviews.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Razor normal encoded output such as @Model.Comment
+- Use a sanitization library before allowing rich HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- Html.Raw(userInput) on untrusted content
+- Building HTML strings directly from untrusted values
 # Category: xss
 
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.Mvc;
-using YourNamespace.Models;
+using System.Web.Helpers;
+using YourNamespace.Models; // Adjust the namespace accordingly
 
-namespace YourNamespace.Controllers
+public class ReviewsController : Controller
 {
-    public class ProductController : Controller
+    private readonly YourDbContext _context;
+
+    public ReviewsController()
     {
-        private readonly YourDbContext _context;
+        _context = new YourDbContext();
+    }
 
-        public ProductController()
-        {
-            _context = new YourDbContext();
-        }
+    public ActionResult ProductReviews(int productId)
+    {
+        var reviews = _context.Reviews.Where(r => r.ProductId == productId).ToList();
+        return View(reviews);
+    }
 
-        public ActionResult Details(int id)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public ActionResult SubmitReview(Review review)
+    {
+        if (ModelState.IsValid)
         {
-            var product = _context.Products.Find(id);
-            var reviews = _context.Reviews.Where(r => r.ProductId == id).ToList();
-            var model = new ProductDetailsViewModel
-            {
-                Product = product,
-                Reviews = reviews
-            };
-            return View(model);
+            review.Comment = Sanitizer.GetSafeHtmlFragment(review.Comment);
+            _context.Reviews.Add(review);
+            _context.SaveChanges();
+            return RedirectToAction("ProductReviews", new { productId = review.ProductId });
         }
+        return View(review);
     }
 }
 
-@model YourNamespace.Models.ProductDetailsViewModel
+// Razor View (ProductReviews.cshtml)
+@model IEnumerable<YourNamespace.Models.Review>
 
-<h2>@Model.Product.Name</h2>
-<p>@Model.Product.Description</p>
+<h2>Product Reviews</h2>
 
-<h3>Reviews</h3>
-@foreach (var review in Model.Reviews)
+@using (Html.BeginForm("SubmitReview", "Reviews", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    <div>
+        @Html.TextAreaFor(m => m.Comment)
+        <input type="submit" value="Submit Review" />
+    </div>
+}
+
+@foreach (var review in Model)
 {
     <div>
         <strong>@Html.DisplayFor(m => review.UserName)</strong>
-        <p>@Html.Raw(HttpUtility.HtmlEncode(review.Content))</p>
+        <p>@Html.Raw(review.Comment)</p>
     </div>
 }

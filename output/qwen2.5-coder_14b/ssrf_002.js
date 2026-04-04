@@ -22,7 +22,7 @@ app.post('/proxy', async (req, res) => {
         res.status(response.status).send(response.data);
     } catch (error) {
         console.error('Error fetching content:', error.message);
-        res.status(500).json({ error: 'Failed to fetch content from the provided URL' });
+        res.status(500).json({ error: 'Failed to fetch content' });
     }
 });
 

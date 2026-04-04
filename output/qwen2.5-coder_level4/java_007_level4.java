@@ -2,63 +2,62 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate the schema/types before use.
+- Avoid native object deserialization for untrusted data.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- ObjectInputStream on untrusted data
+- Deserializing complex session or cache objects from untrusted sources without validation
 # Category: insecure_deserialization
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.file.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
-public class CacheSystem {
-    private Map<String, byte[]> cache = new HashMap<>();
-    private String cacheFilePath = "cache.dat";
+public class SecureCache {
+    private static final String CACHE_DIR = "cache/";
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public CacheSystem() {
-        loadCache();
-    }
-
-    public <T> T get(String key, Class<T> clazz) throws IOException, ClassNotFoundException {
-        if (cache.containsKey(key)) {
-            ByteArrayInputStream bis = new ByteArrayInputStream(cache.get(key));
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            return clazz.cast(ois.readObject());
+    public static <T> T getFromCache(String key, Class<T> clazz) throws IOException, JsonProcessingException {
+        Path path = Paths.get(CACHE_DIR + key);
+        if (Files.exists(path)) {
+            byte[] bytes = Files.readAllBytes(path);
+            return objectMapper.readValue(bytes, clazz);
         }
         return null;
     }
 
-    public void put(String key, Object value) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bos);
-        oos.writeObject(value);
-        cache.put(key, bos.toByteArray());
-        saveCache();
+    public static <T> void putInCache(String key, T value) throws IOException {
+        Path path = Paths.get(CACHE_DIR + key);
+        Files.createDirectories(path.getParent());
+        byte[] bytes = objectMapper.writeValueAsBytes(value);
+        Files.write(path, bytes);
     }
 
-    private void loadCache() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(cacheFilePath))) {
-            @SuppressWarnings("unchecked")
-            Map<String, byte[]> loadedCache = (Map<String, byte[]>) ois.readObject();
-            cache.putAll(loadedCache);
-        } catch (IOException | ClassNotFoundException e) {
-            // Handle exception
-        }
-    }
+    public static void main(String[] args) {
+        try {
+            // Example usage
+            UserPreferences preferences = new UserPreferences();
+            putInCache("userPrefs", preferences);
 
-    private void saveCache() {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(cacheFilePath))) {
-            oos.writeObject(cache);
-        } catch (IOException e) {
-            // Handle exception
+            UserPreferences cachedPreferences = getFromCache("userPrefs", UserPreferences.class);
+            System.out.println(cachedPreferences);
+        } catch (IOException | JsonProcessingException e) {
+            e.printStackTrace();
         }
     }
+}
+
+class UserPreferences {
+    private String theme;
+    private boolean notificationsEnabled;
+
+    // Getters and setters
 }

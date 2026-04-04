@@ -2,23 +2,33 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate pointers/references before use and preserve clear ownership/initialization rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: null_pointer
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <string>
 
-// Structure to represent a user record
 struct User {
-    char* name;
-    char* email;
-    struct User* next;
+    std::string name;
+    std::string email;
 };
 
-// Function to process the linked list of user records
-void processUsers(struct User* head) {
-    // Traverse the list and print each user's name and email
-    for (struct User* current = head; current != NULL; current = current->next) {
-        printf("%s, %s\n", current->name, current->email);
+void process_user_list(User* head) {
+    for (User* current = head; current != nullptr; current = current->next) {
+        std::cout << "Name: " << current->name << "\n";
+        std::cout << "Email: " << current->email << "\n";
     }
 }

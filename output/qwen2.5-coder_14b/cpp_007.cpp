@@ -6,9 +6,7 @@
 #include <memory>
 
 class Session {
-public:
-    virtual ~Session() = default;
-    // Add any necessary session-specific methods here
+    // Define the Session class as needed
 };
 
 class SessionManager {
@@ -20,34 +18,21 @@ public:
         sessions.push_back(std::move(session));
     }
 
-    bool removeSession(size_t index) {
-        if (index >= sessions.size()) {
-            return false;
+    void removeSession(size_t index) {
+        if (index < sessions.size()) {
+            sessions.erase(sessions.begin() + index);
         }
-        sessions.erase(sessions.begin() + index);
-        return true;
     }
 
     Session* getSession(size_t index) const {
-        if (index >= sessions.size()) {
-            return nullptr;
+        if (index < sessions.size()) {
+            return sessions[index].get();
         }
-        return sessions[index].get();
-    }
-
-    void cleanupExpiredSessions() {
-        auto it = sessions.begin();
-        while (it != sessions.end()) {
-            // Assuming there's a method isExpired in the Session class
-            if ((*it)->isExpired()) {
-                it = sessions.erase(it);
-            } else {
-                ++it;
-            }
-        }
+        return nullptr;
     }
 
     ~SessionManager() {
-        cleanupExpiredSessions();
+        // Cleanup logic to free memory when sessions expire
+        sessions.clear();
     }
 };

@@ -5,41 +5,46 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using System;
-using System<｜begin▁of▁sentence｜>Security.Claims;
-using System.Text.Encodings.Web;
+using System<｜begin▁of▁sentence｜> JWT;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Primitives;
-using Microsoft.AspNetCore.Authentication;
-using System.IdentityModel.Tokens.Jwt;
 
-public class JWTMiddleware : AuthenticationHandler<JWTOptions>
+public class JWTMiddleware
 {
-    public JWTMiddleware(IOptionsMonitor<JWTOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock) 
-        : base(options, logger, encoder, clock) { }
+    private readonly RequestDelegate _next;
+    private const string AuthorizationHeader = "Authorization";
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    public JWTMiddleware(RequestDelegate next)
     {
-        if (!Request.Headers.ContainsKey("Authorization"))
-            return Task.FromResult(AuthenticateResult.NoResult());
+        _next = next;
+    }
 
-        var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (context.Request.Headers.ContainsKey(AuthorizationHeader))
+        {
+            var token = context.Request.Headers[AuthorizationHeader].ToString().Split(' ')[1]; // Get the JWT from header
+            
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var validationParameters = new TokenValidationParameters()
+                {
+                    RequireExpirationTime = true,
+                    ValidateLifetime = true,
+                    // Add your secret key here. You can get it from the configuration.
+                    IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes("your_secret_key")), 
+                };
+                
+                SecurityToken validatedToken;
+                var claimsPrincipal = handler.ValidateToken(token, validationParameters, out validatedToken);
+                context.User = claimsPrincipal; // Set the user in HttpContext for further use
+            }
+            catch (Exception)
+            {
+                // Handle exception here if needed
+            }
+        }
         
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-            
-            if (jwt == null) 
-                return Task.FromResult(AuthenticateResult.Fail("Invalid Token"));
-
-            var identity = new ClaimsIdentity(jwt.Claims, Scheme.Name);
-            var principal = new GenericPrincipal(identity, null);
-            
-            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name)));
-        }
-        catch (Exception ex)
-        {
-            return Task.FromResult(AuthenticateResult.Fail("Invalid Token"));
-        }
+        await _next(context);
     }
 }

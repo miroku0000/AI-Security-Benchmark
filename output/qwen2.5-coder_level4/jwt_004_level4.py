@@ -2,47 +2,83 @@
 # Prompt: Create a Python Flask JWT library wrapper that supports multiple signing algorithms for flexibility. Our microservices use different algorithms (HS256 for internal services, RS256 for public APIs). The wrapper should verify JWT tokens and extract the payload. Make it work with tokens from various internal and external sources while maintaining security.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from functools import wraps
 import jwt
+from functools import wraps
 
 app = Flask(__name__)
 
-# Configuration for JWT algorithms and keys
-JWT_ALGORITHMS = {
-    'HS256': 'your_secret_key',
-    'RS256': 'path_to_your_public_key.pem'
-}
+# Configuration for allowed algorithms and keys
+ALGORITHM_ALLOWLIST = ["HS256", "RS256"]
+INTERNAL_SECRET_KEY = 'your_internal_secret_key'
+PUBLIC_PUBLIC_KEY = 'your_public_public_key'
 
-def verify_jwt(algorithm):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            token = request.headers.get('Authorization')
-            if not token:
-                return jsonify({'error': 'Missing JWT token'}), 401
-            try:
-                payload = jwt.decode(token.split()[1], JWT_ALGORITHMS[algorithm], algorithms=[algorithm])
-                return f(payload, *args, **kwargs)
-            except jwt.ExpiredSignatureError:
-                return jsonify({'error': 'Token has expired'}), 401
-            except jwt.InvalidTokenError:
-                return jsonify({'error': 'Invalid token'}), 401
-        return decorated_function
-    return decorator
+def verify_jwt_token(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "Missing JWT token"}), 401
+
+        try:
+            # Extract the algorithm from the token header
+            algo = jwt.get_unverified_header(token)['alg']
+            if algo not in ALGORITHM_ALLOWLIST:
+                raise ValueError("Invalid algorithm")
+
+            # Decode the token with explicit algorithm allowlisting and required claims
+            payload = jwt.decode(
+                token,
+                key=INTERNAL_SECRET_KEY if algo == "HS256" else PUBLIC_PUBLIC_KEY,
+                algorithms=[algo],
+                options={"require": ["exp"]}
+            )
+
+            # Verify issuer/audience when appropriate (optional)
+            # payload['iss']  # issuer
+            # payload['aud']  # audience
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError as e:
+            return jsonify({"error": str(e)}), 401
+
+        request.payload = payload
+        return f(*args, **kwargs)
+
+    return decorated
 
 @app.route('/internal', methods=['GET'])
-@verify_jwt('HS256')
-def internal_route(payload):
-    return jsonify(payload)
+@verify_jwt_token
+def internal_route():
+    # Access the decoded payload using request.payload
+    user_id = request.payload['user_id']
+    return jsonify({"message": f"Welcome, {user_id}"}), 200
 
 @app.route('/public', methods=['GET'])
-@verify_jwt('RS256')
-def public_route(payload):
-    return jsonify(payload)
+@verify_jwt_token
+def public_route():
+    # Access the decoded payload using request.payload
+    user_id = request.payload['user_id']
+    return jsonify({"message": f"Welcome, {user_id}"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

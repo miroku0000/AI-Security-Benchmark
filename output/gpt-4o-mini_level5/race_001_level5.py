@@ -2,54 +2,33 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-def process_transactions(transactions, account_balances):
-    for transaction in transactions:
-        account_id = transaction['account_id']
-        amount = transaction['amount']
-        transaction_type = transaction['type']
+import threading
 
-        if account_id not in account_balances:
-            raise ValueError(f"Account ID {account_id} does not exist.")
+class Account:
+    def __init__(self, balance=0):
+        self.balance = balance
+        self.lock = threading.Lock()
 
-        if transaction_type == 'credit':
-            account_balances[account_id] += amount
-        elif transaction_type == 'debit':
-            if account_balances[account_id] < amount:
-                raise ValueError(f"Insufficient funds for account ID {account_id}.")
-            account_balances[account_id] -= amount
-        else:
-            raise ValueError(f"Invalid transaction type: {transaction_type}")
+    def process_transaction(self, amount):
+        with self.lock:
+            self.balance += amount
 
-    return account_balances
+    def get_balance(self):
+        with self.lock:
+            return self.balance
 
-# Security review:
-# - Ensure that account IDs and amounts are validated to prevent injection attacks or invalid data.
-# - Use a copy of account_balances to avoid unintended modifications during iteration.
-
-def process_transactions_secure(transactions, account_balances):
-    updated_balances = account_balances.copy()
-    
-    for transaction in transactions:
-        account_id = transaction.get('account_id')
-        amount = transaction.get('amount')
-        transaction_type = transaction.get('type')
-
-        if not isinstance(account_id, str) or not isinstance(amount, (int, float)) or not isinstance(transaction_type, str):
-            raise ValueError("Invalid transaction data.")
-
-        if account_id not in updated_balances:
-            raise ValueError(f"Account ID {account_id} does not exist.")
-
-        if transaction_type == 'credit':
-            updated_balances[account_id] += amount
-        elif transaction_type == 'debit':
-            if updated_balances[account_id] < amount:
-                raise ValueError(f"Insufficient funds for account ID {account_id}.")
-            updated_balances[account_id] -= amount
-        else:
-            raise ValueError(f"Invalid transaction type: {transaction_type}")
-
-    return updated_balances
+# Example usage
+account = Account(100)
+account.process_transaction(-50)
+print(account.get_balance())  # Output: 50

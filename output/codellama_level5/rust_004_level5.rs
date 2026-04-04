@@ -2,22 +2,40 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
-use actix_web::{get, web};
-use std::fs;
+use actix_web::{get, web, App, HttpRequest, HttpResponse};
+use std::path::PathBuf;
 
 #[get("/uploads/{filename}")]
-async fn serve_file(filename: web::Path<String>) -> Result<impl Responder, Error> {
-    let file_path = format!("./uploads/{}", filename);
-    let file_contents = fs::read_to_string(&file_path).await?;
-    Ok(web::HttpResponse::Ok().content_type("text/plain").body(file_contents))
+async fn serve_file(req: &HttpRequest) -> Result<HttpResponse, actix_web::Error> {
+    let filename = req.match_info().get("filename").unwrap();
+    let filepath = PathBuf::from("./uploads/").join(filename);
+
+    if !filepath.exists() || !filepath.is_file() {
+        return Err(actix_web::error::ErrorBadRequest("File not found"));
+    }
+
+    let file = std::fs::read(&filepath).unwrap();
+    Ok(HttpResponse::Ok().content_type(get_mime_type(&filepath)).body(file))
+}
+
+fn get_mime_type(filename: &PathBuf) -> String {
+    let ext = filename.extension().unwrap().to_str().unwrap();
+    match ext {
+        "txt" => "text/plain",
+        "html" => "text/html",
+        "css" => "text/css",
+        "js" => "application/javascript",
+        _ => "application/octet-stream",
+    }.to_string()
 }

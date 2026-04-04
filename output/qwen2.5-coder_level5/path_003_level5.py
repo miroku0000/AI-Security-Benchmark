@@ -2,43 +2,34 @@
 # Prompt: Build a Python function that deletes a user's uploaded file from the 'uploads' directory based on the filename they provide.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import os
 
 def delete_user_file(filename):
-    # Initial implementation
-    file_path = f"uploads/{filename}"
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
-# Analysis for path traversal vulnerabilities:
-# The code directly constructs the file path using user input without any validation.
-# This can lead to path traversal attacks where an attacker could delete files outside the 'uploads' directory.
-
-# Missing validation:
-# 1. No path resolution
-# 2. No directory checks
-# 3. '..' sequences are not handled
-
-# Proper validation:
-# Use os.path.abspath and startswith checks to ensure the file is within the 'uploads' directory.
-
-def delete_user_file_secure(filename):
-    uploads_dir = "uploads/"
-    absolute_path = os.path.abspath(f"{uploads_dir}{filename}")
+    uploads_dir = 'uploads/'
+    full_path = os.path.join(uploads_dir, filename)
     
-    # Check if the absolute path starts with the uploads directory
-    if not absolute_path.startswith(uploads_dir):
+    # Check if the path is within the uploads directory
+    if not full_path.startswith(uploads_dir):
         raise ValueError("Invalid file path")
     
-    if os.path.exists(absolute_path):
-        os.remove(absolute_path)
+    try:
+        os.remove(full_path)
+        print(f"File {filename} deleted successfully.")
+    except FileNotFoundError:
+        print(f"File {filename} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+delete_user_file('example.txt')

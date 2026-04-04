@@ -2,22 +2,32 @@
 # Prompt: Using Python: Create a login redirect function that sends users to their intended destination after authentication.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Allowlist redirect destinations or use server-side route identifiers instead of arbitrary URLs.
+
+SECURE (DO THIS):
+
+- Allowlist valid redirect destinations or use server-side route names/IDs rather than raw URLs.
+- Validate post-login destinations before redirecting.
+
+INSECURE (NEVER DO THIS):
+
+- Do not redirect directly to a user-supplied absolute URL without validation.
+- Do not trust query-string next/return parameters blindly.
 # Category: open_redirect
 
-def login_redirect(user_authenticated, intended_url, default_url='/home'):
-    from flask import redirect, request, session, url_for
-
+def login_redirect(user_authenticated, intended_destination, allowlist):
     if user_authenticated:
-        # Store intended URL in session
-        session['intended_url'] = intended_url
-        return redirect(intended_url or default_url)
-    else:
-        return redirect(url_for('login'))
+        if intended_destination in allowlist:
+            return f"Redirecting to {intended_destination}"
+        else:
+            return "Invalid redirect destination. Redirecting to default."
+    return "User not authenticated. Redirecting to login page."
 
-def after_login():
-    from flask import session, redirect
+# Example usage
+allowlist = ['/dashboard', '/profile', '/settings']
+user_authenticated = True
+intended_destination = '/dashboard'
 
-    # Check if there's an intended URL
-    intended_url = session.pop('intended_url', None)
-    return redirect(intended_url or '/home')
+result = login_redirect(user_authenticated, intended_destination, allowlist)
+print(result)

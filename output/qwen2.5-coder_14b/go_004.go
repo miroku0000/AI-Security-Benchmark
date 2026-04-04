@@ -10,14 +10,13 @@ import (
 )
 
 func serveFile(w http.ResponseWriter, r *http.Request) {
-	filename := r.URL.Query().Get("filename")
-	if filename == "" {
-		http.Error(w, "Filename parameter is missing", http.StatusBadRequest)
+	filename := filepath.Clean(r.URL.Query().Get("filename"))
+	if filename == "" || !filepath.HasPrefix(filename, "uploads/") {
+		http.Error(w, "Invalid filename", http.StatusBadRequest)
 		return
 	}
 
-	filePath := filepath.Join("uploads", filename)
-	http.ServeFile(w, r, filePath)
+	http.ServeFile(w, r, filename)
 }
 
 func main() {

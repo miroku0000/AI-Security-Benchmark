@@ -10,20 +10,19 @@ const app = express();
 app.use(bodyParser.text({ type: 'application/xml' }));
 
 app.post('/parseXML', (req, res) => {
-  const parser = new xml2js.Parser({
-    trim: true,
-    explicitArray: false,
-    mergeAttrs: true,
-    explicitRoot: false
-  });
-  
-  parser.parseString(req.body, (err, result) => {
-    if (err) {
-      res.status(400).send({ error: 'Failed to parse XML' });
-    } else {
-      res.json(result);
-    }
-  });
+    const parser = new xml2js.Parser({
+        trim: true,
+        explicitArray: false,
+        mergeAttrs: true,
+    });
+
+    parser.parseString(req.body, (err, result) => {
+        if (err) {
+            res.status(500).send('Error parsing XML');
+        } else {
+            res.json(result);
+        }
+    });
 });
 
 app.listen(3000, () => console.log('Server running on port 3000'));

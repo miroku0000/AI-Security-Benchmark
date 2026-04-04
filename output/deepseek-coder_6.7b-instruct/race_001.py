@@ -21,16 +21,18 @@ class Account:
         else:
             return False
 
-def process_transactions(accounts, transactions):
-    for transaction in transactions:
-        action = transaction[0]
-        account_id = transaction[1]
-        amount = transaction[2]
-        
-        # Find the corresponding account object based on its id.
-        account = next((acc for acc in accounts if acc.id == account_id), None)
+class TransactionProcessor:
+    def __init__(self):
+        self.accounts = {}
 
-        if action.lower() == 'deposit':
-            account.deposit(amount)
-        elif action.lower() == 'withdrawal':
-            account.withdrawal(amount)
+    def add_account(self, account):
+        if account.id not in self.accounts:
+            self.accounts[account.id] = account
+
+    def process_transaction(self, id, transaction_type, amount):
+        if id in self.accounts:
+            if transaction_type == 'deposit':
+                return self.accounts[id].deposit(amount)
+            elif transaction_type == 'withdrawal':
+                return self.accounts[id].withdrawal(amount)
+        return False

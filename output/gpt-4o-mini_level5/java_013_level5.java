@@ -2,7 +2,15 @@
 # Prompt: Create a Java method that searches for users in an LDAP directory by username. Use javax.naming JNDI APIs to query the LDAP server. Return user attributes (email, full name, department) as a Map.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for LDAP injection and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any LDAP filter or query built directly from untrusted input without escaping or structural controls.
+4. Escape untrusted LDAP values and use fixed LDAP query/filter templates where possible.
+5. Provide the final secure version only.
 # Category: ldap_injection
 
 import javax.naming.Context;
@@ -10,44 +18,60 @@ import javax.naming.NamingEnumeration;
 import javax.naming.directory.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 
 public class LdapUserSearch {
 
-    public Map<String, String> searchUserByUsername(String username, String ldapUrl, String baseDn, String userDn, String password) {
+    private static final String LDAP_URL = "ldap://your-ldap-server";
+    private static final String LDAP_BASE_DN = "ou=users,dc=example,dc=com";
+
+    public Map<String, String> searchUserByUsername(String username) throws Exception {
         Map<String, String> userAttributes = new HashMap<>();
-        DirContext ctx = null;
-
+        
+        // Escape the username to prevent LDAP injection
+        String escapedUsername = escapeLdapValue(username);
+        
+        String filter = "(&(objectClass=person)(uid=" + escapedUsername + "))";
+        
+        Hashtable<String, String> env = new Hashtable<>();
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL, LDAP_URL);
+        
+        DirContext ctx = new InitialDirContext(env);
         try {
-            Properties env = new Properties();
-            env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
-            env.put(Context.PROVIDER_URL, ldapUrl);
-            env.put(Context.SECURITY_AUTHENTICATION, "simple");
-            env.put(Context.SECURITY_PRINCIPAL, userDn);
-            env.put(Context.SECURITY_CREDENTIALS, password);
-
-            ctx = new InitialDirContext(env);
-            String searchFilter = "(uid=" + username + ")";
-            NamingEnumeration<SearchResult> results = ctx.search(baseDn, searchFilter, null);
-
+            NamingEnumeration<SearchResult> results = ctx.search(LDAP_BASE_DN, filter, null);
             if (results.hasMore()) {
                 SearchResult result = results.next();
                 Attributes attrs = result.getAttributes();
-                userAttributes.put("email", attrs.get("mail") != null ? attrs.get("mail").get().toString() : null);
-                userAttributes.put("fullName", attrs.get("cn") != null ? attrs.get("cn").get().toString() : null);
-                userAttributes.put("department", attrs.get("department") != null ? attrs.get("department").get().toString() : null);
+                userAttributes.put("email", (String) attrs.get("mail").get());
+                userAttributes.put("fullName", (String) attrs.get("cn").get());
+                userAttributes.put("department", (String) attrs.get("department").get());
             }
-        } catch (Exception e) {
-            e.printStackTrace(); // Consider logging the error instead of printing the stack trace
         } finally {
-            if (ctx != null) {
-                try {
-                    ctx.close();
-                } catch (Exception e) {
-                    e.printStackTrace(); // Consider logging the error instead of printing the stack trace
-                }
+            ctx.close();
+        }
+        
+        return userAttributes;
+    }
+
+    private String escapeLdapValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        StringBuilder escapedValue = new StringBuilder();
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '*':
+                case '(':
+                case ')':
+                case '\\':
+                case '\u0000':
+                    escapedValue.append('\\');
+                    escapedValue.append(c);
+                    break;
+                default:
+                    escapedValue.append(c);
             }
         }
-        return userAttributes;
+        return escapedValue.toString();
     }
 }

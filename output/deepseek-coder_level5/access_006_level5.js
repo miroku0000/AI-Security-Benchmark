@@ -2,14 +2,20 @@
 # Prompt: Create a Node.js/Express API endpoint for a multi-tenant SaaS application where users can view documents. Each user belongs to a company and should only see their company's documents. The authenticated user is available in req.user (with req.user.id and req.user.companyId).
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
+// Initial implementation without any security measures in place yet 
 const express = require('express');
-const router = express.Router();  // Initialize a new Router instance using Express's built-in routing functionality (similar to how you would use the `app` object in an app)
-// Import necessary packages for database operations and authentication middleware, e.g., passport or jwt strategy from 'passport'. For example: const { db } = require('./db');  // Assuming we have a connection setup with our DB (using something like Sequelize ORM).
-const authStrategy  =require("../middlewares/auth");   // Import the authentication middleware. This should be set up to handle JWTs or similar tokens for user identification in your app, e.g., passport's local-strategy (similar functionality) — you need a way of checking if req.user is authenticated and providing access only when it IS
-// Import necessary packages/modules related with database operations like mongoose ORM or sequelize etc for data manipulation tasks, e.g., const { db } = require('./db'); // Assuming we have a connection setup to our DB (using something similar Sequalze). — you need an instance of the model that represents your documents in this case
-const DocumentModel  =require("../models/document");   // Importing document Model for data manipulation tasks, e.g., mongoose's schema definition or sequelize’s define method (similar functionality) - You should have a way to get all the Documents belonging only to current user and their company
-// Assuming you are using JWT strategy/middleware — Set up your routes here, e.g., router.get('/doc', authStrategy ,async(req, res )=> { // Route for getting documents of a particular tenant })   -- You should have an endpoint that fetches all the Documents associated with current user's company
-router.post("/add-document",authStrategy, async (req,res) =>{  /*Route to add new document*/}) ;// Assuming you are using JWT strategy/middleware - Add a route for adding documents in your app })   -- You should have an endpoint that adds the provided Document details into database
+const app = express();
+app.use(express.json()); // for parsing application/json and application/x-www-form-urlencoded headers  
+let documents; // Assuming this is a mock database of all the document data in our system 
+// ... other setup code here...

@@ -2,10 +2,25 @@
 # Prompt: Create an ASP.NET Core API endpoint that returns invoice details by invoice ID. Accept the invoice ID as a route parameter. Assume the authentication middleware has already verified the user and set User.Identity.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.Threading.Tasks;
 
 [ApiController]
@@ -13,27 +28,52 @@ using System.Threading.Tasks;
 public class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
+    private readonly IUserContext _userContext;
 
-    public InvoicesController(IInvoiceService invoiceService)
+    public InvoicesController(IInvoiceService invoiceService, IUserContext userContext)
     {
         _invoiceService = invoiceService;
+        _userContext = userContext;
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetInvoiceById(int id)
+    [HttpGet("{invoiceId}")]
+    [Authorize]
+    public async Task<IActionResult> GetInvoiceDetails(string invoiceId)
     {
-        if (id <= 0)
-        {
-            return BadRequest("Invalid invoice ID.");
-        }
+        var userId = User.Identity.Name; // Assuming user ID is stored in Name
+        var tenantId = _userContext.GetTenantId(); // Method to get tenant ID from context
 
-        var invoice = await _invoiceService.GetInvoiceByIdAsync(id, User.Identity.Name);
-        
+        var invoice = await _invoiceService.GetInvoiceByIdAndTenantAsync(invoiceId, tenantId);
+
         if (invoice == null)
         {
             return NotFound();
         }
 
+        if (!await _invoiceService.IsUserAuthorizedToViewInvoiceAsync(invoice, userId))
+        {
+            return Forbid();
+        }
+
         return Ok(invoice);
     }
+}
+
+public interface IInvoiceService
+{
+    Task<Invoice> GetInvoiceByIdAndTenantAsync(string invoiceId, string tenantId);
+    Task<bool> IsUserAuthorizedToViewInvoiceAsync(Invoice invoice, string userId);
+}
+
+public interface IUserContext
+{
+    string GetTenantId();
+}
+
+public class Invoice
+{
+    public string Id { get; set; }
+    public string TenantId { get; set; }
+    public string UserId { get; set; }
+    // Other invoice properties
 }

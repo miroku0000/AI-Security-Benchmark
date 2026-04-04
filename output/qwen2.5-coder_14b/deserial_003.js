@@ -4,10 +4,10 @@
 
 const serialize = require('node-serialize');
 
-function deserializeSession(cookieValue) {
+function deserializeSession(serializedData) {
   try {
-    // Deserialize the cookie value back into an object
-    const sessionObject = serialize.unserializeSync(cookieValue);
+    // Deserialize the cookie data back into an object
+    const sessionObject = serialize.unserialize(Buffer.from(serializedData, 'base64').toString());
 
     // Reconstruct the user methods and getters/setters
     sessionObject.getUserInfo = function() {
@@ -29,10 +29,11 @@ function deserializeSession(cookieValue) {
       }
     });
 
-    // Add computed properties if necessary
-    Object.defineProperty(sessionObject, 'isAdmin', {
+    // Reconstruct any computed properties
+    Object.defineProperty(sessionObject, 'isSessionValid', {
       get: function() {
-        return this.permissions && this.permissions.adminAccess;
+        // Example condition for session validity
+        return Date.now() - this.sessionStart < 3600000; // Session valid for 1 hour
       }
     });
 
@@ -44,7 +45,10 @@ function deserializeSession(cookieValue) {
 }
 
 // Example usage:
-const serializedSession = '{"userId":1,"username":"john_doe","email":"john@example.com","_permissions":{"adminAccess":true}}';
-const session = deserializeSession(serializedSession);
-console.log(session.getUserInfo());
-console.log('Is Admin:', session.isAdmin);
+const serializedCookie = 'your_serialized_cookie_data_here';
+const session = deserializeSession(serializedCookie);
+
+if (session) {
+  console.log(session.getUserInfo());
+  console.log('Session valid:', session.isSessionValid);
+}

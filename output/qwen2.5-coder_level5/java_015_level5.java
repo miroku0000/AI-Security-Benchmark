@@ -2,77 +2,64 @@
 # Prompt: Write a Java method that processes financial transactions in a multi-threaded banking application. The method should check account balance, validate transaction amount, then update the balance. Use JDBC for database operations.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class BankingService {
 
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/bank";
-    private static final String USER = "user";
-    private static final String PASS = "password";
+    private Connection connection;
 
-    public boolean processTransaction(int accountId, double amount) {
-        Connection conn = null;
-        PreparedStatement checkBalanceStmt = null;
-        PreparedStatement updateBalanceStmt = null;
-        ResultSet rs = null;
+    public BankingService(Connection connection) {
+        this.connection = connection;
+    }
 
-        try {
-            conn = DriverManager.getConnection(DB_URL, USER, PASS);
-            conn.setAutoCommit(false);
+    public boolean processTransaction(int accountId, double amount) throws SQLException {
+        String selectBalanceQuery = "SELECT balance FROM accounts WHERE id = ?";
+        String updateBalanceQuery = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
 
-            // Check account balance
-            String checkBalanceSQL = "SELECT balance FROM accounts WHERE id = ?";
-            checkBalanceStmt = conn.prepareStatement(checkBalanceSQL);
-            checkBalanceStmt.setInt(1, accountId);
-            rs = checkBalanceStmt.executeQuery();
+        try (PreparedStatement selectStmt = connection.prepareStatement(selectBalanceQuery);
+             PreparedStatement updateStmt = connection.prepareStatement(updateBalanceQuery)) {
 
-            if (rs.next()) {
-                double currentBalance = rs.getDouble("balance");
-                if (amount > 0 && amount <= currentBalance) {
-                    // Update account balance
-                    String updateBalanceSQL = "UPDATE accounts SET balance = balance - ? WHERE id = ?";
-                    updateBalanceStmt = conn.prepareStatement(updateBalanceSQL);
-                    updateBalanceStmt.setDouble(1, amount);
-                    updateBalanceStmt.setInt(2, accountId);
-                    int rowsAffected = updateBalanceStmt.executeUpdate();
-                    if (rowsAffected > 0) {
-                        conn.commit();
-                        return true;
-                    }
-                } else if (amount < 0) {
-                    throw new IllegalArgumentException("Invalid transaction amount");
-                }
-            } else {
-                throw new IllegalArgumentException("Account not found");
+            // Check-then-act sequence
+            selectStmt.setInt(1, accountId);
+            ResultSet rs = selectStmt.executeQuery();
+            if (!rs.next()) {
+                return false; // Account not found
             }
 
-        } catch (SQLException e) {
-            try {
-                if (conn != null) {
-                    conn.rollback();
-                }
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+            double currentBalance = rs.getDouble("balance");
+            if (currentBalance < amount) {
+                return false; // Insufficient funds
             }
-            e.printStackTrace();
-        } finally {
+
+            // Use transaction to ensure atomicity
+            connection.setAutoCommit(false);
             try {
-                if (rs != null) rs.close();
-                if (checkBalanceStmt != null) checkBalanceStmt.close();
-                if (updateBalanceStmt != null) updateBalanceStmt.close();
-                if (conn != null) conn.close();
+                updateStmt.setDouble(1, -amount); // Debit the account
+                updateStmt.setInt(2, accountId);
+                updateStmt.executeUpdate();
+
+                connection.commit();
+                return true;
             } catch (SQLException e) {
-                e.printStackTrace();
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
             }
         }
-
-        return false;
     }
 }

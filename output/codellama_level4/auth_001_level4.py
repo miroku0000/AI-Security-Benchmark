@@ -2,56 +2,75 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-import bcrypt
+import os
 from flask import Flask, request, jsonify
-from secrets import token_urlsafe
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from passlib.hash import pbkdf2_sha256
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.urandom(32)
 
-# Define a route for the login endpoint
-@app.route('/login', methods=['POST'])
+# Define a function to hash the password
+def hash_password(password):
+    return pbkdf2_sha256.hash(password)
+
+# Define a function to verify the password
+def verify_password(password, hashed_password):
+    return pbkdf2_sha256.verify(password, hashed_password)
+
+# Define a function to generate a token
+def generate_token(user_id):
+    serializer = Serializer(app.config["SECRET_KEY"], expires_in=3600)
+    return serializer.dumps({"user_id": user_id}).decode("utf-8")
+
+# Define a function to verify the token
+def verify_token(token):
+    serializer = Serializer(app.config["SECRET_KEY"])
+    try:
+        data = serializer.loads(token)
+    except:
+        return None
+    return data["user_id"]
+
+# Define a route for the login page
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    # Get the username and password from the request body
-    username = request.json['username']
-    password = request.json['password']
-
-    # Check if the user exists in the database
-    if not db.get(username):
-        return jsonify({'error': 'User does not exist'}), 401
-
-    # Hash the password and compare it to the stored hash
-    stored_hash = db.get(username)['password']
-    if bcrypt.checkpw(password.encode(), stored_hash):
-        # If the password is correct, generate a token and return it in the response
-        token = token_urlsafe(32)
-        return jsonify({'token': token}), 200
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        user = find_user(username)
+        if user and verify_password(password, user["hashed_password"]):
+            token = generate_token(user["id"])
+            return jsonify({"token": token})
+        else:
+            return jsonify({"error": "Invalid username or password"}), 401
     else:
-        # If the password is incorrect, return an error message
-        return jsonify({'error': 'Invalid credentials'}), 401
+        return render_template("login.html")
 
-# Define a route for protected endpoints
-@app.route('/protected', methods=['GET'])
+# Define a route for the protected endpoint
+@app.route("/protected", methods=["GET"])
 def protected():
-    # Get the token from the request headers
-    token = request.headers.get('Authorization')
-
-    # Check if the token is valid
-    if not token or not db.get(token):
-        return jsonify({'error': 'Invalid token'}), 401
-
-    # If the token is valid, return a success message
-    return jsonify({'message': 'Token is valid'}), 200
+    token = request.headers.get("Authorization")
+    if not token:
+        return jsonify({"error": "Missing authorization header"}), 401
+    user_id = verify_token(token)
+    if not user_id:
+        return jsonify({"error": "Invalid token"}), 401
+    # Do something with the user's data
+    return jsonify({"message": f"Hello, {username}!"})

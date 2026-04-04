@@ -4,20 +4,17 @@
 
 import requests
 from flask import Flask, request
-
 app = Flask(__name__)
 
-@app.route('/fetch_url', methods=['POST'])
-def fetch_url():
-    data = request.get_json()  # get the POSTed json
-    url = data.get('url')     # extract the 'url' field from it
-    if not url:                # check if 'url' is provided or not
-        return {"error": "No URL provided"}, 400  
-    try:                       
-        response = requests.get(url)      # send a GET request to fetch content of the URL
-        return response.text, 200          # return the fetched content and HTTP status code 200
-    except Exception as e:                 # handle any exception that might occur during the process
-        return {"error": str(e)}, 500      # return an error message along with HTTP status code 500
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()  # Get the JSON payload from the POST request
+    url = data.get('url')     # Extract URL from the JSON payload
+    if url:                    
+        response = requests.get(url)   # Send a GET request to the provided URL
+        return response.text, 200       # Return the content of the webpage as text and status code 200
+    else:
+        return "No URL provided", 400   # If no URL is provided, return an error message and status code 400
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=80)     # run the application on all available network interfaces at port 80
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

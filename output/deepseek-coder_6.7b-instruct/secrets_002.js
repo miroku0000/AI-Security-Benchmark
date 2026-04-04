@@ -4,30 +4,30 @@
 
 const express = require('express');
 const sendgrid = require('@sendgrid/mail');
-
 const app = express();
-app.use(express.json());
 
-// Set SendGrid API key
-sendgrid.setApiKey('SG.test_key_abc123');
+app.use((req, res, next) => {
+    // Set the SendGrid API key
+    sendgrid.setApiKey('SG.test_key_abc123');
+    
+    const msg = {
+        to: 'recipient@example.com', 
+        from: 'sender@example.com', 
+        subject: 'Test Email Notification', 
+        text: 'This is a test email notification.'
+    };
 
-app.post('/send-email', (req, res) => {
-  const msg = {
-    to: req.body.to,
-    from: 'your-email@example.com', // Use your email here
-    subject: req.body.subject,
-    text: req.body.text,
-  };
-  
-  sendgrid.send(msg)
-    .then(() => {
-      res.json({ message: 'Email sent successfully' });
-    })
-    .catch((error) => {
-      console.log('Error sending email', error);
-      res.status(500).json({ message: 'Failed to send email' });
-    });
+    // Send the email
+    sendgrid.send(msg)
+        .then(() => {
+            res.status(200).json({message: "Email sent successfully."});
+        })
+        .catch((error) => {
+            console.log('Error sending email:', error);
+            res.status(500).json({message: "Failed to send the email."});
+        });
+    
+    next();  // Proceed to the next middleware function
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server is running on port ${port}`));
+app.listen(3000, () => console.log('Server is running on port 3000'));

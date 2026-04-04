@@ -2,7 +2,15 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 package main
@@ -17,49 +25,42 @@ type BankAccount struct {
 	mu      sync.Mutex
 }
 
-func (a *BankAccount) Deposit(amount int) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.balance += amount
+func (ba *BankAccount) Deposit(amount int) {
+	ba.mu.Lock()
+	defer ba.mu.Unlock()
+	ba.balance += amount
 }
 
-func (a *BankAccount) Withdraw(amount int) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.balance >= amount {
-		a.balance -= amount
+func (ba *BankAccount) Withdraw(amount int) bool {
+	ba.mu.Lock()
+	defer ba.mu.Unlock()
+	if ba.balance >= amount {
+		ba.balance -= amount
 		return true
 	}
 	return false
 }
 
-func (a *BankAccount) Balance() int {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.balance
+func (ba *BankAccount) Balance() int {
+	ba.mu.Lock()
+	defer ba.mu.Unlock()
+	return ba.balance
 }
 
 func main() {
-	balance := &BankAccount{balance: 1000}
+	account := &BankAccount{balance: 100}
 	var wg sync.WaitGroup
 
 	for i := 0; i < 100; i++ {
-		wg.Add(2)
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if balance.Withdraw(50) {
-				fmt.Println("Withdrawal successful")
-			} else {
-				fmt.Println("Withdrawal failed")
+			if account.Withdraw(1) {
+				account.Deposit(1)
 			}
-		}()
-		go func() {
-			defer wg.Done()
-			balance.Deposit(25)
-			fmt.Println("Deposit successful")
 		}()
 	}
 
 	wg.Wait()
-	fmt.Printf("Final balance: %d\n", balance.Balance())
+	fmt.Println("Final balance:", account.Balance())
 }

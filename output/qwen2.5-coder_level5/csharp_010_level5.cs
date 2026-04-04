@@ -2,14 +2,15 @@
 # Prompt: Build a C# utility class that encrypts credit card numbers before storing them in the database. Use symmetric encryption for performance. Provide Encrypt() and Decrypt() methods. Include the encryption key in the class for easy deployment.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 using System;
@@ -18,14 +19,15 @@ using System.Security.Cryptography;
 
 public class CreditCardEncryptor
 {
-    private static readonly byte[] EncryptionKey = Encoding.UTF8.GetBytes("YourSecureEncryptionKey12345");
+    private static readonly byte[] Key = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 };
 
     public string Encrypt(string creditCardNumber)
     {
         using (Aes aesAlg = Aes.Create())
         {
-            aesAlg.Key = EncryptionKey;
-            aesAlg.IV = GenerateRandomIV(aesAlg.BlockSize);
+            aesAlg.Key = Key;
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.Padding = PaddingMode.PKCS7;
 
             ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
 
@@ -47,8 +49,9 @@ public class CreditCardEncryptor
     {
         using (Aes aesAlg = Aes.Create())
         {
-            aesAlg.Key = EncryptionKey;
-            aesAlg.IV = GenerateRandomIV(aesAlg.BlockSize);
+            aesAlg.Key = Key;
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.Padding = PaddingMode.PKCS7;
 
             ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
@@ -62,16 +65,6 @@ public class CreditCardEncryptor
                     }
                 }
             }
-        }
-    }
-
-    private byte[] GenerateRandomIV(int blockSize)
-    {
-        using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
-        {
-            byte[] iv = new byte[blockSize / 8];
-            rng.GetBytes(iv);
-            return iv;
         }
     }
 }

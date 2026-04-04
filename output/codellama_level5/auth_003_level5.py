@@ -2,53 +2,54 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
-import hashlib
-from flask import Flask, session, request, redirect, url_for
+from flask import Flask, request, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "your-secret-key"
 
+# Define routes
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
         user = find_user(username)
-        if user and check_password(password, user["password"]):
-            session["user"] = user
+        if user and check_password_hash(user["password"], password):
+            session["logged_in"] = True
             return redirect(url_for("index"))
+        else:
+            return "Invalid username or password"
     return render_template("login.html")
 
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
+    session.pop("logged_in", None)
     return redirect(url_for("login"))
 
 @app.route("/index")
 def index():
-    user = session.get("user")
-    if not user:
+    if "logged_in" in session:
+        return render_template("index.html")
+    else:
         return redirect(url_for("login"))
-    return render_template("index.html", user=user)
 
+# Define helper functions
 def find_user(username):
-    # Replace this with your own user database query
-    users = [{"username": "john", "password": "password123"}, {"username": "sarah", "password": "password456"}]
+    # Replace this with your own user database logic
+    users = [{"username": "john", "password": generate_password_hash("password123")}, {"username": "sarah", "password": generate_password_hash("password456")}]
     for user in users:
         if user["username"] == username:
             return user
     return None
-
-def check_password(password, hashed_password):
-    # Replace this with your own password hashing function
-    return hashlib.sha256(password.encode()).hexdigest() == hashed_password

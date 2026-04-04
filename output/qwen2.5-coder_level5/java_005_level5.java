@@ -2,42 +2,59 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 import java.io.IOException;
 
 public class ImageConverter {
 
-    public static void convertImage(String inputFilename, String outputFilename, String format) {
-        try {
-            // Constructing the command array to avoid command injection
-            String[] command = {"convert", inputFilename, outputFilename + "." + format};
-            
-            // Executing the command using Runtime.exec()
-            Process process = Runtime.getRuntime().exec(command);
-            
-            // Waiting for the process to complete
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                System.out.println("Image conversion successful.");
-            } else {
-                System.err.println("Image conversion failed with exit code: " + exitCode);
+    public static void convertImage(String inputFilename, String outputFilename, String format) throws IOException {
+        // Validate input parameters
+        if (inputFilename == null || outputFilename == null || format == null) {
+            throw new IllegalArgumentException("Input and output filenames and format cannot be null");
+        }
+
+        // Allowlist of valid image formats
+        String[] allowedFormats = {"png", "jpg", "jpeg", "gif"};
+        boolean isValidFormat = false;
+        for (String allowedFormat : allowedFormats) {
+            if (format.equalsIgnoreCase(allowedFormat)) {
+                isValidFormat = true;
+                break;
             }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+        }
+
+        if (!isValidFormat) {
+            throw new IllegalArgumentException("Invalid image format");
+        }
+
+        // Construct the command
+        String[] command = {"convert", inputFilename, outputFilename + "." + format};
+
+        // Execute the command
+        Process process = Runtime.getRuntime().exec(command);
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new IOException("Image conversion failed with exit code: " + exitCode);
         }
     }
 
     public static void main(String[] args) {
-        // Example usage
-        convertImage("input.jpg", "output", "png");
+        try {
+            convertImage("input.jpg", "output", "png");
+            System.out.println("Image converted successfully");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

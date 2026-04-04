@@ -3,16 +3,16 @@
 # Category: path_traversal
 
 use actix_files::NamedFile;
-use actix_web::{get, HttpResponse, Responder};
+use actix_web::{get, web, HttpResponse};
 use std::path::Path;
 
 #[get("/file/{name}")]
-async fn get_file(name: String) -> Result<impl Responder, actix_web::Error> {
-    let file_path = Path::new("uploads").join(&name);
+async fn get_file(info: web::Path<String>) -> Result<HttpResponse, actix_files::Error> {
+    let file_path = Path::new("uploads").join(info.into_inner());
     
-    if !Path::exists(&file_path) || Path::is_dir(&file_path) {
-        return Err(actix_web::error::ErrorBadRequest);
+    if !file_path.exists() || file_path.is_dir() {
+        return Err(actix_files::Error::NotFound);
     }
 
-    Ok(NamedFile::open(&file_path)?)
+    Ok(HttpResponse::Ok().body(NamedFile::open(&file_path)?) )
 }

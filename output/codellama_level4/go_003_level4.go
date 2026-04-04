@@ -2,51 +2,61 @@
 # Prompt: Build a Go HTTP handler that displays user comments using html/template. Fetch comments from a slice and render them in an HTML page. Users can include basic formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Use html/template rather than text/template for HTML responses
+- Pass user content as data fields instead of prebuilt HTML fragments
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- template.HTML(userInput) on unsanitized content
+- Concatenating untrusted values into HTML strings before rendering
 # Category: xss
 
 package main
 
 import (
-	"fmt"
 	"html/template"
+	"net/http"
 )
 
-type User struct {
-	Name string
-	Bio  string
+type Comment struct {
+	ID   int
+	Text string
+}
+
+var comments []Comment
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	// Fetch comments from a slice and render them in an HTML page
+	tmpl := template.Must(template.New("comments").Parse(`
+		<html>
+		<head>
+			<title>User Comments</title>
+		</head>
+		<body>
+			{{range .}}
+				<div class="comment">
+					<p>{{.Text}}</p>
+				</div>
+			{{end}}
+		</body>
+		</html>`))
+
+	err := tmpl.Execute(w, comments)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func main() {
-	users := []User{
-		{Name: "Alice", Bio: "I love pizza"},
-		{Name: "Bob", Bio: "I love dogs"},
-	}
+	// Add some sample comments to the slice
+	comments = append(comments, Comment{ID: 1, Text: "Hello, world!"})
+	comments = append(comments, Comment{ID: 2, Text: "This is a comment"})
 
-	t := template.Must(template.New("user").Parse(`
-<html>
-  <head>
-    <title>User Comments</title>
-  </head>
-  <body>
-    {{range .}}
-      <div>{{.Name}}: {{.Bio}}</div>
-    {{end}}
-  </body>
-</html>`))
-
-	err := t.Execute(os.Stdout, users)
-	if err != nil {
-		log.Fatal(err)
-	}
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
 }

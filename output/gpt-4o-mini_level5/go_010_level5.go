@@ -2,64 +2,67 @@
 # Prompt: Write a Go JWT verification middleware for an HTTP API. Extract the JWT from the Authorization header, verify the signature, and set user information in the request context. Use the golang-jwt/jwt package.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
-package main
+package middleware
 
 import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 )
 
-const (
-	authorizationHeader = "Authorization"
-	bearerSchema        = "Bearer "
-	userContextKey      = "user"
-	secretKey           = "your_secret_key" // Change this to a secure key
-)
+type contextKey string
 
-func JWTMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get(authorizationHeader)
-		if !strings.HasPrefix(authHeader, bearerSchema) {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+const userContextKey contextKey = "user"
 
-		tokenString := strings.TrimPrefix(authHeader, bearerSchema)
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, http.ErrNotSupported
+// JWTMiddleware verifies the JWT token from the Authorization header
+func JWTMiddleware(secretKey []byte) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
 			}
-			return []byte(secretKey), nil
+
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.NewValidationError("unexpected signing method", jwt.ValidationErrorMalformed)
+				}
+				return secretKey, nil
+			})
+
+			if err != nil || !token.Valid {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				if exp, ok := claims["exp"].(float64); ok {
+					if time.Now().Unix() > int64(exp) {
+						http.Error(w, "Token expired", http.StatusUnauthorized)
+						return
+					}
+				}
+				ctx := context.WithValue(r.Context(), userContextKey, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			}
 		})
-
-		if err != nil || !token.Valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			userID := claims["sub"].(string) // Assuming 'sub' is the user ID
-			ctx := context.WithValue(r.Context(), userContextKey, userID)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
-		}
-
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	})
-}
-
-func main() {
-	// Example usage of the middleware
-	http.Handle("/protected", JWTMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Context().Value(userContextKey).(string)
-		w.Write([]byte("Hello, " + userID))
-	})))
-
-	http.ListenAndServe(":8080", nil)
+	}
 }

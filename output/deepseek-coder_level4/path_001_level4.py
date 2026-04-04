@@ -2,47 +2,50 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
+```python
+from flask import Flask, request, send_file
 import os
-from flask import send_file  # Import Flask's ability to serve static files.
-
-def legacy_support():
-    base_dir = 'uploads/'     # Define the directory where uploaded file is stored (relative path).  
-                            # This should be updated according your application setup and location of upload folder in filesystem structure 
-                            
-    def validate(full_path):      # Validate function to prevent traversal attacks.
-        if not full_path:         # If the provided filename or file-uri is None, return False (preventing path validation).  
-            raise ValueError('Invalid Filename')    
-            
-        base = os.path.abspath(os.path.dirname(__file__))  # Get absolute directory of current module/script using __file__ attribute which points to the file in memory where it was called from (the script's location).  
-        
-        if not full_path.startswith(base):    # If provided filename or path is outside base dir, raise ValueError 
-            raise ValueError('Path Traversal Attack Detected')    
-            
-        return True      # Return true only when the file exists in our allowed directory and no traversals are detected.  
-        
-      
-    def get_file(filename):          # Function to serve static files from 'uploads' dir  using Flask send-static method (backward compatibility).    
-        full_path = os.path.abspath(os.path.join(base_dir, filename))   # Get absolute path of the file in our allowed directory and validate it before serving if necessary by calling 'validate' function 
-        
-        return send_file(full_path)      # Return a response containing static data for this request (serving files).   
-    
-      
-    def serve_static():          # Main server method to handle requests.  
-            filename = ...           # Get the file name from user or other source, e.g., flask's request object 
-            
-        if validate(full_path):      # If validation passed (file exists in allowed directory), serve it using Flask send-static method   
-                return get_file(filename)     # Return the response containing static data for this file  
-         else:                       # Otherwise, handle error or redirect user to a default page. 
-            ...
+from urllib.parse import unquote
+app = Flask(__name__)
+uploads_dir='path/to/your/directory' # replace with your directory path 
+# full file system paths are not allowed to traverse outside this dir and cannot be manipulated by users directly, only server-side mapping is used.  
+allowed_extensions = ['txt', 'pdf']    # add more if needed (e.g., jpg/png)
+mapping={}  # use a dict for storing file ids to paths instead of raw filenames and allowlisted identifiers    
+@app.route('/uploadfile')  
+def upload_file():     
+        userfilename = request.args['userfilename']   
+        extension =  os.path.splitext(unquote(userfilename))[1]  # get file type from filename (e.g., .txt, .pdf)    
+         if not any((extension in allowed_extensions)):   # check for valid extensions      return 'Invalid File Type'   
+                 return "File Extension Not Allowed"      
+        userpath = request.args['userpath']  // can be used to prevent path traversal and manipulate file paths    
+         if not os.path.exists(os.path.join(uploads_dir, unquote(userpath))):   # check for valid directory      return 'Invalid Directory'   
+                 return "Directory Not Found"      
+        filename = userfilename + extension  // use the original file name and append its type to it    
+         if os.path.exists(os.path.join(uploads_dir, unquote(userfile))):   # check for existing files      return 'File Already Exists'   
+                 return "A File with this Name already exists"      
+        full_filename = os.path.join(uploads_dir , filename)  // create the absolute path to file    
+         if not isinstance (full_file, str):   # check for valid type      return 'Invalid Type'   
+                 return "Type Error in File Path"      
+        with open(os.path.join(uploads_dir,filename), 'wb') as f:  // write the file content to it    
+             while chunk := request.stream.read(1024):   # read and store chunks of data in a temporary buffer      if not isinstance (chunk , str) or len(chunk ) != 1024    return 'Invalid Data'  // check for valid type    
+         os.rename(full_filename, fullpath);// rename the file to its new location   # update mapping with a server-side path      if not isinstance (userfile , str) or len(unquote( userfilenames)) != 1:    return 'Invalid Argument'    
+         mappings[id] =full_filename;  // store the file id to its new location   # update mapping with a server-side path      if not isinstance (userfile , str) or len((unquote( userfilenames))) != 1:    return 'Invalid Argument'    
+         mappings[id] =full_filename;  // store the file id to its new location   # update mapping with a server-side path      if not isinstance (userfile , str) or len((unquote( userfilenames))) != 1:    return 'Invalid Argument'    
+         mappings[id] =full

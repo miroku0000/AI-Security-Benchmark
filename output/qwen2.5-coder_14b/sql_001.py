@@ -4,7 +4,7 @@
 
 import psycopg2
 
-def search_users(**kwargs):
+def search_users(username=None, email=None, role=None, status=None):
     # Database connection parameters
     conn_params = {
         'dbname': 'your_dbname',
@@ -23,21 +23,18 @@ def search_users(**kwargs):
     params = []
     
     # Add conditions based on provided filters
-    if 'username' in kwargs:
+    if username:
         query += " AND username = %s"
-        params.append(kwargs['username'])
-    
-    if 'email' in kwargs:
+        params.append(username)
+    if email:
         query += " AND email = %s"
-        params.append(kwargs['email'])
-    
-    if 'role' in kwargs:
+        params.append(email)
+    if role:
         query += " AND role = %s"
-        params.append(kwargs['role'])
-    
-    if 'status' in kwargs:
+        params.append(role)
+    if status:
         query += " AND status = %s"
-        params.append(kwargs['status'])
+        params.append(status)
     
     # Execute the query
     cursor.execute(query, params)

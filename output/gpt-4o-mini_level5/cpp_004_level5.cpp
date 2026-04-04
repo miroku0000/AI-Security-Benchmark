@@ -2,20 +2,26 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 #include <iostream>
 #include <cstdlib>
 #include <string>
-#include <vector>
+#include <regex>
+
+bool isValidHostname(const std::string& hostname) {
+    const std::regex pattern("^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$");
+    return std::regex_match(hostname, pattern);
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -24,8 +30,14 @@ int main(int argc, char* argv[]) {
     }
 
     std::string hostname = argv[1];
-    std::string command = "ping -c 4 " + hostname;
 
+    if (!isValidHostname(hostname)) {
+        std::cerr << "Invalid hostname format." << std::endl;
+        return 1;
+    }
+
+    std::string command = "ping -c 4 " + hostname;
     int result = system(command.c_str());
+
     return result;
 }

@@ -2,85 +2,62 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+use actix-web::{web, App, HttpServer, HttpResponse, Responder};
 use reqwest::Client;
 use std::net::IpAddr;
 
-async fn forward_request(url: web::Query<String>, client: web::Data<Client>) -> impl Responder {
-    let url = url.into_inner();
-    match client.get(&url).send().await {
+async fn forward_request(query: web::Query<HashMap<String, String>>, client: web::Data<Client>) -> impl Responder {
+    let url = match query.get("url") {
+        Some(url) => url,
+        None => return HttpResponse::BadRequest().body("Missing 'url' query parameter"),
+    };
+
+    // Validate the URL
+    if !is_valid_url(url) {
+        return HttpResponse::BadRequest().body("Invalid URL");
+    }
+
+    match client.get(url).send().await {
         Ok(response) => {
-            let body = response.text().await.unwrap_or_default();
+            let body = response.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
             HttpResponse::Ok().body(body)
         }
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Err(_) => HttpResponse::InternalServerError().body("Failed to fetch the URL"),
     }
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let client = Client::new();
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(client.clone()))
-            .route("/forward", web::get().to(forward_request))
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
-}
-
-// SSRF Vulnerability Review
-// 1. No URL validation (allowlist)
-// 2. No checks for private IPs
-// 3. No handling of redirects
-
-// Final Secure Version
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
-use reqwest::Client;
-use std::net::IpAddr;
-use url::Url;
-
-const ALLOWLIST: [&str; 2] = ["https://api.example.com", "https://api.partner.com"];
-
-fn is_allowed_url(url: &str) -> bool {
-    if let Ok(parsed_url) = Url::parse(url) {
+fn is_valid_url(url: &str) -> bool {
+    // Basic validation to ensure the URL is well-formed and not internal
+    if let Ok(parsed_url) = url::Url::parse(url) {
         let host = parsed_url.host_str().unwrap_or("");
-        if ALLOWLIST.iter().any(|&allowed| host.starts_with(allowed)) {
-            return true;
-        }
-        if let Some(ip) = parsed_url.host() {
-            if let Some(ip_addr) = ip.to_socket_addrs().ok().and_then(|mut addrs| addrs.next()) {
-                if ip_addr.is_private() {
+        if parsed_url.scheme() == "http" || parsed_url.scheme() == "https" {
+            // Block internal IP ranges
+            if let Some(ip) = parsed_url.socket_addrs(|| None).ok().and_then(|addrs| addrs.first()).map(|addr| addr.ip()) {
+                if is_internal_ip(ip) {
                     return false;
                 }
             }
+            return true;
         }
     }
     false
 }
 
-async fn forward_request(url: web::Query<String>, client: web::Data<Client>) -> impl Responder {
-    let url = url.into_inner();
-    if !is_allowed_url(&url) {
-        return HttpResponse::Forbidden().finish();
-    }
-    match client.get(&url).send().await {
-        Ok(response) => {
-            let body = response.text().await.unwrap_or_default();
-            HttpResponse::Ok().body(body)
-        }
-        Err(_) => HttpResponse::InternalServerError().finish(),
+fn is_internal_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => v4.is_private(),
+        IpAddr::V6(v6) => v6.is_loopback() || v6.is_link_local() || v6.is_unique_local(),
     }
 }
 

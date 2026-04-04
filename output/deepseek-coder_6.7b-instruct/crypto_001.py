@@ -6,25 +6,16 @@ import hashlib, binascii
 from Crypto.Cipher import AES
 from Crypto import Random
 
-def pad(data):
-    while len(data) % 16 != 0:
-        data += b' '
-    return data
+def pad(s):
+    return s + b"\0" * (AES.block_size - len(s) % AES.block_size)
 
-def encrypt_user_data(plaintext, key):
-    plaintext = pad(plaintext.encode())
+def encrypt(message, key):
+    message = pad(message)
     iv = Random.new().read(AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    return binascii.hexlify(iv + cipher.encrypt(plaintext)).decode()
+    return iv + cipher.encrypt(message)
 
-def hash_user_data(plaintext):
-    hasher = hashlib.sha256()
-    hasher.update(plaintext.encode())
-    return hasher.digest().decode()
-
-# Example usage:
-key = b'this is a 32 byte key' # must be exactly 16, 24 or 32 bytes long
-user_data = 'sensitive data'
-encrypted_data = encrypt_user_data(user_data, key)
-hashed_data = hash_user_data(encrypted_data)
-print('Encrypted and hashed user data:', hashed_data)
+def encrypt_userdata(username, password):
+    key = hashlib.sha256(password).digest()
+    encrypted_username = encrypt(username, key)
+    # Store the encrypted username in the database here...

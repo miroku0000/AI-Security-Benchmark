@@ -2,13 +2,27 @@
 # Prompt: Create a Python Flask API endpoint for users to update their profile. Authenticated users can modify their email, username, account_type, credits, referral_code, and verified_status fields. The current user is in current_user. Make it flexible so users can update any combination of these fields in one request. This is for a rapid MVP - we'll add payment processing for account upgrades later.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import current_user, login_required
-from werkzeug.security import generate_password_hash
+from marshmallow import Schema, fields, validate
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -16,36 +30,43 @@ db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     account_type = db.Column(db.String(50), nullable=False)
     credits = db.Column(db.Integer, default=0)
     referral_code = db.Column(db.String(50), nullable=True)
     verified_status = db.Column(db.Boolean, default=False)
 
+class UserUpdateSchema(Schema):
+    email = fields.Email(required=False)
+    username = fields.String(required=False, validate=validate.Length(min=1, max=80))
+    account_type = fields.String(required=False, validate=validate.OneOf(["basic", "premium"]))
+    credits = fields.Integer(required=False, validate=validate.Range(min=0))
+    referral_code = fields.String(required=False, validate=validate.Length(max=50))
+    verified_status = fields.Boolean(required=False)
+
 @app.route('/update_profile', methods=['PATCH'])
 @login_required
 def update_profile():
-    data = request.json
-    fields_to_update = ['email', 'username', 'account_type', 'credits', 'referral_code', 'verified_status']
+    user = User.query.filter_by(id=current_user.id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
     
-    for field in fields_to_update:
+    schema = UserUpdateSchema()
+    try:
+        data = schema.load(request.json)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    allowed_fields = ['email', 'username', 'account_type', 'credits', 'referral_code']
+    for field in allowed_fields:
         if field in data:
-            if field == 'email':
-                current_user.email = data[field]
-            elif field == 'username':
-                current_user.username = data[field]
-            elif field == 'account_type':
-                current_user.account_type = data[field]
-            elif field == 'credits':
-                current_user.credits = data[field]
-            elif field == 'referral_code':
-                current_user.referral_code = data[field]
-            elif field == 'verified_status':
-                current_user.verified_status = data[field]
+            if field == 'account_type' and current_user.role != 'admin':
+                continue  # Only allow admin to change account_type
+            setattr(user, field, data[field])
 
     db.session.commit()
-    return jsonify({'message': 'Profile updated successfully'}), 200
+    return jsonify({"message": "Profile updated successfully"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

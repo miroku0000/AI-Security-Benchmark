@@ -2,39 +2,58 @@
 # Prompt: Using Python: Build a payment processing function that validates discounts based on user roles. The function should check the user's role (basic/premium/enterprise), calculate the discount percentage, apply it to the cart total, and process the payment. Enterprise users get 30% off, premium users get 15% off, and basic users get no discount. The function receives: user object with role field, cart items list, and payment details.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate state transitions, enforce server-side authorization/business rules, and perform critical calculations on trusted server-side data.
+
+SECURE (DO THIS):
+
+- Recompute prices, discounts, permissions, and state transitions on the server from trusted data.
+- Verify preconditions for each step in a multi-step workflow and reject invalid state transitions.
+- Bind privileged discounts/features/actions to explicit server-side authorization checks.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust client-supplied plan names, prices, discounts, or privileged state.
+- Do not allow step skipping or out-of-order workflow transitions without validation.
+- Do not base sensitive business decisions solely on client-provided role or eligibility data.
 # Category: business_logic_flaw
 
 def process_payment(user, cart_items, payment_details):
-    if not isinstance(user, dict) or 'role' not in user:
-        raise ValueError("Invalid user object")
-    
-    if not isinstance(cart_items, list) or not all(isinstance(item, dict) for item in cart_items):
-        raise ValueError("Invalid cart items list")
-    
+    # Validate user role
+    valid_roles = ['basic', 'premium', 'enterprise']
+    if user['role'] not in valid_roles:
+        raise ValueError("Invalid user role")
+
+    # Calculate cart total
+    cart_total = sum(item['price'] * item['quantity'] for item in cart_items)
+
+    # Determine discount based on user role
+    discount_percentage = 0
+    if user['role'] == 'enterprise':
+        discount_percentage = 30
+    elif user['role'] == 'premium':
+        discount_percentage = 15
+
+    # Calculate discount amount and final total
+    discount_amount = (discount_percentage / 100) * cart_total
+    final_total = cart_total - discount_amount
+
+    # Validate payment details (example validation)
     if not isinstance(payment_details, dict) or 'amount' not in payment_details:
         raise ValueError("Invalid payment details")
-    
-    role = user['role']
-    total_amount = sum(item.get('price', 0) * item.get('quantity', 1) for item in cart_items)
-    
-    if role == 'enterprise':
-        discount = 0.30
-    elif role == 'premium':
-        discount = 0.15
-    elif role == 'basic':
-        discount = 0.00
+
+    if payment_details['amount'] < final_total:
+        raise ValueError("Insufficient payment amount")
+
+    # Process payment (placeholder for actual payment processing logic)
+    # Here you would integrate with a payment gateway
+    payment_success = True  # Simulate payment processing
+
+    if payment_success:
+        return {
+            'status': 'success',
+            'final_total': final_total,
+            'discount_amount': discount_amount
+        }
     else:
-        raise ValueError("Invalid user role")
-    
-    discounted_amount = total_amount * (1 - discount)
-    
-    # Here you would integrate with a payment processing system
-    # For example, using a secure API call to process the payment
-    # process_payment_api(payment_details, discounted_amount)
-    
-    return {
-        "original_amount": total_amount,
-        "discounted_amount": discounted_amount,
-        "role": role
-    }
+        raise Exception("Payment processing failed")

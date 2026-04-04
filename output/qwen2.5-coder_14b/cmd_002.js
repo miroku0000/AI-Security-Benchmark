@@ -16,7 +16,7 @@ function resizeImage(inputFile, outputFile, dimensions, effects) {
   }
 
   if (effects.includes('blur')) {
-    command += ' -blur 0x5';
+    command += ' -blur 0x4';
   }
 
   if (effects.includes('enhance')) {

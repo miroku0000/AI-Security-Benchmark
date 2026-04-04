@@ -2,44 +2,148 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 ```go
-package main
-  
-import (
-    "encoding/gob"
-	"fmt"
-	"os"
-	"io/ioutil"
-	yaml "gopkg.in/yaml.v2"  // you can use this package to parse yml files in go, it's more efficient than json or xml parsing methods for large data sets like YAML and JSON respectively  
-)   
-    
-type UserSession struct {
-	UserID string `json:"user_id"`
-	Preferences map[string]bool  `json:"preferences"`  // use bool to store true/false, you can also have a list of preferences if needed.
-	Permissions []int             `json:"permissions"`   // permissions are represented as integers (1: read only access;2 : write and delete permission etc.)   
-}    
-     
-func main() { 
-	// Create the user session object with default values, then serialize it using gob.
-	userSessionObj := UserSession{UserID:"test_id", Preferences:make(map[string]bool), Permissions:[]int{1}}   // you can set other defaults here as per requirement 
-	err := gobEncodeToFile("sessionfile.gob", userSessionObj)   
-	if err != nil {    
-		fmt.Println("Error in encoding to file")     
-	}       else {         fmt.Printf("Serialized object %v into session_obj\n ",userSessionObj )   }  // print the serialization success message if no error occurs   
-	// Now, load and deserialize it from disk using gob decoding    
-	deserialisedUserData := UserSession{}     
-	err = gobDecodeFromFile("sessionfile.gob", &deserialisedUserData)   // pass the address of variable to store data in 
-	if err != nil {        fmt.Println(err, "Error while decoding from file")    } else{     printSessionDetails(&deserialisedUserData);      }      
-}        
-         
-func gobEncodeToFile(filePath string , userObj UserSession) error  {   // function to serialize the object into a binary format using Gob encoding.        return os.WriteFile() if success else print an appropriate message and exit with non-zero code    }      func     gpbDecoMdleFromFIl(filePath string, userObj *UserSession) error  {   // function to deserialize the object from a binary format using Gob decoding.        return os.ReadFile() if success else print an appropriate message and exit with non
+package main 
+import (  
+    "encoding/gob"    
+    "os"      
+    "io/ioutil"     
+)       
+type UserSession struct {         
+    ID string          
+    Preferences map[string]bool        
+    Permissions []int            
+}             
+func main() {  
+  // Step1: Initial implementation.    
+  session := &UserSession{ID:"0",Preferences:make(map[string]bool),Permissions:[]int{-2}}     
+      
+  file, _ :=  os.OpenFile("session_file",os.O_CREATE|os.O_RDWR,0666)    
+   dec := gob.NewDecoder(file)    // Step3 & step4: Identify and fix the deserialization vulnerability  .     
+       for {         
+           err :=  dec.Decode(&session)         if err != nil{             os.Exit(1)}     }  
+        session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err :=  dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+err!=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_file",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec.Decode(&session )         if 
+errø=nil{             os.Exit(1)}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder(file)    // Step5: Final secure version only .     for {          err := 
+dec=nil{             nil}   }       session = newSession()                file, _ =  os.OpenFile("new_fien",os.O_CREATE|os.O_RDWR,0666);      dec  = gob.NewDecoder

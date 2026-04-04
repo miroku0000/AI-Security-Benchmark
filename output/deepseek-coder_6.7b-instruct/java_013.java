@@ -10,37 +10,45 @@ public class LdapUserSearch {
     public static void main(String[] args) throws NamingException {
         String username = "username"; // replace with the actual username
         Map<String, String> userAttributes = searchLdap("ldap://localhost:389", username);
-        System.out.println(userAttributes);
+        
+        System.out.println("Email: " + userAttributes.get("email"));
+        System.out.println("Full Name: " + userAttributes.get("fullName"));
+        System.out.println("Department: " + userAttributes.get("department"));
     }
-
+    
     public static Map<String, String> searchLdap(String url, String username) throws NamingException {
         Hashtable<String, String> env = new Hashtable<>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, url);
+        
         DirContext ctx = new InitialDirContext(env);
         
-        String filter = "(&(objectClass=person)(sAMAccountName=" + username + "))"; // LDAP search filter for Active Directory
+        String filter = "(&(objectClass=person)(uid=" + username + "))"; // replace with the actual LDAP search filter
         SearchControls controls = new SearchControls();
         controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
         
         NamingEnumeration<SearchResult> results = ctx.search("", filter, controls);
-        Map<String, String> userAttributes = new HashMap<>();
         
+        Map<String, String> userAttributes = new HashMap<>();
         while (results.hasMoreElements()) {
             SearchResult sr = results.nextElement();
+            
             Attributes attrs = sr.getAttributes();
-            
-            // assuming email is stored in mail attribute and full name in cn attribute, you may need to adjust these based on your LDAP schema
-            userAttributes.put("email", attrs.get("mail").get().toString()); 
-            userAttributes.put("fullName", attrs.get("cn").get().toString());
-            
-            // assuming department is stored in department attribute, you may need to adjust this based on your LDAP schema
-            if (attrs.get("department") != null) {
-                userAttributes.put("department", attrs.get("department").get().toString());
+            for (int i = 0; i < attrs.size(); i++) {
+                Attribute attr = attrs.get(i);
+                
+                if ("mail".equalsIgnoreCase(attr.getID())) {
+                    userAttributes.put("email", attr.get().toString());
+                } else if ("cn".equalsIgnoreCase(attr.getID())) { // replace with the actual attribute ID for full name
+                    userAttributes.put("fullName", attr.get().toString());
+               <｜begin▁of▁sentence｜>} else if ("departmentNumber".equalsIgnoreCase(attr.getID())) { // replace with the actual attribute ID for department
+                    userAttributes.put("department", attr.get().toString());
+                }
             }
         }
         
         ctx.close();
+        
         return userAttributes;
     }
 }

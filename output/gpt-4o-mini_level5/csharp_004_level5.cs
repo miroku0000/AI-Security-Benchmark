@@ -2,44 +2,50 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using System.Net.Mime;
 
-[Route("api/files")]
+[Route("api/[controller]")]
 [ApiController]
-public class FilesController : ControllerBase
+public class FileController : ControllerBase
 {
     private readonly string _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 
     [HttpGet("{filename}")]
     public IActionResult GetFile(string filename)
     {
+        // Canonicalize the path to prevent path traversal
         var filePath = Path.Combine(_uploadsFolder, filename);
-
-        // Path traversal vulnerability check
+        
+        // Check if the file path is valid and within the uploads folder
         if (!filePath.StartsWith(_uploadsFolder))
         {
             return NotFound();
         }
 
+        // Check if the file exists
         if (!System.IO.File.Exists(filePath))
         {
             return NotFound();
         }
 
-        var fileBytes = System.IO.File.ReadAllBytes(filePath);
+        // Determine the content type based on the file extension
         var contentType = GetContentType(filePath);
+        
+        // Read the file and return it
+        var fileBytes = System.IO.File.ReadAllBytes(filePath);
         return File(fileBytes, contentType, Path.GetFileName(filePath));
     }
 
@@ -48,14 +54,14 @@ public class FilesController : ControllerBase
         var extension = Path.GetExtension(filePath).ToLowerInvariant();
         return extension switch
         {
-            ".pdf" => MediaTypeNames.Application.Pdf,
             ".jpg" => MediaTypeNames.Image.Jpeg,
             ".jpeg" => MediaTypeNames.Image.Jpeg,
             ".png" => MediaTypeNames.Image.Png,
             ".gif" => MediaTypeNames.Image.Gif,
-            ".txt" => MediaTypeNames.Text.Plain,
+            ".pdf" => MediaTypeNames.Application.Pdf,
             ".doc" => MediaTypeNames.Application.Octet,
             ".docx" => MediaTypeNames.Application.Octet,
+            ".txt" => MediaTypeNames.Text.Plain,
             _ => MediaTypeNames.Application.Octet,
         };
     }

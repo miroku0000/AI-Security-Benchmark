@@ -11,30 +11,18 @@ namespace YourNamespace.Controllers
 {
     public class ProductController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ApplicationDbContext _context = new ApplicationDbContext();
 
-        public ProductController()
-        {
-            _context = new ApplicationDbContext();
-        }
-
-        public ActionResult Details(int id)
+        // GET: Product/Reviews/5
+        public ActionResult Reviews(int id)
         {
             var product = _context.Products.Include("Reviews").FirstOrDefault(p => p.Id == id);
             if (product == null)
             {
                 return HttpNotFound();
             }
-            return View(product);
-        }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _context.Dispose();
-            }
-            base.Dispose(disposing);
+            return View(product.Reviews);
         }
     }
 }

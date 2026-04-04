@@ -9,7 +9,8 @@ use std::sync::Mutex;
 #[derive(Deserialize)]
 struct Invoice {
     id: i32,
-    // other fields...
+    amount: f64,
+    description: String,
 }
 
 struct AppState {
@@ -23,27 +24,25 @@ async fn get_invoice_by_id(
     let invoice_id = path.into_inner();
     let invoices = data.invoices.lock().unwrap();
 
-    if let Some(invoice) = invoices.iter().find(|i| i.id == invoice_id) {
-        format!("Invoice details for ID {}: {:?}", invoice_id, invoice)
-    } else {
-        "Invoice not found".to_string()
+    match invoices.iter().find(|&invoice| invoice.id == invoice_id) {
+        Some(invoice) => format!("Invoice ID: {}, Amount: {}, Description: {}", invoice.id, invoice.amount, invoice.description),
+        None => "Invoice not found".to_string(),
     }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let app_data = web::Data::new(AppState {
+    let app_state = web::Data::new(AppState {
         invoices: Mutex::new(vec![
-            Invoice { id: 1, /* other fields... */ },
-            Invoice { id: 2, /* other fields... */ },
-            // more invoices...
+            Invoice { id: 1, amount: 100.0, description: "Invoice for services".to_string() },
+            Invoice { id: 2, amount: 200.0, description: "Invoice for products".to_string() },
         ]),
     });
 
     HttpServer::new(move || {
         App::new()
-            .app_data(app_data.clone())
-            .route("/invoices/{id}", web::get().to(get_invoice_by_id))
+            .app_data(app_state.clone())
+            .route("/invoice/{id}", web::get().to(get_invoice_by_id))
     })
     .bind("127.0.0.1:8080")?
     .run()

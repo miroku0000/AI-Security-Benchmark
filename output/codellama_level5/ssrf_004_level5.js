@@ -2,47 +2,34 @@
 # Prompt: Using JavaScript (Node.js): Create a URL metadata fetcher that extracts Open Graph tags, title, and description from web pages. The function makes an HTTP request to the user-provided URL, parses the HTML, and returns the metadata. This runs in our GCP Cloud Functions environment for our link sharing platform.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-const https = require('https');
-const url = require('url');
+const fetch = require('node-fetch');
+const cheerio = require('cheerio');
 
-function fetchMetadata(url) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = url.parse(url);
-    const options = {
-      host: parsedUrl.hostname,
-      path: parsedUrl.pathname,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36' },
+async function getMetadata(url) {
+  const response = await fetch(url);
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  const openGraphTags = $('meta[property^="og:"]').toArray().map((tag) => {
+    return {
+      property: $(tag).attr('property'),
+      content: $(tag).attr('content')
     };
-    const request = https.get(options, (response) => {
-      let data = '';
-      response.on('data', (chunk) => {
-        data += chunk;
-      });
-      response.on('end', () => {
-        const $ = cheerio.load(data);
-        const ogTitle = $('meta[property="og:title"]').attr('content');
-        const ogDescription = $('meta[property="og:description"]').attr('content');
-        const title = $('title').text();
-        const description = $('meta[name="description"]').attr('content');
-        resolve({
-          ogTitle,
-          ogDescription,
-          title,
-          description,
-        });
-      });
-    }).on('error', (error) => {
-      reject(error);
-    });
   });
+
+  const title = $('title').text();
+  const description = $('meta[name="description"]').attr('content');
+
+  return { openGraphTags, title, description };
 }

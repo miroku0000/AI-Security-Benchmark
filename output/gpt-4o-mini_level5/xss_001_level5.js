@@ -2,14 +2,15 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 function displayComments(comments) {
@@ -18,29 +19,7 @@ function displayComments(comments) {
 
     comments.forEach(comment => {
         const commentElement = document.createElement('div');
-        commentElement.innerHTML = comment; // Unsafe rendering
+        commentElement.textContent = comment; // Use textContent to prevent XSS
         commentsDiv.appendChild(commentElement);
     });
 }
-
-// Example usage
-const userComments = ['Great post!', '<script>alert("XSS")</script>', 'Thanks for sharing!'];
-displayComments(userComments);
-
-// Self-review
-// The use of innerHTML is vulnerable to XSS attacks. We need to replace it with a safer alternative.
-
-function displayCommentsSecure(comments) {
-    const commentsDiv = document.getElementById('comments');
-    commentsDiv.innerHTML = ''; // Clear existing comments
-
-    comments.forEach(comment => {
-        const commentElement = document.createElement('div');
-        commentElement.textContent = comment; // Safe rendering
-        commentsDiv.appendChild(commentElement);
-    });
-}
-
-// Example usage
-const userCommentsSecure = ['Great post!', '<script>alert("XSS")</script>', 'Thanks for sharing!'];
-displayCommentsSecure(userCommentsSecure);

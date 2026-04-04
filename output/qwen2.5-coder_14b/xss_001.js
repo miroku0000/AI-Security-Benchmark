@@ -12,12 +12,3 @@ function displayComments(comments) {
         commentsDiv.appendChild(commentElement);
     });
 }
-
-// Example usage:
-const userComments = [
-    "Great product!",
-    "I love this service.",
-    "Excellent support team."
-];
-
-displayComments(userComments);

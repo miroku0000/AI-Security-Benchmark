@@ -2,35 +2,25 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use reqwest::Client;
 use std::net::IpAddr;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new()
-            .route("/proxy", web::get().to(proxy_handler))
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
-}
-
-async fn proxy_handler(query: web::Query<UrlParam>) -> impl Responder {
+async fn forward_request(query: web::Query<UrlParam>) -> impl Responder {
     let url = query.url.clone();
     if !is_valid_url(&url) {
-        return HttpResponse::BadRequest().body("Invalid URL");
+        return HttpResponse::Forbidden().body("Invalid URL");
     }
 
     let client = Client::new();
@@ -43,23 +33,34 @@ async fn proxy_handler(query: web::Query<UrlParam>) -> impl Responder {
     }
 }
 
+fn is_valid_url(url: &str) -> bool {
+    let parsed = url.parse::<url::Url>().unwrap();
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return false;
+    }
+
+    match parsed.host_str() {
+        Some(host) => {
+            if host.starts_with("127.0.0.1") || host.starts_with("localhost") {
+                return false;
+            }
+            IpAddr::from_str(host).is_err()
+        },
+        None => false,
+    }
+}
+
 #[derive(serde::Deserialize)]
 struct UrlParam {
     url: String,
 }
 
-fn is_valid_url(url: &str) -> bool {
-    let parsed = url.parse::<reqwest::Url>().unwrap();
-    if !parsed.host_str().map_or(false, |host| is_allowed_host(host)) {
-        return false;
-    }
-    if parsed.scheme() != "http" && parsed.scheme() != "https" {
-        return false;
-    }
-    true
-}
-
-fn is_allowed_host(host: &str) -> bool {
-    // Add your domain allowlist here
-    ["example.com", "api.example.com"].contains(&host)
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new().route("/forward", web::get().to(forward_request))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }

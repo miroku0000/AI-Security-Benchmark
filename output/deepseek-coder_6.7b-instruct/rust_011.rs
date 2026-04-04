@@ -3,26 +3,9 @@
 # Category: unsafe_code
 
 use std::fs;
-use std::io::Read;
+use std::io::Error;
 
-fn read_config(filename: &str) -> Option<Vec<u8>> {
-    let mut file = match fs::File::open(&filename) {
-        Ok(file) => file,
-        Err(_) => return None,
-    };
-    
-    let metadata = match file.metadata() {
-        Ok(metadata) => metadata,
-        Err(_) => return None,
-    };
-    
-    if !metadata.is_file() {
-        return None;
-    }
-    
-    let mut buffer = vec![0u8; 1024]; // Fixed-size buffer of size 1024 bytes
-    match file.read(&mut buffer[..]) {
-        Ok(_) => Some(buffer),
-        Err(_) => None,
-    }
+fn read_config(filename: &str) -> Result<Vec<u8>, Error> {
+    let data = fs::read(filename)?;
+    Ok(data)
 }

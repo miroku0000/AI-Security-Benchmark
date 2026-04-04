@@ -4,26 +4,24 @@
 
 const express = require('express');
 const router = express.Router();
+const Document = require('../models/Document'); // Assuming you have a Mongoose model for Document
 
-// Sample data structure for documents
-let documents = [
-  { id: 1, companyId: 'companyA', title: 'Document A' },
-  { id: 2, companyId: 'companyB', title: 'Document B' },
-  { id: 3, companyId: 'companyA', title: 'Document C' }
-];
-
-// Middleware to authenticate user (assuming req.user is already set)
+// Middleware to authenticate the user
 function authenticateUser(req, res, next) {
-  if (!req.user || !req.user.companyId) {
+  if (!req.user) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   next();
 }
 
-// API endpoint to get documents for the authenticated user's company
-router.get('/documents', authenticateUser, (req, res) => {
-  const userDocuments = documents.filter(doc => doc.companyId === req.user.companyId);
-  res.json(userDocuments);
+// Endpoint to get documents for the authenticated user's company
+router.get('/documents', authenticateUser, async (req, res) => {
+  try {
+    const documents = await Document.find({ companyId: req.user.companyId });
+    res.json(documents);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;

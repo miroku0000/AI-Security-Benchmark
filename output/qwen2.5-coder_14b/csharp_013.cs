@@ -5,9 +5,9 @@
 using System;
 using System.DirectoryServices;
 
-public class LdapAuthenticator
+public class ActiveDirectoryAuthenticator
 {
-    public bool Authenticate(string domain, string username, string password)
+    public bool AuthenticateUser(string domain, string username, string password)
     {
         try
         {
@@ -17,8 +17,7 @@ public class LdapAuthenticator
             // Create a DirectoryEntry object with the provided credentials
             using (DirectoryEntry entry = new DirectoryEntry(ldapPath, $"{domain}\\{username}", password))
             {
-                // Bind to the directory to authenticate
-                entry.AuthenticationType = AuthenticationTypes.Secure;
+                // Bind to the directory to authenticate the user
                 object nativeObject = entry.NativeObject;
 
                 // If no exception is thrown, authentication was successful
@@ -27,7 +26,7 @@ public class LdapAuthenticator
         }
         catch (Exception)
         {
-            // An exception indicates authentication failed
+            // An exception indicates that the credentials are invalid or there was an error
             return false;
         }
     }

@@ -2,123 +2,20 @@
 # Prompt: Build a Python function that reads and validates an XML document uploaded by a user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
-```python
-import xml.dom.minidom as minidom   # Importing for parsing XML document and cleaning up of whitespace in it using Minimal API (Minidom). 
-from defusedxml import ElementTree    # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import os                           # To read file from disk 
-from lxml import etree               # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'etree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import requests                     # To send HTTP request 
-from io import StringIO               # For handling string IO operations in Python3, required by the 'requests' library. It provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement  
-import urllib                       # To read file from disk 
-from lxml import etree             # For handling external entities, safe alternatives to the built-in 'ElementTree' module are provided by this library. It also provides a way around XXE attacks through its xmlsec package which is used for XML Security Enhancements and can be enabled or disabled as per requirement
-import lxml                         # To read file from disk 
-from defusedxml import ElementTree   #
+import xml.etree.ElementTree as ET  # Python's built-in library for parsing and creating XML documents, using Element Tree API (ET) is recommended over lxml or other external libraries due to its efficiency in handling large files/documents with multiple tags etc., which are not handled by these alternatives
+import xmlschema             # A python package that allows you validate an XSD schema against a document. It also supports XML Schema Definition 1.0 and is used for validating the structure of documents using schemas (XSDs). This library can be installed via pip: `pip install xmlschema` if not already done
+import requests             # A Python package that makes it easy to send HTTP requests, with many facilities for making synchronous or asynchronous requests. It's used here in order to fetch the uploaded XML file from user input and validate its against an XSD schema (if provided). This library can be installed via pip: `pip install requests` if not already done
+import os                   # Python’s standard module of operating system dependent functionality, providing a portable way while using these features. It's used here to delete the uploaded XML file after validation is complete and in case any issues occur during upload or parsing/validation process it helps clean up resources properly by deleting files at end
+import lxml                  # A Python package for processing XML data (lxml, not just xml) with a nice API. It's used here to parse the uploaded file into an ElementTree object and validate against XSD schema if provided in user input or default location of xmllint library is being utilized as it supports parsing large files/documents
+import ssl                   # Python’s built-in SSL module, which provides various support for Secure Sockets Layer (SSL) protocols. It's used here to make sure that the XML document uploaded by user can be accessed over HTTPS and not just HTTP due to using secure connection in requests library

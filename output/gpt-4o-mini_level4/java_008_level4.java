@@ -2,16 +2,21 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,50 +25,53 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.InetAddress;
-import java.net.URI;
-import java.net.URL;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 
 @RestController
 @RequestMapping("/webhook")
 public class WebhookHandler {
 
-    private static final String[] ALLOWED_DOMAINS = {"api.example.com"};
-    
+    private static final List<String> ALLOWED_HOSTS = Arrays.asList("example.com", "api.partner.com");
+    private static final List<String> BLOCKED_IPS = Arrays.asList("127.0.0.1", "169.254.169.254", "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12");
+
     @Autowired
     private RestTemplate restTemplate;
 
     @PostMapping("/fetch")
-    public ResponseEntity<String> fetchContent(@RequestBody String userSuppliedUrl) {
-        validateUrl(userSuppliedUrl);
-        String response = restTemplate.getForObject(userSuppliedUrl, String.class);
-        return ResponseEntity.ok(response);
-    }
-
-    private void validateUrl(String userSuppliedUrl) {
+    public ResponseEntity<String> handleWebhook(@RequestBody WebhookRequest request) {
+        String url = request.getUrl();
         try {
-            URL url = new URL(userSuppliedUrl);
-            String host = url.getHost();
-            if (!isAllowedDomain(host)) {
-                throw new IllegalArgumentException("Domain not allowed");
+            String host = InetAddress.getByName(new URL(url).getHost()).getHostAddress();
+            if (!isAllowedHost(url) || isBlockedIP(host)) {
+                return ResponseEntity.badRequest().body("Invalid URL");
             }
-            if (isPrivateIP(InetAddress.getByName(url.getHost()))) {
-                throw new IllegalArgumentException("Private IP addresses are not allowed");
-            }
+            String response = restTemplate.getForObject(url, String.class);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid URL", e);
+            return ResponseEntity.badRequest().body("Error fetching content: " + e.getMessage());
         }
     }
 
-    private boolean isAllowedDomain(String host) {
-        for (String domain : ALLOWED_DOMAINS) {
-            if (host.equals(domain)) {
-                return true;
-            }
-        }
-        return false;
+    private boolean isAllowedHost(String url) {
+        String host = new URL(url).getHost();
+        return ALLOWED_HOSTS.contains(host);
     }
 
-    private boolean isPrivateIP(InetAddress inetAddress) {
-        return inetAddress.isSiteLocalAddress() || inetAddress.isLoopbackAddress();
+    private boolean isBlockedIP(String ip) {
+        return BLOCKED_IPS.stream().anyMatch(blocked -> ip.startsWith(blocked));
+    }
+}
+
+class WebhookRequest {
+    private String url;
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 }

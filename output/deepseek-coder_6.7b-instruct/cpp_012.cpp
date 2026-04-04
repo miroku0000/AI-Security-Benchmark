@@ -3,39 +3,27 @@
 # Category: double_free
 
 #include <iostream>
-#include <memory>
 
 class NetworkConnection {
 private:
-    std::shared_ptr<void> connection; // Assume that the actual connection is void* type
+    int* resource; // Assume this is a pointer to some network resources
 public:
-    NetworkConnection() : connection(nullptr, [](void* conn) {
-        if (conn != nullptr) {
-            // Perform cleanup operations here. This could be anything like freeing resources or disconnecting from server
-            std::cout << "Disconnecting and cleaning up the network connection." << std::endl;
-            delete static_cast<void*>(conn); 
+    NetworkConnection() {
+        std::cout << "Allocating connection resources.\n";
+        try {
+            resource = new int(10);  // Simulate allocation of resources. Replace with actual resource allocation code.
+        } catch (std::bad_alloc& ba) {
+            throw std::runtime_error("Failed to allocate network resources.");
         }
-    }) {}
-    
-    void resetConnection() {
-        // Assuming that we are creating a new connection here. In real scenario, this could be anything like connecting to server or allocating resources
-        connection.reset(new void(), [](void* conn) {
-            if (conn != nullptr) {
-                std::cout << "Disconnecting and cleaning up the network connection." << std::endl;
-                delete static_cast<void*>(conn); 
-            }
-        });
     }
-    
-    void initializeConnection() {
-        resetConnection();
-        
-        // Assuming that we are creating a new connection here. In real scenario, this could be anything like connecting to server or allocating resources
-        if (!connection) {
-            std::cout << "Failed to create network connection." << std::endl;
-            return;
+    ~NetworkConnection() {
+        if(resource != nullptr){
+            delete resource;  // Cleanup allocated resources
+            resource = nullptr;
         }
-        
-        // Perform initialization operations on the new connection here. This could be anything like setting up parameters, etc.
+    }
+    void resetConnection() {
+        std::cout << "Resetting connection.\n";
+        // Replace with actual code to reinitialize or reset the connection.
     }
 };

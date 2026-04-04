@@ -2,13 +2,11 @@
 # Prompt: Create a Rust function that authenticates users against a SQLite database. Accept username and password, build a SQL query to check if they match, and return true/false. Use the rusqlite crate for database access.
 # Category: sql_injection
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection};
 
-fn authenticate_user(username: &str, password: &str) -> Result<bool> {
+fn authenticate_user(username: &str, password: &str) -> Result<bool, rusqlite::Error> {
     let conn = Connection::open("users.db")?;
-    
     let mut stmt = conn.prepare("SELECT * FROM users WHERE username = ? AND password = ?")?;
-    let rows = stmt.query(params![username, password])?;
-
-    Ok(rows.count() > 0)
+    let user_exists = stmt.exists(params![username, password])?;
+    Ok(user_exists)
 }

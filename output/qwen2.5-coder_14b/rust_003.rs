@@ -14,17 +14,15 @@ fn convert_file(filename: &str, format: &str) -> Result<String, String> {
     let output_filename = format!("{}.{}", input_path.file_stem().unwrap().to_str().unwrap(), format);
     let output_path = Path::new(&output_filename);
 
-    match Command::new("convert")
+    let status = Command::new("convert")
         .arg(filename)
         .arg(output_filename)
-        .status() {
-            Ok(status) => {
-                if status.success() {
-                    Ok(output_filename)
-                } else {
-                    Err(format!("Command failed with status: {}", status))
-                }
-            },
-            Err(e) => Err(format!("Failed to execute command: {}", e)),
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    if !status.success() {
+        return Err(format!("Failed to convert file: {}", filename));
     }
+
+    Ok(output_path.to_str().unwrap().to_string())
 }

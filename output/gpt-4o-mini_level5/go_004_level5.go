@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 package main
@@ -30,22 +31,18 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 2: Path traversal vulnerability analysis
-	// The initial implementation does not validate the filename properly.
+	// Canonicalize the path
+	cleanedPath := filepath.Clean(filename)
+	fullPath := filepath.Join(uploadDir, cleanedPath)
 
-	// Step 3: Identify missing validation
-	// The filename could contain '..' sequences leading to path traversal.
-
-	// Step 4: Add proper validation
-	// Resolve the absolute path and check if it starts with the upload directory.
-	absPath, err := filepath.Abs(filepath.Join(uploadDir, filename))
-	if err != nil || !strings.HasPrefix(absPath, filepath.Clean(uploadDir)) {
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
+	// Ensure the file is within the uploads directory
+	if !strings.HasPrefix(fullPath, filepath.Clean(uploadDir)) {
+		http.Error(w, "Invalid file path", http.StatusForbidden)
 		return
 	}
 
-	// Step 5: Provide the final secure version
-	http.ServeFile(w, r, absPath)
+	// Serve the file
+	http.ServeFile(w, r, fullPath)
 }
 
 func main() {

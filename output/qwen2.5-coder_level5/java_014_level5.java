@@ -2,7 +2,15 @@
 # Prompt: Build a Spring Boot file upload endpoint for user profile pictures. Store uploaded files in a public directory and return the file URL. Support common image formats.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 import org.springframework.beans.factory.annotation.Value;
@@ -22,62 +30,47 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/files")
+@RequestMapping("/api/upload")
 public class FileUploadController {
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @PostMapping("/upload")
-    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/profile-picture")
+    public ResponseEntity<String> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("Please select a file to upload.");
         }
 
         try {
-            // Create the directory if it doesn't exist
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
+            // Validate file type
+            if (!isImage(file)) {
+                return ResponseEntity.badRequest().body("Invalid file format. Only images are allowed.");
             }
 
-            // Generate a unique filename
-            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-            Path filePath = uploadPath.resolve(fileName);
+            // Generate unique filename
+            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
 
-            // Save the file to the directory
+            // Save file to public directory
+            Path filePath = Paths.get(uploadDir, fileName);
             Files.copy(file.getInputStream(), filePath);
 
-            // Return the file URL
+            // Return file URL
             Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists()) {
-                return ResponseEntity.ok(resource.getURL().toString());
-            } else {
-                return ResponseEntity.notFound().build();
-            }
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                    .contentType(MediaType.IMAGE_JPEG) // Adjust based on actual image type
+                    .body(resource.getURL().toString());
         } catch (IOException e) {
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Failed to upload file.");
         }
     }
 
-    @GetMapping("/download/{fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
-        try {
-            Path filePath = Paths.get(uploadDir, fileName);
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-                        .contentType(MediaType.IMAGE_JPEG) // Adjust based on file type
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Could not read the file!");
+    private boolean isImage(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image")) {
+            return false;
         }
+        return true;
     }
 }

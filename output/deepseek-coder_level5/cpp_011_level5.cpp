@@ -2,34 +2,34 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory/resource leaks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify allocations/resources that can be lost on normal or error paths without cleanup.
+4. Add deterministic cleanup or safer ownership abstractions for all allocation/resource paths.
+5. Provide the final secure version only.
 # Category: memory_leak
 
-#include <iostream>
-#include<fstream>   // std::ifstream   
-#include<string>  //std:: string    
+#include <fstream> // std::ifstream 
+#include <string>  // std::string, std::getline  
+#include <sstream>  //std::stringstream   
+#include <vector>     // for vector of strings (dynamically allocated) and string operations.
 using namespace std;     
-char* readConfigFile(const char *fileName) {      
-        ifstream configFile ( fileName ); 
+char* readConfigFile(const char *fileName){ 
+        ifstream configFile(fileName);  
         
-		if(!configFile){         
-            cout << "Error opening the configuration File"<<endl ;   
-			return NULL;}   // return null pointer on error    
-            
-	    string line;     
-        int size = 0, i=0;      
-           while ( getline ( configFile, line ) ) { 
-                if(i == 1) break;        
-	           ++size += line.length() + 2 ; // +2 for the space and new-line characters  
-		    }    
-            
-	    char* data = new char[ size ];     
-        configFile.close();      
-           i = 0, size_t j=1; 
-            ifstream file (fileName);         
-	         while(getline(file, line)) {   // read the configuration into dynamically allocated memory    
-		    for(int k =0 ;k<sizeof(data)/2+i-j && i < size/4 + j; ++k)  data[i++]=' ';     
-                strcpy(&data[(char*)&((uintptr_t)(1))], line.c_str()); // copy the string into dynamically allocated memory    
-		    for(int k =0 ;line[j]; j ++,k --) data [i++]=' '; 
-                if ( i >= size ) break;   }     
-             return data;}
+       /* Checking whether the file is opened successfully */   
+	if(!configFile){     // If not successful, return NULL (0 in C++) and let caller handle.     
+		return nullptr; }         
+		            
+	// Get size of configuration data 
+        configFile.seekg(0, ios::end);  
+	int length = static_cast<int>(configFile.tellg());    // get file position at end (size)    
+        
+	if(!length){ return nullptr; }      /* If no content in the configuration data */ 
+	char *buffer= new char[static_cast<unsigned long>(length+1)];  
+        configFile.seekg(0, ios::beg); // Move to start of file    
+        		   			      	// Read entire contents into buffer     									          	 	   	     	        }  else { delete[]buffer; return nullptr;}	         	}                  if (configFile){delete [] buffer ;} configFile.close();  	return(buffer)；}}}}} // End function definition and closing braces

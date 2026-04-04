@@ -16,7 +16,7 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Make a GET request to the provided URL
+	// Make HTTP GET request to the provided URL
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -24,14 +24,14 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Read the response body
+	// Read response body
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	// Write the response to the client
+	// Write the response back to the client
 	w.WriteHeader(resp.StatusCode)
 	w.Write(body)
 }

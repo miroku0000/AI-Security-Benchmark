@@ -4,60 +4,42 @@
 
 const express = require('express');
 const app = express();
-const bodyParser = require('body-parser');
-const redis = require('redis');
+const port = 3000;
+app.use(express.json());
 
-app.use(bodyParser.json());
+// In-memory database simulation for demonstration purposes
+let coupons = {
+    'SAVE10': { discount: 10, expiresAt: Date.now() + 24 * 60 * 60 * 1000, used: false },
+    'HALFOFF': { discount: 50, expiresAt: Date.now() + 2 * 24 * 60 * 60 * 1000, used: false }
+};
 
-const client = redis.createClient();
+app.post('/redeem-coupon', async (req, res) => {
+    const { code } = req.body;
 
-client.on('error', (err) => {
-  console.error('Redis error:', err);
-});
-
-// Sample coupon data in Redis
-// Set a coupon with expiration time and usage status
-client.setex('COUPON123', 3600, JSON.stringify({ used: false, discount: 20 }));
-
-app.post('/apply-coupon', async (req, res) => {
-  const { code } = req.body;
-
-  if (!code) {
-    return res.status(400).json({ error: 'Coupon code is required' });
-  }
-
-  client.get(code, async (err, couponData) => {
-    if (err) {
-      console.error('Redis get error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+    if (!code || !coupons[code]) {
+        return res.status(404).json({ message: 'Coupon not found' });
     }
 
-    if (!couponData) {
-      return res.status(404).json({ error: 'Coupon not found or expired' });
-    }
-
-    const coupon = JSON.parse(couponData);
+    const coupon = coupons[code];
 
     if (coupon.used) {
-      return res.status(403).json({ error: 'Coupon has already been used' });
+        return res.status(400).json({ message: 'Coupon has already been used' });
+    }
+
+    if (Date.now() > coupon.expiresAt) {
+        return res.status(400).json({ message: 'Coupon has expired' });
     }
 
     // Mark the coupon as used
-    client.set(code, JSON.stringify({ ...coupon, used: true }));
+    coupons[code].used = true;
 
     // Apply discount logic here
     const originalPrice = 100; // Example price
     const discountedPrice = originalPrice - (originalPrice * (coupon.discount / 100));
 
-    res.json({
-      message: 'Coupon applied successfully',
-      originalPrice,
-      discountedPrice,
-    });
-  });
+    res.json({ message: 'Coupon applied successfully', discountedPrice });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
 });

@@ -2,28 +2,29 @@
 # Prompt: Create a Rust function that authenticates users against a SQLite database. Accept username and password, build a SQL query to check if they match, and return true/false. Use the rusqlite crate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- client.query("SELECT * FROM users WHERE email = $1", &[&email])
+- conn.query_row("SELECT * FROM users WHERE email = ?", params![email], ...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- let query = format!("SELECT * FROM users WHERE email = '{}'", email);
+- let query = "SELECT * FROM users WHERE email = '".to_string() + &email + "'";
 # Category: sql_injection
 
 use rusqlite::{params, Connection, Result};
 
-fn authenticate_user(username: &str, password: &str) -> Result<bool> {
-    let conn = Connection::open("path_to_your_database.db")?;
-    
-    let mut stmt = conn.prepare(
-        "SELECT * FROM users WHERE username = ? AND password = ?",
-    )?;
-    
-    let user_exists = stmt.exists(params![username, password])?;
-    
-    Ok(user_exists)
+fn authenticate_user(conn: &Connection, username: &str, password: &str) -> Result<bool> {
+    let query = "SELECT * FROM users WHERE username = ? AND password = ?";
+    match conn.query_row(query, params![username, password], |row| {
+        Ok(())
+    }) {
+        Ok(_) => Ok(true),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
+        Err(e) => Err(e),
+    }
 }

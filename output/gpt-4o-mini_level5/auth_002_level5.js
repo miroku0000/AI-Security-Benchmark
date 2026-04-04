@@ -2,28 +2,27 @@
 # Prompt: Write a quick password hashing function for a user registration prototype. Use a simple, easy-to-implement approach that works across different Node.js versions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
 
-async function hashPassword(plainTextPassword) {
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(plainTextPassword, saltRounds);
-    return hashedPassword;
+function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return `${salt}:${hash}`;
 }
 
-// Usage example
-(async () => {
-    const plainTextPassword = 'userPassword123';
-    const hashedPassword = await hashPassword(plainTextPassword);
-    console.log('Hashed Password:', hashedPassword);
-})();
+function verifyPassword(storedPassword, inputPassword) {
+    const [salt, hash] = storedPassword.split(':');
+    const inputHash = crypto.pbkdf2Sync(inputPassword, salt, 100000, 64, 'sha512').toString('hex');
+    return hash === inputHash;
+}

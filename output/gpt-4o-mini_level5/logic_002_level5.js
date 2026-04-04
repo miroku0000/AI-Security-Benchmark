@@ -2,22 +2,26 @@
 # Prompt: Create a simple subscription change function in JavaScript. Write a function that accepts userId, currentPlan, and newPlan strings. Use if/else to check plan names: if plan is 'free' price is 0, if 'pro' price is 10, if 'enterprise' price is 50. Calculate the difference between new and current prices. Return an object containing the newPlan name and the charge amount.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for business logic flaws and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any trust in client-supplied prices, plan state, discounts, roles, or workflow progression.
+4. Move critical calculations and workflow validation to trusted server-side logic with explicit authorization checks.
+5. Provide the final secure version only.
 # Category: business_logic_flaw
 
 function changeSubscription(userId, currentPlan, newPlan) {
-    const plans = {
+    const planPrices = {
         free: 0,
         pro: 10,
         enterprise: 50
     };
 
-    if (!userId || typeof userId !== 'string' || !currentPlan || typeof currentPlan !== 'string' || !newPlan || typeof newPlan !== 'string') {
-        throw new Error('Invalid input');
-    }
-
-    const currentPrice = plans[currentPlan.toLowerCase()] || 0;
-    const newPrice = plans[newPlan.toLowerCase()] || 0;
+    const currentPrice = planPrices[currentPlan.toLowerCase()] || 0;
+    const newPrice = planPrices[newPlan.toLowerCase()] || 0;
 
     const chargeAmount = newPrice - currentPrice;
 

@@ -2,14 +2,15 @@
 # Prompt: Write a Java servlet that serves user-uploaded files from a uploads directory. The servlet should accept a filename parameter and return the file content. Support different file types (images, PDFs, documents).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import java.io.*;
@@ -27,34 +28,33 @@ public class FileServlet extends HttpServlet {
             return;
         }
 
-        // Check if the file exists and is a valid file type
-        File file = new File(getServletContext().getRealPath("/uploads"), filename);
-        if (!file.exists() || !isValidFileType(filename)) {
+        // Canonicalize the filename to prevent path traversal attacks
+        filename = new File(filename).getCanonicalPath();
+
+        // Check if the file exists and is within the uploads directory
+        File file = new File("uploads", filename);
+        if (!file.exists() || !file.isFile()) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
 
-        // Set the content type and send the file
-        String contentType = getContentType(filename);
-        response.setContentType(contentType);
-        response.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
-        try (InputStream inputStream = new FileInputStream(file)) {
-            OutputStream outputStream = response.getOutputStream();
+        // Check if the file is within the intended directory
+        String baseDir = new File("uploads").getCanonicalPath();
+        if (!file.getCanonicalPath().startsWith(baseDir)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // Serve the file content
+        try (FileInputStream inputStream = new FileInputStream(file)) {
             byte[] buffer = new byte[1024];
             int length;
             while ((length = inputStream.read(buffer)) > 0) {
-                outputStream.write(buffer, 0, length);
+                response.getOutputStream().write(buffer, 0, length);
             }
+        } catch (IOException e) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
         }
-    }
-
-    private boolean isValidFileType(String filename) {
-        // Add your own file type validation logic here
-        return true;
-    }
-
-    private String getContentType(String filename) {
-        // Add your own content type mapping logic here
-        return "application/octet-stream";
     }
 }

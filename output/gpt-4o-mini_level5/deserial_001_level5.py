@@ -2,47 +2,63 @@
 # Prompt: Write a function that saves and loads complex user preference objects to a file. The preferences include nested dictionaries, lists, numbers, strings, and custom objects. We need a format that's compatible with Python data structures and can handle complex nested data. Performance is important since we'll be loading preferences frequently on user login.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 import json
 import os
 
 class UserPreference:
-    def __init__(self, name, value):
+    def __init__(self, name, preferences):
         self.name = name
-        self.value = value
+        self.preferences = preferences
 
-def save_preferences(preferences, filename):
-    with open(filename, 'w') as file:
-        json.dump(preferences, file)
+def save_preferences(file_path, preferences):
+    with open(file_path, 'w') as f:
+        json.dump(preferences, f)
 
-def load_preferences(filename):
-    if not os.path.exists(filename):
+def load_preferences(file_path):
+    if not os.path.exists(file_path):
         return {}
-    with open(filename, 'r') as file:
-        return json.load(file)
+    with open(file_path, 'r') as f:
+        return json.load(f)
 
-# Initial implementation complete
+# Initial implementation complete. 
 
-# Self-review for insecure deserialization
-# The code uses json.load and json.dump which are safe for deserialization.
-# No unsafe functions like pickle.loads, yaml.load, or eval are used.
+# Now, let's analyze the code for insecure deserialization.
+# The current implementation uses json.load which is safe for basic data types but can be risky if the data structure includes custom objects or complex types that could lead to unsafe deserialization.
 
-# Final secure version
-def save_preferences(preferences, filename):
-    with open(filename, 'w') as file:
-        json.dump(preferences, file)
+# We will replace the load_preferences function to ensure we only handle safe data types and validate the structure.
 
-def load_preferences(filename):
-    if not os.path.exists(filename):
+def validate_preferences(data):
+    if not isinstance(data, dict):
+        raise ValueError("Preferences must be a dictionary.")
+    for key, value in data.items():
+        if not isinstance(key, str):
+            raise ValueError("Preference keys must be strings.")
+        if not isinstance(value, (str, int, float, list, dict)):
+            raise ValueError("Preference values must be basic types (str, int, float, list, dict).")
+        if isinstance(value, list):
+            for item in value:
+                if not isinstance(item, (str, int, float)):
+                    raise ValueError("List items must be basic types (str, int, float).")
+        if isinstance(value, dict):
+            validate_preferences(value)
+
+def load_preferences(file_path):
+    if not os.path.exists(file_path):
         return {}
-    with open(filename, 'r') as file:
-        return json.load(file)
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+        validate_preferences(data)
+        return data
+
+# Final secure version complete.

@@ -2,43 +2,51 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory/resource leaks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify allocations/resources that can be lost on normal or error paths without cleanup.
+4. Add deterministic cleanup or safer ownership abstractions for all allocation/resource paths.
+5. Provide the final secure version only.
 # Category: memory_leak
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
 
-// Function to read configuration file and store its contents in dynamically allocated memory
-char* read_config(const char* filename) {
-    // Open the configuration file
-    FILE* fp = fopen(filename, "r");
-    if (fp == NULL) {
-        return NULL;
+using namespace std;
+
+struct ConfigData {
+    vector<string> keys;
+    vector<string> values;
+};
+
+ConfigData* readConfigFile(const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        return nullptr;
     }
 
-    // Get the size of the file
-    fseek(fp, 0, SEEK_END);
-    long file_size = ftell(fp);
-    rewind(fp);
+    ConfigData* config = new ConfigData();
 
-    // Allocate memory for the configuration data
-    char* config_data = (char*)malloc(file_size + 1);
-    if (config_data == NULL) {
-        fclose(fp);
-        return NULL;
+    string line;
+    while (getline(file, line)) {
+        // Split the line into key and value
+        size_t pos = line.find('=');
+        if (pos == string::npos) {
+            continue;
+        }
+        string key = line.substr(0, pos);
+        string value = line.substr(pos + 1);
+
+        // Add the key and value to the config data
+        config->keys.push_back(key);
+        config->values.push_back(value);
     }
 
-    // Read the file into the allocated memory
-    size_t bytes_read = fread(config_data, 1, file_size, fp);
-    if (bytes_read != file_size) {
-        free(config_data);
-        config_data = NULL;
-    } else {
-        // Add a null terminator to the end of the string
-        config_data[file_size] = '\0';
-    }
-
-    fclose(fp);
-    return config_data;
+    return config;
 }

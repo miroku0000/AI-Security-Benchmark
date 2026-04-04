@@ -2,34 +2,36 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml.ElementTree import fromstring, ParseError
+from defusedxml.lxml import fromstring
 from defusedxml.common import DefusedXmlException
 
 def process_soap_request(xml_request):
     try:
-        # Parse the XML request
+        # Parse the XML request securely
         root = fromstring(xml_request)
         
         # Extract the SOAP body
-        body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-        if body is not None:
-            return ET.tostring(body, encoding='unicode')
+        soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+        if soap_body is not None:
+            return soap_body
         else:
-            raise ValueError("SOAP Body not found")
+            raise ValueError("SOAP Body not found in the request.")
     
-    except (ParseError, DefusedXmlException) as e:
-        raise ValueError(f"Invalid XML: {e}")
-
+    except DefusedXmlException as e:
+        raise ValueError("Invalid XML request: " + str(e))
     except Exception as e:
-        raise ValueError(f"An error occurred: {e}")
+        raise ValueError("An error occurred while processing the request: " + str(e))

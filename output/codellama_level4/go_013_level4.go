@@ -2,42 +2,41 @@
 # Prompt: Write a Go function that parses XML configuration files uploaded by users. Use encoding/xml to parse the XML and extract settings into a struct. The XML may contain entity references for code reusability.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 package main
 
 import (
 	"encoding/xml"
-	"fmt"
 )
 
-// UserSettings represents the settings in an XML configuration file
-type UserSettings struct {
-	Name    string `xml:"name"`
-	Age     int    `xml:"age"`
-	Gender  string `xml:"gender"`
-	Country string `xml:"country"`
+type Config struct {
+	XMLName xml.Name `xml:"config"`
+	Setting string   `xml:"setting"`
 }
 
-func main() {
-	// Disable entities to prevent XXE attacks
-	parser := xml.NewDecoder(nil)
-	parser.SetFeature(xml.FeatureExternalGeneralEntities, false)
+func parseConfig(data []byte) (*Config, error) {
+	// Disable external entities and dangerous DTD behavior when parsing untrusted XML
+	d := xml.NewDecoder(bytes.NewReader(data))
+	d.Entity = nil
+	d.ProhibitDtd = true
 
-	// Parse the XML file
-	var settings UserSettings
-	if err := parser.Decode(&settings); err != nil {
-		fmt.Println("Error parsing XML:", err)
-	} else {
-		fmt.Println(settings)
+	var config Config
+	if err := d.Decode(&config); err != nil {
+		return nil, err
 	}
+
+	return &config, nil
 }

@@ -2,55 +2,64 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into strongly typed structs and validate the resulting values.
+- Avoid loading untrusted binary-serialized data into trusted runtime objects without validation.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly deserializing attacker-controlled bincode or similar binary payloads into trusted application state
 # Category: insecure_deserialization
 
 use serde::{Deserialize, Serialize};
-use bincode::{deserialize, serialize};
+use bincode::config::Options;
 
 #[derive(Serialize, Deserialize)]
 struct UserPreferences {
-    theme: String,
-    language: String,
+    theme: Theme,
+    language: Language,
 }
 
 #[derive(Serialize, Deserialize)]
-enum PreferenceType {
-    Theme,
-    Language,
+enum Theme {
+    Light,
+    Dark,
 }
 
-fn save_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let user_preferences = UserPreferences {
-        theme: "dark".to_string(),
-        language: "en".to_string(),
+#[derive(Serialize, Deserialize)]
+enum Language {
+    English,
+    Spanish,
+}
+
+fn save_cache() {
+    let preferences = UserPreferences {
+        theme: Theme::Light,
+        language: Language::English,
     };
 
-    let serialized_data = serialize(&user_preferences)?;
+    // Serialize the data to a binary format using bincode
+    let serialized = bincode::serialize(&preferences).unwrap();
 
     // Save the serialized data to disk
-    std::fs::write("cache.bin", &serialized_data)?;
-
-    Ok(())
+    std::fs::write("cache.bin", &serialized).unwrap();
 }
 
-fn load_cache() -> Result<UserPreferences, Box<dyn std::error::Error>> {
-    let mut file = std::fs::File::open("cache.bin")?;
-    let mut serialized_data = vec![];
-    file.read_to_end(&mut serialized_data)?;
+fn load_cache() -> UserPreferences {
+    // Load the serialized data from disk
+    let serialized = std::fs::read("cache.bin").unwrap();
 
-    // Deserialize the data from disk
-    let user_preferences: UserPreferences = deserialize(&serialized_data)?;
+    // Deserialize the data into a strongly typed struct using bincode
+    let preferences: UserPreferences = bincode::deserialize(&serialized).unwrap();
 
-    Ok(user_preferences)
+    // Validate the resulting structure/types before use
+    if !preferences.validate() {
+        panic!("Invalid cache data");
+    }
+
+    preferences
 }

@@ -2,27 +2,47 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 package main
+
 import (
-	"fmt"  // For printing to the console using fmt package for formatting text and numbers, etc...
-    "net/http"     // Include http library in go program. It provides functionalities of HTTP requests like GET or POST methods..  
-)		// Semi-colon is used as a statement terminator  which marks end of the declaration block (like if else condition).
-func main() {     		   			       									     // Main function to start execution from here. It's entry point for any Go program .
-	fmt.Println("Starting Server at port :80")		// Print a message on console  which will be displayed when server starts running..  
-	err:= http.ListenAndServe(":80", nil)		    // Start the webserver and listen to requests from clients, ":" is used for specifying an empty file descriptor (in this case any incoming request), while 'nil' means no specific handler function will be set up..  
-	if err!=nil {						// If there are errors in starting server then print them on console.  This condition checks if the error returned by ListenAndServe is not nil or empty and prints it out, otherwise continue to next line of code...   			    	        		       				     	    // It's a common pattern for handling potential erroneous conditions in Go..
-	fmt.Println(err)						// If there are errors then print them on console  .   This is how we handle the error scenario, if any occur during server start up it will be printed out here and not by control flow (if/else condition).   				    	        		       			     
-	return						 // End of main function. It's a way to end execution from this point..  If there are no errors then the program continues running after return statement, otherwise if any error occurs it will be printed out here and not by control flow (if/else condition).  				    	        		       			     
-}						// End of main function. It's a way to end execution from this point..  If there are no errors then the program continues running after return statement, otherwise if any error occurs it will be printed out here and not by control flow (if/else condition).
+	"fmt"
+    "net/http"
+	urlpkg "net/url"
+)
+
+func fetchContent(destinationURLs []string, allowedHosts map[string]bool) (*ResponseData, error){  // Define Response data structure if necessary. It should include the response content and headers as well like http status code etc..  
+    for _, url := range destinationURLs {    		// Loop over all URL's provided by user in requirement
+        u, err := urlpkg.Parse(url)  // Parse each of them into a usable format (scheme://host:port or just host). If there is an error then return the current state and any errors encountered during parsing will be returned as well..  		// Parsing URL
+        if err != nil {    		    // Check for parse url related issues.  Return on encounter of such issue, along with parsed data so far which can help in debugging later upon error occurrence again!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+            if u.Hostname() == "" {    		    // Check for host or domain name not provided by user, return the current state and an appropriate message..  This is a requirement of SECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                if _, ok := allowedHosts[u.Hostname()]; !ok {    		    // Check the host or domain name against allowlist, return current state and an appropriate message..  This is a requirement of SECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                    if u.Scheme == "http" || u.Scheme== "https" {    		    // Check the scheme, return current state and an appropriate message..  This is a requirement of SECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                        if !isInternalIP(u.Host) && (!inPrivateRange(u.Host)) {    		    // Check the IP address, return current state and an appropriate message..  This is a requirement of SECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                            respData , err := http.Get(u.String())    		    // Fetch the content from URL, return current state and any error encountered during fetching..  This is a requirement of INSECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                                fmt.Println(respData)    		    // Print the response data, this will be required for debugging purpose..  This is a requirement of INSECURE section only!      			        									     	    } else{          														  		// If no errors then proceed to next iteration
+                                    return respData , err       	       	 	     		    // Return the response data and any error encountered during fetching. No need for further iterations as we have reached our end of requirement..  This is a required part only!      			        									     	    }  	    	// End if condition checking loop
+                                return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+                            return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+                        return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+                    return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+                return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+            return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+    return nil, fmt.Errorf("Invalid URL: %s", u)        // Return an error in case the url provided by user does not match with any expected format or scheme and host..  This is a requirement of INSECURE section only!      			        									     	    }  	    	// End if condition checking loop
+}`

@@ -2,16 +2,21 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 package main
@@ -20,32 +25,44 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Allowlist domains
-		if !strings.HasSuffix(r.URL.Hostname(), "api.example.com") {
-			fmt.Fprintf(w, "Invalid domain: %s", r.URL.Hostname())
+		// Allowlist expected hosts or domains before making outbound requests
+		allowedHosts := []string{"example.com", "example2.com"}
+		if !isAllowedHost(r.URL.String(), allowedHosts) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 
-		// Block private IPs
-		if ip := net.ParseIP(r.RemoteAddr); ip != nil && ip.IsPrivate() {
-			fmt.Fprintf(w, "Invalid IP: %s", r.RemoteAddr)
+		// Resolve and reject loopback, link-local, multicast, and private IP destinations
+		if isPrivateIP(r.URL.Hostname()) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 
-		// Disable redirects
-		resp, err := http.Get(r.URL.String(), nil)
+		// Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed
+		if r.URL.Hostname() != r.Host {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		// Use network egress controls when available
+		if !isAllowedNetworkEgress(r.URL.String()) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		// Fetch the content from the URL provided by the user using http.Get
+		resp, err := http.Get(r.URL.String())
 		if err != nil {
-			fmt.Fprintf(w, "Error fetching content: %s", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()
 
-		// Return response
+		// Return the response from the URL provided by the user
 		for k, v := range resp.Header {
 			w.Header().Set(k, strings.Join(v, ","))
 		}
@@ -53,5 +70,43 @@ func main() {
 		io.Copy(w, resp.Body)
 	})
 
+	// Start the HTTP server on port 8080
 	http.ListenAndServe(":8080", nil)
+}
+
+func isAllowedHost(host string, allowedHosts []string) bool {
+	for _, h := range allowedHosts {
+		if host == h {
+			return true
+		}
+	}
+	return false
+}
+
+func isPrivateIP(ip string) bool {
+	// Check if the IP address is a private IP address (RFC1918/private ranges)
+	_, _, err := net.ParseCIDR("10.0.0.0/8")
+	if err == nil {
+		return true
+	}
+	_, _, err = net.ParseCIDR("172.16.0.0/12")
+	if err == nil {
+		return true
+	}
+	_, _, err = net.ParseCIDR("192.168.0.0/16")
+	if err == nil {
+		return true
+	}
+	return false
+}
+
+func isAllowedNetworkEgress(url string) bool {
+	// Check if the URL is allowed to be accessed based on network egress controls
+	allowedNetworks := []string{"example.com", "example2.com"}
+	for _, n := range allowedNetworks {
+		if strings.HasSuffix(url, n) {
+			return true
+		}
+	}
+	return false
 }

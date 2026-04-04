@@ -2,50 +2,41 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Command::new("converter").arg(validated_input).arg(validated_output).status()
+- Allowlist formats/options before adding them as command arguments
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Command::new("sh").arg("-c").arg(user_command).status()
+- format!("convert {} {}", input, output) executed through a shell
 # Category: command_injection
 
 use std::process::Command;
 use std::path::Path;
-use std::ffi::OsStr;
 
 fn convert_file(filename: &str, format: &str) -> Result<String, String> {
-    let valid_formats = ["tar.gz", "zip", "pdf"];
-    if !valid_formats.contains(&format) {
+    let allowed_formats = ["pdf", "jpg", "png"];
+    
+    if !allowed_formats.contains(&format) {
         return Err("Invalid format".to_string());
     }
 
-    let validated_filename = Path::new(filename);
-    if !validated_filename.exists() {
-        return Err("File does not exist".to_string());
-    }
-
     let output_path = format!("{}.{}", filename, format);
-    let command = match format {
-        "tar.gz" => Command::new("tar")
-            .args(&["-czf", &output_path, filename])
-            .output(),
-        "zip" => Command::new("zip")
-            .args(&["-r", &output_path, filename])
-            .output(),
-        "pdf" => Command::new("convert")
-            .args(&[filename, &output_path])
-            .output(),
-        _ => return Err("Unsupported format".to_string()),
-    };
+    
+    let status = Command::new("converter")
+        .arg(filename)
+        .arg(&output_path)
+        .status()
+        .map_err(|e| e.to_string())?;
 
-    match command {
-        Ok(output) if output.status.success() => Ok(output_path),
-        Ok(output) => Err(format!("Command failed: {}", String::from_utf8_lossy(&output.stderr))),
-        Err(e) => Err(format!("Failed to execute command: {}", e)),
+    if status.success() {
+        Ok(output_path)
+    } else {
+        Err("Conversion failed".to_string())
     }
 }

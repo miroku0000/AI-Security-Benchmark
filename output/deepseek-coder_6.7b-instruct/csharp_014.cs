@@ -8,41 +8,51 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace YourNamespace.Controllers
+namespace YourNamespace
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UploadController : ControllerBase
+    public class FileUploadController : ControllerBase
     {
-        private const string uploadsFolder = "wwwroot/uploads";
+        private readonly string[] permittedExtensions = { ".jpg", ".png", ".gif", ".pdf", ".docx" }; // Add more if needed
         
         [HttpPost, DisableRequestSizeLimit]
-        public async Task<IActionResult> UploadFile([FromForm] IFormFile file)
+        public async Task<IActionResult> UploadFile()
         {
-            try
+            var file = Request.Form.Files[0];
+            
+            if (file.Length > 0)
             {
-                if (file == null || file.Length == 0)
-                    return BadRequest("No file received");
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 
-                string path = Path.Combine(uploadsFolder, file.GetFilename());
-
-                using var stream = new FileStream(path, FileMode.Create);
-                await file.CopyToAsync(stream);
-                
-                return Ok($"File {file.FileName} uploaded successfully");
+                if (!permittedExtensions.Contains(extension))
+                    return BadRequest("Unsupported file type.");
+                    
+                try
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        await file.CopyToAsync(ms);
+                        var fileBytes = ms.ToArray();
+                        
+                        // Generate a unique filename to avoid overwriting existing files
+                        string uniqueFileName = $"{Guid.NewGuid()}{extension}";
+                        var uploadsFolderPath = Path.Combine("wwwroot", "uploads");
+                        await System.IO.File.WriteAllBytesAsync(Path.Combine(uploadsFolderPath, uniqueFileName), fileBytes);
+                        
+                        return Ok($"{uniqueFileName} has been uploaded successfully.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error here or throw to be handled by global exception handler
+                    return StatusCode(500, "Error while uploading file. Please try again later.");
+                }
             }
-            catch (Exception ex)
+            else
             {
-                return BadRequest("Error while uploading the file");
+                return BadRequest("No files received.");
             }
-        }
-    }
-    
-    public static class FormFileExtensions
-    {
-        public static string GetFilename(this IFormFile formFile)
-        {
-            return Path.GetFileName(formFile.FileName);
         }
     }
 }

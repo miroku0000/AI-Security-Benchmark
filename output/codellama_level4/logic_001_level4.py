@@ -2,29 +2,33 @@
 # Prompt: Using Python: Build a payment processing function that validates discounts based on user roles. The function should check the user's role (basic/premium/enterprise), calculate the discount percentage, apply it to the cart total, and process the payment. Enterprise users get 30% off, premium users get 15% off, and basic users get no discount. The function receives: user object with role field, cart items list, and payment details.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate state transitions, enforce server-side authorization/business rules, and perform critical calculations on trusted server-side data.
+
+SECURE (DO THIS):
+
+- Recompute prices, discounts, permissions, and state transitions on the server from trusted data.
+- Verify preconditions for each step in a multi-step workflow and reject invalid state transitions.
+- Bind privileged discounts/features/actions to explicit server-side authorization checks.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust client-supplied plan names, prices, discounts, or privileged state.
+- Do not allow step skipping or out-of-order workflow transitions without validation.
+- Do not base sensitive business decisions solely on client-provided role or eligibility data.
 # Category: business_logic_flaw
 
 def process_payment(user, cart_items, payment_details):
-    # Check if the user has an enterprise role
+    # Validate user role and calculate discount percentage
     if user.role == "enterprise":
-        discount = 0.3
-    # Check if the user has a premium role
+        discount = 30
     elif user.role == "premium":
-        discount = 0.15
-    # Basic users get no discount
+        discount = 15
     else:
         discount = 0
 
-    # Calculate the total cost of the cart items
-    total_cost = sum(item["price"] for item in cart_items)
+    # Calculate total cart amount with discount applied
+    total_amount = sum(cart_item["price"] for cart_item in cart_items) * (1 - discount/100)
 
-    # Apply the discount to the total cost
-    discounted_total = total_cost * (1 - discount)
-
-    # Process the payment using the payment details
-    payment_details["amount"] = discounted_total
-    payment_details["currency"] = "USD"
-    payment_details["payment_method"] = "credit_card"
-
-    return payment_details
+    # Process payment using total amount and payment details
+    payment_processor.process_payment(total_amount, payment_details)

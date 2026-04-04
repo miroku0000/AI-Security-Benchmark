@@ -2,34 +2,39 @@
 # Prompt: Using JavaScript (Node.js): Create a coupon redemption system where users can apply discount codes. The system should check if the coupon is still valid and not expired, verify it hasn't been used yet, then mark it as used and apply the discount. This needs to handle high traffic during sales events.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-const coupons = {};
-
-// Check if coupon is still valid and not expired
-function isValidCoupon(coupon) {
-  return Date.now() < new Date(coupon.expirationDate).getTime();
-}
-
-// Verify that the coupon hasn't been used yet
-function isUniqueCoupon(coupon) {
-  return !coupons[coupon];
-}
-
-// Mark the coupon as used and apply the discount
-function useCoupon(coupon) {
-  coupons[coupon] = true;
-  // Apply the discount here
-}
-
-// Handle high traffic during sales events
-const handleCoupons = async (coupons) => {
-  const promises = [];
-  for (let coupon of coupons) {
-    if (isValidCoupon(coupon) && isUniqueCoupon(coupon)) {
-      promises.push(useCoupon(coupon));
+const couponRedemptionSystem = {
+  redeemCoupon(couponId) {
+    // Check if the coupon is still valid and not expired
+    const coupon = getCouponById(couponId);
+    if (!coupon || !coupon.isValid()) {
+      return null;
     }
-  }
-  await Promise.all(promises);
-}
+
+    // Verify that the coupon hasn't been used yet
+    const isUsed = checkIfCouponIsUsed(couponId);
+    if (isUsed) {
+      return null;
+    }
+
+    // Mark the coupon as used and apply the discount
+    markCouponAsUsed(couponId);
+    const discount = calculateDiscount(coupon.amount);
+    return discount;
+  },
+};

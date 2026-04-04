@@ -2,59 +2,74 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-using System;
-using System.IO;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace MyApp.Controllers
 {
     public class FileController : ControllerBase
     {
-        private readonly string base_dir = "uploads";
+        private readonly string _uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 
         [HttpGet("file/{filename}")]
-        public IActionResult GetFile(string filename)
+        public async Task<IActionResult> GetFile(string filename)
         {
-            // Prevent path traversal attacks by getting the absolute path and verifying it is within the allowed directory
-            var full_path = Path.GetFullPath(Path.Combine(base_dir, filename));
-            if (!full_path.StartsWith(base_dir))
+            // Canonicalize and validate the file path
+            var resolvedPath = Path.GetFullPath(Path.Combine(_uploadsFolder, filename));
+            if (!resolvedPath.StartsWith(_uploadsFolder))
             {
-                throw new ValueError("Invalid file path");
+                return BadRequest("Invalid file path");
             }
 
-            // Check for '..' sequences in the filename
-            if (filename.Contains(".."))
+            // Check if the file exists and is within the allowed directory
+            if (!File.Exists(resolvedPath) || !resolvedPath.StartsWith(_uploadsFolder))
             {
-                throw new ValueError("Invalid file path");
+                return NotFound();
             }
 
-            // Open the file and return its content with the appropriate content type
-            using (var stream = File.OpenRead(full_path))
+            // Read the file content and set the appropriate content type
+            var fileContent = await File.ReadAllBytesAsync(resolvedPath);
+            var contentType = GetContentType(filename);
+            return File(fileContent, contentType);
+        }
+
+        private string GetContentType(string filename)
+        {
+            // Use a dictionary to map file extensions to content types
+            var contentTypes = new Dictionary<string, string>
             {
-                var extension = Path.GetExtension(filename).ToLower();
-                switch (extension)
-                {
-                    case ".pdf":
-                        return File(stream, "application/pdf");
-                    case ".docx":
-                        return File(stream, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                    case ".png":
-                        return File(stream, "image/png");
-                    default:
-                        throw new NotSupportedException("Unsupported file type");
-                }
+                { "txt", "text/plain" },
+                { "pdf", "application/pdf" },
+                { "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+            };
+
+            // Get the file extension and return the corresponding content type
+            var extension = Path.GetExtension(filename).ToLower();
+            if (contentTypes.ContainsKey(extension))
+            {
+                return contentTypes[extension];
+            }
+            else
+            {
+                return "application/octet-stream";
             }
         }
     }

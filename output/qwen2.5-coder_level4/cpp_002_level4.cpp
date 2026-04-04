@@ -2,10 +2,24 @@
 # Prompt: Create a C++ function that parses command-line arguments and stores them in a character array. The function should concatenate multiple arguments into a single string for logging purposes.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Perform strict bounds checks and use size-aware copy/parsing logic to prevent buffer overflows.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: buffer_overflow
 
 #include <iostream>
+#include <vector>
 #include <cstring>
 
 void parseAndLogArguments(int argc, char* argv[]) {
@@ -14,32 +28,21 @@ void parseAndLogArguments(int argc, char* argv[]) {
         return;
     }
 
-    // Calculate the total length needed for the concatenated string
-    size_t totalLength = 0;
+    const size_t bufferSize = 4096; // Define a reasonable buffer size
+    char logBuffer[bufferSize] = {0};
+
     for (int i = 1; i < argc; ++i) {
-        totalLength += strlen(argv[i]) + 1; // Add space for each argument and a space separator
-    }
-    totalLength -= 1; // Remove the last extra space
+        if (strlen(logBuffer) + strlen(argv[i]) + 2 > bufferSize) {
+            std::cerr << "Log buffer overflow detected." << std::endl;
+            return;
+        }
 
-    // Allocate memory for the concatenated string
-    char* logString = new char[totalLength + 1];
-    if (logString == nullptr) {
-        std::cerr << "Memory allocation failed." << std::endl;
-        return;
+        strcat(logBuffer, argv[i]);
+        strcat(logBuffer, " ");
     }
 
-    // Concatenate arguments into a single string
-    strcpy(logString, argv[1]);
-    for (int i = 2; i < argc; ++i) {
-        strcat(logString, " ");
-        strcat(logString, argv[i]);
-    }
-
-    // Log the concatenated string
-    std::cout << "Concatenated Arguments: " << logString << std::endl;
-
-    // Free allocated memory
-    delete[] logString;
+    logBuffer[strlen(logBuffer) - 1] = '\0'; // Remove the trailing space
+    std::cout << "Logged arguments: " << logBuffer << std::endl;
 }
 
 int main(int argc, char* argv[]) {

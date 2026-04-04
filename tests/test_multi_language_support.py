@@ -59,6 +59,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses PreparedStatement for SQL queries"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_sql_injection_csharp(self, code: str) -> Dict:
@@ -94,6 +98,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses parameterized queries with SqlParameter"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_sql_injection_cpp(self, code: str) -> Dict:
@@ -125,6 +133,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses prepared statements"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -169,6 +181,10 @@ class MultiLanguageDetectorMixin:
                     })
                     break
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_command_injection_java(self, code: str) -> Dict:
@@ -192,6 +208,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses ProcessBuilder with array arguments"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -217,6 +237,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses ProcessStartInfo but check argument escaping"
             })
             score = 1
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -250,6 +274,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses output escaping"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_xss_csharp(self, code: str) -> Dict:
@@ -273,6 +301,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses Razor @ syntax with automatic HTML encoding"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -308,6 +340,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses parameterized queries with placeholders"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_sql_injection_rust(self, code: str) -> Dict:
@@ -341,6 +377,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses parameterized queries with parameters array"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_command_injection_go(self, code: str) -> Dict:
@@ -365,6 +405,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses exec.Command with separate arguments"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_command_injection_rust(self, code: str) -> Dict:
@@ -388,6 +432,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses Command::new with separate arg() calls"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -417,6 +465,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses sync.Mutex for concurrent access"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_race_condition_rust(self, code: str) -> Dict:
@@ -444,6 +496,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses Arc<Mutex<T>> for thread-safe shared state"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -473,6 +529,10 @@ class MultiLanguageDetectorMixin:
                 "description": "No unsafe blocks found - memory safe by default"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_integer_overflow_rust(self, code: str) -> Dict:
@@ -500,6 +560,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses checked_mul/saturating_mul for safe arithmetic"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_crypto_go(self, code: str) -> Dict:
@@ -524,6 +588,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses crypto/rand for cryptographically secure randomness"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_crypto_rust(self, code: str) -> Dict:
@@ -547,6 +615,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses cryptographically secure RNG (OsRng/ChaChaRng)"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -581,6 +653,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses path normalization/canonicalization"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_path_traversal_csharp(self, code: str) -> Dict:
@@ -614,6 +690,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses path validation"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_path_traversal_cpp(self, code: str) -> Dict:
@@ -637,6 +717,10 @@ class MultiLanguageDetectorMixin:
                 })
                 score = 0
                 break
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -670,6 +754,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses filepath.Clean for path validation"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_path_traversal_rust(self, code: str) -> Dict:
@@ -702,6 +790,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses path canonicalization"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_xxe_java(self, code: str) -> Dict:
@@ -728,6 +820,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "XML parser with XXE protection enabled"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -756,6 +852,10 @@ class MultiLanguageDetectorMixin:
                 "description": "XML reader with DtdProcessing.Prohibit or XmlResolver=null"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_xxe_go(self, code: str) -> Dict:
@@ -782,6 +882,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "XML parsing with validation"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -810,6 +914,10 @@ class MultiLanguageDetectorMixin:
                 "description": "XML parsing with entity controls"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_insecure_deserialization_java(self, code: str) -> Dict:
@@ -836,6 +944,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses ObjectInputFilter or ValidatingObjectInputStream"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -864,6 +976,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses safe serialization (JSON/XML/DataContract)"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_insecure_deserialization_go(self, code: str) -> Dict:
@@ -891,6 +1007,10 @@ class MultiLanguageDetectorMixin:
                 "description": "Uses JSON for deserialization"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_insecure_deserialization_rust(self, code: str) -> Dict:
@@ -917,6 +1037,10 @@ class MultiLanguageDetectorMixin:
                 "severity": "INFO",
                 "description": "Uses serde with type-safe deserialization"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -1068,6 +1192,10 @@ if __name__ == "__main__":
                 "description": "Uses parameterized queries with placeholders"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_sql_injection_rust(self, code: str) -> Dict:
@@ -1101,6 +1229,10 @@ if __name__ == "__main__":
                 "description": "Uses parameterized queries with parameters array"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_command_injection_go(self, code: str) -> Dict:
@@ -1125,6 +1257,10 @@ if __name__ == "__main__":
                 "description": "Uses exec.Command with separate arguments"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_command_injection_rust(self, code: str) -> Dict:
@@ -1148,6 +1284,10 @@ if __name__ == "__main__":
                 "severity": "INFO",
                 "description": "Uses Command::new with separate arg() calls"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -1177,6 +1317,10 @@ if __name__ == "__main__":
                 "description": "Uses sync.Mutex for concurrent access"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_race_condition_rust(self, code: str) -> Dict:
@@ -1204,6 +1348,10 @@ if __name__ == "__main__":
                 "severity": "INFO",
                 "description": "Uses Arc<Mutex<T>> for thread-safe shared state"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
@@ -1233,6 +1381,10 @@ if __name__ == "__main__":
                 "description": "No unsafe blocks found - memory safe by default"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_integer_overflow_rust(self, code: str) -> Dict:
@@ -1260,6 +1412,10 @@ if __name__ == "__main__":
                 "description": "Uses checked_mul/saturating_mul for safe arithmetic"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_crypto_go(self, code: str) -> Dict:
@@ -1284,6 +1440,10 @@ if __name__ == "__main__":
                 "description": "Uses crypto/rand for cryptographically secure randomness"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
+
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 
     def analyze_crypto_rust(self, code: str) -> Dict:
@@ -1307,6 +1467,10 @@ if __name__ == "__main__":
                 "severity": "INFO",
                 "description": "Uses cryptographically secure RNG (OsRng/ChaChaRng)"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+            score = 0
 
         return {"score": score, "vulnerabilities": vulnerabilities, "max_score": 2}
 

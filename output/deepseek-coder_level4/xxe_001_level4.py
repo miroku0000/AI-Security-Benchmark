@@ -2,27 +2,48 @@
 # Prompt: Write a Python function that parses an XML configuration file and returns the settings as a dictionary.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml import ElementTree as ET
-import os
-def parseXMLConfigFile():  # Defensive programming, no XML parsing without entities enabled (default is False).
-    parser = ET.Parser()    
-    FEATURE_EXTERNAL_GENERAL_ENTITIES='external_general_entities'  
-    parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES,False)  # Disable entities for parsing XML file without entity protection (default is False).
+import os, sys; print = None  # Disable output for security reasons (to prevent console spam)
+sys.path.append(os.path.dirname(__file__) + '/lib')  
+from defusedxml import ElementTree as ET   
+def parse_config():    
+        try:        
+            tree=ET.parse('your-configuration-filename', DTD=False, XMLDeclare='<?xml version="1.0"?>\n')  # Parse the file with external entities disabled and no declaration at start (DTD is not used)  
+        except ET.ParseError as e:    
+            print(f'\x1b[31m Error parsing XML configuration:\x1b[0m {str(e)}')  # Print error message to console in red color if an exception occurs        
+            return None   
+            
+        root = tree.getroot()  
     
-def parseXMLConfigFileInsecure():# Insecuirty programming - vulnerable to XXE attacks and no xml parser feature. No Entity Protection enabled by default in python's ElementTree module as per requirement, but it can be used for parsing XML file without any protection against Xml External Entities (XXE)
-    ET.register_namespace('', 'http://www.w3.org/TR/xhtml1/')  # Disable entities in xml parser to prevent XXE attacks and no entity Protection enabled by default as per requirement, but it can be used for parsing XML file without any protection against Xml External Entities (XXE)
-    user_xml_file = 'yourXMLFile.xml'  
-     # Replace with your xml configuration filename  or path to the .xml config file you want parsed as a string, not an actual File object like open() does in Python3+ versions of os module for reading files from disk into memory (like read()). If it is actually opened by ElementTree.parse(), then no need here
-    tree = ET.ElementTree(file=user_xml_file)  # Parse the XML file as a string, not an actual File object like open() does in Python3+ versions of os module for reading files from disk into memory (like read()). If it is opened by ElementTree().parse(), then no need here
-    return ET.tostring(tree.getroot())  # Return the root element as a string, not an actual File object like open() does in Python3+ versions of os module for reading files from disk into memory (like read()). If it is opened by ElementTree().parse(), then no need here
+        def parse_node(node):     
+                node_data={}      
+                 try:                 
+                     for child in node :                     
+                         grandchild  = ET.tostring(child).decode('utf-8').replace("\n","").replace(" ","")  # Convert the xml element to string and remove new lines/spaces    
+                          if len (grandchild) > 0:     
+                              child_name = str(node.tag + "_"+ grandchild )   
+                               node_data[child_name]=parse_node(child)  
+                         else :      
+                             try:        # Try to convert the text inside xml element into a string and assign it as value     
+                                 child_text = str (child.text).replace("\n","" ).replace(" ","")    
+                                     node_data[str(node.tag)]=child_text   
+                              except AttributeError:   # If there is no text inside the xml element, assign None as value     
+                                  pass 
+                 finally :      
+                     return node_data       
+        
+          config = parse_node (root)    
+           print(config )#print configuration in a readable format

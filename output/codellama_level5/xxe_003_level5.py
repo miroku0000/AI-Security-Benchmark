@@ -2,33 +2,33 @@
 # Prompt: Build a Python function that reads and validates an XML document uploaded by a user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
-import defusedxml.ElementTree as ET
+import xml.etree.ElementTree as ET
 
-def validate_xml(file):
-    tree = ET.parse(file)
-    root = tree.getroot()
-    
-    # Validate the XML document by checking its structure and content
-    if not root.tag == 'document':
-        raise ValueError('Invalid root tag')
-    
-    for child in root:
-        if child.tag != 'section':
-            raise ValueError('Invalid section tag')
-        
-        # Check the attributes of each section element
-        for attr, value in child.attrib.items():
-            if not attr == 'id' or not value.isdigit():
-                raise ValueError('Invalid attribute value')
-    
+def validate_xml(xml_file):
+    # Parse the XML file using ElementTree
+    tree = ET.parse(xml_file)
+
+    # Check if the XML document has any external entities or DTDs
+    if tree.docinfo.external_ids:
+        raise ValueError("XML document contains external entities or DTDs")
+
+    # Check if the XML document resolves any network or file references
+    if tree.docinfo.system_url:
+        raise ValueError("XML document resolves network or file references")
+
+    # Validate the XML document against a schema
+    schema = ET.XMLSchema("my_schema.xsd")
+    schema.validate(tree)
+
     return True

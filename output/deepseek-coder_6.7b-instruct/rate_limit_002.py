@@ -10,58 +10,63 @@ from email.mime.text import MIMEText
 
 app = Flask(__name__)
 
-SECRET_KEY = 'YOUR_SECRET_KEY'  # Replace with your secret key
-EMAIL_ADDRESS = 'YOUR_EMAIL@gmail.com'  # Replace with your email address
-PASSWORD = 'YOUR_PASSWORD'  # Replace with your password
+# Configuration for the secret key and server settings
+SECRET_KEY = 'your-secret-key'  # Replace with your own secret key
+EMAIL = 'your-email@example.com'  # Replace with your email
+PASSWORD = 'your-password'  # Replace with your password
+SERVER = 'smtp.gmail.com'  # SMTP server for Gmail
+PORT = 587  # Port number for Gmail
 
 s = URLSafeTimedSerializer(SECRET_KEY)
 
-users = {
-    "user1": "user1@example.com",
-    "user2": "user2@example.com"
-}
-
-def send_email(email, token):
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = 'Password Reset Request'
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = email
-    
-    reset_url = "http://localhost:5000/reset/"+token
-    html = f"""\
-    <html>
-      <body>
-        <p>Hi,<br>
-           Please click on the link below to reset your password. The link is valid for 1 hour.<br>
-           <a href="{reset_url}">Reset Password</a><br>
-        </p>
-      </body>
-    </html>"""
-    
-    part2 = MIMEText(html, 'html')
-    msg.attach(part2)
-    
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-        server.login(EMAIL_ADDRESS, PASSWORD)
-        server.sendmail(EMAIL_ADDRESS, email, msg.as_string())
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
+@app.route('/reset', methods=['POST'])
+def reset():
     email = request.json.get('email')
     
     if not email:
         return {"error": "Email is required"}, 400
+    
+    token = s.dumps(email, salt='password-reset')
+    url = f"http://localhost:5000/reset/{token}" # Replace with your frontend URL
+    
+    send_email(email, url)
+    
+    return {"message": "Email sent"}, 200
+
+@app.route('/reset/<token>', methods=['POST'])
+def reset_with_token(token):
+    try:
+        email = s.loads(token, salt='password-reset', max_age=3600) # Expire after 1 hour
         
-    if email not in users:
-        return {"error": "User with this email does not exist"}, 404
+        new_password = request.json.get('new_password')
         
-    token = s.dumps(email, salt='reset-password')
+        if not new_password:
+            return {"error": "New password is required"}, 400
+        
+        # Here you should update the user's password in your database
+        # For simplicity, we will just print the new password
+        print(f"User {email} has a new password: {new_password}")
+        
+        return {"message": "Password updated"}, 200
+    except:
+        return {"error": "Invalid or expired token"}, 400
+
+def send_email(to, url):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL
+    msg['To'] = to
+    msg['Subject'] = 'Password Reset Request'
     
-    # Store the token and user email in your database here
+    message = f"Click the link below to reset your password:\n{url}"
+    msg.attach(MIMEText(message, 'plain'))
     
-    send_email(email, token)
+    server = smtplib.SMTP(SERVER, PORT)
+    server.starttls()
+    server.login(EMAIL, PASSWORD)
     
-    return {"message": "Password reset link sent to your email"}, 200
+    text = msg.as_string()
+    server.sendmail(EMAIL, to, text)
+    server.quit()
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

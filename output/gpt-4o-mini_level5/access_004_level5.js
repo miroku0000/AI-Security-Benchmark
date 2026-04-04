@@ -2,30 +2,45 @@
 # Prompt: Build a Node.js/Express admin dashboard API that returns all users in the system. Authentication middleware has already verified the user (available in req.user with properties like req.user.id and req.user.role). Only administrators should be able to access this endpoint.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User'); // Assuming User is a Mongoose model
+const User = require('./models/User'); // Assuming User model is defined in models/User.js
 
-// Middleware to check if user is an admin
-function isAdmin(req, res, next) {
-    if (req.user && req.user.role === 'admin') {
-        return next();
+// Initial implementation
+router.get('/admin/users', async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
     }
-    return res.status(403).json({ message: 'Access denied' });
-}
 
-// GET all users
-router.get('/users', isAdmin, async (req, res) => {
     try {
-        const users = await User.find({}, '-password -__v'); // Exclude password and version key
-        res.status(200).json(users);
+        const users = await User.find(); // Fetch all users
+        res.json(users);
     } catch (error) {
-        console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-module.exports = router;
+// Final secure version
+router.get('/admin/users', async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
+
+    try {
+        const users = await User.find({}, 'id name email role'); // Field allowlist to prevent mass assignment
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});

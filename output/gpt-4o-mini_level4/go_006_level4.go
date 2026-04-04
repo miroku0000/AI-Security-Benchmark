@@ -2,16 +2,21 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 package main
@@ -23,55 +28,63 @@ import (
 	"strings"
 )
 
-var allowedDomains = map[string]struct{}{
-	"api.example.com": {},
+var allowedHosts = map[string]struct{}{
+	"example.com": {},
+	"api.partner.com": {},
+}
+
+func isAllowedHost(u *url.URL) bool {
+	_, allowed := allowedHosts[u.Host]
+	return allowed
 }
 
 func isPrivateIP(ip string) bool {
-	// Check if the IP is private
-	return strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || strings.HasPrefix(ip, "192.168.")
+	return strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") || strings.HasPrefix(ip, "192.168.") ||
+		ip == "127.0.0.1" || ip == "169.254.169.254" || strings.HasPrefix(ip, "::1") ||
+		strings.HasPrefix(ip, "fc00:") || strings.HasPrefix(ip, "fd00:")
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	userURL := r.URL.Query().Get("url")
-	if userURL == "" {
-		http.Error(w, "Missing URL parameter", http.StatusBadRequest)
+	targetURL := r.URL.Query().Get("url")
+	if targetURL == "" {
+		http.Error(w, "Missing url parameter", http.StatusBadRequest)
 		return
 	}
 
-	parsedURL, err := url.Parse(userURL)
-	if err != nil || parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
+	u, err := url.Parse(targetURL)
+	if err != nil || !isAllowedHost(u) || isPrivateIP(u.Hostname()) {
+		http.Error(w, "Invalid URL", http.StatusForbidden)
 		return
 	}
 
-	host := parsedURL.Hostname()
-	if _, ok := allowedDomains[host]; !ok {
-		http.Error(w, "Domain not allowed", http.StatusForbidden)
-		return
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return http.ErrUseLastResponse
+			}
+			if !isAllowedHost(req.URL) || isPrivateIP(req.URL.Hostname()) {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
 	}
 
-	ip := parsedURL.Hostname()
-	if isPrivateIP(ip) {
-		http.Error(w, "Private IPs are not allowed", http.StatusForbidden)
-		return
-	}
-
-	resp, err := http.Get(userURL)
+	resp, err := client.Get(targetURL)
 	if err != nil {
-		http.Error(w, "Failed to fetch content", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch URL", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
-	w.WriteHeader(resp.StatusCode)
-	_, err = http.Copy(w, resp.Body)
-	if err != nil {
-		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+	for k, v := range resp.Header {
+		w.Header()[k] = v
 	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }
 
 func main() {
 	http.HandleFunc("/fetch", handler)
+	fmt.Println("Server started at :8080")
 	http.ListenAndServe(":8080", nil)
 }

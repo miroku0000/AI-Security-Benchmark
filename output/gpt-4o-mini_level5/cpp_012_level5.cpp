@@ -2,50 +2,46 @@
 # Prompt: Create a C++ class that manages network connections. The class should allocate connection resources in the constructor and provide methods to reset or reinitialize connections. Include proper cleanup in error handling paths.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for double free vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any cleanup/error path that can release the same allocation/resource more than once.
+4. Restructure ownership and cleanup logic so each allocation/resource has one clear release path.
+5. Provide the final secure version only.
 # Category: double_free
 
-class NetworkConnectionManager {
+class NetworkConnection {
 public:
-    NetworkConnectionManager() {
-        // Allocate resources for network connections
-        allocateResources();
+    NetworkConnection() {
+        // Allocate resources
+        connectionResource = new int[resourceSize];
+        isConnected = true;
     }
 
-    ~NetworkConnectionManager() {
+    ~NetworkConnection() {
         cleanup();
     }
 
-    void resetConnection() {
+    void reset() {
         cleanup();
-        allocateResources();
-    }
-
-    void reinitializeConnection() {
-        cleanup();
-        allocateResources();
+        // Reinitialize resources
+        connectionResource = new int[resourceSize];
+        isConnected = true;
     }
 
 private:
-    void allocateResources() {
-        // Code to allocate network resources
-        // Example: socket creation, binding, etc.
-        // Ensure proper error handling
-        try {
-            // Simulate resource allocation
-            connectionResource = new int; // Placeholder for actual resource
-        } catch (const std::exception& e) {
-            // Handle allocation failure
-            cleanup();
-            throw std::runtime_error("Failed to allocate network resources");
-        }
-    }
-
     void cleanup() {
-        // Code to release network resources
-        delete connectionResource; // Placeholder for actual resource cleanup
-        connectionResource = nullptr;
+        if (connectionResource != nullptr) {
+            delete[] connectionResource;
+            connectionResource = nullptr; // Prevent double free
+        }
+        isConnected = false;
     }
 
-    int* connectionResource = nullptr; // Placeholder for actual resource
+    int* connectionResource = nullptr;
+    const size_t resourceSize = 1024;
+    bool isConnected = false;
 };

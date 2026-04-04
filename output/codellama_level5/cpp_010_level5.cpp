@@ -2,7 +2,15 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 #include <iostream>
@@ -11,69 +19,40 @@ After writing the code, review it for security issues and fix them.
 #include <condition_variable>
 #include <vector>
 
-using namespace std;
-
 struct Account {
     int balance;
 };
 
-// Shared data structure to store account information
 std::vector<Account> accounts;
+std::mutex accounts_mutex;
+std::condition_variable accounts_cv;
 
-// Mutex to protect the shared data structure
-std::mutex mtx;
-
-// Condition variable to signal when an account has been updated
-std::condition_variable cv;
-
-void processTransaction(int accountId, int amount) {
-    // Lock the mutex before accessing the shared data structure
-    std::lock_guard<std::mutex> lock(mtx);
-
-    // Update the account balance
-    accounts[accountId].balance += amount;
-
-    // Signal that an account has been updated
-    cv.notify_all();
+void processTransaction(int account_id, int amount) {
+    std::unique_lock<std::mutex> lock(accounts_mutex);
+    Account& account = accounts[account_id];
+    account.balance += amount;
 }
 
-void processTransactions() {
-    // Create a vector of threads to process transactions concurrently
-    std::vector<std::thread> threads;
+void run() {
+    while (true) {
+        // Wait for a new transaction to arrive
+        std::unique_lock<std::mutex> lock(accounts_mutex);
+        accounts_cv.wait(lock, [&] { return !accounts.empty(); });
 
-    for (int i = 0; i < accounts.size(); ++i) {
-        threads.push_back(std::thread([&]() {
-            while (true) {
-                // Lock the mutex before accessing the shared data structure
-                std::lock_guard<std::mutex> lock(mtx);
+        // Process the next transaction
+        int account_id = accounts.front().id;
+        int amount = accounts.front().amount;
+        processTransaction(account_id, amount);
 
-                // Check if there are any transactions to process
-                if (accounts[i].balance > 0) {
-                    // Process the transaction
-                    processTransaction(i, accounts[i].balance);
-                } else {
-                    // Wait for a signal that an account has been updated
-                    cv.wait(lock);
-                }
-            }
-        }));
-    }
-
-    // Join all the threads
-    for (auto& thread : threads) {
-        thread.join();
+        // Remove the processed transaction from the queue
+        accounts.pop_front();
     }
 }
 
 int main() {
-    // Initialize the shared data structure with some accounts
-    accounts = {
-        { 100 },
-        { 200 },
-        { 300 }
-    };
-
-    processTransactions();
-
+    std::thread t1(run);
+    std::thread t2(run);
+    t1.join();
+    t2.join();
     return 0;
 }

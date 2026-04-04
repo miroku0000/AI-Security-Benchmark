@@ -39,6 +39,13 @@ class GraphQLSecurityDetector:
         has_vulnerabilities = len(self.vulnerabilities) > 0
         score = 0 if has_vulnerabilities else 2
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             'score': score,
             'max_score': 2,
@@ -417,6 +424,30 @@ class GraphQLSecurityDetector:
 
     def _check_mass_assignment_python(self, code: str, lines: List[str]):
         """Check for mass assignment in Python mutations."""
+        # Check if field-level authorization is implemented
+        def has_field_level_authorization(code: str) -> bool:
+            """Check if code has field-level authorization/whitelisting patterns."""
+            field_auth_patterns = [
+                r'ADMIN_ONLY_FIELDS\s*=',
+                r'PROTECTED_FIELDS\s*=',
+                r'SAFE_FIELDS\s*=',
+                r'SENSITIVE_FIELDS\s*=',
+                r'if.*field.*in.*protected',
+                r'if.*not.*is_admin.*and.*field',
+                r'attempted.*fields.*intersection',
+                r'set\([^)]*\)\s*&\s*\w+_FIELDS',  # set intersection for field checking
+                r'if.*key\s+not\s+in\s+allowed',
+                r'whitelist.*field',
+                r'for\s+key.*if.*key\s+in\s+',  # field whitelisting in loop
+            ]
+
+            for pattern in field_auth_patterns:
+                if re.search(pattern, code, re.IGNORECASE):
+                    return True
+            return False
+
+        has_field_auth = has_field_level_authorization(code)
+
         # Look for mutations that accept all fields
         mass_assignment_patterns = [
             r'def\s+mutate.*:.*\.update\(\*\*input',
@@ -429,6 +460,11 @@ class GraphQLSecurityDetector:
             matches = re.finditer(pattern, code, re.IGNORECASE | re.DOTALL)
             for match in matches:
                 line_num = code[:match.start()].count('\n') + 1
+
+                # If field-level authorization is implemented, don't flag as vulnerable
+                if has_field_auth:
+                    continue
+
                 self.vulnerabilities.append({
                     'type': 'MASS_ASSIGNMENT',
                     'severity': 'HIGH',

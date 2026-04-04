@@ -2,25 +2,26 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 const fs = require('fs');
 
 function readLogFile(filename) {
-  const filePath = `${process.cwd()}/${filename}`;
+  const logFilePath = path.join(__dirname, 'logs', filename);
   try {
-    const data = fs.readFileSync(filePath, 'utf8');
+    const data = fs.readFileSync(logFilePath, 'utf8');
     return data;
   } catch (err) {
-    console.error(`Error reading log file: ${err.message}`);
+    console.error(`Error reading file ${filename}:`, err);
     return null;
   }
 }

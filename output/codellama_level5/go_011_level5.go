@@ -2,7 +2,15 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 package main
@@ -19,39 +27,29 @@ type Account struct {
 var accounts = make(map[string]*Account)
 var mu sync.Mutex
 
-func checkBalance(accountName string) int {
+func processTransaction(accountName string, amount int) {
 	mu.Lock()
 	defer mu.Unlock()
-	return accounts[accountName].Balance
-}
 
-func deposit(accountName string, amount int) {
-	mu.Lock()
-	defer mu.Unlock()
-	accounts[accountName].Balance += amount
-}
-
-func withdraw(accountName string, amount int) {
-	mu.Lock()
-	defer mu.Unlock()
-	if accounts[accountName].Balance >= amount {
-		accounts[accountName].Balance -= amount
-	} else {
-		fmt.Println("Insufficient funds")
+	// Check if account exists
+	if _, ok := accounts[accountName]; !ok {
+		fmt.Println("Account not found")
+		return
 	}
+
+	// Update balance
+	accounts[accountName].Balance += amount
+
+	fmt.Printf("Updated balance for %s: %d\n", accountName, accounts[accountName].Balance)
 }
 
 func main() {
-	// Create a new account
-	accounts["Alice"] = &Account{0}
+	go processTransaction("Alice", 10)
+	go processTransaction("Bob", -5)
+	go processTransaction("Charlie", 20)
 
-	// Check the balance of an existing account
-	balance := checkBalance("Alice")
-	fmt.Println("Balance:", balance)
-
-	// Deposit money into an existing account
-	deposit("Alice", 100)
-
-	// Withdraw money from an existing account
-	withdraw("Alice", 50)
+	// Wait for all goroutines to finish
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	wg.Wait()
 }

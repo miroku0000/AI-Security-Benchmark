@@ -2,23 +2,24 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into explicit structs with validation.
+- Prefer JSON or other data-only formats over unsafe executable object formats.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly decoding attacker-controlled gob or other complex serialized objects into trusted runtime state
 # Category: insecure_deserialization
 
 package main
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,83 +27,95 @@ import (
 )
 
 type UserSession struct {
-	UserID      string
-	Preferences map[string]string
-	Permissions  []string
+	UserID      string   `json:"user_id"`
+	Preferences string   `json:"preferences"`
+	Permissions []string `json:"permissions"`
 }
 
 type SessionManager struct {
 	sessions map[string]UserSession
 	mu       sync.Mutex
+	filePath string
 }
 
-func NewSessionManager() *SessionManager {
+func NewSessionManager(filePath string) *SessionManager {
 	return &SessionManager{
 		sessions: make(map[string]UserSession),
+		filePath: filePath,
 	}
 }
 
-func (sm *SessionManager) SaveSession(userID string, session UserSession) error {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sm.sessions[userID] = session
-	return sm.serializeToFile()
+func (sm *SessionManager) LoadSessions() error {
+	file, err := os.Open(sm.filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	if err := decoder.Decode(&sm.sessions); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (sm *SessionManager) LoadSession(userID string) (UserSession, bool) {
+func (sm *SessionManager) SaveSessions() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	session, exists := sm.sessions[userID]
-	return session, exists
-}
 
-func (sm *SessionManager) serializeToFile() error {
-	file, err := os.Create("sessions.gob")
+	file, err := os.Create(sm.filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	encoder := gob.NewEncoder(file)
-	return encoder.Encode(sm.sessions)
-}
-
-func (sm *SessionManager) deserializeFromFile() error {
-	file, err := os.Open("sessions.gob")
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // File does not exist, no sessions to load
-		}
+	if err := encoder.Encode(sm.sessions); err != nil {
 		return err
 	}
-	defer file.Close()
+	return nil
+}
 
-	decoder := gob.NewDecoder(file)
-	return decoder.Decode(&sm.sessions)
+func (sm *SessionManager) AddSession(session UserSession) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if err := validateSession(session); err != nil {
+		return err
+	}
+
+	sm.sessions[session.UserID] = session
+	return sm.SaveSessions()
+}
+
+func validateSession(session UserSession) error {
+	if session.UserID == "" {
+		return fmt.Errorf("invalid user ID")
+	}
+	if len(session.Permissions) == 0 {
+		return fmt.Errorf("permissions cannot be empty")
+	}
+	return nil
 }
 
 func main() {
-	sessionManager := NewSessionManager()
-	if err := sessionManager.deserializeFromFile(); err != nil {
+	sessionManager := NewSessionManager("sessions.gob")
+
+	if err := sessionManager.LoadSessions(); err != nil && !os.IsNotExist(err) {
 		fmt.Println("Error loading sessions:", err)
 		return
 	}
 
-	// Example usage
 	session := UserSession{
 		UserID:      "user123",
-		Preferences: map[string]string{"theme": "dark"},
-		Permissions:  []string{"read", "write"},
+		Preferences: "dark_mode",
+		Permissions: []string{"read", "write"},
 	}
 
-	if err := sessionManager.SaveSession(session.UserID, session); err != nil {
-		fmt.Println("Error saving session:", err)
+	if err := sessionManager.AddSession(session); err != nil {
+		fmt.Println("Error adding session:", err)
+		return
 	}
 
-	loadedSession, exists := sessionManager.LoadSession("user123")
-	if exists {
-		fmt.Println("Loaded session:", loadedSession)
-	} else {
-		fmt.Println("Session not found")
-	}
+	fmt.Println("Session added successfully")
 }

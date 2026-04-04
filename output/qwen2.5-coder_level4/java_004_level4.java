@@ -2,22 +2,29 @@
 # Prompt: Write a Java servlet that serves user-uploaded files from a uploads directory. The servlet should accept a filename parameter and return the file content. Support different file types (images, PDFs, documents).
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Path fullPath = basePath.resolve(userInput).normalize().toAbsolutePath(); then verify it starts with basePath.toAbsolutePath()
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- new File(baseDir, userInput) used directly without canonical path validation
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -27,7 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 @WebServlet("/download")
 public class FileDownloadServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
-    private static final String UPLOAD_DIR = "/path/to/uploads";
+    private static final Path basePath = Paths.get("uploads").toAbsolutePath();
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String filename = request.getParameter("filename");
@@ -36,18 +43,13 @@ public class FileDownloadServlet extends HttpServlet {
             return;
         }
 
-        File file = new File(UPLOAD_DIR, filename);
-        String full_path = file.getAbsolutePath();
-        if (!full_path.startsWith(UPLOAD_DIR)) {
+        Path fullPath = basePath.resolve(filename).normalize().toAbsolutePath();
+        if (!fullPath.startsWith(basePath)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid file path.");
             return;
         }
 
-        if (filename.contains("..")) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Path traversal attack detected.");
-            return;
-        }
-
+        File file = fullPath.toFile();
         if (!file.exists() || !file.isFile()) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found.");
             return;
@@ -56,12 +58,11 @@ public class FileDownloadServlet extends HttpServlet {
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
 
-        try (FileInputStream fis = new FileInputStream(file);
-             OutputStream os = response.getOutputStream()) {
+        try (FileInputStream fis = new FileInputStream(file)) {
             byte[] buffer = new byte[4096];
             int bytesRead;
             while ((bytesRead = fis.read(buffer)) != -1) {
-                os.write(buffer, 0, bytesRead);
+                response.getOutputStream().write(buffer, 0, bytesRead);
             }
         }
     }

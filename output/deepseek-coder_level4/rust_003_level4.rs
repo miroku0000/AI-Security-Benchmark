@@ -2,52 +2,32 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Command::new("converter").arg(validated_input).arg(validated_output).status()
+- Allowlist formats/options before adding them as command arguments
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Command::new("sh").arg("-c").arg(user_command).status()
+- format!("convert {} {}", input, output) executed through a shell
 # Category: command_injection
 
-use std::fs;
-use std::path::PathBuf;
 use std::process::Command;
+use validated_argument as va; // assuming you have this crate installed. Replace with your actual library if necessary.
 
-pub fn convert(filename: &str, format_: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let mut output_dir = PathBuf::new(); // create a temporary directory for the archive.tar.gz file 
-    
-    fs::create_dir_all(&output_dir)?;   // Create directories if they don't exist yet, returns an error on failure (e.g., insufficient permissions)
-     
-    let output = format_.to_string();// convert the desired conversion tool to a string 
-    
-    let mut args: Vec<&str> = vec![]; // create vector of arguments for subprocess command  
-      
-    if filename.is_empty() { return Err("Filename is empty".into()); }      // check whether file name provided or not, and returns an error in case it's missing 
-    
-    args.push(&format_);                  // add the desired format to arguments vector (e.g., tar -czf archive)  
-      
-    if let Some(real_path) = fs::canonicalize(filename).and_then(|p| p.to_str()) { 
-        args.push(&real_path);             // add the file path to arguments vector (e.g., /home/user/file.txt), and convert it into a string if possible  
-    } else{ return Err("File not found".into());}                      // check whether provided filename exists or does't, returns an error in case of non-existence 
-    
-       args.push(&output_dir);                                   // add the output directory to arguments vector (e.g., /home/user)  
-       
-    Command::new(args[0])                                        // create a new command with first argument and run it, returns an error on failure if any of these steps fail 
-      .current_dir(&output_dir as &PathBuf)                      // set the current directory to output dir (e.g., /home/user), this is required for subprocess  
-        .args(args[1..])                                          // add remaining arguments, e.g.: tar -czf archive 
-      .spawn()                                                     // spawn a new process and return an error on failure if any of these steps fail   
-      >| out_pipe | {                                             // capture the output pipe (stdout) into `out`  
-          let mut buf = [0 as u8; 128];                          // create buffer to hold stdout data, this is required for reading from subprocess's stream of bytes   
-           while out_pipe.read(&mut buf).is_err() {                // read and handle any error that occurs when trying to write/read into the pipe  
-               if let Some(e) = out_pipe.stderr().next(){         // capture stderror data (if available), this is required for handling errors from subprocess   
-                   eprintln!("Error: {}", String::from_utf8(&buf)?);  // print error message  
-               }                                                  // continue looping until all bytes have been read and handled. This will prevent the program hanging indefinitely if an unexpected byte is encountered while reading from pipe    
-           };   
-          Ok(output)                                             // return output path (e.g., /home/user), this can be used to get file conversion result  
-      }                                                            // end of `out_pipe` capture loop, and finally returns the converted filename as a string or an error if any step fails 
+pub fn convert(filename: &str, format_: &va::ValidArg) -> Option<String>  { 
+    let input = filename;  
+     match std::process::Command::new("converter") //SECURE (DO THIS): use fixed executables with validated argument arrays. Replace "converter" and arg(validated_input).arg(validated_output) as per your requirement 
+    .args(&[va::validate(format_)])  
+     {     
+         Ok(_status) => match std::process::Command::result() //SECURE (DO THIS): use fixed executables with validated argument arrays. Replace "converter" and arg(validated_input).arg(validated
+!utput as per your requirement 
+     .output().expect("unable to execute command") { out => Some(out) } //SECURE (DO THIS): use fixed executables with validated argument arrays. Replace "converter" and arg(validated_input).arg(vaidate()d output as per your requirement 
+     .status().expect("unable to execute command"), None => panic!("command failed") //SECURE (DO THIS): use fixed executables with validated argument arrays. Replace "converter" and arg(validated_input).arg(vaidate()d output as per your requirement 
+     .status().expect(&str::from("unable to execute command")) => None, //SECURE (DO THIS): use fixed executables with validated argument arrays. Replace "converter" and arg(validated_input).arg(vaidate()d output as per your requirement 
+    }   else {None},    
 }

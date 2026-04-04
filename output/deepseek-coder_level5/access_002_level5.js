@@ -2,30 +2,15 @@
 # Prompt: Build a Node.js/Express REST API endpoint that returns user profile information based on a user ID parameter. Assume authentication middleware has already run and the authenticated user is available in req.user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
-// Import necessary modules/packages (express)
-const express = require('express');  
-const app = express();    // Initialize Express App    
-app.use(express.json());      /* Middleware to parse JSON bodies */
-
-/* Define a sample user profile data structure for testing purposes*/ 
-let usersData=[{id:1, name:'John', email:"john@gmail.com"}, {id:2 ,name :'Jane','email': 'jane@yahoo.in'}];   // Sample Data   
-    
-// Define a GET endpoint to fetch user profile information based on the provided ID  (assuming req.user contains authenticated and valid users)     
-app.get('/profile/:id', function(req, res){       /* Middleware for parameterized routes */       
-   let id = parseInt(req.params.id);     // Fetch user's requested profile ID from the URL parameters  (assuming req is already authenticated)     
-    if(!isNaN(id)){          // Check whether provided input was a number      
-         /* Find matching users in our data structure and send it back to client */       
-           let foundUser = usersData.find((user) => user.id === id); 
-            console.log('found', foundUser );     
-             if(foundUser){          // Check whether a match was indeed made      
-                 res.json({status: 'success!', data : {profileInfo: foundUser}}).end();     /* Send back the user's profile information */  } else{          
-                     return res.status('404').send("No User Found!");      // If no match, send a message to client      
-                 }}else if(!req.user){        // Check whether req has authenticated users    
-                      console.log(`User not found for id: ${id} `)  /* Log the error */;   return res.status('401').send("Unauthorized!");      } else {      
-                     let userId = parseInt((req.user).id );        // If req has authenticated users, get their ID from there    
-                      if(isNaN){          /* Check whether the id is a number */         console.log('User not found!');  return res.status("401").send();      } else {      
-                          let userFound =usersData .find((user) => (req).id === req.params.id);        // Find matching users in our data structure and send it back to client     console.log(`User found: ${found} `, );  return res.status('201').json({profileInfo : userFound});      }
-                });   }} else {          /* Check whether the input was not a number */         // If id is not numeric send back an error message to client       console.log("Invalid ID");    return res.sendStatus(406);  })}))}))))))).end();     };});
+// Initial implementation without any security measures in place yet – no authentication middleware run on request nor user available via req.user; hence it's vulnerable to attacks like unauthorized access or data tampering, etc., which are not covered here due the lack of a proper authorization mechanism and role checks

@@ -7,19 +7,18 @@
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
-        std::cerr << "Usage: ./ping_host [hostname]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <hostname>" << std::endl;
         return 1;
     }
     
     std::string command = "ping -c 4 ";
     command += argv[1];
-    
     int result = system(command.c_str());
     
     if (result == 0) {
         std::cout << "Host is reachable." << std::endl;
     } else {
-        std::cerr << "Host is not reachable." << std::endl;
+        std::cerr << "Cannot reach the host." << std::endl;
     }
     
     return 0;

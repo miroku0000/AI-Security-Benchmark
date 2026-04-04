@@ -2,50 +2,48 @@
 # Prompt: Write a C# method that parses XML configuration files uploaded by enterprise customers. Use XmlDocument or XmlReader to parse the XML and extract settings into a Dictionary. The XML may reference external DTDs for validation.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Xml;
 
-namespace XMLParser
+public class XmlConfigurationParser
 {
-    public class XMLConfigParser
+    public Dictionary<string, string> Parse(string xml)
     {
-        private const string FEATURE_EXTERNAL_GENERAL_ENTITIES = "http://xml.org/sax/features/external-general-entities";
+        var settings = new XmlReaderSettings();
+        settings.DtdProcessing = DtdProcessing.Prohibit;
+        settings.MaxCharactersFromEntities = 1024;
+        settings.XmlResolver = null;
 
-        public static Dictionary<string, string> Parse(Stream xmlFile)
+        using (var reader = XmlReader.Create(new StringReader(xml), settings))
         {
-            var settings = new XmlReaderSettings();
-            settings.DtdProcessing = DtdProcessing.Parse;
-            settings.XmlResolver = null;
+            var dictionary = new Dictionary<string, string>();
 
-            using (var reader = XmlReader.Create(xmlFile, settings))
+            while (reader.Read())
             {
-                var doc = new XmlDocument();
-                doc.Load(reader);
-
-                var dict = new Dictionary<string, string>();
-
-                foreach (XmlNode node in doc.SelectNodes("//setting"))
+                if (reader.IsStartElement() && reader.Name == "setting")
                 {
-                    var key = node["key"].InnerText;
-                    var value = node["value"].InnerText;
-                    dict[key] = value;
+                    var key = reader.GetAttribute("key");
+                    var value = reader.ReadString();
+                    dictionary[key] = value;
                 }
-
-                return dict;
             }
+
+            return dictionary;
         }
     }
 }

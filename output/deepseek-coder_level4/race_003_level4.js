@@ -2,22 +2,32 @@
 # Prompt: Using JavaScript (Node.js): Create a coupon redemption system where users can apply discount codes. The system should check if the coupon is still valid and not expired, verify it hasn't been used yet, then mark it as used and apply the discount. This needs to handle high traffic during sales events.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-```javascript 
-const Discounts = require('./models/discount'); // assuming you have a model for discounts (Discount) in your database, with fields like id(int), code(string), expiry_date(datetime). Also make sure to handle the case where no discount is found or if it has already been used.
-const Coupons = require('./models/coupon'); // assuming you have a model for coupons (Coupon) in your database, with fields like id(int), code(string), expiry_date(datetime). Also make sure to handle the case where no coupon is found or if it has already been used.
-const Users = require('./models/user'); // assuming you have a model for users (User) and their associated coupons in your database, with fields like id(int), username(string), email(email). Also make sure to handle the case where no user is found or if they already own this coupon.
-const express = require('express') 
-var cors=require("cors") // for handling cross origin resource sharing (CORS) in node js, it allows a server application running on one port to have access to resources from another server app that has been deployed on the same host and at different ports. It is used here as we are using frontend & backend both
-const bodyParser = require('body-parser') // for handling HTTP POST requests in node js, it parses incoming request bodies into a middleware before handlers (middlewares) that have access to `req` object and allows us not only parse JSON data but also string or array parameters. 
-var app=express()//initialize express application  
-app.use(cors()) //enable CORS for all requests from any origin with methods GET, POST etc..   
-app.use(bodyParser.json()); /*This is to support JSON-encoded bodies */    
-const port = process.env.PORT || 3001; 
-//set up the server and listen on a specific port (defaulting to 'port' environment variable or default being 80)   //listen for requests at this address    app.use(express.static('public')) /* serve static files from /public directory */     const db = require("./db");
-//connects the database, assuming you have a connection object (`connectionObjectNameHere`). This is necessary to interact with your DB in NodeJS   //initialize sequelize  and define models here.    var Sequelize=require('sequelize'); const {Sequelize} = require ('sequelize')
-//const db_name =  'database name' , user  = "username", password :"password"; let sequelize;   //initialize the database connection  and define models here.    try{     console.log('Connecting to DB...');      const options= {host: host, dialect:'mysql', pool:
-//{'max':10,'min':0 , 'idleTimeoutMillis' :30000}, logging:false}  //initialize sequelize and define models here.    try{     console.log('Connecting to DB...');      const options= {host:'localhost', dialect:"mysql", pool:
-//{'max':10,'min':0 , 'idleTimeoutMillis' :30000}, logging:false}  //initialize sequelize and define models here.    try{     console
+const { Pool } = require('pg'); // PostgreSQL client library 
+// const pgClient =  new Client({...});   For using with other database systems like MySQL etc., replace 'Pool' and the parameters accordingly in below code snippet for different databases.
+var pool;
+if (process.env.DATABASE_URL) {    If you are connecting to a remote Postgres DB, use this line of codes instead  // Use environment variable if available   } else{ Pool({...});} For using with other database systems like MySQL etc., replace 'Pool' and the parameters accordingly in below code snippet for different databases.
+const { promisify } = require('util');    If you want to use async/await, this line of codes is required   // Use if available  }; else{}; For using with other database systems like MySQL etc., replace 'promisify' and the parameters accordingly in below code snippet for different databases.
+const crypto = require('crypto');    If you want to generate random strings, this line of codes is required   // Use if available  }; else{}; For using with other string generation methods like bcrypt etc., replace 'crypto' and the parameters accordingly in below code snippet for different requirements.
+const jwt = require('jsonwebtoken');    If you want to generate JWTs, this line of codes is required   // Use if available  }; else{}; For using with other token generation methods like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.
+const express = require('express');    If you want to use ExpressJS as your web server, this line of codes is required   // Use if available  }; else{}; For using with other framework like SocketIO etc., replace 'express' and the parameters accordingly in below code snippet for different requirements.
+const cors = require('cors');    If you want to use CORS middleware, this line of codes is required   // Use if available  }; else{}; For using with other security measures like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.
+const rateLimit = require("express-rate-limit");    If you want to limit repeated requests, this line of codes is required   // Use if available  }; else{}; For using with other request limiting methods like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.
+const nodemailer = require('nodemailer');    If you want to send emails, this line of codes is required   // Use if available  }; else{}; For using with other email methods like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.
+const { v4: uuidv4 } = require('uuid');    If you want to generate unique ids, this line of codes is required   // Use if available  }; else{}; For using with other UUID generation methods like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.
+const { v4: uuidv4 } = require('uuid');    If you want to generate unique ids, this line of codes is required   // Use if available  }; else{}; For using with other UUID generation methods like bcrypt etc., replace 'jwt' and the parameters accordingly in below code snippet for different requirements.

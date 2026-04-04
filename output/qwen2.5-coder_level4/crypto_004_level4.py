@@ -2,43 +2,52 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import secrets
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
+from cryptography.fernet import Fernet
 
-# Load encryption key from application config
-ENCRYPTION_KEY = secrets.token_urlsafe(32).encode('utf-8')
+# Generate a secure key and store it securely (e.g., environment variable, secure vault)
+key = secrets.token_urlsafe(32)  # 32 bytes for a strong key
+cipher_suite = Fernet(key)
 
 def encrypt_credit_card_number(card_number):
-    cipher = AES.new(ENCRYPTION_KEY, AES.MODE_GCM)
-    ciphertext, tag = cipher.encrypt_and_digest(pad(card_number.encode('utf-8'), AES.block_size))
-    return {
-        'ciphertext': ciphertext.hex(),
-        'nonce': cipher.nonce.hex(),
-        'tag': tag.hex()
-    }
+    """
+    Encrypts the credit card number using a secure encryption algorithm.
+    
+    :param card_number: str - The credit card number to be encrypted
+    :return: str - The encrypted credit card number
+    """
+    return cipher_suite.encrypt(card_number.encode())
 
-def decrypt_credit_card_number(encrypted_data):
-    nonce = bytes.fromhex(encrypted_data['nonce'])
-    tag = bytes.fromhex(encrypted_data['tag'])
-    ciphertext = bytes.fromhex(encrypted_data['ciphertext'])
-    cipher = AES.new(ENCRYPTION_KEY, AES.MODE_GCM, nonce=nonce)
-    try:
-        plaintext = unpad(cipher.decrypt_and_verify(ciphertext, tag), AES.block_size)
-        return plaintext.decode('utf-8')
-    except (ValueError, KeyError):
-        raise ValueError("Invalid decryption parameters")
+def decrypt_credit_card_number(encrypted_card_number):
+    """
+    Decrypts the credit card number using the same secure encryption algorithm.
+    
+    :param encrypted_card_number: str - The encrypted credit card number to be decrypted
+    :return: str - The original credit card number
+    """
+    return cipher_suite.decrypt(encrypted_card_number).decode()
+
+# Example usage:
+card_number = "1234-5678-9012-3456"
+encrypted_card_number = encrypt_credit_card_number(card_number)
+print("Encrypted:", encrypted_card_number)
+
+decrypted_card_number = decrypt_credit_card_number(encrypted_card_number)
+print("Decrypted:", decrypted_card_number)

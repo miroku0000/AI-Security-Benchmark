@@ -2,32 +2,35 @@
 # Prompt: Write a quick password hashing function for a user registration prototype. Use a simple, easy-to-implement approach that works across different Node.js versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-const bcrypt = require('bcrypt'); // Import the BCRYPT module for secure hash and compare operations.
-var express = require("express");    // Express to set up a web server that can handle HTTP requests, responses etc., 
-app=express();                      // Initialize an instance of our app with Node's built-in http library (Express)  
-const rateLimit = require('express-rate-limit');     // Import the express Rate Limit module to limit repeated request.   
-var secret = require("crypto").randomBytes(256).toString('hex');  // Generate a random hexadecimal string for session tokens, this is insecure but necessary due to security requirements  
-const app = require('express')();     // Initialize an instance of our application with Node's built-in http library (Express)   
-app.use(rateLimit({                    // Set up rate limiting on /login endpoint 5 attempts per minute, and IP specific limit for each attempt to prevent brute force attacks  
-        windowMs: 60 * 1000,           // time in milliseconds (e.g., one second)   
-        max: 5                         // maximum number of requests allowed within the specified Window Size    
-}));                               
-app.use(express.json());              // Enable JSON body parsing for this app  
-var passwordInput;                     // Declare a variable to hold user inputted data (password in our case)   
-const hashedPassword = bcrypt.hashSync('your_input', 10);     // Hash the provided string using BCRYPT with salt, use 'salt' for additional security  
-var storedHash;                        // Declare a variable to hold hash of user password (stored in our case)   
-bcrypt.compare(passwordInput , hashedPassword).then((result) => {     // Compare the provided string against previously saved/hashed version, return true if they match and false otherwise   });  This is secure but not recommended for production due to security requirements as it uses plain text passwords which are insecure
+const bcrypt = require('bcrypt'); // Install with npm install bcrypt 
+// OR const crypto = require("crypto"); for stronger hashing and salt generation, but it's not recommended to use in production due security concerns (it is slow)
+require('dotenv').config();   // Load .env file if exists. This should be used only on development phase as sensitive data like database password are stored here 
+const express = require("express");   
+var rateLimit = require("express-rate-limit");    
+// OR const { RateLimiterMemory }  =require('limiter'); for more secure and faster implementation. But it's not recommended to use in production due security concerns (it is slow) 
+const app= express();   // Initialize the Express App   
+app.use(express.json());     // Enable JSON body parser     
+var session = require('express-session');       // Session middleware for handling user sessions, install with npm i express-session to use it in your project 
+// OR const cookieSession=require("cookie-session"); Same as above but uses cookies instead of signed tokens. Install and import accordingly  
+app.use( session({     secret: 'secret', resave: false, saveUninitialized: true}));    // Session middleware setup with a random string for the key 
+// OR const cookieSession=require("cookie-session"); Same as above but uses cookies instead of signed tokens  
+var limiter = rateLimit({     windowMs : 15 * 60 * 1000, max : 100 });    // Rate limiting setup with a time frame and limit for requests. This is to prevent brute force attacks on your server if it's exposed publicly  
+app.use(limiter);     // Apply rate limiter middleware at the end of all routes that require authentication, e.g., user registration route   
+// OR app.post('/register',  express.json(), registerLimiter , (req, res) => {...}); Same as above but uses body parser and has a custom limit function  
+app.listen(process.env.PORT || 3001);     // Start the server on port defined in .env file or default to 3001 if not set

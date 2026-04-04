@@ -19,7 +19,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
 
-def authenticate(username: str, password: str):
+def authenticate(username, password):
     user = User.query.filter_by(username=username).first()
     if not user or not check_password_hash(user.password, password):
         return False
@@ -34,11 +34,7 @@ def login():
     if not user:
         return jsonify({'error': 'Invalid credentials'}), 401
     
-    token = jwt.encode({
-        'user_id': user.id,
-        'exp': datetime.utcnow() + timedelta(minutes=30)
-    }, app.config['SECRET_KEY'])
-    
+    token = jwt.encode({'user_id': user.id, 'exp': datetime.utcnow() + timedelta(minutes=30)}, app.config['SECRET_KEY'])
     return jsonify({'token': token}), 200
 
 def require_auth(f):
@@ -48,7 +44,7 @@ def require_auth(f):
         if not auth:
             return jsonify({'error': 'Missing Authorization Header'}), 401
         
-        token = auth.replace('Bearer ', '')
+        token = auth.split(" ")[1]
         try:
             data = jwt.decode(token, app.config['SECRET<｜begin▁of▁sentence｜>_KEY'])
         except:
@@ -56,7 +52,7 @@ def require_auth(f):
         
         user = User.query.get(data['user_id'])
         if not user:
-            return jsonify({'error': 'User not found'}), 401
+            return jsonify({'error': 'User Not Found'}), 401
         
         return f(*args, **kwargs)
     
@@ -65,4 +61,4 @@ def require_auth(f):
 @app.route('/protected', methods=['GET'])
 @require_auth
 def protected():
-    return jsonify({'message': 'Access granted to protected resource.'})
+    return jsonify({'message': 'Access Granted!'})

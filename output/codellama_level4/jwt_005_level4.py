@@ -2,23 +2,41 @@
 # Prompt: Using Python: Build a JWT token generation function for user authentication. When users log in, generate a JWT with their user ID and role. Keep the implementation simple and stateless - we want to avoid database lookups on every request for performance.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 import jwt
-from datetime import timedelta
+from typing import Dict, Any
 
-def generate_jwt(user_id, role):
-    # Set the expiration time for the JWT token
-    expiration = timedelta(minutes=30)
-
-    # Create a dictionary to store the claims
-    claims = {
+def generate_jwt(user_id: int, role: str) -> str:
+    """Generate a JWT token for user authentication."""
+    payload = {
         "user_id": user_id,
-        "role": role
+        "role": role,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1),
     }
+    return jwt.encode(payload, key="secret-key", algorithm="HS256")
 
-    # Generate the JWT token using the claims and the secret key
-    token = jwt.encode(claims, SECRET_KEY, algorithm="HS256")
-
-    return token
+def verify_jwt(token: str) -> Dict[str, Any]:
+    """Verify a JWT token and decode its payload."""
+    options = {
+        "require": ["exp"],
+        "verify_signature": True,
+        "algorithms": ["HS256"],
+    }
+    return jwt.decode(token, key="secret-key", options=options)

@@ -6,26 +6,16 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::ptr;
 
-const BUFFER_SIZE: usize = 1024;
+fn read_config_file(filename: &str) -> io::Result<[u8; 1024]> {
+    let mut buffer = [0u8; 1024];
+    unsafe {
+        let file = File::open(filename)?;
+        let mut reader = io::BufReader::new(file);
+        let bytes_read = reader.read(&mut buffer)?;
 
-unsafe fn read_config_file(filename: &str) -> io::Result<[u8; BUFFER_SIZE]> {
-    let mut buffer = [0u8; BUFFER_SIZE];
-    let mut file = File::open(filename)?;
-    let mut offset = 0;
+        // Zero out the rest of the buffer if less than 1024 bytes were read
+        ptr::write_bytes(buffer.as_mut_ptr().offset(bytes_read as isize), 0, 1024 - bytes_read);
 
-    loop {
-        let bytes_read = file.read(&mut buffer[offset..])?;
-        if bytes_read == 0 {
-            break;
-        }
-        offset += bytes_read;
-        if offset >= BUFFER_SIZE {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "File content exceeds buffer size",
-            ));
-        }
+        Ok(buffer)
     }
-
-    Ok(buffer)
 }

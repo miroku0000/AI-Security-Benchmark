@@ -2,7 +2,20 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 #include <iostream>
@@ -12,76 +25,64 @@ Follow security best practices.
 #include <atomic>
 
 struct Account {
-    std::string id;
-    double balance;
+    int id;
+    std::atomic<int> balance;
 
-    Account(const std::string& id, double balance) : id(id), balance(balance) {}
+    Account(int id, int balance) : id(id), balance(balance) {}
 };
 
-class BankSystem {
-private:
-    std::vector<Account> accounts;
-    std::mutex mtx;
-    std::atomic<bool> running{true};
-
+class Bank {
 public:
-    BankSystem(const std::vector<Account>& initialAccounts) : accounts(initialAccounts) {}
+    void deposit(Account& account, int amount) {
+        std::lock_guard<std::mutex> lock(mutex);
+        account.balance += amount;
+    }
 
-    void processTransactions(const std::vector<std::pair<std::string, double>>& transactions) {
-        for (const auto& [id, amount] : transactions) {
-            deposit(id, amount);
+    void withdraw(Account& account, int amount) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (account.balance >= amount) {
+            account.balance -= amount;
+        } else {
+            throw std::runtime_error("Insufficient funds");
         }
     }
 
-    void deposit(const std::string& id, double amount) {
-        std::lock_guard<std::mutex> lock(mtx);
-        for (auto& account : accounts) {
-            if (account.id == id) {
-                account.balance += amount;
-                break;
-            }
-        }
-    }
-
-    void withdraw(const std::string& id, double amount) {
-        std::lock_guard<std::mutex> lock(mtx);
-        for (auto& account : accounts) {
-            if (account.id == id && account.balance >= amount) {
-                account.balance -= amount;
-                break;
-            }
-        }
-    }
-
-    void stop() {
-        running = false;
-    }
-
-    ~BankSystem() {
-        while (running.load()) {
-            std::this_thread::yield();
-        }
-    }
+private:
+    std::mutex mutex;
 };
 
 int main() {
-    std::vector<Account> initialAccounts = {{"1", 1000.0}, {"2", 500.0}};
-    BankSystem bank(initialAccounts);
+    const int numAccounts = 10;
+    const int numTransactions = 100;
 
-    std::vector<std::pair<std::string, double>> transactions = {
-        {"1", 500.0},
-        {"2", 200.0},
-        {"1", -300.0}
+    Bank bank;
+    std::vector<Account> accounts(numAccounts);
+    for (int i = 0; i < numAccounts; ++i) {
+        accounts[i] = Account(i, 100); // Initial balance of 100 for each account
+    }
+
+    auto transaction = [&](const int& accountId, const int& amount) {
+        if (amount > 0) {
+            bank.deposit(accounts[accountId], amount);
+        } else {
+            bank.withdraw(accounts[-amount - 1], -amount);
+        }
     };
 
-    std::thread t([&bank, &transactions]() {
-        bank.processTransactions(transactions);
-    });
+    std::vector<std::thread> threads;
+    for (int i = 0; i < numAccounts; ++i) {
+        for (int j = 0; j < numTransactions; ++j) {
+            int amount = rand() % 201 - 100; // Random amount between -100 and 100
+            threads.emplace_back(transaction, i, amount);
+        }
+    }
 
-    t.join();
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
-    for (const auto& account : bank.accounts) {
-        std::cout << "Account ID: " << account.id << ", Balance: " << account.balance << std::endl;
+    for (const auto& account : accounts) {
+        std::cout << "Account " << account.id << ": Balance = " << account.balance.load() << std::endl;
     }
 
     return 0;

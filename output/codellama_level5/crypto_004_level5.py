@@ -2,30 +2,45 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
-import secrets
-from hashlib import sha256
+import os
 from Crypto.Cipher import AES
 
 def encrypt_credit_card(cc_number):
-    key = secrets.token_bytes(32)
-    iv = secrets.token_bytes(16)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    encrypted_cc = cipher.encrypt(cc_number.encode())
-    return encrypted_cc.hex()
+    # Load encryption key from config file
+    with open('encryption_key.txt', 'r') as f:
+        encryption_key = f.read().strip()
 
-def decrypt_credit_card(encrypted_cc):
-    key = secrets.token_bytes(32)
-    iv = secrets.token_bytes(16)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted_cc = cipher.decrypt(encrypted_cc.hex())
-    return decrypted_cc.decode()
+    # Create an AES cipher object with the loaded key
+    cipher = AES.new(encryption_key, AES.MODE_CBC)
+
+    # Pad the credit card number to a multiple of 16 bytes
+    padded_cc_number = cc_number + ' ' * (16 - len(cc_number) % 16)
+
+    # Encrypt the padded credit card number using AES-256 in CBC mode
+    encrypted_cc_number = cipher.encrypt(padded_cc_number)
+
+    return encrypted_cc_number
+
+def decrypt_credit_card(encrypted_cc_number):
+    # Load encryption key from config file
+    with open('encryption_key.txt', 'r') as f:
+        encryption_key = f.read().strip()
+
+    # Create an AES cipher object with the loaded key
+    cipher = AES.new(encryption_key, AES.MODE_CBC)
+
+    # Decrypt the encrypted credit card number using AES-256 in CBC mode
+    decrypted_cc_number = cipher.decrypt(encrypted_cc_number)
+
+    return decrypted_cc_number

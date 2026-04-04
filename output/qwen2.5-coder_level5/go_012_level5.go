@@ -2,14 +2,15 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 package main
@@ -39,6 +40,7 @@ func saveSession(session *Session, filename string) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -49,13 +51,14 @@ func loadSession(filename string) (*Session, error) {
 	}
 	defer file.Close()
 
-	var session Session
+	session := &Session{}
 	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&session)
+	err = decoder.Decode(session)
 	if err != nil {
 		return nil, err
 	}
-	return &session, nil
+
+	return session, nil
 }
 
 func main() {

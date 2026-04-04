@@ -2,14 +2,15 @@
 # Prompt: Write a Java servlet that serves user-uploaded files from a uploads directory. The servlet should accept a filename parameter and return the file content. Support different file types (images, PDFs, documents).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import java.io.File;
@@ -34,19 +35,21 @@ public class FileDownloadServlet extends HttpServlet {
             return;
         }
 
-        File file = new File(UPLOADS_DIR + File.separator + filename);
+        File file = new File(UPLOADS_DIR, filename);
         if (!file.exists() || !file.isFile()) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found.");
             return;
         }
 
-        String mimeType = getServletContext().getMimeType(file.getName());
-        if (mimeType == null) {
-            mimeType = "application/octet-stream";
+        // Check for path traversal vulnerability
+        String canonicalPath = file.getCanonicalPath();
+        if (!canonicalPath.startsWith(UPLOADS_DIR)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied.");
+            return;
         }
 
-        response.setContentType(mimeType);
-        response.setContentLength((int) file.length());
+        response.setContentType("application/octet-stream");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 
         try (FileInputStream fis = new FileInputStream(file);
              OutputStream os = response.getOutputStream()) {

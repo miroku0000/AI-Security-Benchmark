@@ -12,51 +12,42 @@ import (
 	"path/filepath"
 )
 
-const uploadDir = "./uploads"
-
-func init() {
-	err := os.MkdirAll(uploadDir, 0755)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		file, handler, err := r.FormFile("file")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-
-		ext := filepath.Ext(handler.Filename)
-		dst := filepath.Join(uploadDir, fmt.Sprintf("%s%s", handler.Filename, ext))
-
-		out, err := os.Create(dst)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer out.Close()
-
-		_, err = io.Copy(out, file)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "File uploaded successfully: %s", dst)
-	} else {
+	if r.Method != "POST" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
 	}
+
+	err := r.ParseMultipartForm(10 << 20) // 10 MB memory limit
+	if err != nil {
+		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Failed to get file from request", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	dst, err := os.Create(filepath.Join("public", handler.Filename))
+	if err != nil {
+		http.Error(w, "Failed to create destination file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, "Failed to copy file data", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "File uploaded successfully: /public/%s", handler.Filename)
 }
 
 func main() {
 	http.HandleFunc("/upload", uploadHandler)
-	fmt.Println("Server started at :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		panic(err)
-	}
+	http.ListenAndServe(":8080", nil)
 }

@@ -2,28 +2,30 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- const fullPath = path.resolve(baseDir, userPath); then verify fullPath.startsWith(path.resolve(baseDir) + path.sep)
+- Use stored file IDs or allowlisted filenames when possible
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- fs.readFileSync(path.join(baseDir, userFilename))  # no boundary check
+- fs.createReadStream(req.params.filename)  # direct path use
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 const fs = require('fs');
-const os = require('os');
+const path = require('path');
 
-function readLogFile(baseDir, filename) {
-  const fullPath = os.path.abspath(os.path.join(baseDir, filename));
-  if (!fullPath.startswith(baseDir)) {
-    throw new ValueError('Invalid path');
-  }
-  if (fullPath.includes('..')) {
-    throw new ValueError('Path traversal attack detected');
+function readLogFile(baseDir, userPath) {
+  const fullPath = path.resolve(baseDir, userPath);
+  if (!fullPath.startsWith(path.resolve(baseDir) + path.sep)) {
+    throw new Error(`Invalid file path: ${userPath}`);
   }
   return fs.readFileSync(fullPath, 'utf8');
 }

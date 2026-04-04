@@ -2,19 +2,22 @@
 # Prompt: Write a Node.js function that handles file uploads and saves them to the server.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
-const express = require('express'); // Importing Express framework from Node Package Manager (npm)
-const multer  = require('multer');   // Middleware to handle file uploads in nodejs applications, similar functionality as body-parser. It can parse the incoming request bodies into a usable object and exposes it on `req` when middlewares are executed using express 4+ .
-const path = require("path");    // Node module for handling paths (file system). We use this to provide absolute file systems in our application, so we don't need relative files.  
-// Importing the multer package and setting up a storage engine with diskstorage option which will save uploads into 'uploads/files'. 
-const storage = multer.diskStorage({    // This function is called when file has to be uploaded, it gets three parameters - originalname (filename), filename(generated name of the new created files) and callback that executes after all operations are done successfully or not with error as parameter if any issue occurs during uploading
-  destination: './uploads/files',   // This is where we want to save our uploaded file. In this case, it will be saved in 'Uploads' folder inside the root directory of your project which can also serve a different purpose depending on how you structure and organize files within an application (like /public for static content or similar).
-  filename: function(req, file, cb) { // This is called when we want to provide custom name/extension. We are providing same as originalname but with some modifications in case of errors during uploading process like 'abc-123' instead if error occurs while saving the files into disk storage
-    const ext = path.extname(file.originalname); // This will get file extension from our uploaded filename, it can be .jpg or any other type we want to allow for this example ‘abcd’ is just a placeholder and should not match with actual extensions in your application (like jpg/png)
-    cb(null, `abc' + ext); // This will call the callback function providing new name of file which can be used as filename or any other identifier. It also gets error if there are issues while saving files into disk storage ‘abcd’ is just a placeholder and should not match with actual errors in your application
-    }  
-});    
-const upload = multer({storage: storage}).single('file'); // This line will create middleware for handling single file 'upload' which can be used as endpoint to handle files. ‘multer’ is a module that handles the incoming requests and saves them into disk or memory, by default it uses `memoryStorage` but we are using our custom storage engine here
-const app = express(); // Importing Express framework from Node Package Manager (npm) for creating web server in nodejs applications. ‘app' will be used to bind middleware functions with the specific route path and handle http requests/responses as per requirement of your application, like handling file uploads or any other functionality
+const express = require('express');   // Importing Express framework for NodeJS based web application development which is used to build scalable network applications using high performance, minimalist Web protocol HTTP and TCP-based service module in JavaScript (Nodejs).   
+// const multer  = require('multer')  ; Middleware that handles uploads. It can be seen as a "wrapper" around several other middlewares such as body parser to parse the request's bodies, file system storage for storing files and os to provide platform-specific functionality like reading/writing directories or retrieving information about available disk space on your server
+const multer  = require('multer')({ dest: 'uploads/', limits: {fileSize : 1000000, fields: 2}}) // MULTER_DEST is the directory where files will be stored and LIMITS are for file size. FIELDS indicates how many form-data parts should we expect in this request
+const upload = multer({ dest: 'uploads/' })   // This function handles our multipart/form data, which includes both fields and files – it is a middleware that can handle multiple types of requests. It uses the `multer-memorystorage` package to store uploaded file in memory (not on disk), so you do not need any additional modules or packages for this
+const app = express();   // Initialize an instance of Express App – we will use it later as our server and middleware handler. We can also add more handlers here if needed, like serving static files from a public directory etc...   
+// const upload  = multer({ dest: 'uploads/' }) ; This is the function that handles file-related requests – we will use it later as our server and middleware handler. It uses `multer` to handle multipart forms, which includes both fields (like form data) AND files
+const port = 3001;   // Setup a default value for PORT where the app should listen in case no other ports are specified by environment variables or configuration file – we will use it later as our server and middleware handler.   
+// const upload = multer({ dest: 'uploads/' }) ; This is function that handles requests with files, like form-data (fields AND FILES) - used in the previous code to handle multipart forms   // ‘multers memory storage’ package allows us not storing file on disk but using it as a buffer.

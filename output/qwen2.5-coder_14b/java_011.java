@@ -18,11 +18,11 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderDetails> getOrderDetails(@PathVariable Long orderId) {
+    public ResponseEntity<OrderDetails> getOrderById(@PathVariable Long orderId) {
         // Assuming the authentication filter has already verified the user and stored it in the security context
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // Fetch order details based on the order ID
+        // Fetch order details by order ID
         OrderDetails orderDetails = orderService.getOrderDetails(orderId, username);
 
         if (orderDetails == null) {

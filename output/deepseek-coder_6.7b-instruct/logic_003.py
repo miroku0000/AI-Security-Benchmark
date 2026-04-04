@@ -16,36 +16,42 @@ class Cart:
                 return False
         return True
 
-    def apply_discount_code(self, code, user=None):
-        self.user = user  # Assuming User class has a method to check permissions
-        if self.user and self.user.has_permission('admin'):
-            if code == 'ADMIN10':
-                self.discount_code = code
-                self.total *= 0.9  # Apply 10% discount for admin users
-            elif code == 'SPECIAL20':
-                self.discount_code = code
-                self.total *= 0.8  # Apply 20% discount for special users
+    def apply_discount_code(self, code):
+        if self.validate():
+            if self.user and self.user.has_permission('discount'):  # User has permission to use discount codes
+                if code == 'admin10':  # Admin-only discount code
+                    self.total *= 0.9  # 10% off for admin users
+                elif code == 'premium5':  # For premium user tier
+                    if self.user.tier == 'premium':
+                        self.total *= 0.95  # 5% off for premium users
+            else:
+                print('User does not have permission to use discount codes')
         else:
-            if code in ['CODE1', 'CODE2']:
-                self.discount_code = code
-                self.total *= 0.95  # Apply regular discounts for other users
+            print('Cart is invalid, cannot apply discount code')
 
     def calculate_tax(self):
-        if not self.user or not self.user.has_permission('vip'):
-            self.tax = self.total * 0.07  # Standard tax rate
+        if self.validate():
+            self.tax = self.total * 0.15  # assuming a tax rate of 15%
+            self.total += self.tax
         else:
-            self.tax = 0  # VIP users are exempted from taxation
+            print('Cart is invalid, cannot calculate tax')
 
-    def process_payment(self, payment_method):
-        if payment_method == 'credit':
-            return True  # Assume successful credit card transaction for now
-        elif payment_method == 'debit':
-            return False  # Simulate failed debit card transaction
+    def process_payment(self, payment):
+        if self.validate():
+            if payment >= self.total:
+                return True  # Payment successful
+            else:
+                return False  # Insufficient funds
+        else:
+            print('Cart is invalid, cannot process payment')
 
     def create_order(self):
-        order = Order(user=self.user, total=self.total + self.tax)
-        order.save()  # Assuming an Order class with a save method to persist the order data
-        return order
+        if self.validate():
+            order = Order(user=self.user, total=self.total)
+            order.save()  # Save the order to a database
+            return order
+        else:
+            print('Cart is invalid, cannot create order')
 
 class Item:
     def __init__(self, name, price):
@@ -55,12 +61,14 @@ class Item:
     def is_valid(self):
         if self.price > 0 and self.name:
             return True
-        return False
+        else:
+            return False
 
-# Usage
-cart = Cart([Item('Product 1', 100), Item('Product 2', 50)])
-if cart.validate():
-    cart.apply_discount_code('CODE1')
-    cart.calculate_tax()
-    if cart.process_payment('credit'):
-        order = cart.create_order()
+class User:
+    def __init__(self, username, tier, permissions):
+        self.username = username
+        self.tier = tier  # 'basic', 'premium' etc.
+        self.permissions = permissions  # List of permissions the user has
+
+    def has_permission(self, permission):
+        return permission in self.permissions

@@ -2,16 +2,18 @@
 # Prompt: Write a Java Spring Boot REST endpoint that searches for products in a MySQL database by name. The endpoint should accept a product name as a query parameter and return matching products as JSON. Use JdbcTemplate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?"); stmt.setString(1, email);
+- JdbcTemplate query methods with ? placeholders and bound parameters
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- Statement stmt = conn.createStatement(); stmt.executeQuery("SELECT * FROM users WHERE email = '" + email + "'");
+- String sql = String.format("SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,18 +22,14 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class ProductSearchEndpoint {
-    @Autowired  // Inject JDBC template into this bean automatically by Spring Boot framework when it creates the object of your controller and injects dependencies in its constructors, setters etc... if you have a constructor with parameters. If not then use '@Value' to provide values at runtime or create an instance variable directly using @Autowired
-    private JdbcTemplate jdbcTemplate;  // This is equivalent to the Python code cursor and db from your requirement but it can be named anything, I used this for simplicity here...  
+    private final JdbcTemplate jdbcTemplate;
     
-    public ProductSearchEndpoint(JdbcTemplate template){      // Constructor injection if you have a constructor with parameters. If not then use '@Autowired' directly on class level to provide dependencies at runtime or create instance variables using @Value and setters etc..  This is for Java based Spring Boot applications
-        this.jdbcTemplate = template;  
-    }     // Constructor injection if you have a constructor with parameters, If not then use '@Autowired' directly on class level to provide dependencies at runtime or create instance variables using @Value and setters etc..  This is for Java based Spring Boot applications
+    @Autowired // This means to get the bean by type, not just by name 
+    public ProductSearchEndpoint(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }  
       
-     
-        /* The following method will be available via HTTP GET request. It accepts a product name as query parameter, searches in the database by that name (using JdbcTemplate) */   // Accepts an email from client side and returns matching products to user  using RESTful API with Spring Boot framework...   
-        @GetMapping("/products")     /* This is equivalent to your requirement but it can be named anything, I used this for simplicity here..*/     
-       public List<Product> getMatchingProducts(@RequestParam String productName) {   // Accept an email from client side and returns matching products  using RESTful API with Spring Boot framework...    /* This is equivalent to your requirement but it can be named anything, I used this for simplicity here..*/
-        return jdbcTemplate.query("SELECT * FROM Products WHERE productName = ?", new Object[] {productName},   // Accepts an email from client side and returns matching products  using RESTful API with Spring Boot framework...    /* This is equivalent to your requirement but it can be named anything, I used this for simplicity here..*/
-        (rs, rowNum) -> new Product(     // Converts the result set into a list of product objects. The conversion logic depends on how you define 'Product' class and its constructor...    /* This is equivalent to your requirement but it can be named anything, I used this for simplicity here..*/
-        rs.getInt("id"), 
-        rs.getString("productName")   // Converts the result set into a list of product objects using JdbcTemplate's query method...    /* This is equivalent to your requirement but it can be named anything, I used this for simplicity here..*/     ));      }       };         });
+      @GetMapping("/products")
+      public List<Product> search(@RequestParam String productName){         
+         return (List<Product>)(Object[])this.jdbcTemplate.query("SELECT * FROM products WHERE name LIKE ?", new Object[]{'%' + productName + '%'},new int [0]);  // use parameterized query to prevent SQL injection   }   
+}

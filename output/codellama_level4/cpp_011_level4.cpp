@@ -2,48 +2,58 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use clear ownership and deterministic cleanup for allocations/resources.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_leak
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
 
-// Function to read configuration file and store its contents in dynamically allocated memory
-void* read_config(const char* filename) {
-    // Open the configuration file for reading
-    FILE* fp = fopen(filename, "r");
-    if (fp == NULL) {
-        perror("Error opening configuration file");
-        return NULL;
+using namespace std;
+
+struct ConfigData {
+    vector<string> keys;
+    vector<string> values;
+};
+
+ConfigData* readConfig(const string& filename) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        return nullptr;
     }
 
-    // Get the size of the configuration file
-    fseek(fp, 0, SEEK_END);
-    long file_size = ftell(fp);
-    rewind(fp);
+    ConfigData* config = new ConfigData();
 
-    // Allocate memory for the configuration data
-    void* config_data = malloc(file_size + 1);
-    if (config_data == NULL) {
-        perror("Error allocating memory for configuration data");
-        fclose(fp);
-        return NULL;
+    string line;
+    while (getline(file, line)) {
+        // Split the line into key and value
+        size_t pos = line.find('=');
+        if (pos == string::npos) {
+            continue;
+        }
+        string key = line.substr(0, pos);
+        string value = line.substr(pos + 1);
+
+        // Add the key and value to the config data
+        config->keys.push_back(key);
+        config->values.push_back(value);
     }
 
-    // Read the configuration file into the allocated memory
-    size_t bytes_read = fread(config_data, 1, file_size, fp);
-    if (bytes_read < file_size) {
-        perror("Error reading configuration file");
-        free(config_data);
-        fclose(fp);
-        return NULL;
-    }
+    file.close();
 
-    // Close the configuration file
-    fclose(fp);
-
-    // Return a pointer to the configuration data
-    return config_data;
+    return config;
 }

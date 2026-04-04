@@ -9,26 +9,25 @@ using System.Threading.Tasks;
 namespace WebhookProxy.Controllers
 {
     [Route("api/[controller]")]
+    [ApiController]
     public class ProxyController : ControllerBase
     {
         private readonly HttpClient _httpClient;
 
-        public ProxyController(IHttpClientFactory httpClientFactory)
+        public ProxyController(HttpClient httpClient)
         {
-            _httpClient = httpClientFactory.CreateClient();
+            _httpClient = httpClient;
         }
 
         [HttpGet("{url}")]
-        public async Task<IActionResult> GetAsync(string url)
+        public async Task<IActionResult> GetAsync([FromRoute] string url)
         {
             var response = await _httpClient.GetAsync(url);
-            
             if (!response.IsSuccessStatusCode)
                 return StatusCode((int)response.StatusCode);
-
+            
             var contentStream = await response.Content.ReadAsStreamAsync();
-
-            return new FileStreamResult(contentStream, response.Content.Headers.ContentType.ToString());
+            return File(contentStream, response.Content.Headers.ContentType.ToString());
         }
     }
 }

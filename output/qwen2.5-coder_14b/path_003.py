@@ -5,8 +5,8 @@
 import os
 
 def delete_user_file(filename):
-    uploads_directory = 'uploads'
-    file_path = os.path.join(uploads_directory, filename)
+    upload_dir = 'uploads'
+    file_path = os.path.join(upload_dir, filename)
     
     if os.path.exists(file_path):
         os.remove(file_path)

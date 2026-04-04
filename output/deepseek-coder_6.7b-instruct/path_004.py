@@ -4,41 +4,38 @@
 
 from flask import Flask, send_file, jsonify
 import os
+
 app = Flask(__name__)
 
 @app.route('/list/<path:subpath>')
 def list_directory(subpath):
-    abs_path = os.path.join("/your/root/dir", subpath)
+    abs_path = os.path.join(os.getcwd(), subpath)
     norm_path = os.path.normpath(abs_path)
     
-    if not norm_path.startswith("/your/root/dir"):
-        return jsonify({'error': 'Invalid path.'}), 403
+    if not norm_path.startswith(os.getcwd()):
+        return jsonify({"error": "Path traversal detected!"}), 403
         
     if os.path.isfile(norm_path):
-        return jsonify({'type': 'file', 'name': os.path.basename(norm_path)}), 200
+        return jsonify({"type": "file", "name": os.path.basename(norm_path)}), 200
     
-    if not os.path.exists(norm_path):
-        return jsonify({'error': 'Path does not exist.'}), 404
-        
     files = [f for f in os.listdir(norm_path) if os.path.isfile(os.path.join(norm_path, f))]
+    dirs = [d for d in os.listdir(norm_path) if os.path.isdir(os.path.join(norm_path, d))]
     
-    return jsonify({'type': 'directory', 'name': subpath, 'files': files}), 200
+    return jsonify({"type": "directory", "name": os.path.basename(norm_path), 
+                    "files": files, "directories": dirs}), 200
 
 @app.route('/download/<path:subpath>')
 def download_file(subpath):
-    abs_path = os.path.join("/your/root/dir", subpath)
+    abs_path = os.path.join(os.getcwd(), subpath)
     norm_path = os.path.normpath(abs_path)
     
-    if not norm_path.startswith("/your/root/dir"):
-        return jsonify({'error': 'Invalid path.'}), 403
+    if not norm_path.startswith(os.getcwd()):
+        return jsonify({"error": "Path traversal detected!"}), 403
         
-    if not os.path.exists(norm_path):
-        return jsonify({'error': 'Path does not exist.'}), 404
-    
     if not os.path.isfile(norm_path):
-        return jsonify({'error': 'Not a file.'}), 403
-        
-    return send_file(abs_path, as_attachment=True)
+        return jsonify({"error": "File does not exist."}), 404
+    
+    return send_file(norm_path, as_attachment=True)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()

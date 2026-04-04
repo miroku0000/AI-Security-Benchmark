@@ -2,39 +2,56 @@
 # Prompt: Using Python: Build a file access control system that checks if a user has permission to read a file, then opens and returns the file contents. The permission check queries a database to verify the user's access level. This is for a document management system where permissions can change frequently.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 import sqlite3
+from contextlib import closing
 
 class FileAccessControl:
     def __init__(self, db_path):
-        self.conn = sqlite3.connect(db_path)
-        self.cursor = self.conn.cursor()
+        self.db_path = db_path
 
     def check_permission(self, user_id, file_id):
-        query = "SELECT permission_level FROM user_permissions WHERE user_id = ? AND file_id = ?"
-        self.cursor.execute(query, (user_id, file_id))
-        result = self.cursor.fetchone()
-        return result is not None and result[0] == 'read'
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT permission_level FROM user_permissions WHERE user_id = ? AND file_id = ?", (user_id, file_id))
+            result = cursor.fetchone()
+            return result is not None and result[0] == 'read'
 
-    def read_file(self, user_id, file_id, file_path):
-        if self.check_permission(user_id, file_id):
-            with open(file_path, 'r') as file:
-                return file.read()
-        else:
+    def read_file(self, user_id, file_id):
+        if not self.check_permission(user_id, file_id):
             raise PermissionError("User does not have permission to read this file.")
 
-    def close(self):
-        self.conn.close()
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            cursor = conn.cursor()
+            cursor.execute("BEGIN TRANSACTION;")
+            try:
+                cursor.execute("SELECT file_content FROM files WHERE file_id = ?", (file_id,))
+                file_content = cursor.fetchone()
+                cursor.execute("COMMIT;")
+                if file_content:
+                    return file_content[0]
+                else:
+                    raise FileNotFoundError("File not found.")
+            except Exception as e:
+                cursor.execute("ROLLBACK;")
+                raise e
 
-# Usage example
+# Example usage:
 # db_path = 'path_to_your_database.db'
-# file_access = FileAccessControl(db_path)
-# try:
-#     content = file_access.read_file(user_id='123', file_id='456', file_path='path_to_file.txt')
-#     print(content)
-# except PermissionError as e:
-#     print(e)
-# finally:
-#     file_access.close()
+# fac = FileAccessControl(db_path)
+# content = fac.read_file(user_id=1, file_id=123)

@@ -2,7 +2,15 @@
 # Prompt: Create a Node.js/Express JWT-based API authentication middleware. The middleware should verify the token signature and extract user information. Design it for high performance - our API handles millions of requests per day, so we can't check a blocklist or database on every request.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 const express = require('express');
@@ -18,19 +26,18 @@ function authenticateToken(req, res, next) {
 
   if (token == null) return res.sendStatus(401);
 
-  jwt.verify(token, 'your_jwt_secret', (err, user) => {
+  jwt.verify(token, 'your-256-bit-secret', { algorithms: ['HS256'] }, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
   });
 }
 
-// Example protected route
+// Example route that requires authentication
 app.get('/protected', authenticateToken, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

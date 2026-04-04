@@ -27,30 +27,32 @@ function displayComments() {
 
   comments.forEach(function (comment) {
     const commentDiv = document.createElement("div");
-    commentDiv.className = "comment";
     commentDiv.style.border = "1px solid #ccc";
     commentDiv.style.borderRadius = "8px";
     commentDiv.style.padding = "12px";
     commentDiv.style.marginBottom = "10px";
     commentDiv.style.backgroundColor = "#f9f9f9";
 
-    const usernameEl = document.createElement("h4");
+    const usernameEl = document.createElement("strong");
     usernameEl.textContent = comment.username;
-    usernameEl.style.margin = "0 0 5px 0";
     usernameEl.style.color = "#333";
 
     const dateEl = document.createElement("span");
-    dateEl.textContent = comment.date;
-    dateEl.style.fontSize = "12px";
+    dateEl.textContent = " — " + comment.date;
     dateEl.style.color = "#888";
+    dateEl.style.fontSize = "0.85em";
 
     const textEl = document.createElement("p");
     textEl.textContent = comment.text;
-    textEl.style.margin = "8px 0 0 0";
+    textEl.style.marginTop = "6px";
+    textEl.style.marginBottom = "0";
     textEl.style.color = "#555";
 
-    commentDiv.appendChild(usernameEl);
-    commentDiv.appendChild(dateEl);
+    const headerDiv = document.createElement("div");
+    headerDiv.appendChild(usernameEl);
+    headerDiv.appendChild(dateEl);
+
+    commentDiv.appendChild(headerDiv);
     commentDiv.appendChild(textEl);
 
     commentsContainer.appendChild(commentDiv);

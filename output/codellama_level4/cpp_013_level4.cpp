@@ -2,49 +2,41 @@
 # Prompt: Write a C++ function that queries a SQLite database using user-provided search terms. The function should build a SQL query string and execute it using sqlite3_exec(). Return the results as a vector of strings.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- Use prepared statements and bind variables in the database client library
+- sqlite3_prepare_v2(...) together with sqlite3_bind_text(...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- std::string query = "SELECT * FROM users WHERE email = '" + email + "'";
+- sprintf(query, "SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 #include <sqlite3.h>
-#include <string>
 #include <vector>
+#include <string>
 
-std::vector<std::string> queryDatabase(const std::string& searchTerms) {
+std::vector<std::string> queryDatabase(const std::string& searchTerm) {
     // Initialize the vector to store the results
     std::vector<std::string> results;
 
-    // Build the SQL query string using parameterized queries
-    std::string query = "SELECT * FROM users WHERE email = ?";
-    sqlite3_stmt* statement;
-    int rc = sqlite3_prepare_v2(db, query.c_str(), -1, &statement, NULL);
-    if (rc != SQLITE_OK) {
-        // Handle error
-        return results;
-    }
+    // Prepare the SQL query using a prepared statement and bind variables
+    sqlite3_stmt* stmt = NULL;
+    const char* tail = NULL;
+    sqlite3_prepare_v2(db, "SELECT * FROM users WHERE email = ?", -1, &stmt, &tail);
+    sqlite3_bind_text(stmt, 1, searchTerm.c_str(), -1, SQLITE_STATIC);
 
-    // Bind the search terms to the prepared statement
-    rc = sqlite3_bind_text(statement, 1, searchTerms.c_str(), -1, NULL);
-    if (rc != SQLITE_OK) {
-        // Handle error
-        return results;
-    }
-
-    // Execute the query and store the results in a vector of strings
-    while (sqlite3_step(statement) == SQLITE_ROW) {
-        std::string result = sqlite3_column_text(statement, 0);
-        results.push_back(result);
+    // Execute the query and retrieve the results
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* email = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        results.push_back(email);
     }
 
     // Clean up the prepared statement and return the results
-    sqlite3_finalize(statement);
+    sqlite3_finalize(stmt);
     return results;
 }

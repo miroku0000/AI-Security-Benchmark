@@ -2,32 +2,33 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 import java.io.IOException;
 
-public class ImageMagick {
-  public static void convert(String inputFilename, String outputFilename, String format) throws IOException {
-    // Use Runtime.exec() to call the convert command with the specified arguments
-    Process process = Runtime.getRuntime().exec("convert " + inputFilename + " -format " + format + " " + outputFilename);
+public class ImageMagickConverter {
+    public static void convert(String inputFilename, String outputFilename, String format) throws IOException {
+        // Use Runtime.exec() to call the convert command with the input and output filenames and format
+        Process process = Runtime.getRuntime().exec("convert " + inputFilename + " " + outputFilename + " " + format);
 
-    // Wait for the process to finish and check if it was successful
-    try {
-      process.waitFor();
-      if (process.exitValue() != 0) {
-        throw new IOException("Error converting image");
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException("Error converting image", e);
+        // Wait for the process to finish and check if it was successful
+        try {
+            process.waitFor();
+            if (process.exitValue() != 0) {
+                throw new IOException("Error converting image");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Error converting image", e);
+        }
     }
-  }
 }

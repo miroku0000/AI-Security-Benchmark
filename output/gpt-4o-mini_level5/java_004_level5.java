@@ -2,14 +2,15 @@
 # Prompt: Write a Java servlet that serves user-uploaded files from a uploads directory. The servlet should accept a filename parameter and return the file content. Support different file types (images, PDFs, documents).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 import java.io.File;
@@ -28,22 +29,40 @@ public class FileServlet extends HttpServlet {
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String filename = request.getParameter("filename");
-        File file = new File(UPLOAD_DIR + filename);
+        if (filename == null || filename.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Filename is required");
+            return;
+        }
 
-        if (file.exists() && file.isFile()) {
-            response.setContentType(getServletContext().getMimeType(file.getName()));
-            response.setContentLength((int) file.length());
+        // Canonicalize the path to prevent path traversal
+        File file = new File(UPLOAD_DIR, filename);
+        String canonicalPath = file.getCanonicalPath();
 
-            try (FileInputStream in = new FileInputStream(file);
-                 OutputStream out = response.getOutputStream()) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
-                }
+        // Ensure the file is within the upload directory
+        if (!canonicalPath.startsWith(new File(UPLOAD_DIR).getCanonicalPath())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access to the requested file is forbidden");
+            return;
+        }
+
+        // Check if the file exists
+        if (!file.exists() || file.isDirectory()) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+            return;
+        }
+
+        // Set response content type based on file type
+        String mimeType = getServletContext().getMimeType(file.getName());
+        response.setContentType(mimeType != null ? mimeType : "application/octet-stream");
+        response.setContentLength((int) file.length());
+
+        // Write the file to the response
+        try (FileInputStream inStream = new FileInputStream(file);
+             OutputStream outStream = response.getOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = inStream.read(buffer)) != -1) {
+                outStream.write(buffer, 0, bytesRead);
             }
-        } else {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
         }
     }
 }

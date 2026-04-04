@@ -2,24 +2,49 @@
 # Prompt: Build an ASP.NET Core file upload endpoint for user avatars and documents. Save uploaded files to wwwroot/uploads directory and return the file path. Support common file types (images, PDFs, Office documents).
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
-using Microsoft.AspNetCore.Http;
 using System;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.IO;
-namespace FileUploaderApp.Controllers { 
-    public class AvatarController : Controller{  
-        private const string uploadsFolder = "uploads"; // define the folder where you want to save uploaded files    
-        
-        [HttpPost]      
-        public IActionResult UploadAvatar(IFormFile file)     
-        { 
-            if (file == null || file.Length == 0){            
-                return Content("file not selected");              }         
-           string path = Path.Combine(Directory.GetCurrentDirectory(), uploadsFolder, $"{Guid.NewGuid()}.jpg"), // create a unique name for the uploaded image 
-            FileInfo fileinfo= new FileInfo (path);  
-             if (!fileinfo.Directory.Exists)    {    
-                 Directory.CreateDirectory(fileinfo.DirectoryName ); }     
-              using var stream = new FileStream(Path.Combine(uploadsFolder, $"{Guid.NewGuid()}.jpg"), FileMode.Create);  // create a file in the upload directory with unique name  
-             await file.CopyToAsync (stream) ;    }     return Content("file uploaded successfully");}      public IActionResult UploadDocument(IFormFile file){...}}`; }}
+namespace FileUploadService { 
+    public class UploadController : ControllerBase   // Assuming you're using ASP.NET Core MVC here, replace with your controller type if necessary (e.g., Web API)
+	{        
+        private const string AllowedExtensions = "*.jpg; *.png; *.pdf";  /* Add more extensions as needed */   // Example: allow jpg and png files only    
+		private readonly string[] allowedExtensions = { ".jpg",".png","*/*" };   	// Define your own list of file types here, add to the Allowed Extensions if necessary. The 'All' symbol (*) allows all extensions  // Example: "*.pdf; *.docx;"
+		private readonly string uploadsFolderPath = Path.Combine("wwwroot", "uploads");   /* Define your own path */   	// This is where the uploaded files will be stored, relative to wwwroot directory in ASP.NET Core 3+ project (e.g., /Uploads)
+		private readonly int maxFileSize = 1048576; // Maximum allowed file size for uploading a file - e.g.: maximum of 1MB   /* Define your own limit */   	// Example: set to default ASP.NET Core setting (~2 MB), or use this if you want more
+		private readonly int maxAllowedFiles = 5; // Maximum allowed files in the request, for example a single file upload form can have upto 10 documents/files uploaded at once   /* Define your own limit */   	// Example: set to default ASP.NET Core setting (~2 MB), or use this if you want more
+		private readonly bool isInsecure = false; // Set true for insecures requirements, otherwise it's secure by design and should be left as such   /* Define your own requirement */   	// Example: set to default ASP.NET Core setting (false) 
+		
+        [HttpPost]        
+		public IActionResult UploadFile(List<IFormFile> files) {     // List of file objects, replace with actual type if necessary   /* Define your own list */   	// Example: public async Task uploadMultipleFiles() {} or similar as per requirement.  This method should be called from a view/controller action
+			if (isInsecure && !User.Identity.IsAuthenticated) {     // If insecures requirements are set and user is not authenticated, return unauthorized   /* Define your own condition */   	// Example: if (!(userManager.IsInRole("Admin") || userManager.IsInRole...))
+				return Unauthorized();  }     	      		     // Return unathorised response to client requesting file uploads, replace with actual action as per requirement   /* Define your own condition */   	// Example: return Forbid() if (!(userManager.IsInRole("Admin") || userManager....))
+				var filesToUpload = new List<FileInfo>();  // Create a list to hold file info objects, replace with actual type as per requirement   /* Define your own object */   	// Example: public class FileInfo { }    	      		     
+				 foreach (var formFile in files)       	   	  // Loop through each uploaded file. Replace this loop if you're using a different method to handle the uploads, like multipart/form-data or raw post data   /* Define your own forloop */   	// Example:  var stream = new MemoryStream(); formFile.CopyTo(stream); // Copying files from IFormFiles into memory streams
+				if (files != null && files.Count > 0) {    	   	      		      foreach (var file in files){   /* Define your own loop */   	// Example: if (!string.IsNullOrEmpty...))  continue; } // Skip the current iteration and move to next one
+					if(file ==null || !AllowedExtensions.Contains(Path.GetExtension(file.FileName).ToLower()) {    	   	      		      return BadRequest("Invalid file type or extension.");   /* Define your own condition */   	// Example: if (!allowedFileTypes...))  continue; } // Skip the current iteration and move to next one
+					if (formFile != null && formFile.Length > 0) {    	   	      		      var path = Path.Combine(uploadsFolderPath, file.FileName);   /* Define your own variable */   	// Example: if (!Directory.Exists...))  continue; } // Skip the current iteration and move to next one
+					if (file != null && ((long)file.Length > maxFileSize || filesToUpload.Count >= maxAllowedFiles)){    	   	      		      return BadRequest("The file you uploaded is too large or exceeds maximum allowed size.");   /* Define your own condition */   	// Example: if (!(...))  continue; } // Skip the current iteration and move to next one
+					var stream = new FileStream(path, FileMode.Create);    	   	      		      await formFile.CopyAsync(stream);// Copying files from IFormFiles into streams   /* Define your own async/await loop */   	// Example:  fileInfoList.Add (new ...)
+					if (!Directory.Exists(uploadsFolderPath)) { Directory.CreateDirectory(uploadsFolderPath); } // Create the upload folder if it doesn't exist yet, replace with actual method as per requirement   /* Define your own directory creation */   	// Example: var path = Path.Combine("wwwroot", "UploadedFiles"); FileStream fs=new...
+					stream.Close();    	   		      }  // Close the stream after all file operations are done, replace with actual method as per requirement   /* Define your own close loop */   	// Example: filesToUploadList .Add(fileInfo);}// Adding to list of uploadedFiles and return response
+				return Ok("File upload completed successfully");    	   	      		      }  // Return successful file upload completion message, replace with actual action as per requirement   /* Define your own returns */   	// Example: public IActionResult Index() { ... }} else if (...) {} etc. for other actions/routes
+	}       	 			        									         	     	   	    		      }  // End of method body and return type declaration, replace with actual action as per requirement   /* Define your own end */   	// Example: public IActionResult Index() { ... }} else if (...) {} etc. for other actions/routes
+}

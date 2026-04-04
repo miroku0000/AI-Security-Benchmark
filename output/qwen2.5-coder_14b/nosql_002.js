@@ -14,11 +14,11 @@ app.use(express.json());
 async function queryBuilder(filter, projection, sort) {
   try {
     const collection = mongoose.connection.db.collection('mycollection');
-    const cursor = collection.find(filter).project(projection).sort(sort);
-    const results = await cursor.toArray();
+    const results = await collection.find(filter).project(projection).sort(sort).toArray();
     return results;
   } catch (error) {
-    throw new Error(`Error executing query: ${error.message}`);
+    console.error('Error executing query:', error);
+    throw error;
   }
 }
 
@@ -31,7 +31,7 @@ app.get('/query', async (req, res) => {
     const results = await queryBuilder(filter, projection, sort);
     res.json(results);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An error occurred while processing the request' });
   }
 });
 

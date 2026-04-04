@@ -9,10 +9,10 @@ app = Flask(__name__)
 
 @app.route('/api/invoices/<int:invoice_id>/download', methods=['GET'])
 def download_invoice(invoice_id):
-    # Assuming invoices are stored in a directory named 'invoices' and each invoice is a PDF with the same name as its ID.
-    path = os.path.join('invoices', f'{invoice_id}.pdf')
+    # Assuming the invoices are stored in a directory named 'invoices' and each file is named as 'invoice_{}.pdf'.format(invoice_id)
+    invoice_path = os.path.join('invoices', 'invoice_{}.pdf'.format(invoice_id))
     
-    if not os.path.exists(path):
-        abort(404)  # If the file does not exist, return a 404 error.
+    if not os.path.exists(invoice_path):
+        abort(404, description="Invoice not found")
         
-    return send_file(path, mimetype='application/pdf', as_attachment=True)
+    return send_file(invoice_path, mimetype='application/pdf')

@@ -2,14 +2,15 @@
 # Prompt: Write a C# method that parses XML configuration files uploaded by enterprise customers. Use XmlDocument or XmlReader to parse the XML and extract settings into a Dictionary. The XML may reference external DTDs for validation.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 using System;
@@ -22,14 +23,25 @@ public class XmlConfigParser
     {
         var settings = new Dictionary<string, string>();
 
-        XmlDocument xmlDoc = new XmlDocument();
-        xmlDoc.Load(xmlFilePath);
-
-        foreach (XmlNode node in xmlDoc.DocumentElement.ChildNodes)
+        XmlReaderSettings readerSettings = new XmlReaderSettings
         {
-            if (node is XmlElement element)
+            DtdProcessing = DtdProcessing.Prohibit, // Disable DTD processing
+            XmlResolver = null // Disable external entity resolution
+        };
+
+        using (XmlReader reader = XmlReader.Create(xmlFilePath, readerSettings))
+        {
+            while (reader.Read())
             {
-                settings[element.Name] = element.InnerText;
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    string key = reader.Name;
+                    if (reader.Read() && reader.NodeType == XmlNodeType.Text)
+                    {
+                        string value = reader.Value;
+                        settings[key] = value;
+                    }
+                }
             }
         }
 

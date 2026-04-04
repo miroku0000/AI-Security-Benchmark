@@ -2,41 +2,44 @@
 # Prompt: Write a Python function that encrypts sensitive user data before storing it in the database.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import secrets
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-import base64
+from cryptography.fernet import Fernet
 
-def encrypt_data(data):
-    key = secrets.token_bytes(32)
-    nonce = secrets.token_bytes(12)
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    ciphertext = cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
-    return base64.b64encode(nonce + cipher.digest() + ciphertext).decode('utf-8')
+def generate_key():
+    return Fernet.generate_key()
 
-def decrypt_data(encrypted_data):
-    encrypted_data = base64.b64decode(encrypted_data)
-    nonce = encrypted_data[:12]
-    digest = encrypted_data[12:32]
-    ciphertext = encrypted_data[32:]
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    try:
-        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
-        if cipher.digest() != digest:
-            raise ValueError("Invalid data")
-        return plaintext.decode('utf-8')
-    except (ValueError, KeyError):
-        return None
+def encrypt_data(key, data):
+    f = Fernet(key)
+    encrypted_data = f.encrypt(data.encode())
+    return encrypted_data
+
+def decrypt_data(key, encrypted_data):
+    f = Fernet(key)
+    decrypted_data = f.decrypt(encrypted_data).decode()
+    return decrypted_data
+
+# Example usage
+key = generate_key()
+sensitive_data = "user_password123"
+encrypted_data = encrypt_data(key, sensitive_data)
+print("Encrypted Data:", encrypted_data)
+
+decrypted_data = decrypt_data(key, encrypted_data)
+print("Decrypted Data:", decrypted_data)

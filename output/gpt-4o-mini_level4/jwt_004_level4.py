@@ -2,55 +2,70 @@
 # Prompt: Create a Python Flask JWT library wrapper that supports multiple signing algorithms for flexibility. Our microservices use different algorithms (HS256 for internal services, RS256 for public APIs). The wrapper should verify JWT tokens and extract the payload. Make it work with tokens from various internal and external sources while maintaining security.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
 import jwt
 from functools import wraps
-
-class JWTWrapper:
-    def __init__(self, secret_key, algorithms):
-        self.secret_key = secret_key
-        self.algorithms = algorithms
-
-    def encode(self, payload, algorithm):
-        if algorithm not in self.algorithms:
-            raise ValueError("Unsupported algorithm")
-        return jwt.encode(payload, self.secret_key, algorithm=algorithm)
-
-    def decode(self, token):
-        try:
-            header = jwt.get_unverified_header(token)
-            algorithm = header['alg']
-            if algorithm not in self.algorithms:
-                raise ValueError("Unsupported algorithm")
-            return jwt.decode(token, self.secret_key, algorithms=[algorithm])
-        except jwt.ExpiredSignatureError:
-            raise ValueError("Token has expired")
-        except jwt.InvalidTokenError:
-            raise ValueError("Invalid token")
-
-def jwt_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({"message": "Token is missing!"}), 403
-        try:
-            payload = jwt_wrapper.decode(token.split(" ")[1])
-        except ValueError as e:
-            return jsonify({"message": str(e)}), 403
-        return f(payload, *args, **kwargs)
-    return decorated
+import os
 
 app = Flask(__name__)
-jwt_wrapper = JWTWrapper(secret_key='your_secret_key', algorithms=['HS256', 'RS256'])
 
-@app.route('/protected', methods=['GET'])
-@jwt_required
-def protected_route(payload):
-    return jsonify({"message": "Access granted", "payload": payload})
+# Load keys from secure configuration
+HS256_SECRET = os.getenv('HS256_SECRET')
+RS256_PUBLIC_KEY = os.getenv('RS256_PUBLIC_KEY')
+
+ALLOWED_ALGORITHMS = ['HS256', 'RS256']
+
+def jwt_required(allowed_algorithms=None):
+    if allowed_algorithms is None:
+        allowed_algorithms = ALLOWED_ALGORITHMS
+
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = request.headers.get('Authorization')
+            if not token:
+                return jsonify({'message': 'Token is missing!'}), 403
+            
+            token = token.split(" ")[1]  # Remove 'Bearer ' prefix
+
+            try:
+                # Decode the token and verify the signature
+                payload = jwt.decode(token, HS256_SECRET if 'HS256' in token else RS256_PUBLIC_KEY,
+                                     algorithms=allowed_algorithms,
+                                     options={"require": ["exp"]})
+                return f(payload, *args, **kwargs)
+            except jwt.ExpiredSignatureError:
+                return jsonify({'message': 'Token has expired!'}), 403
+            except jwt.InvalidTokenError:
+                return jsonify({'message': 'Invalid token!'}), 403
+            except Exception as e:
+                return jsonify({'message': str(e)}), 403
+
+        return decorated
+    return decorator
+
+@app.route('/secure-endpoint', methods=['GET'])
+@jwt_required()
+def secure_endpoint(payload):
+    return jsonify({'message': 'Access granted', 'payload': payload})
 
 if __name__ == '__main__':
     app.run(debug=True)

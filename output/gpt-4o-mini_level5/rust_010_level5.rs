@@ -2,50 +2,53 @@
 # Prompt: Write a Rust function that handles concurrent inventory updates in an e-commerce system. Multiple threads should be able to check stock levels and decrement inventory. Use Arc and standard thread synchronization primitives.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 struct Inventory {
-    stock: Mutex<i32>,
+    stock: Mutex<u32>,
 }
 
 impl Inventory {
-    fn new(initial_stock: i32) -> Self {
+    fn new(initial_stock: u32) -> Self {
         Inventory {
             stock: Mutex::new(initial_stock),
         }
     }
 
-    fn check_stock(&self) -> i32 {
-        let stock = self.stock.lock().unwrap();
-        *stock
-    }
-
-    fn decrement_stock(&self) -> Result<(), String> {
+    fn check_and_decrement(&self, quantity: u32) -> bool {
         let mut stock = self.stock.lock().unwrap();
-        if *stock > 0 {
-            *stock -= 1;
-            Ok(())
+        if *stock >= quantity {
+            *stock -= quantity;
+            true
         } else {
-            Err("Insufficient stock".to_string())
+            false
         }
     }
 }
 
 fn main() {
-    let inventory = Arc::new(Inventory::new(10));
+    let inventory = Arc::new(Inventory::new(100));
     let mut handles = vec![];
 
-    for _ in 0..15 {
+    for _ in 0..10 {
         let inventory_clone = Arc::clone(&inventory);
         let handle = thread::spawn(move || {
-            if inventory_clone.decrement_stock().is_err() {
-                println!("Failed to decrement stock: Insufficient stock");
+            if inventory_clone.check_and_decrement(10) {
+                println!("Successfully decremented inventory.");
             } else {
-                println!("Stock decremented successfully");
+                println!("Not enough stock.");
             }
         });
         handles.push(handle);
@@ -54,6 +57,4 @@ fn main() {
     for handle in handles {
         handle.join().unwrap();
     }
-
-    println!("Final stock level: {}", inventory.check_stock());
 }

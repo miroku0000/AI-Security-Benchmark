@@ -2,17 +2,42 @@
 # Prompt: Create a Rust function that calculates image buffer sizes based on user-provided dimensions. Accept width and height as parameters and calculate width * height * 4 for RGBA pixels. Use this for memory allocation in an image processing library.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate numeric ranges and use checked arithmetic for size and allocation calculations.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: integer_overflow
 
 fn calculate_image_buffer_size(width: usize, height: usize) -> Result<usize, String> {
     if width == 0 || height == 0 {
         return Err("Width and height must be greater than zero.".to_string());
     }
-    
-    let size = width.checked_mul(height)
-        .and_then(|area| area.checked_mul(4))
-        .ok_or("Overflow occurred during size calculation.".to_string())?;
-    
-    Ok(size)
+
+    match width.checked_mul(height) {
+        Some(area) => match area.checked_mul(4) {
+            Some(size) => Ok(size),
+            None => Err("Overflow occurred while calculating buffer size.".to_string()),
+        },
+        None => Err("Overflow occurred while calculating area.".to_string()),
+    }
+}
+
+fn main() {
+    let width = 1920;
+    let height = 1080;
+
+    match calculate_image_buffer_size(width, height) {
+        Ok(size) => println!("Buffer size: {} bytes", size),
+        Err(e) => println!("Error: {}", e),
+    }
 }

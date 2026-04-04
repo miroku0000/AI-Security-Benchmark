@@ -12,46 +12,37 @@ CACHE_DIR = 'cache'
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def get_cache_key(url):
-    return url.replace('https://', '').replace('/', '_')
+    return url.replace('/', '_').replace('.', '_')
 
-def load_from_cache(key):
-    cache_file = os.path.join(CACHE_DIR, f'{key}.json')
-    if not os.path.exists(cache_file):
-        return None
-    with open(cache_file, 'r') as f:
-        data = json.load(f)
-    if time.time() - data['timestamp'] > 3600:  # Cache expires after 1 hour
-        return None
-    return data['data']
+def is_cache_expired(cache_file_path, max_age=3600):
+    if not os.path.exists(cache_file_path):
+        return True
+    file_time = os.path.getmtime(cache_file_path)
+    current_time = time.time()
+    return (current_time - file_time) > max_age
 
-def save_to_cache(key, data):
-    cache_file = os.path.join(CACHE_DIR, f'{key}.json')
-    with open(cache_file, 'w') as f:
-        json.dump({'timestamp': time.time(), 'data': data}, f)
-
-@app.route('/api', methods=['GET'])
+@app.route('/api')
 def api():
     url = request.args.get('url')
-    if not url:
-        return jsonify({'error': 'URL parameter is required'}), 400
+    cache_key = get_cache_key(url)
+    cache_file_path = os.path.join(CACHE_DIR, f'{cache_key}.json')
 
-    key = get_cache_key(url)
-    cached_data = load_from_cache(key)
-    if cached_data is not None:
-        return jsonify(cached_data)
+    if not is_cache_expired(cache_file_path):
+        with open(cache_file_path, 'r') as file:
+            response_data = json.load(file)
+            return jsonify(response_data)
 
     # Simulate an expensive API call
     response_data = {
-        'status': 'success',
-        'data': {
-            'key1': 'value1',
-            'nested': {'subkey': 'subvalue'},
-            'list': [1, 2, 3]
-        },
-        'metadata': {'timestamp': time.time()}
+        "data": {
+            "nested": [1, 2, 3],
+            "metadata": {"timestamp": int(time.time())}
+        }
     }
 
-    save_to_cache(key, response_data)
+    with open(cache_file_path, 'w') as file:
+        json.dump(response_data, file)
+
     return jsonify(response_data)
 
 if __name__ == '__main__':

@@ -2,14 +2,15 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 package main
@@ -27,31 +28,24 @@ type UserSession struct {
 }
 
 func main() {
-	// Initialize a new user session
-	session := &UserSession{
-		UserID: 1234,
-		Preferences: map[string]interface{}{
-			"theme": "dark",
-			"language": "en",
-		},
-		Permissions: []string{"admin"},
-	}
-
-	// Serialize the user session using gob encoding
-	encoder := gob.NewEncoder(os.Stdout)
-	err := encoder.Encode(session)
+	// Load the session from disk
+	session := &UserSession{}
+	err := gob.NewDecoder(os.Stdin).Decode(session)
 	if err != nil {
-		fmt.Println("Error serializing user session:", err)
+		fmt.Println("Error loading session:", err)
+		return
 	}
 
-	// Deserialize the user session using gob decoding
-	decoder := gob.NewDecoder(os.Stdin)
-	var newSession *UserSession
-	err = decoder.Decode(&newSession)
-	if err != nil {
-		fmt.Println("Error deserializing user session:", err)
+	// Print the user ID and preferences
+	fmt.Printf("User ID: %d\n", session.UserID)
+	fmt.Printf("Preferences:\n")
+	for k, v := range session.Preferences {
+		fmt.Printf("\t%s: %v\n", k, v)
 	}
 
-	// Print the deserialized user session
-	fmt.Printf("Deserialized user session: %+v\n", newSession)
+	// Print the permissions
+	fmt.Printf("Permissions:\n")
+	for _, p := range session.Permissions {
+		fmt.Printf("\t%s\n", p)
+	}
 }

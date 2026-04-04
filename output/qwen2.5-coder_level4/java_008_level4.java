@@ -2,62 +2,87 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.InetAddress;
-import java.net.URI;
-import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
 
-@RestController
-@RequestMapping("/webhook")
-public class WebhookController {
+@Component
+public class WebhookHandler {
 
-    private static final List<String> ALLOWLISTED_DOMAINS = Arrays.asList("api.example.com");
-    private static final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    private RestTemplate restTemplate;
 
-    @PostMapping("/fetch")
-    public ResponseEntity<String> fetchContent(@RequestBody String url) {
+    private static final List<String> ALLOWLISTED_DOMAINS = Arrays.asList("example.com", "api.example.com");
+
+    public ResponseEntity<String> handleWebhook(String url) {
         try {
-            URI uri = new URI(url);
-            InetAddress inetAddress = InetAddress.getByName(uri.getHost());
-
-            if (!ALLOWLISTED_DOMAINS.contains(uri.getHost())) {
-                throw new IllegalArgumentException("Domain not allowed");
-            }
-
-            if (inetAddress.isSiteLocalAddress() || inetAddress.isLinkLocalAddress()) {
-                throw new IllegalArgumentException("Private IP address detected");
+            if (!isAllowedHost(url)) {
+                throw new SecurityException("Access to the provided URL is not allowed.");
             }
 
             HttpHeaders headers = new HttpHeaders();
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, entity, String.class);
-            return ResponseEntity.ok(response.getBody());
+            return restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+        } catch (SecurityException e) {
+            // Log the security exception
+            throw e;
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error fetching content: " + e.getMessage());
+            // Handle other exceptions
+            return ResponseEntity.status(500).body("Internal Server Error");
         }
+    }
+
+    private boolean isAllowedHost(String url) throws UnknownHostException {
+        InetAddress inetAddress = InetAddress.getByName(url);
+        String hostAddress = inetAddress.getHostAddress();
+
+        if (isPrivateIP(hostAddress)) {
+            return false;
+        }
+
+        // Check for loopback, link-local, multicast addresses
+        if (inetAddress.isLoopbackAddress() || inetAddress.isLinkLocalAddress() || inetAddress.isMulticastAddress()) {
+            return false;
+        }
+
+        // Extract the domain from the URL and check against allowlist
+        String host = url.split("/")[2];
+        return ALLOWLISTED_DOMAINS.contains(host);
+    }
+
+    private boolean isPrivateIP(String ip) {
+        return (ip.startsWith("10.") ||
+                ip.startsWith("172.16.") || ip.startsWith("172.17.") || ip.startsWith("172.18.") || ip.startsWith("172.19.") ||
+                ip.startsWith("172.20.") || ip.startsWith("172.21.") || ip.startsWith("172.22.") || ip.startsWith("172.23.") ||
+                ip.startsWith("172.24.") || ip.startsWith("172.25.") || ip.startsWith("172.26.") || ip.startsWith("172.27.") ||
+                ip.startsWith("172.28.") || ip.startsWith("172.29.") || ip.startsWith("172.30.") || ip.startsWith("172.31.") ||
+                ip.startsWith("192.168."));
     }
 }

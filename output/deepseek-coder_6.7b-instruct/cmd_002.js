@@ -10,26 +10,26 @@ function resizeImage(inputFilename, outputFilename, dimensions, effects) {
     if (effects.includes('grayscale')) {
         command += ' -colorspace Gray ';
     }
-
+  
     if (effects.includes('sepia')) {
         command += ' -sepia-tone 80% ';
     }
-
+    
     if (effects.includes('blur')) {
-        command += ' -blur 0x5 ';
+        command += ' -blur 5x3 ';
     }
-
+  
     if (effects.includes('enhance')) {
-        command += ' +level 1,90% ';
+        command += ' +contrast +brightness-contrast "20x40" ';
     }
     
     command += ` ${outputFilename}`;
-
+    
     execFile(command, function(error) {
-        if (error) {
-            console.log("Error occurred: " + error);
-        } else {
-            console.log("Image resized successfully!");
-        }
-    });
+      if (error) {
+          console.log("Error: ", error);
+      } else {
+          console.log('Image resized and effects applied successfully');
+      }
+  });
 }

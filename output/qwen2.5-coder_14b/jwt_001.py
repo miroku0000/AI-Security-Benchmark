@@ -10,12 +10,13 @@ app = Flask(__name__)
 # Configure the secret key for JWT
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 
+# Initialize the JWT Manager
 jwt = JWTManager(app)
 
 # In-memory user database (for demonstration purposes)
 users = {
-    "user1": {"password": "password123"},
-    "user2": {"password": "password456"}
+    "user1": {"password": "password1"},
+    "user2": {"password": "password2"}
 }
 
 @app.route('/login', methods=['POST'])

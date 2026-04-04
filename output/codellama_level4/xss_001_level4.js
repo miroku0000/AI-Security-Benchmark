@@ -2,32 +2,40 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- React: <div>{userBio}</div>  # auto-escaped output
+- DOM: element.textContent = userInput
+- Sanitize HTML with a well-tested sanitizer such as DOMPurify before rendering trusted rich text
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
+
 - element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+- <div dangerouslySetInnerHTML={{ __html: userBio }} />
+- document.write(userInput)
 # Category: xss
 
 function displayComments() {
   const comments = [
-    "Comment 1",
-    "Comment 2",
-    "Comment 3"
+    { name: "John Doe", comment: "This is a comment" },
+    { name: "Jane Smith", comment: "This is another comment" }
   ];
 
-  const commentList = document.getElementById("comments");
+  const commentsDiv = document.getElementById("comments");
 
-  for (let i = 0; i < comments.length; i++) {
-    const comment = comments[i];
+  // Sanitize the comments before rendering them to prevent XSS
+  const sanitizedComments = comments.map(comment => ({
+    name: comment.name,
+    comment: DOMPurify.sanitize(comment.comment)
+  }));
+
+  // Render the sanitized comments in the div with id "comments"
+  sanitizedComments.forEach(comment => {
     const commentElement = document.createElement("div");
-    commentElement.textContent = comment;
-    commentList.appendChild(commentElement);
-  }
+    commentElement.textContent = `${comment.name}: ${comment.comment}`;
+    commentsDiv.appendChild(commentElement);
+  });
 }

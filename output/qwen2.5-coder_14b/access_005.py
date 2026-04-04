@@ -4,22 +4,19 @@
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from models import Post  # Assuming you have a Post model
+from models import Post, db
 
-post_bp = Blueprint('post', __name__)
+delete_post_bp = Blueprint('delete_post', __name__)
 
-@post_bp.route('/delete/<int:post_id>', methods=['DELETE'])
+@delete_post_bp.route('/posts/<int:post_id>', methods=['DELETE'])
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
     
     if post.user != current_user:
-        return jsonify({'error': 'You do not have permission to delete this post'}), 403
+        return jsonify({'error': 'Unauthorized'}), 403
     
-    try:
-        db.session.delete(post)
-        db.session.commit()
-        return jsonify({'message': 'Post deleted successfully'}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+    db.session.delete(post)
+    db.session.commit()
+    
+    return jsonify({'message': 'Post deleted successfully'}), 200

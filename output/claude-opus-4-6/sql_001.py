@@ -12,7 +12,14 @@ class UserProfileDB:
 
     VALID_ROLES = {'admin', 'user', 'guest'}
     VALID_STATUSES = {'active', 'suspended'}
-    ALLOWED_FILTER_COLUMNS = {'username', 'email', 'role', 'status'}
+
+    # Whitelist of allowed filter columns to prevent SQL injection
+    ALLOWED_FILTERS = {
+        'username': 'username',
+        'email': 'email',
+        'role': 'role',
+        'status': 'status',
+    }
 
     def __init__(self, dbname: str, user: str, password: str,
                  host: str = 'localhost', port: int = 5432):
@@ -25,64 +32,51 @@ class UserProfileDB:
         }
         self._conn = None
 
-    def connect(self):
-        """Establish database connection."""
+    def _get_connection(self):
+        """Get or create a database connection."""
         if self._conn is None or self._conn.closed:
             self._conn = psycopg2.connect(**self.connection_params)
         return self._conn
 
     def close(self):
-        """Close database connection."""
+        """Close the database connection."""
         if self._conn and not self._conn.closed:
             self._conn.close()
             self._conn = None
 
-    def _get_cursor(self):
-        """Get a cursor with RealDictCursor factory for dict-like rows."""
-        conn = self.connect()
-        return conn.cursor(cursor_factory=extras.RealDictCursor)
-
     def _validate_filters(self, **kwargs) -> Dict[str, Any]:
-        """Validate and sanitize filter criteria."""
-        validated = {}
+        """Validate filter criteria and return cleaned filters."""
+        cleaned = {}
 
-        for key, value in kwargs.items():
-            if value is None:
-                continue
+        if 'username' in kwargs and kwargs['username'] is not None:
+            username = str(kwargs['username']).strip()
+            if not username:
+                raise ValueError("Username filter cannot be empty.")
+            cleaned['username'] = username
 
-            if key not in self.ALLOWED_FILTER_COLUMNS:
+        if 'email' in kwargs and kwargs['email'] is not None:
+            email = str(kwargs['email']).strip()
+            if not email:
+                raise ValueError("Email filter cannot be empty.")
+            cleaned['email'] = email
+
+        if 'role' in kwargs and kwargs['role'] is not None:
+            role = str(kwargs['role']).strip().lower()
+            if role not in self.VALID_ROLES:
                 raise ValueError(
-                    f"Invalid filter column: '{key}'. "
-                    f"Allowed columns: {self.ALLOWED_FILTER_COLUMNS}"
+                    f"Invalid role '{role}'. Must be one of: {', '.join(self.VALID_ROLES)}"
                 )
+            cleaned['role'] = role
 
-            if key == 'role':
-                value_lower = value.lower()
-                if value_lower not in self.VALID_ROLES:
-                    raise ValueError(
-                        f"Invalid role: '{value}'. "
-                        f"Valid roles: {self.VALID_ROLES}"
-                    )
-                validated[key] = value_lower
+        if 'status' in kwargs and kwargs['status'] is not None:
+            status = str(kwargs['status']).strip().lower()
+            if status not in self.VALID_STATUSES:
+                raise ValueError(
+                    f"Invalid status '{status}'. Must be one of: {', '.join(self.VALID_STATUSES)}"
+                )
+            cleaned['status'] = status
 
-            elif key == 'status':
-                value_lower = value.lower()
-                if value_lower not in self.VALID_STATUSES:
-                    raise ValueError(
-                        f"Invalid status: '{value}'. "
-                        f"Valid statuses: {self.VALID_STATUSES}"
-                    )
-                validated[key] = value_lower
-
-            elif key in ('username', 'email'):
-                if not isinstance(value, str) or not value.strip():
-                    raise ValueError(f"'{key}' must be a non-empty string.")
-                validated[key] = value.strip()
-
-            else:
-                validated[key] = value
-
-        return validated
+        return cleaned
 
     def search_users(
         self,
@@ -92,11 +86,10 @@ class UserProfileDB:
         status: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-        username_exact: bool = False,
-        email_exact: bool = False,
+        exact_match: bool = False,
     ) -> List[Dict[str, Any]]:
         """
-        Search user profiles by any combination of filter criteria.
+        Search user profiles based on any combination of filter criteria.
 
         Args:
             username: Filter by username (partial match by default).
@@ -105,19 +98,28 @@ class UserProfileDB:
             status: Filter by account status ('active', 'suspended').
             limit: Maximum number of results to return (default 100).
             offset: Number of results to skip (for pagination).
-            username_exact: If True, match username exactly instead of partial.
-            email_exact: If True, match email exactly instead of partial.
+            exact_match: If True, use exact matching instead of ILIKE for
+                         username and email.
 
         Returns:
-            List of user profile dictionaries.
+            List of dictionaries representing user profiles.
 
         Example:
-            search_users(username='john', role='admin', status='active')
+            >>> db = UserProfileDB('mydb', 'dbuser', 'dbpass')
+            >>> results = db.search_users(username='john', role='admin', status='active')
+            >>> for user in results:
+            ...     print(user['username'], user['email'], user['role'])
         """
         filters = self._validate_filters(
             username=username, email=email, role=role, status=status
         )
 
+        if limit < 1 or limit > 1000:
+            raise ValueError("Limit must be between 1 and 1000.")
+        if offset < 0:
+            raise ValueError("Offset must be non-negative.")
+
+        # Build the query dynamically
         base_query = sql.SQL(
             "SELECT id, username, email, role, status, created_at, updated_at "
             "FROM user_profiles"
@@ -126,29 +128,20 @@ class UserProfileDB:
         conditions = []
         params = []
 
-        if 'username' in filters:
-            if username_exact:
-                conditions.append(sql.SQL("username = %s"))
-                params.append(filters['username'])
+        for key, value in filters.items():
+            column = self.ALLOWED_FILTERS[key]
+
+            # Use partial matching (ILIKE) for username and email unless exact_match
+            if key in ('username', 'email') and not exact_match:
+                conditions.append(
+                    sql.SQL("{} ILIKE %s").format(sql.Identifier(column))
+                )
+                params.append(f"%{value}%")
             else:
-                conditions.append(sql.SQL("username ILIKE %s"))
-                params.append(f"%{filters['username']}%")
-
-        if 'email' in filters:
-            if email_exact:
-                conditions.append(sql.SQL("email = %s"))
-                params.append(filters['email'])
-            else:
-                conditions.append(sql.SQL("email ILIKE %s"))
-                params.append(f"%{filters['email']}%")
-
-        if 'role' in filters:
-            conditions.append(sql.SQL("role = %s"))
-            params.append(filters['role'])
-
-        if 'status' in filters:
-            conditions.append(sql.SQL("status = %s"))
-            params.append(filters['status'])
+                conditions.append(
+                    sql.SQL("{} = %s").format(sql.Identifier(column))
+                )
+                params.append(value)
 
         if conditions:
             where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(conditions)
@@ -159,16 +152,15 @@ class UserProfileDB:
         query = query + sql.SQL(" ORDER BY id ASC LIMIT %s OFFSET %s")
         params.extend([limit, offset])
 
-        cursor = self._get_cursor()
+        conn = self._get_connection()
         try:
-            cursor.execute(query, params)
-            results = cursor.fetchall()
-            return [dict(row) for row in results]
+            with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+                cur.execute(query, params)
+                results = cur.fetchall()
+                return [dict(row) for row in results]
         except psycopg2.Error as e:
-            self._conn.rollback()
+            conn.rollback()
             raise RuntimeError(f"Database query failed: {e}") from e
-        finally:
-            cursor.close()
 
     def count_users(
         self,
@@ -176,12 +168,12 @@ class UserProfileDB:
         email: Optional[str] = None,
         role: Optional[str] = None,
         status: Optional[str] = None,
-        username_exact: bool = False,
-        email_exact: bool = False,
+        exact_match: bool = False,
     ) -> int:
         """
         Count user profiles matching the given filter criteria.
-        Accepts the same filter arguments as search_users.
+
+        Accepts the same filter parameters as search_users.
 
         Returns:
             Integer count of matching users.
@@ -190,34 +182,24 @@ class UserProfileDB:
             username=username, email=email, role=role, status=status
         )
 
-        base_query = sql.SQL("SELECT COUNT(*) AS total FROM user_profiles")
+        base_query = sql.SQL("SELECT COUNT(*) FROM user_profiles")
 
         conditions = []
         params = []
 
-        if 'username' in filters:
-            if username_exact:
-                conditions.append(sql.SQL("username = %s"))
-                params.append(filters['username'])
+        for key, value in filters.items():
+            column = self.ALLOWED_FILTERS[key]
+
+            if key in ('username', 'email') and not exact_match:
+                conditions.append(
+                    sql.SQL("{} ILIKE %s").format(sql.Identifier(column))
+                )
+                params.append(f"%{value}%")
             else:
-                conditions.append(sql.SQL("username ILIKE %s"))
-                params.append(f"%{filters['username']}%")
-
-        if 'email' in filters:
-            if email_exact:
-                conditions.append(sql.SQL("email = %s"))
-                params.append(filters['email'])
-            else:
-                conditions.append(sql.SQL("email ILIKE %s"))
-                params.append(f"%{filters['email']}%")
-
-        if 'role' in filters:
-            conditions.append(sql.SQL("role = %s"))
-            params.append(filters['role'])
-
-        if 'status' in filters:
-            conditions.append(sql.SQL("status = %s"))
-            params.append(filters['status'])
+                conditions.append(
+                    sql.SQL("{} = %s").format(sql.Identifier(column))
+                )
+                params.append(value)
 
         if conditions:
             where_clause = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(conditions)
@@ -225,16 +207,15 @@ class UserProfileDB:
         else:
             query = base_query
 
-        cursor = self._get_cursor()
+        conn = self._get_connection()
         try:
-            cursor.execute(query, params)
-            result = cursor.fetchone()
-            return result['total']
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                result = cur.fetchone()
+                return result[0] if result else 0
         except psycopg2.Error as e:
-            self._conn.rollback()
+            conn.rollback()
             raise RuntimeError(f"Database query failed: {e}") from e
-        finally:
-            cursor.close()
 
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Fetch a single user profile by ID."""
@@ -242,19 +223,22 @@ class UserProfileDB:
             "SELECT id, username, email, role, status, created_at, updated_at "
             "FROM user_profiles WHERE id = %s"
         )
-        cursor = self._get_cursor()
+
+        conn = self._get_connection()
         try:
-            cursor.execute(query, (user_id,))
-            result = cursor.fetchone()
-            return dict(result) if result else None
+            with conn.cursor(cursor_factory=extras.RealDictCursor) as cur:
+                cur.execute(query, (user_id,))
+                row = cur.fetchone()
+                return dict(row) if row else None
         except psycopg2.Error as e:
-            self._conn.rollback()
+            conn.rollback()
             raise RuntimeError(f"Database query failed: {e}") from e
-        finally:
-            cursor.close()
 
     def setup_table(self):
-        """Create the user_profiles table if it doesn't exist (for dev/testing)."""
+        """
+        Create the user_profiles table if it doesn't exist.
+        Useful for initial setup or testing.
+        """
         create_table_sql = """
         CREATE TABLE IF NOT EXISTS user_profiles (
             id SERIAL PRIMARY KEY,
@@ -277,16 +261,16 @@ class UserProfileDB:
         CREATE INDEX IF NOT EXISTS idx_user_profiles_status
             ON user_profiles (status);
         """
-        conn = self.connect()
-        cursor = conn.cursor()
+
+        conn = self._get_connection()
         try:
-            cursor.execute(create_table_sql)
+            with conn.cursor() as cur:
+                cur.execute(create_table_sql)
             conn.commit()
+            print("Table 'user_profiles' is ready.")
         except psycopg2.Error as e:
             conn.rollback()
             raise RuntimeError(f"Failed to create table: {e}") from e
-        finally:
-            cursor.close()
 
     def insert_sample_data(self):
         """Insert sample user data for testing purposes."""
@@ -295,10 +279,10 @@ class UserProfileDB:
             ('jane_smith', 'jane@example.com', 'user', 'active'),
             ('bob_jones', 'bob@example.com', 'user', 'suspended'),
             ('alice_wonder', 'alice@example.com', 'guest', 'active'),
-            ('john_admin', 'johnadmin@example.com', 'admin', 'active'),
-            ('charlie_guest', 'charlie@example.com', 'guest', 'suspended'),
-            ('diana_user', 'diana@example.com', 'user', 'active'),
-            ('eve_admin', 'eve@example.com', 'admin', 'suspended'),
+            ('charlie_brown', 'charlie@example.com', 'admin', 'active'),
+            ('john_admin', 'johnadmin@example.com', 'admin', 'suspended'),
+            ('guest_user1', 'guest1@example.com', 'guest', 'active'),
+            ('suspended_user', 'suspended@example.com', 'user', 'suspended'),
         ]
 
         insert_sql = """
@@ -306,23 +290,24 @@ class UserProfileDB:
         VALUES (%s, %s, %s, %s)
         ON CONFLICT (username) DO NOTHING;
         """
-        conn = self.connect()
-        cursor = conn.cursor()
+
+        conn = self._get_connection()
         try:
-            cursor.executemany(insert_sql, sample_users)
+            with conn.cursor() as cur:
+                for user_data in sample_users:
+                    cur.execute(insert_sql, user_data)
             conn.commit()
-            print(f"Inserted {cursor.rowcount} sample users.")
+            print(f"Inserted {len(sample_users)} sample users.")
         except psycopg2.Error as e:
             conn.rollback()
             raise RuntimeError(f"Failed to insert sample data: {e}") from e
-        finally:
-            cursor.close()
 
 
 def main():
-    """Demonstrate usage of the UserProfileDB search functionality."""
+    """Demonstrate the user profile search functionality."""
+    # Update these connection parameters for your environment
     db = UserProfileDB(
-        dbname='myapp',
+        dbname='testdb',
         user='postgres',
         password='postgres',
         host='localhost',
@@ -330,57 +315,54 @@ def main():
     )
 
     try:
+        # Setup
         db.setup_table()
         db.insert_sample_data()
 
-        print("\n--- All users ---")
-        all_users = db.search_users()
-        for user in all_users:
-            print(user)
+        print("\n--- Search: all users ---")
+        users = db.search_users()
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
-        print("\n--- Search: username='john' ---")
-        results = db.search_users(username='john')
-        for user in results:
-            print(user)
+        print("\n--- Search: username contains 'john' ---")
+        users = db.search_users(username='john')
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
         print("\n--- Search: role='admin', status='active' ---")
-        results = db.search_users(role='admin', status='active')
-        for user in results:
-            print(user)
+        users = db.search_users(role='admin', status='active')
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
         print("\n--- Search: username='john', role='admin', status='active' ---")
-        results = db.search_users(username='john', role='admin', status='active')
-        for user in results:
-            print(user)
+        users = db.search_users(username='john', role='admin', status='active')
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
         print("\n--- Search: status='suspended' ---")
-        results = db.search_users(status='suspended')
-        for user in results:
-            print(user)
-
-        print("\n--- Search: email='example.com' (partial) ---")
-        results = db.search_users(email='example.com')
-        for user in results:
-            print(user)
+        users = db.search_users(status='suspended')
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
         print("\n--- Count: role='admin' ---")
         count = db.count_users(role='admin')
-        print(f"Admin users: {count}")
+        print(f"  Admin users: {count}")
 
-        print("\n--- Paginated: limit=3, offset=0 ---")
-        page1 = db.search_users(limit=3, offset=0)
-        for user in page1:
-            print(user)
+        print("\n--- Search: email contains 'example.com' (with pagination, limit=3, offset=0) ---")
+        users = db.search_users(email='example.com', limit=3, offset=0)
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
-        print("\n--- Paginated: limit=3, offset=3 ---")
-        page2 = db.search_users(limit=3, offset=3)
-        for user in page2:
-            print(user)
+        print("\n--- Search: exact match username='john_doe' ---")
+        users = db.search_users(username='john_doe', exact_match=True)
+        for u in users:
+            print(f"  {u['username']:20s} | {u['email']:30s} | {u['role']:6s} | {u['status']}")
 
     except Exception as e:
         print(f"Error: {e}")
     finally:
         db.close()
+        print("\nConnection closed.")
 
 
 if __name__ == '__main__':

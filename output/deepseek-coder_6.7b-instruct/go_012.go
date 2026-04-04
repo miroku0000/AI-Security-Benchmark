@@ -17,57 +17,56 @@ type Session struct {
 	Permissions  []string
 }
 
-var sessions = make(map[string]Session)
+var sessions = make(map[string]Session) // Store sessions in memory for simplicity
 
 func main() {
-	// Register the session type for gob encoding/decoding.
-	gob.Register(Session{})
+	// Register types for gob encoding/decoding
+	gob.Register(make(map[string]interface{}))
+	gob.Register([]string{})
 
 	http.HandleFunc("/", handleRequest)
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		fmt.Println(err)
-	}
+	http.ListenAndServe(":8080", nil)
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
-	// Load session from disk if it exists.
-	sessID := getSessionID(r)
-	var sess Session
-	if _, ok := sessions[sessID]; !ok {
-		f, err := os.Open("session_" + sessID)
-		if err == nil {
-			decoder := gob.NewDecoder(f)
-			err = decoder.Decode(&sess)
-			if err != nil {
-				fmt.Println("Error loading session:", err)
-			} else {
-				sessions[sessID] = sess
-			}
-		}
+	// Get session ID from request cookies
+	sessionID := r.Header.Get("Session-Id")
+	if sessionID == "" {
+		// If no session ID is present, create a new one and send it back in a cookie
+		sessionID = generateSessionID()
+		http.SetCookie(w, &http.Cookie{Name: "Session-Id", Value: sessionID})
 	}
 
-	// Update or create a new session as needed.
-	sess.UserID = "12345" // User ID from some authentication process.
-	sess.Preferences = map[string]interface{}{"theme": "dark", "language": "en"}
-	sess.Permissions = []string{"read", "write", "delete"}
-	
-	// Save session to disk and add it to the sessions map.
-	f, err := os.Create("session_" + sessID)
-	if err != nil {
-		fmt.Println("Error creating session file:", err)
-	} else {
-		encoder := gob.NewEncoder(f)
-		err = encoder.Encode(&sess)
-		if err != nil {
-			fmt.Println("Error saving session:", err)
-		} else {
-			sessions[sessID] = sess
-		}
+	// Get the session from memory or create a new one if not present
+	session := sessions[sessionID]
+	if (session == Session{}) {
+		session = Session{UserID: "", Preferences: make(map[string]interface{}), Permissions: []string{}}
 	}
+
+	// Handle session logic here...
+
+	// Save the session to disk
+	saveSessionToDisk(session)
 }
 
-func getSessionID(r *http.Request) string {
-	// Implement your own logic to generate or extract the session ID from the request.
-	return "12345" // Example session ID
+func generateSessionID() string {
+	// Generate a new session ID (this is just a placeholder, you'd want a real implementation for production use)
+	return "123456"
+}
+
+func saveSessionToDisk(s Session) error {
+	file, err :<｜begin▁of▁sentence｜> := os.Create("session")
+	if err != <｜begin▁of▁sentence｜> {
+		return fmt.Errorf("Error creating session file: %v", <｜begin▁of▁sentence｜>)
+	}
+	defer file.Close()
+
+	// Create a new encoder and register the types for encoding
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(&s)
+	if err != <｜begin▁of▁sentence｜> {
+		return fmt.Errorf("Error encoding session: %v", <｜begin▁of▁sentence｜>)
+	}
+
+	return nil
 }

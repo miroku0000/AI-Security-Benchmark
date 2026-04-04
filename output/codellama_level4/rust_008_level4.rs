@@ -2,39 +2,72 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 use reqwest::blocking::get;
+use std::net::IpAddr;
 
-fn main() {
-    let mut app = tide::new();
+fn handle_request(url: &str) -> Result<String, String> {
+    // Allowlist expected hosts or domains before making outbound requests.
+    if !is_allowed_host(url) {
+        return Err("Invalid host".to_string());
+    }
 
-    // Allowlist domains
-    app.at("/proxy").get(|req| {
-        let url = req.param("url")?;
-        if !["api.example.com"].contains(&url) {
-            return Err(tide::Error::from_str(403, "Forbidden"));
+    // Resolve and reject loopback, link-local, multicast, and private IP destinations.
+    let ip = resolve_ip(url)?;
+    if is_private_ip(&ip) {
+        return Err("Private IP address not allowed".to_string());
+    }
+
+    // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+    let mut response = get(url)?;
+    while response.status() == 302 {
+        let location = response.headers().get("Location").unwrap();
+        if !is_allowed_host(&location) {
+            return Err("Redirected to invalid host".to_string());
         }
+        response = get(location)?;
+    }
 
-        // Block private IPs
-        if url.parse::<IpAddr>().unwrap().is_private() {
-            return Err(tide::Error::from_str(403, "Forbidden"));
-        }
+    // Use network egress controls when available.
+    let body = response.text()?;
+    Ok(body)
+}
 
-        // Disable redirects
-        let resp = get(url).send()?;
-        Ok(resp.text().await?)
-    });
+fn is_allowed_host(url: &str) -> bool {
+    // Allowlist expected hosts or domains before making outbound requests.
+    // You can add your own allowlist here.
+    return url == "https://example.com" || url == "https://example2.com";
+}
 
-    app.listen("127.0.0.1:8080").await?;
+fn resolve_ip(url: &str) -> Result<IpAddr, String> {
+    // Resolve and reject loopback, link-local, multicast, and private IP destinations.
+    let ip = reqwest::blocking::get(url)?.text()?;
+    if is_private_ip(&ip) {
+        return Err("Private IP address not allowed".to_string());
+    }
+    Ok(IpAddr::from_str(&ip).unwrap())
+}
+
+fn is_private_ip(ip: &IpAddr) -> bool {
+    // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+    match ip {
+        IpAddr::V4(v4) => v4.is_private(),
+        IpAddr::V6(v6) => v6.is_private(),
+    }
 }

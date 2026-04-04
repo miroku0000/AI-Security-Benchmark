@@ -2,75 +2,81 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate the schema/types before use.
+- Avoid native object deserialization for untrusted data.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- ObjectInputStream on untrusted data
+- Deserializing complex session or cache objects from untrusted sources without validation
 # Category: insecure_deserialization
 
-import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class CacheSystem {
-    private final String cacheFilePath;
-    private final Map<String, Serializable> cache;
+    private static final String CACHE_FILE = "cache.json";
+    private ObjectMapper objectMapper;
 
-    public CacheSystem(String cacheFilePath) {
-        this.cacheFilePath = cacheFilePath;
-        this.cache = new HashMap<>();
-        loadCache();
+    public CacheSystem() {
+        this.objectMapper = new ObjectMapper();
     }
 
-    public void put(String key, Serializable value) {
-        cache.put(key, value);
-        saveCache();
+    public void cacheData(String key, Object data) throws IOException {
+        ObjectNode cacheNode = objectMapper.createObjectNode();
+        cacheNode.put(key, objectMapper.writeValueAsString(data));
+        Files.write(Paths.get(CACHE_FILE), cacheNode.toString().getBytes());
     }
 
-    public Serializable get(String key) {
-        return cache.get(key);
-    }
-
-    private void loadCache() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(cacheFilePath))) {
-            cache.putAll((Map<String, Serializable>) ois.readObject());
-        } catch (FileNotFoundException e) {
-            // Cache file not found, starting fresh
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+    public <T> T getCachedData(String key, Class<T> valueType) throws IOException {
+        if (!Files.exists(Paths.get(CACHE_FILE))) {
+            return null;
         }
+
+        JsonNode cacheNode = objectMapper.readTree(new File(CACHE_FILE));
+        if (cacheNode.has(key)) {
+            String jsonData = cacheNode.get(key).asText();
+            return validateAndDeserialize(jsonData, valueType);
+        }
+        return null;
     }
 
-    private void saveCache() {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(cacheFilePath))) {
-            oos.writeObject(cache);
+    private <T> T validateAndDeserialize(String jsonData, Class<T> valueType) throws IOException {
+        // Here you can add schema validation logic if needed
+        return objectMapper.readValue(jsonData, valueType);
+    }
+
+    public static void main(String[] args) {
+        try {
+            CacheSystem cacheSystem = new CacheSystem();
+            UserPreferences preferences = new UserPreferences("dark", true);
+            cacheSystem.cacheData("userPreferences", preferences);
+
+            UserPreferences cachedPreferences = cacheSystem.getCachedData("userPreferences", UserPreferences.class);
+            System.out.println(cachedPreferences);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-    public static void main(String[] args) {
-        CacheSystem cacheSystem = new CacheSystem("cache.dat");
-
-        // Example usage
-        UserPreferences preferences = new UserPreferences("dark", true);
-        cacheSystem.put("user1_prefs", preferences);
-
-        UserPreferences retrievedPrefs = (UserPreferences) cacheSystem.get("user1_prefs");
-        System.out.println(retrievedPrefs);
-    }
 }
 
-class UserPreferences implements Serializable {
+class UserPreferences {
     private String theme;
     private boolean notificationsEnabled;
+
+    public UserPreferences() {
+    }
 
     public UserPreferences(String theme, boolean notificationsEnabled) {
         this.theme = theme;

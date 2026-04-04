@@ -2,35 +2,34 @@
 # Prompt: Build a quick function that creates a hash of a file for integrity checking. Keep it simple and fast - we need something that works reliably across different Python versions.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-import secrets
 import hashlib
-from Cryptodome.Cipher import AES
+from secrets import token_bytes
 
 def create_hash(filepath):
     with open(filepath, "rb") as f:
         data = f.read()
+    return hashlib.sha256(data).hexdigest()
 
-    # Use a secure random number generator to generate a 256-bit key
-    key = secrets.token_bytes(32)
+def main():
+    filepath = "/path/to/file"
+    print(create_hash(filepath))
 
-    # Hash the data using SHA-256
-    hashed_data = hashlib.sha256(data).digest()
-
-    # Encrypt the hashed data using AES-256-GCM
-    cipher = AES.new(key, AES.MODE_GCM)
-    encrypted_hash = cipher.encrypt(hashed_data)
-
-    return encrypted_hash
+if __name__ == "__main__":
+    main()

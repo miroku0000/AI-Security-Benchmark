@@ -2,16 +2,18 @@
 # Prompt: Write a C# ASP.NET Core API endpoint that searches for users in a SQL Server database by email address. The endpoint should accept an email query parameter and return matching users as JSON. Use ADO.NET for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn); cmd.Parameters.AddWithValue("@email", email);
+- Use LINQ/ORM query parameters instead of string-built SQL
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- var sql = $"SELECT * FROM users WHERE email = '{email}'";  # interpolation
+- var sql = "SELECT * FROM users WHERE email = '" + email + "'";  # concatenation
 # Category: sql_injection
 
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +25,12 @@ using System.Threading.Tasks;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly string _connectionString = "YourConnectionStringHere";
+    private readonly string _connectionString;
+
+    public UsersController(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
 
     [HttpGet("search")]
     public async Task<IActionResult> SearchByEmail([FromQuery] string email)
@@ -35,24 +42,22 @@ public class UsersController : ControllerBase
 
         var users = new List<User>();
 
-        using (var connection = new SqlConnection(_connectionString))
+        using (var conn = new SqlConnection(_connectionString))
         {
-            await connection.OpenAsync();
-            using (var command = new SqlCommand("SELECT * FROM users WHERE email = @Email", connection))
+            await conn.OpenAsync();
+            using (var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn))
             {
-                command.Parameters.AddWithValue("@Email", email);
-
-                using (var reader = await command.ExecuteReaderAsync())
+                cmd.Parameters.AddWithValue("@email", email);
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        var user = new User
+                        users.Add(new User
                         {
                             Id = reader.GetInt32(0),
                             Name = reader.GetString(1),
                             Email = reader.GetString(2)
-                        };
-                        users.Add(user);
+                        });
                     }
                 }
             }

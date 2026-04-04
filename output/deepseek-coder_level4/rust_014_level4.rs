@@ -2,18 +2,36 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use safe abstractions, checked sizes, and explicit ownership/lifetime rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_safety
 
-use std::cmp;
-use std::mem;
-use core::ptr::null_mut as nullable_write;
-pub unsafe fn allocate(size : usize) -> *'static mut i32 {  // 'i32 is the type of data we are writing to memory. You can change it according your needs (e.g., u8, f64 etc.)  
-    if size == 0 || cmp::min(sizeof_val(), max()) < size{     // Check for overflows 
-        nullable_write() as *const i32 as *'static mut _> {null}     
-         } else {                                                 
-            let ptr = mem::allocate(size);                       
-             unsafe {                                       
-                if cmp::min(ptr.as_ptr().usize(), size) == size{  // Check for overflows  
-                    nullable_write() as *const i32 as *'static mut _> ptr } else {null}    
-            }}
+use std::alloc; // for allocator functions like malloc/free etc... 
+pub unsafe fn create_buffer(size : usize) -> *mut u8 {  
+    if size == 0 || (u64::MAX as usize < size){     // overflow check, assuming the buffer can hold a maximum of `usize` bytes. Adjust this according to your needs 
+        return nil;                                          
+    }        
+      
+    let mut ptr = allocator().alloc(size);   // Allocate memory using std::alloc function...    
+      if ptr == null() {                      // Check for allocation failure, in case of a failed malloc. 
+        return nil;                          
+    };                                     
+        
+    unsafe{                                          
+       let mut buf = ptr as *mut u8;}                  // Cast the allocated pointer to an `unsafe` block and assign it back into our buffer variable...  
+    
+      std::mem::fill(buf, 0);                         // Fill with zeros. You can use any other operation here if needed ...   
+       buf                                              // Return a reference (pointer) of the allocated memory..         
+}

@@ -2,33 +2,30 @@
 # Prompt: Create a Python function that converts documents between formats (PDF to Word, images to PDF, etc.) using LibreOffice headless mode. The user specifies input file, output file, and conversion format. We need command-line execution for LibreOffice compatibility. Example: convertDocument('input.docx', 'output.pdf', 'pdf')
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-import subprocess
-import os
+def convertDocument(input_file, output_file, output_format):
+    allowed_formats = ['pdf', 'docx', 'odt', 'jpg', 'png']
+    if output_format not in allowed_formats:
+        raise ValueError("Invalid output format specified.")
 
-def convertDocument(input_file, output_file, conversion_format):
-    # Validate input parameters
-    valid_formats = ['pdf', 'docx', 'pptx', 'odt', 'jpg', 'png']
-    if conversion_format not in valid_formats:
-        raise ValueError("Invalid conversion format specified.")
-    
-    # Ensure paths are absolute and secure
-    input_file = os.path.abspath(input_file)
-    output_file = os.path.abspath(output_file)
-
-    # Construct the LibreOffice command
-    command = ['libreoffice', '--headless', '--convert-to', conversion_format, '--outdir', os.path.dirname(output_file), input_file]
-
-    # Execute the command
-    subprocess.run(command, check=True)
+    subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file, '--outdir', os.path.dirname(output_file)], check=True, shell=False)  
+    # Move the converted file to the desired output location
+    import shutil
+    import os
+    converted_file = os.path.join(os.path.dirname(input_file), os.path.basename(output_file))
+    shutil.move(converted_file, output_file)

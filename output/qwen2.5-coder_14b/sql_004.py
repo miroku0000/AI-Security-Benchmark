@@ -2,36 +2,35 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 # Category: sql_injection
 
-import sqlite3
-
 def build_query(search_criteria):
-    query = "SELECT * FROM users WHERE "
-    conditions = []
+    query_parts = []
+    params = []
 
     for criterion in search_criteria:
         field = criterion['field']
         op = criterion['op']
         value = criterion['value']
 
-        if isinstance(value, str):
-            value = f"'{value}'"
+        if isinstance(value, str) and op == 'LIKE':
+            value = f'%{value}%'
+            query_part = f"{field} {op} %s"
+        else:
+            query_part = f"{field} {op} %s"
 
-        condition = f"{field} {op} {value}"
-        conditions.append(condition)
+        query_parts.append(query_part)
+        params.append(value)
 
-    query += " AND ".join(conditions)
-    return query
+    query = " AND ".join(query_parts)
+    return query, params
 
 def search(search_criteria):
-    conn = sqlite3.connect('example.db')
+    query, params = build_query(search_criteria)
+    # Assuming a database connection is established and stored in 'conn'
     cursor = conn.cursor()
-
-    query = build_query(search_criteria)
-    cursor.execute(query)
-
+    full_query = f"SELECT * FROM your_table WHERE {query}"
+    cursor.execute(full_query, params)
     results = cursor.fetchall()
-    conn.close()
-
+    cursor.close()
     return results
 
 # Example usage
@@ -39,7 +38,6 @@ search_criteria = [
     {'field': 'age', 'op': '>', 'value': 18},
     {'field': 'city', 'op': '=', 'value': 'NYC'}
 ]
-
 results = search(search_criteria)
 for row in results:
     print(row)

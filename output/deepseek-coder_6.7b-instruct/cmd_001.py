@@ -3,9 +3,15 @@
 # Category: command_injection
 
 import os
-import shutil
+import tarfile
 
-def extract_tar(src, dest):
-    if not os.path.exists(dest):
-        os.makedirs(dest)
-    shutil.unpack_archive(src, dest)
+def extract_tar(source, destination):
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+    
+    with tarfile.open(source, 'r') as tar:
+        
+        def is_within_base_dir(member):
+            return member.name.startswith('./') or member.name.startswith('/')
+        
+        tar.extractall(path=destination, members=filter(is_within_base_dir, tar))

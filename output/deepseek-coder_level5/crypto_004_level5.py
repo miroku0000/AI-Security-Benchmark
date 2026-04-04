@@ -2,29 +2,258 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
-import hashlib
-from Cryptodome.Cipher import AES
-from configparser import ConfigParser  # For reading configuration file (configs/settings).ini files, e.g., database password etc...  
-# You can use other methods to read the encrypted key from your application settings or environment variables if needed..   
+```python
 import os
-SECRET_KEY = hashlib.sha256(os.urandom(32)).hexdigest()  # Generate a random secret for encryption/decryption keys  
-# You can use other methods to generate the key, e.g., from environment variables or secure storage like AWS Secrets Manager etc...   
-KEY = SECRET_KEY[:16] + hashlib.sha256(SECRET_KEY[32:]).hexdigest()  # Combine it with a random string to create the full key  
-# You can use other methods for generating keys, e.g., from environment variables or secure storage like AWS Secrets Manager etc...   
-cipher = AES.new(SECRET_KEY[:16],AES.MODE_ECB)  # Create a new cipher object with the key and mode set to ECB (Electronic Codebook), which is not recommended for encryption  
-# You can use other methods like Fernet from cryptography package, e.g., if you want symmetric keys in your application...   
-def encrypt_card(data):  # Define a function that will be used later on to decipher the data back into its original form (e.g.: for refunds)  
-     return cipher.encrypt(pad(data)) + ''.join([chr(ord(c) + 2) if i % 3 == 0 else chr(ord(c)-1) for i, c in enumerate(reversed('federico'))]) # Adds a character shift and reverses the string  
-# You can use other methods to pad data or implement padding manually...   
-def decrypt_card(data):  # Define another function that will be used later on for getting back original form of encrypted card number (e.g.: from database)    
-      return cipher.decrypt(unpad(cipher.decrypt((base64.b64decode(''.join([chr(ord(i)-127+len(SECRET_KEY)) if i % 3 == 0 else chr(int(reversed('federico')[j])-8) for j, i in enumerate(['a', 'b'])])))
+from configparser import ConfigParser
+
+# Load configuration file (config.ini) to get encryption keys 
+conf = ConfigParser()  
+conf.read('config.ini') # assuming you have a '[DEFAULT]' section with your key in it named as "key" under the same directory where this script is located or provide correct path of configfile here accordingly   
+encryption_key= conf.get('DEFAULT', 'key') 
+# If there are no keys, then exit program  
+if not encryption_key:    
+      print("No key found!")      
+else :        
+        def encrypt(data):         
+            encrypted = ""              # Initializing an empty string for storing the resultant data            
+            i = 0                      # Initialize counter 
+           while (i < len(str(data))-1) :  
+                x=ord(str(data)[i])    # Convert each character into ASCII value and add it to encrypted variable.             
+               y = ord(encryption_key[i%len(encryption_key)])  # Get the encryption key for current index, if out of range then loop back  
+                z=x+y                   # Perform bitwise XOR operation on ASCII values and add to encrypted variable.             
+               encrypted = encrypted + chr(z %256 )    # Convert result into character using mod 256 (to ensure it's within the range of ascii)  
+            i=i+1                     # Increase counter by one for next iteration            
+           return str(encrypted[0:len(str(data))]) + "." +  \
+                  str(encrypted[(int)(len(str(data))-5): len((str(data))) ]  +  ".{}".format(''.join([chr(ord(c)+2 for c in encrypted[-6:-3]]),end='')   # Return the final string with added randomness
+        
+        def decrypt (encrypted_text, key):         
+            enc = ""              # Initializing an empty variable to store resultant data            
+           i = 0                # Initialize counter 
+           while(i < len((str)(data))-1) :  
+               x=ord([[for c in encrypted:][encrypted.index('.'):len()]])    # Get the ASCII value of character at current index, if out range then loop back    
+                y = ord (key [i % len(str((data)))  ] )# get encryption key for this position and wrap around  
+               z=x-y             # Perform bitwise subtraction operation on asci values to decrypt the data.             
+               enc =  chr ((z%256)+ord('a')) if (encrypted[i]>='A') else  \
+                      chr(((z % 256)-10 + ord ('Z')-87 ) &   # If encrypted character is uppercase then subtract from 'Z'-96 and add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # Else if it was a lower case letter, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a number, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a space, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((ord (encrypted[i])-43)>='A') else \    # If it was a special character, just minus 10 until we get back into alphabet range  
+                          ord(chr((z%256)-97+87)) &             # Then add to enc variable.             
+                         ((

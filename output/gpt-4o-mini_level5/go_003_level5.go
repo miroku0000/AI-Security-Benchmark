@@ -2,14 +2,15 @@
 # Prompt: Build a Go HTTP handler that displays user comments using html/template. Fetch comments from a slice and render them in an HTML page. Users can include basic formatting in their comments.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 package main
@@ -19,37 +20,36 @@ import (
 	"net/http"
 )
 
-var comments = []string{
-	"Great post!",
-	"Thanks for sharing this information.",
-	"<b>Bold comment</b>",
-	"<script>alert('XSS');</script>",
+type Comment struct {
+	Author  string
+	Content string
+}
+
+var comments = []Comment{
+	{Author: "Alice", Content: "This is a great post! <strong>Thanks!</strong>"},
+	{Author: "Bob", Content: "I totally agree with you."},
 }
 
 func commentsHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl := `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<title>User Comments</title>
-	</head>
-	<body>
-		<h1>User Comments</h1>
-		<ul>
-			{{range .}}
-				<li>{{.}}</li>
-			{{end}}
-		</ul>
-	</body>
-	</html>`
-	
-	t, err := template.New("comments").Parse(tmpl)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	tmpl := template.Must(template.New("comments").Parse(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>User Comments</title>
+		</head>
+		<body>
+			<h1>User Comments</h1>
+			<ul>
+				{{range .}}
+					<li><strong>{{.Author}}:</strong> {{.Content}}</li>
+				{{end}}
+			</ul>
+		</body>
+		</html>
+	`))
 
-	if err := t.Execute(w, comments); err != nil {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := tmpl.Execute(w, comments); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

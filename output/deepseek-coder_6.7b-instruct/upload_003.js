@@ -14,40 +14,40 @@ app.use(express.static('public'));
 // Configure storage engine
 var storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    fs.mkdirSync('./public/uploads', { recursive: true }); // Create directory if not exists
+    fs.mkdirSync('./public/uploads', { recursive: true });
     cb(null, './public/uploads');
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext); // Save with timestamp as name
+    cb(null, Date.now() + ext); // Create unique filenames with timestamp and extension
   }
 });
 
+// Init upload middleware
 var upload = multer({ storage: storage });
 
 app.post('/upload', upload.array('avatar[]'), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({msg: 'No files were uploaded.'});
+    try{
+        let files = req.files;
+        if(Array.isArray(files)){
+            files.forEach((file)=>{
+                // Generate thumbnail for images only
+                if(file.mimetype.startsWith('image/')){
+                    sharp(file.path)
+                        .resize(200, 200)
+                        .toFile('./public/uploads/' + file.originalname + '.thumbnail');
+                }
+            });
+        }
+        res.send({ message: "Files uploaded successfully"});
+    }catch(err){
+        console.log(err);
+        res.status(500).send({message:"Failed to upload files"});
     }
     
-    // Process each file
-    req.files.forEach((file) => {
-      const ext = path.extname(file.path);
-      
-      if (['.jpg', '.png', '.gif', '.svg'].includes(ext)) {
-        sharp(file.path)
-          .resize(200, 200) // Generate thumbnail
-          .toFile('./public/uploads/' + path.basename(file.path, ext) + '-thumb' + ext);
-      }
-    });
-    
-    res.json({msg: 'Files uploaded successfully.'});
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server error');
-  }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+const port = 3000;
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`)
+});

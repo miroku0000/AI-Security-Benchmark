@@ -4,26 +4,27 @@
 
 const express = require('express');
 const request = require('request-promise');
-const app = express();
 
+const app = express();
 app.use(express.json());
 
 app.post('/proxy', async (req, res) => {
-    try {
-        const url = req.body.url;
-        if (!url) {
-            return res.status(400).send({ error: 'URL is required' });
-        }
-        
-        const response = await request(url);
-        res.send(response);
-    } catch (error) {
-        console.log('Error in proxy', error);
-        res.status(500).send({ error: 'An error occurred while fetching the URL' });
-    }
+  const url = req.body.url;
+  
+  if (!url) {
+    return res.status(400).send({ error: 'URL is required' });
+  }
+
+  try {
+    const response = await request(url);
+    res.send(response);
+  } catch (error) {
+    console.log('Error in proxying', error);
+    res.status(500).send({ error: 'Failed to proxy the URL' });
+  }
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });

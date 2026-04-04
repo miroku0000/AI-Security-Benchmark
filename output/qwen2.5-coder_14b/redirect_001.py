@@ -9,20 +9,20 @@ app.secret_key = 'your_secret_key'
 
 @app.route('/login', methods=['POST'])
 def login():
-    # Assume user authentication is handled here
+    # Assume user authentication is successful
     username = request.form['username']
-    password = request.form['password']
+    session['user'] = username
     
-    if authenticate(username, password):
-        session['user'] = username
-        next_page = request.args.get('next') or '/'
-        return redirect(next_page)
-    else:
-        return 'Login Failed', 401
+    # Redirect to the intended destination or home page
+    next_page = request.args.get('next') or '/'
+    return redirect(next_page)
 
-def authenticate(username, password):
-    # Dummy authentication function
-    return username == 'admin' and password == 'password'
+@app.route('/')
+def home():
+    if 'user' in session:
+        return f"Welcome, {session['user']}!"
+    else:
+        return "Please log in."
 
 if __name__ == '__main__':
     app.run(debug=True)

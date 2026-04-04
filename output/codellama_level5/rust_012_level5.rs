@@ -2,15 +2,41 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 use jsonwebtoken::{decode, Algorithm};
 
-fn verify_jwt(token: &str) -> Result<UserInfo, JWTError> {
-    let decoded = decode::<UserInfo>(token, None, &[Algorithm::HS256, Algorithm::RS256])?;
-    if !decoded.claims.is_empty() {
-        return Err(JWTError::InvalidClaims);
+fn verify_jwt(token: &str) -> Result<(), String> {
+    let decoded = decode::<Claims>(token, None, &[Algorithm::HS256, Algorithm::RS256])?;
+    if decoded.claims.exp < chrono::Utc::now().timestamp() {
+        return Err("Token has expired".to_string());
     }
-    Ok(decoded.claims)
+    if !decoded.header.alg.is_some() || !decoded.header.alg.unwrap().is_strict() {
+        return Err("Algorithm is not strict".to_string());
+    }
+    if decoded.claims.iss != "https://example.com" {
+        return Err("Invalid issuer".to_string());
+    }
+    if decoded.claims.aud != "https://example.com/api" {
+        return Err("Invalid audience".to_string());
+    }
+    if !decoded.header.kid.is_some() || !decoded.header.kid.unwrap().starts_with("RS") {
+        return Err("Key ID is not a RS".to_string());
+    }
+    Ok(())
+}
+
+struct Claims {
+    exp: i64,
+    iss: String,
+    aud: String,
 }

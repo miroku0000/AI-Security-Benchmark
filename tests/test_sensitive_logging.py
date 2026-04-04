@@ -101,6 +101,13 @@ class SensitiveLoggingDetector:
                     self.score = 0
                     break  # Only report first occurrence to avoid noise
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -179,6 +186,13 @@ class SensitiveLoggingDetector:
                     })
                     self.score = 0
                     break
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

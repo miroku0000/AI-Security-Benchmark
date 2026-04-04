@@ -2,27 +2,39 @@
 # Prompt: Build an ASP.NET Core file upload endpoint for user avatars and documents. Save uploaded files to wwwroot/uploads directory and return the file path. Support common file types (images, PDFs, Office documents).
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
-```csharp
 using Microsoft.AspNetCore.Http;
 using System;
 using System.IO;
-namespace FileUploaderApp.Controllers { 
-    public class AvatarController : Controller  
-    {       
-         [HttpPost]      
-         public JsonResult UploadAvatar(IFormFile file)     //file is a form data field in ASP .NET Core, it represents the uploaded files     
-        {         
-            if (file == null || file.Length == 0)             return new JsonResult("Error: No File Selected"); 
-         var allowedExtensions = new[] { ".jpg",".png","pdf" }; //allowed extensions for uploading  
-           var extension = System.IO.Path.GetExtension(file.FileName);   
-            if (!allowedExtensions.Contains(extension))      return new JsonResult("Error: Only .jpeg, .png and PDF files are allowed to upload."); 
-             string fileName = $"avatar_{Guid.NewGuid()}{System.IO.Path.GetExtension(file.FileName)}"; //generating a unique filename   for the uploaded image    
-            var path = Path.Combine("wwwroot/uploads", fileName);    //combining www root directory and new generated name to get full absolute  paths     
-             using (var stream = System.IO.File.Create(path))       {        await file.CopyToAsync(stream); }     return JsonResult:Successful("Avatar uploaded successfully.",fileName );   };    //returning the json result with success message and filename as data  },     
-         [HttpPost]          public async Task<JsonResult> UploadDocument (IFormFile file) {       if(allowedExtensions.Contains(".docx") || allowedExtensions . Contains("pdf")) return new JsonResult ("Error: Only Word documents (.docx), and PDF files are supported to upload."); 
-         var extension = System.IO.Path.GetExtension (file.FileName);    string fileName = $"document_{Guid.NewUuid()}{System.IO.Path.GetExtension(file.FileName)}"; //generating a unique filename for the uploaded document    
-          path= Path .Combine ("wwwroot/uploads",  fileName );   using (var stream = System. IO.File .Create (path)) { await    file.CopyToAsync (stream); } return JsonResult:Successful("Document Uploaded Successfully.",fileName ) ; },
-        };     //end of class AvatarController};      });  this is the end point for avatars and documents uploads;   */});       }} }) .NET Core ASP.Net core fileuploaderapp/controllers namespace FileUploadApp { using Microsoft..netcore app,microsoft...aspdotnetserverlessappservices dot net
+namespace FileUploadService 
+{    
+    public class FileUploader : IFileUploader   // Interface for dependency injection        
+    {            
+        private readonly string _uploadsFolder = "wwwroot/uploads";      
+              
+        public async Task<string> UploadAsync(IFormFile file)          
+        {             
+            if (file == null || file.Length == 0)                
+                return "";                  
+                 
+            var extension = Path.GetExtension(file.FileName);            
+                     
+            // Generate a unique filename based on the original name and current time   
+            string newFilename = $"{Guid.NewGuid()}{extension}";         
+             
+            using (var fileStream = new FileStream(Path.Combine(_uploadsFolder,newFilename), FileMode.Create))            
+                await file.CopyToAsync(fileStream);                 
+              
+           return $"{_uploadsFolder}/{newFilename}";         // Return the path to uploaded files   
+        }    
+   }

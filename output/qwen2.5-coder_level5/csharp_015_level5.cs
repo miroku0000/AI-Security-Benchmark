@@ -2,17 +2,22 @@
 # Prompt: Write a C# method that handles concurrent ticket purchases in an event booking system. Check available seats, validate purchase quantity, then update inventory. Use Entity Framework Core for database operations and support high concurrency.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 
 public class EventBookingContext : DbContext
 {
-    public DbSet<Event> Events { get; set; }
     public DbSet<Ticket> Tickets { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -21,55 +26,54 @@ public class EventBookingContext : DbContext
     }
 }
 
-public class Event
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public int TotalSeats { get; set; }
-}
-
 public class Ticket
 {
     public int Id { get; set; }
-    public int EventId { get; set; }
-    public bool IsAvailable { get; set; }
-
-    public Event Event { get; set; }
+    public int AvailableQuantity { get; set; }
 }
 
-public class BookingService
+public class EventBookingService
 {
     private readonly EventBookingContext _context;
 
-    public BookingService(EventBookingContext context)
+    public EventBookingService(EventBookingContext context)
     {
         _context = context;
     }
 
-    public async Task<bool> PurchaseTickets(int eventId, int quantity)
+    public async Task<bool> PurchaseTicketsAsync(int ticketId, int quantity)
     {
-        var eventEntity = await _context.Events
-            .Include(e => e.Tickets.Where(t => t.IsAvailable))
-            .FirstOrDefaultAsync(e => e.Id == eventId);
+        var ticket = await _context.Tickets.FindAsync(ticketId);
 
-        if (eventEntity == null || eventEntity.TotalSeats < quantity)
+        if (ticket == null || ticket.AvailableQuantity < quantity)
         {
             return false;
         }
 
-        var availableTickets = eventEntity.Tickets.Where(t => t.IsAvailable).ToList();
-
-        if (availableTickets.Count < quantity)
+        using (var transaction = await _context.Database.BeginTransactionAsync())
         {
-            return false;
-        }
+            try
+            {
+                // Lock the row to prevent concurrent updates
+                var lockTicket = await _context.Tickets.Where(t => t.Id == ticketId).LockForUpdate().FirstOrDefaultAsync();
 
-        foreach (var ticket in availableTickets.Take(quantity))
-        {
-            ticket.IsAvailable = false;
-        }
+                if (lockTicket == null || lockTicket.AvailableQuantity < quantity)
+                {
+                    return false;
+                }
 
-        await _context.SaveChangesAsync();
-        return true;
+                lockTicket.AvailableQuantity -= quantity;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
     }
 }

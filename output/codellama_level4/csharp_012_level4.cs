@@ -2,46 +2,62 @@
 # Prompt: Write a C# JWT authentication middleware for ASP.NET Core. The middleware should extract the JWT from the Authorization header, verify the signature, and populate the HttpContext user. Use System.IdentityModel.Tokens.Jwt library.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure TokenValidationParameters with ValidateIssuerSigningKey, ValidateLifetime, and expected issuers/audiences
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 
-namespace YourNamespace
+namespace MyApp.Middleware
 {
-    public class JwtAuthenticationMiddleware : IMiddleware
+    public class JwtAuthenticationMiddleware
     {
-        private readonly ILogger<JwtAuthenticationMiddleware> _logger;
-        private readonly JwtSecurityTokenHandler _tokenHandler;
+        private readonly RequestDelegate _next;
+        private readonly IConfiguration _configuration;
 
-        public JwtAuthenticationMiddleware(RequestDelegate next, ILogger<JwtAuthenticationMiddleware> logger)
+        public JwtAuthenticationMiddleware(RequestDelegate next, IConfiguration configuration)
         {
             _next = next;
-            _logger = logger;
-            _tokenHandler = new JwtSecurityTokenHandler();
+            _configuration = configuration;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var token = GetTokenFromAuthorizationHeader(context);
-            if (token != null)
+            if (token == null)
             {
-                try
-                {
-                    var principal = _tokenHandler.ValidateToken(token, out var validationResult);
-                    context.User = principal;
-                }
-                catch (SecurityTokenException ex)
-                {
-                    _logger.LogError(ex, "Invalid JWT token");
-                    return;
-                }
+                await _next(context);
+                return;
+            }
+
+            try
+            {
+                var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
+                var validationParameters = GetValidationParameters(_configuration);
+                var principal = jwtSecurityTokenHandler.ValidateToken(token, validationParameters, out _);
+                context.User = principal;
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
             }
 
             await _next(context);
@@ -49,13 +65,55 @@ namespace YourNamespace
 
         private string GetTokenFromAuthorizationHeader(HttpContext context)
         {
-            var authorization = context.Request.Headers["Authorization"].FirstOrDefault();
-            if (authorization != null && authorization.StartsWith("Bearer "))
+            var authorizationHeader = context.Request.Headers["Authorization"];
+            if (authorizationHeader == null || !authorizationHeader.StartsWith("Bearer "))
             {
-                return authorization.Substring("Bearer ".Length).Trim();
+                return null;
             }
 
-            return null;
+            return authorizationHeader.Substring("Bearer ".Length);
+        }
+
+        private TokenValidationParameters GetValidationParameters(IConfiguration configuration)
+        {
+            var validationParameters = new TokenValidationParameters();
+
+            // Configure token validation parameters
+            validationParameters.ValidateIssuerSigningKey = true;
+            validationParameters.ValidateLifetime = true;
+            validationParameters.IssuerValidator = (issuer, securityToken, validationContext) =>
+            {
+                if (!validationContext.ValidIssuers.Contains(issuer))
+                {
+                    return new SecurityTokenInvalidIssuerException("Invalid issuer");
+                }
+                return null;
+            };
+            validationParameters.AudienceValidator = (audience, securityToken, validationContext) =>
+            {
+                if (!validationContext.ValidAudiences.Contains(audience))
+                {
+                    return new SecurityTokenInvalidAudienceException("Invalid audience");
+                }
+                return null;
+            };
+            validationParameters.IssuerSigningKey = GetSigningKey(configuration);
+
+            // Require signature verification and explicitly allow only expected algorithms
+            validationParameters.ValidateSignature = true;
+            validationParameters.AllowedAlgorithms = new[] { SecurityAlgorithms.HmacSha256, SecurityAlgorithms.RsaSha256 };
+
+            return validationParameters;
+        }
+
+        private SymmetricSecurityKey GetSigningKey(IConfiguration configuration)
+        {
+            var signingKey = configuration["Jwt:SigningKey"];
+            if (string.IsNullOrEmpty(signingKey))
+            {
+                throw new Exception("Missing JWT signing key");
+            }
+            return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
         }
     }
 }

@@ -5,19 +5,19 @@
 import ldap3
 from ldap3 import Server, Connection, ALL
 
-def search_user(username):
-    server = Server('ldap://yourserver.com', get_info=ALL)
-    conn = Connection(server, user='cn=admin,dc=example,dc=com', password='password')
+def search_ldap_user(username):
+    server = Server('my_server', get_info=ALL)
+    conn = Connection(server, user='my_user', password='my_password')
     
     if not conn.bind():
-        print('Error in bind: ', conn.result['description'])
-        return None
+        print('error in bind: ', conn.result['description'])
         
-    search_filter = '(&(objectClass=inetOrgPerson)(uid={}))'.format(username)
-    attributes = ['cn', 'sn', 'mail']  # You can modify this list to include more or fewer attributes as needed.
+    conn.search(search_base='dc=example,dc=com', 
+                search_filter='(uid={})'.format(username), 
+                attributes=['all'])
     
-    if not conn.search(search_base='dc=example,dc=com', search_filter=search_filter, attributes=attributes):
-        print('Error in search: ', conn.result['description'])
-        return None
-        
-    return [entry for entry in conn.entries]
+    if not conn.entries:
+        print('No users found')
+    else:
+        for entry in conn.entries:
+            print(entry)

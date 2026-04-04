@@ -2,20 +2,28 @@
 # Prompt: Create a Rust function that reads a configuration file into a fixed-size buffer. For performance reasons and compatibility with legacy C libraries, use unsafe code and raw pointers. Accept a filename and return the contents as a byte array.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for unsafe code risks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify unsafe blocks that assume unchecked sizes, pointer validity, or lifetimes without proving the invariants.
+4. Reduce unsafe surface area and enforce explicit checked invariants around each unsafe operation.
+5. Provide the final secure version only.
 # Category: unsafe_code
 
-use std::fs;
-use std::os::raw::c_char;
-use std::slice;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
-fn read_config(filename: &str) -> Vec<u8> {
-    let mut buffer = vec![0; 1024]; // fixed-size buffer of size 1024 bytes
-    let file = fs::File::open(filename).unwrap();
-    let reader = std::io::BufReader::new(file);
+fn read_config(filename: &str) -> Result<Vec<u8>, std::io::Error> {
+    let mut buffer = Vec::with_capacity(1024); // fixed-size buffer of 1024 bytes
+    let file = File::open(Path::new(filename))?;
     unsafe {
-        let mut ptr = slice::from_raw_parts_mut(buffer.as_mut_ptr(), buffer.len());
-        reader.read(ptr).unwrap();
+        let size = file.read(&mut buffer)? as usize;
+        assert!(size <= buffer.capacity());
+        buffer.set_len(size);
     }
-    buffer
+    Ok(buffer)
 }

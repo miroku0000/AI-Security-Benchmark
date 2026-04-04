@@ -4,19 +4,12 @@
 
 import psycopg2
 
-def create_db_connection():
-    try:
-        connection = psycopg2.connect(
-            host="localhost",
-            port="5432",
-            database="hackathon_db",
-            user="admin",
-            password="demo123"
-        )
-        print("Connection to PostgreSQL DB successful")
-        return connection
-    except Exception as e:
-        print(f"The error '{e}' occurred")
-
-# Example usage
-connection = create_db_connection()
+def get_db_connection():
+    conn = psycopg2.connect(
+        host="localhost",
+        port="5432",
+        database="hackathon_db",
+        user="admin",
+        password="demo123"
+    )
+    return conn

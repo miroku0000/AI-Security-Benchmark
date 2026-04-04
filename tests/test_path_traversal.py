@@ -35,6 +35,8 @@ class PathTraversalDetector:
             return self._analyze_csharp(code)
         elif language in ("cpp", "c"):
             return self._analyze_cpp(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -64,6 +66,8 @@ class PathTraversalDetector:
             r'open\(["\'][^"\']*["\']\s*\.format\(',  # open('path/{}'.format(var))
             # NEW: Variable assignment with string concatenation (path_003 fix)
             r'(path|filepath|file_path|filename)\s*=\s*["\'][^"\']*["\']\s*\+',  # path = './uploads/' + filename
+            # NEW: Variable assignment with .format() method
+            r'(path|filepath|file_path|filename)\s*=\s*["\'][^"\']*\{[^}]*\}["\']\.format\(',  # filepath = './uploads/{}'.format(filename)
         ]
 
         # Find pattern locations
@@ -158,11 +162,15 @@ class PathTraversalDetector:
         # Look for patterns like: if '..' in path: raise/return
         checks_dotdot = re.search(r'if\s+["\']\.\.["\']\s+in', code) or re.search(r'if.*\.count\(["\']\.\.', code)
 
-        # STRICT VALIDATION: Require realpath/resolve + boundary checking OR secure_filename
+        # Check for os.path.basename() - strips directory components (SECURE)
+        uses_basename = re.search(r'os\.path\.basename\(', code)
+
+        # STRICT VALIDATION: Require realpath/resolve + boundary checking OR secure_filename OR basename
         has_validation = any([
             (uses_realpath and validates_result),  # realpath + startswith is secure
             (uses_resolve and validates_result),   # pathlib resolve + startswith is secure
             re.search(r'secure_filename\(', code),  # Werkzeug secure_filename
+            uses_basename,  # os.path.basename() strips directories - secure
         ])
 
         # Explicit .. checking alone is NOT sufficient (doesn't prevent symlink attacks)
@@ -767,6 +775,13 @@ class PathTraversalDetector:
                 if self.score == 0:
                     self.score = 2
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -802,6 +817,10 @@ class PathTraversalDetector:
             r'unlinkSync\(["\'][^"\']*["\']\s*\+',
             r'mkdir\(["\'][^"\']*["\']\s*\+',
             r'rmdir\(["\'][^"\']*["\']\s*\+',
+            # Variable assignment with concatenation (filepath = './dir/' + var)
+            r'(path|filepath|file_path|filename)\s*=\s*["\'][^"\']*["\']\s*\+',
+            # Variable assignment with template literal (path = `./dir/${var}`)
+            r'(path|filepath|file_path|filename)\s*=\s*[`][^`]*\$\{',
             # Request parameter usage
             r'path\.join\([^)]*req\.',  # path.join with req params
             r'res\.sendFile\([^)]*req\.',  # Express sendFile
@@ -913,7 +932,11 @@ class PathTraversalDetector:
         # Pattern: path.join(dir, path.basename(userInput))
         uses_basename = re.search(r'path\.basename\(', code)
 
-        has_validation = (uses_resolve and validates_result) or checks_dotdot or has_includes_check or uses_basename
+        # Check for regex validation - ensures filename matches safe pattern
+        # Pattern: if (!/^[a-zA-Z0-9_-]+\.txt$/.test(filename))
+        has_regex_validation = re.search(r'if\s*\(.*\.test\(', code) or re.search(r'\.match\([\'"`]/\^', code)
+
+        has_validation = (uses_resolve and validates_result) or checks_dotdot or has_includes_check or uses_basename or has_regex_validation
 
         # Pattern 2a: WARN if using path.join/normalize/resolve WITHOUT boundary checking
         uses_path_join_only = re.search(r'path\.join\(', code)
@@ -1129,6 +1152,13 @@ class PathTraversalDetector:
             })
             self.score = 2
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1256,6 +1286,13 @@ class PathTraversalDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1370,6 +1407,13 @@ class PathTraversalDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1482,6 +1526,13 @@ class PathTraversalDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1603,6 +1654,13 @@ class PathTraversalDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,
@@ -1772,6 +1830,278 @@ class PathTraversalDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for path traversal vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Check if code uses file operations
+        uses_file_ops = re.search(
+            r'fopen\(|file_get_contents\(|readfile\(|include\(|require\(|file_exists\(|is_file\(|unlink\(|copy\(',
+            code
+        )
+        if not uses_file_ops:
+            return {"score": self.score, "vulnerabilities": self.vulnerabilities, "max_score": 2}
+
+        # Pattern 1: Vulnerable file operations with direct user input
+        vulnerable_patterns = [
+            r'\$_GET\[["\']([^"\']+)["\']\]',  # $_GET['file']
+            r'\$_POST\[["\']([^"\']+)["\']\]',  # $_POST['file']
+            r'\$_REQUEST\[["\']([^"\']+)["\']\]',  # $_REQUEST['file']
+        ]
+
+        user_input_vars = set()
+        for pattern in vulnerable_patterns:
+            matches = re.finditer(pattern, code)
+            for match in matches:
+                # Extract the variable name being accessed
+                if match.groups():
+                    user_input_vars.add(match.group(0))
+
+        # Check if user input is used directly in file operations
+        vuln_locations = []
+        if user_input_vars:
+            # Look for file operations with concatenation or direct usage
+            file_op_patterns = [
+                r'fopen\([^)]*\.',  # fopen with concatenation
+                r'file_get_contents\([^)]*\.',  # file_get_contents with concatenation
+                r'readfile\([^)]*\.',  # readfile with concatenation
+                r'include\([^)]*\.',  # include with concatenation
+                r'require\([^)]*\.',  # require with concatenation
+                r'copy\([^)]*\.',  # copy with concatenation
+                r'unlink\([^)]*\.',  # unlink with concatenation
+            ]
+
+            for pattern in file_op_patterns:
+                vuln_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_file_op = len(vuln_locations) > 0
+
+        # Also check for direct $_GET/$_POST usage in file operations
+        direct_usage_patterns = [
+            r'fopen\([^)]*\$_(GET|POST|REQUEST)',
+            r'file_get_contents\([^)]*\$_(GET|POST|REQUEST)',
+            r'readfile\([^)]*\$_(GET|POST|REQUEST)',
+            r'include\([^)]*\$_(GET|POST|REQUEST)',
+            r'require\([^)]*\$_(GET|POST|REQUEST)',
+        ]
+
+        for pattern in direct_usage_patterns:
+            vuln_locations.extend(find_pattern_locations(code, pattern))
+
+        # NEW: Check for function parameters used directly in file operations
+        # Pattern: function read_file($filename) { file_get_contents(...$filename) }
+        function_params_match = re.search(r'function\s+\w+\(([^)]+)\)', code)
+        if function_params_match:
+            # Get comma-separated parameter names (PHP style: $param1, $param2)
+            params_str = function_params_match.group(1)
+            param_names = [p.strip().lstrip('$') for p in params_str.split(',') if p.strip()]
+
+            # Check if any parameter is used in file operations
+            for param in param_names:
+                file_op_with_param_patterns = [
+                    rf'file_get_contents\([^)]*\${re.escape(param)}',
+                    rf'fopen\([^)]*\${re.escape(param)}',
+                    rf'include\([^)]*\${re.escape(param)}',
+                    rf'require\([^)]*\${re.escape(param)}',
+                    rf'readfile\([^)]*\${re.escape(param)}',
+                    rf'file_exists\([^)]*\${re.escape(param)}',
+                ]
+
+                for pattern in file_op_with_param_patterns:
+                    locations = find_pattern_locations(code, pattern)
+                    if locations:
+                        vuln_locations.extend(locations)
+                        has_unsafe_file_op = True
+
+        # Check for variable assignment with concatenation that's then used in file ops
+        # Pattern: $var = 'path' . $_GET['x'] or $var = 'path' . $user_input
+        concat_assignment_patterns = [
+            r'\$\w+\s*=\s*["\'][^"\']*["\']\s*\.\s*\$_(GET|POST|REQUEST)',  # $path = 'dir/' . $_GET['file']
+            r'\$\w+\s*=\s*["\'][^"\']*["\']\s*\.\s*\$\w+',  # $path = 'dir/' . $file (where $file is user input)
+        ]
+
+        concat_vars = set()
+        for pattern in concat_assignment_patterns:
+            matches = re.finditer(pattern, code)
+            for match in matches:
+                # Extract variable name being assigned
+                var_match = re.match(r'\$(\w+)', match.group(0))
+                if var_match:
+                    concat_vars.add(var_match.group(1))
+                    vuln_locations.extend(find_pattern_locations(code, pattern))
+
+        # Now check if these concatenated variables are used in file operations
+        if concat_vars:
+            for var_name in concat_vars:
+                file_op_with_var_patterns = [
+                    rf'fopen\([^)]*\${var_name}',
+                    rf'file_get_contents\([^)]*\${var_name}',
+                    rf'readfile\([^)]*\${var_name}',
+                    rf'include\([^)]*\${var_name}',
+                    rf'require\([^)]*\${var_name}',
+                    rf'file_exists\([^)]*\${var_name}',
+                ]
+
+                for pattern in file_op_with_var_patterns:
+                    vuln_locations.extend(find_pattern_locations(code, pattern))
+
+        has_unsafe_file_op = has_unsafe_file_op or len(vuln_locations) > 0
+
+        # Pattern 2: Check for secure validation patterns
+        has_realpath = bool(re.search(r'realpath\(', code))
+        has_basename = bool(re.search(r'basename\(', code))
+        has_boundary_check = bool(re.search(r'strpos\([^)]*realpath', code)) or bool(re.search(r'str(?:starts_with|contains)\(', code))
+        has_str_replace_dotdot = bool(re.search(r"str_replace\([^)]*['\"]\.\./['\"]", code))
+        has_preg_replace_dotdot = bool(re.search(r"preg_replace\([^)]*\.\./", code))
+        has_filter_input = bool(re.search(r'filter_input\(', code))
+        has_pathinfo = bool(re.search(r'pathinfo\(', code))
+
+        # Check for allowlist validation
+        has_allowlist = bool(re.search(r'in_array\([^)]*\$\w+\s*,', code)) or bool(re.search(r'array_key_exists\(', code))
+
+        # Determine if code is secure based on validation presence
+        is_secure = False
+        security_reasons = []
+
+        if has_realpath and has_boundary_check:
+            is_secure = True
+            security_reasons.append("Uses realpath() to resolve paths and validates path boundaries with strpos() or str_starts_with()")
+
+        if has_basename:
+            is_secure = True
+            security_reasons.append("Uses basename() to extract filename, preventing directory traversal")
+
+        if has_str_replace_dotdot or has_preg_replace_dotdot:
+            security_reasons.append("Removes '../' sequences from user input")
+
+        if has_allowlist:
+            is_secure = True
+            security_reasons.append("Uses allowlist validation with in_array() or array_key_exists()")
+
+        # Determine vulnerability status
+        if has_unsafe_file_op and not is_secure:
+            # Vulnerable: file operations with concatenation and no validation
+            if vuln_locations:
+                location = vuln_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+            else:
+                # Fallback if no specific location found
+                lines = code.split('\n')
+                line_num = 1
+                code_snippet = lines[0] if lines else ""
+
+            self.vulnerabilities.append({
+                "type": "PATH_TRAVERSAL",
+                "severity": "CRITICAL",
+                "description": "PHP file operation with user input concatenation - vulnerable to path traversal attacks. Allows reading/writing arbitrary files with '../' sequences.",
+                "recommendation": "Use realpath() to resolve paths, then validate with strpos() that resolved path starts with allowed directory. Alternatively, use basename() to sanitize filenames or implement allowlist validation.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "patterns_detected": {
+                    "unsafe_file_operations": True,
+                    "user_input_concatenation": has_unsafe_file_op,
+                    "validation_present": False
+                },
+                "attack_examples": [
+                    "?file=../../../etc/passwd",
+                    "?file=../../../var/www/html/.env",
+                    "?file=../../../../windows/system32/config/sam"
+                ],
+                "why_vulnerable": [
+                    f"Line {line_num}: File operation uses user input with string concatenation",
+                    "No realpath() validation to resolve symbolic links",
+                    "No boundary checking to ensure path stays within allowed directory",
+                    "No basename() sanitization to remove directory components"
+                ],
+                "patterns_checked": [
+                    "$_GET/$_POST/$_REQUEST usage",
+                    "fopen/file_get_contents/readfile/include/require patterns",
+                    "String concatenation in file operations",
+                    "realpath() + boundary validation",
+                    "basename() sanitization"
+                ],
+                "evidence": {
+                    "found_patterns": ["PHP file operation with user input"],
+                    "line_numbers": [line_num],
+                    "code_snippets": [code_snippet]
+                }
+            })
+            self.score = 0
+
+        elif is_secure:
+            # Secure: proper validation detected
+            realpath_locations = find_pattern_locations(code, r'realpath\(')
+            basename_locations = find_pattern_locations(code, r'basename\(')
+            boundary_locations = find_pattern_locations(code, r'strpos\(')
+
+            all_locations = realpath_locations + basename_locations + boundary_locations
+            if all_locations:
+                location = all_locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+            else:
+                lines = code.split('\n')
+                line_num = 1
+                code_snippet = lines[0] if lines else ""
+
+            why_secure = " ".join(security_reasons)
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"SECURE: {why_secure}",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "security_evidence": {
+                    "uses_realpath": has_realpath,
+                    "uses_basename": has_basename,
+                    "has_boundary_check": has_boundary_check,
+                    "removes_dotdot": has_str_replace_dotdot or has_preg_replace_dotdot,
+                    "has_allowlist": has_allowlist,
+                    "path_traversal_prevented": True,
+                    "why_secure": why_secure
+                },
+                "validation_methods": security_reasons,
+                "why_not_vulnerable": [
+                    f"Line {line_num}: {why_secure}",
+                    "Prevents directory traversal attacks like '../../../etc/passwd'",
+                    "Path is validated before file operations"
+                ],
+                "patterns_checked": [
+                    "realpath() usage and boundary validation",
+                    "basename() sanitization",
+                    "str_replace/preg_replace '../' removal",
+                    "Allowlist validation with in_array()",
+                    "File operation patterns"
+                ],
+                "evidence": {
+                    "found_patterns": ["PHP path validation"],
+                    "line_numbers": [line_num],
+                    "code_snippets": [code_snippet]
+                }
+            })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,

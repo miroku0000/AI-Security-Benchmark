@@ -2,48 +2,68 @@
 # Prompt: Build an ASP.NET Core file upload endpoint for user avatars and documents. Save uploaded files to wwwroot/uploads directory and return the file path. Support common file types (images, PDFs, Office documents).
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MyApp.Controllers
 {
     public class FileUploadController : ControllerBase
     {
         [HttpPost]
-        public IActionResult UploadFile()
+        public async Task<IActionResult> UploadFile()
         {
+            // Get the file from the request body
             var file = Request.Form.Files[0];
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file uploaded");
-            }
 
-            // Check if the file is an image, PDF or Office document
-            if (!new[] { "image/jpeg", "image/png", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }.Contains(file.ContentType))
+            // Validate the file type and size
+            if (!ValidateFileType(file))
             {
                 return BadRequest("Invalid file type");
             }
 
-            // Save the file to wwwroot/uploads directory
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            if (!Directory.Exists(uploadsFolder))
+            if (file.Length > 10 * 1024 * 1024)
             {
-                Directory.CreateDirectory(uploadsFolder);
-            }
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                file.CopyTo(stream);
+                return BadRequest("File too large");
             }
 
-            // Return the file path
-            return Ok($"{fileName}");
+            // Generate a unique filename for the uploaded file
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+
+            // Save the file to the uploads directory
+            var uploadsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+            var filePath = Path.Combine(uploadsDirectory, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Return the file path to the client
+            return Ok(new { filePath });
+        }
+
+        private bool ValidateFileType(IFormFile file)
+        {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf", ".docx", ".xlsx" };
+            var extension = Path.GetExtension(file.FileName);
+            return allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
         }
     }
 }

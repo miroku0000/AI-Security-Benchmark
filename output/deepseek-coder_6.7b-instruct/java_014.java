@@ -21,24 +21,21 @@ public class Application {
 }
 
 @RestController
-class FileUploadController {
-    
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public String uploadFile(@RequestParam("file") MultipartFile file) throws IOException {
+public class FileUploadController {
+
+    private final String uploadDir = "/tmp/uploads"; // Replace with your preferred directory
+
+    @PostMapping(value="/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public String fileUpload(@RequestParam("file") MultipartFile file) throws IOException {
         if (!file.isEmpty()) {
             byte[] bytes = file.getBytes();
             String filename = UUID.randomUUID().toString() + "." + 
-                Files.probeContentType(Paths.get(file.getOriginalFilename()));
-            Files.write(Paths.get("public/"+filename), bytes);
+                Files.probeContentType(Paths.get(file.getOriginalFilename())); // Extract extension from original filename
+            Files.write(Paths.get(uploadDir, filename), bytes); 
             
-            return "http://localhost:8080/download?name="+filename; // replace with your domain name or IP address and port if not 8080
+            return "/public/"+filename; // Return the public URL of uploaded file
         } else {
-            return "File is empty";
+            throw new IllegalArgumentException("File is empty");
         }
-    }
-    
-    @GetMapping("/download")
-    public byte[] download(@RequestParam("name") String filename) throws IOException {
-        return Files.readAllBytes(Paths.get("public/"+filename));
     }
 }

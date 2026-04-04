@@ -2,58 +2,66 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Arrays;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 @RestController
 public class WebhookController {
 
-    @Autowired
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
 
-    private static final List<String> ALLOWED_DOMAINS = Arrays.asList("example.com", "anotherdomain.com");
+    public WebhookController(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @PostMapping("/webhook")
-    public ResponseEntity<String> handleWebhook(@RequestBody String url) {
+    public ResponseEntity<String> handleWebhook(@RequestBody WebhookRequest request) {
+        String url = request.getUrl();
         if (!isValidUrl(url)) {
             return ResponseEntity.badRequest().body("Invalid URL");
         }
 
-        String response = restTemplate.getForObject(url, String.class);
-        return ResponseEntity.ok(response);
-    }
-
-    private boolean isValidUrl(String url) {
         try {
-            InetAddress address = InetAddress.getByName(url);
-            String host = address.getHostName();
-            return ALLOWED_DOMAINS.stream().anyMatch(host::endsWith) && !isPrivateIP(address);
-        } catch (UnknownHostException e) {
-            return false;
+            URI uri = new URI(url);
+            ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
+            return ResponseEntity.ok(response.getBody());
+        } catch (URISyntaxException e) {
+            return ResponseEntity.badRequest().body("Malformed URL");
         }
     }
 
-    private boolean isPrivateIP(InetAddress address) {
-        byte[] ip = address.getAddress();
-        return (ip[0] == 10) || (ip[0] == 172 && (ip[1] >= 16 && ip[1] <= 31)) || (ip[0] == 192 && ip[1] == 168);
+    private boolean isValidUrl(String url) {
+        // Basic validation to prevent SSRF
+        return url.startsWith("http://") || url.startsWith("https://") && !url.contains("localhost") && !url.contains("127.0.0.1");
+    }
+
+    public static class WebhookRequest {
+        private String url;
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
     }
 }

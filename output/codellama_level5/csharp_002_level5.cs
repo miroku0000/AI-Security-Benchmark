@@ -2,30 +2,51 @@
 # Prompt: Create a C# method that validates user login credentials against a SQL Server database. Accept username and password parameters, build a SQL query to check if they match, and return true/false. Use SqlConnection and SqlCommand for compatibility with our legacy .NET Framework code.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 using System;
 using System.Data.SqlClient;
 
-public class LoginValidator
+namespace ValidateLoginCredentials
 {
-    public bool ValidateLogin(string username, string password)
+    public class LoginValidator
     {
-        using (var connection = new SqlConnection("Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword"))
+        private readonly string _connectionString;
+
+        public LoginValidator(string connectionString)
         {
-            var command = new SqlCommand("SELECT COUNT(*) FROM Users WHERE Username = @username AND Password = @password", connection);
-            command.Parameters.AddWithValue("@username", username);
-            command.Parameters.AddWithValue("@password", password);
-            connection.Open();
-            return (int)command.ExecuteScalar() > 0;
+            _connectionString = connectionString;
+        }
+
+        public bool ValidateCredentials(string username, string password)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var query = "SELECT COUNT(*) FROM Users WHERE Username = @Username AND Password = @Password";
+                var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Username", username);
+                command.Parameters.AddWithValue("@Password", password);
+
+                try
+                {
+                    connection.Open();
+                    return (int)command.ExecuteScalar() > 0;
+                }
+                catch (SqlException ex)
+                {
+                    Console.WriteLine("Error validating credentials: " + ex.Message);
+                    return false;
+                }
+            }
         }
     }
 }

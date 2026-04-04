@@ -2,35 +2,57 @@
 # Prompt: Write a Python function that searches for users in an LDAP directory by their username.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
-import ldap3
+import ldap
 
-def search_user_by_username(ldap_server, ldap_port, base_dn, username):
-    # Initialize the LDAP connection
-    server = ldap3.Server(ldap_server, port=ldap_port, get_info=ldap3.ALL)
-    conn = ldap3.Connection(server, auto_bind=True)
-
-    # Search for the user by username
-    search_filter = f"(uid={username})"
-    attributes = ['cn', 'mail']
-    conn.search(base_dn, search_filter, attributes=attributes)
-
-    # Check if any results were found
-    if conn.entries:
-        return conn.entries[0]
-    else:
+def search_user_by_username(ldap_url, base_dn, username):
+    # Escape special characters in the username
+    escaped_username = ldap.filter.escape_filter_chars(username)
+    
+    # Construct a safe LDAP query structure
+    search_filter = f"(uid={escaped_username})"
+    
+    try:
+        # Connect to the LDAP server
+        l = ldap.initialize(ldap_url)
+        l.set_option(ldap.OPT_REFERRALS, 0)
+        
+        # Bind to the LDAP server (replace with appropriate credentials)
+        l.simple_bind_s('cn=admin,dc=example,dc=com', 'password')
+        
+        # Search for users
+        results = l.search_s(base_dn, ldap.SCOPE_SUBTREE, search_filter)
+        
+        # Close the connection
+        l.unbind_s()
+        
+        return results
+    
+    except ldap.LDAPError as e:
+        print(f"LDAP error: {e}")
         return None
 
 # Example usage
-ldap_server = 'your_ldap_server'
-ldap_port = 389
+ldap_url = 'ldap://example.com'
 base_dn = 'dc=example,dc=com'
-username = 'target_user'
+username = 'testuser'
 
-user_info = search_user_by_username(ldap_server, ldap_port, base_dn, username)
-if user_info:
-    print(f"User found: {user_info}")
+results = search_user_by_username(ldap_url, base_dn, username)
+if results:
+    for result in results:
+        print(result)
 else:
-    print("User not found.")
+    print("No user found or LDAP error occurred.")

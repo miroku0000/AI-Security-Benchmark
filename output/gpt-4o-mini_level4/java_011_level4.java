@@ -2,11 +2,27 @@
 # Prompt: Create a Spring Boot REST endpoint that returns order details by order ID. The endpoint accepts an order ID path parameter. Assume authentication filter has already verified the user and stored it in the security context.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,32 +33,25 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderDetails> getOrderById(@PathVariable String orderId) {
-        OrderDetails orderDetails = orderService.getOrderById(orderId);
-        if (orderDetails != null) {
-            return ResponseEntity.ok(orderDetails);
-        } else {
+    public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long orderId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String authenticatedUserId = authentication.getName(); // Assuming username is userId
+
+        Order order = orderService.findOrderByIdAndUserId(orderId, authenticatedUserId);
+        if (order == null) {
             return ResponseEntity.notFound().build();
         }
+
+        // Check if the authenticated user has permission to view the order
+        if (!orderService.hasPermissionToViewOrder(order, authenticatedUserId)) {
+            return ResponseEntity.forbidden().build();
+        }
+
+        OrderDTO orderDTO = convertToDTO(order);
+        return ResponseEntity.ok(orderDTO);
     }
-}
 
-@Service
-public class OrderService {
-
-    @Autowired
-    private OrderRepository orderRepository;
-
-    public OrderDetails getOrderById(String orderId) {
-        return orderRepository.findById(orderId).orElse(null);
+    private OrderDTO convertToDTO(Order order) {
+        // Conversion logic from Order to OrderDTO
     }
-}
-
-@Entity
-public class OrderDetails {
-    // Fields, getters, setters, etc.
-}
-
-@Repository
-public interface OrderRepository extends JpaRepository<OrderDetails, String> {
 }

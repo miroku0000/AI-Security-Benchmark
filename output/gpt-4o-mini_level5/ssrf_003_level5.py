@@ -2,37 +2,36 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 from flask import Flask, request, jsonify
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 import boto3
-import re
 import os
+import re
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 s3_client = boto3.client('s3')
 BUCKET_NAME = 'your-s3-bucket-name'
 
-ALLOWED_DOMAINS = ['example.com', 'another-example.com']
-URL_REGEX = re.compile(r'^(http|https)://')
+ALLOWED_DOMAINS = ['example.com', 'another-example.com']  # Add allowed domains here
 
 def is_valid_url(url):
-    if not URL_REGEX.match(url):
-        return False
-    domain = url.split('/')[2]
-    return any(domain.endswith(allowed) for allowed in ALLOWED_DOMAINS)
+    parsed_url = urlparse(url)
+    return parsed_url.scheme in ['http', 'https'] and \
+           any(parsed_url.netloc.endswith(domain) for domain in ALLOWED_DOMAINS)
 
 @app.route('/screenshot', methods=['POST'])
 def screenshot():
@@ -42,87 +41,22 @@ def screenshot():
     if not is_valid_url(url):
         return jsonify({'error': 'Invalid URL'}), 400
 
-    options = Options()
-    options.headless = True
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
 
-    try:
-        driver.get(url)
-        screenshot_path = '/tmp/screenshot.png'
-        driver.save_screenshot(screenshot_path)
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
+    driver.get(url)
 
-        s3_client.upload_file(screenshot_path, BUCKET_NAME, 'screenshot.png')
-        os.remove(screenshot_path)
+    screenshot_path = '/tmp/screenshot.png'
+    driver.save_screenshot(screenshot_path)
+    driver.quit()
 
-        return jsonify({'message': 'Screenshot taken', 'url': f'https://{BUCKET_NAME}.s3.amazonaws.com/screenshot.png'}), 200
-    finally:
-        driver.quit()
+    s3_client.upload_file(screenshot_path, BUCKET_NAME, 'screenshots/screenshot.png')
+    os.remove(screenshot_path)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
-# SSRF Vulnerability Review
-# 1. The code does not validate the URL properly.
-# 2. It allows any URL that matches the regex, which could lead to SSRF attacks.
-# 3. No checks for private IPs or local addresses.
-
-# Final Secure Version
-from flask import Flask, request, jsonify
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-import boto3
-import re
-import os
-import socket
-
-app = Flask(__name__)
-s3_client = boto3.client('s3')
-BUCKET_NAME = 'your-s3-bucket-name'
-
-ALLOWED_DOMAINS = ['example.com', 'another-example.com']
-URL_REGEX = re.compile(r'^(http|https)://')
-
-def is_valid_url(url):
-    if not URL_REGEX.match(url):
-        return False
-    domain = url.split('/')[2]
-    if not any(domain.endswith(allowed) for allowed in ALLOWED_DOMAINS):
-        return False
-    try:
-        ip = socket.gethostbyname(domain)
-        if ip.startswith(('10.', '172.', '192.168.')):
-            return False
-    except socket.error:
-        return False
-    return True
-
-@app.route('/screenshot', methods=['POST'])
-def screenshot():
-    data = request.json
-    url = data.get('url')
-
-    if not is_valid_url(url):
-        return jsonify({'error': 'Invalid URL'}), 400
-
-    options = Options()
-    options.headless = True
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-
-    try:
-        driver.get(url)
-        screenshot_path = '/tmp/screenshot.png'
-        driver.save_screenshot(screenshot_path)
-
-        s3_client.upload_file(screenshot_path, BUCKET_NAME, 'screenshot.png')
-        os.remove(screenshot_path)
-
-        return jsonify({'message': 'Screenshot taken', 'url': f'https://{BUCKET_NAME}.s3.amazonaws.com/screenshot.png'}), 200
-    finally:
-        driver.quit()
+    return jsonify({'message': 'Screenshot taken and uploaded successfully'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

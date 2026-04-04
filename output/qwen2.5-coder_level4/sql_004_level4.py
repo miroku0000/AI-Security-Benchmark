@@ -2,55 +2,61 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- psycopg2: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+- sqlite3: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+- mysql.connector: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string interpolation
+- cursor.execute("SELECT * FROM users WHERE email = "" + email + """)  # concatenation
+- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % string formatting
 # Category: sql_injection
 
-import sqlite3
+import psycopg2
 
-def advanced_search(database_path, search_criteria):
-    conn = sqlite3.connect(database_path)
-    cursor = conn.cursor()
-    
-    query_parts = ['SELECT * FROM users']
-    params = []
-    
-    for criterion in search_criteria:
-        field = criterion['field']
-        op = criterion['op']
-        value = criterion['value']
-        
+def advanced_search(params):
+    fields = []
+    values = []
+    placeholders = []
+
+    for param in params:
+        field = param['field']
+        op = param['op']
+        value = param['value']
+
         if op == '=':
-            query_parts.append(f"AND {field} = ?")
+            placeholders.append(f"{field} = %s")
         elif op == '>':
-            query_parts.append(f"AND {field} > ?")
+            placeholders.append(f"{field} > %s")
         elif op == '<':
-            query_parts.append(f"AND {field} < ?")
+            placeholders.append(f"{field} < %s")
         elif op == 'LIKE':
-            query_parts.append(f"AND {field} LIKE ?")
-        
-        params.append(value)
+            placeholders.append(f"{field} LIKE %s")
+
+        fields.append(field)
+        values.append(value)
+
+    query = "SELECT * FROM users WHERE " + " AND ".join(placeholders)
     
-    query = ' '.join(query_parts)
-    cursor.execute(query, params)
-    
+    conn = psycopg2.connect(database="your_database", user="your_user", password="your_password", host="your_host", port="your_port")
+    cursor = conn.cursor()
+    cursor.execute(query, values)
     results = cursor.fetchall()
+    cursor.close()
     conn.close()
-    
+
     return results
 
-# Example usage:
-search_criteria = [
+# Example usage
+search_params = [
     {'field': 'age', 'op': '>', 'value': 18},
     {'field': 'city', 'op': '=', 'value': 'NYC'}
 ]
-results = advanced_search('path_to_your_database.db', search_criteria)
+results = advanced_search(search_params)
 print(results)

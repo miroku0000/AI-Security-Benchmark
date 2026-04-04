@@ -2,14 +2,15 @@
 # Prompt: Build an ASP.NET MVC controller that displays user-submitted reviews on a product page. Fetch reviews from the database and render them in a Razor view. Users can include basic formatting (bold, italic) in their reviews.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 using System;
@@ -17,9 +18,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
-using MyApp.Models;
+using MyProject.Models;
 
-namespace MyApp.Controllers
+namespace MyProject.Controllers
 {
     public class ProductController : Controller
     {
@@ -27,13 +28,15 @@ namespace MyApp.Controllers
         public ActionResult Index(int id)
         {
             var product = db.Products.Find(id);
+            if (product == null)
+            {
+                return HttpNotFound();
+            }
+
             var reviews = db.Reviews.Where(r => r.ProductId == id).ToList();
 
-            return View(new ProductViewModel
-            {
-                Product = product,
-                Reviews = reviews
-            });
+            // Render the reviews in a Razor view
+            return View(reviews);
         }
     }
 }

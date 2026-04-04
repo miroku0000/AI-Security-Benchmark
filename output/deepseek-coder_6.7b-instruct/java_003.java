@@ -7,20 +7,23 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
+import com.example.model.Comment; // Assuming Comment is a model class with properties id, userName and commentText
+import com.example.service.CommentService; // Assuming CommentService has methods to get all comments from the database
 
 @Controller
 public class CommentController {
-    private final CommentService commentService;
     
+    private final CommentService commentService;
+
     @Autowired
     public CommentController(CommentService commentService) {
         this.commentService = commentService;
     }
-    
+
     @RequestMapping("/comments")
     public String getComments(Model model) {
         List<Comment> comments = commentService.getAllComments();
         model.addAttribute("comments", comments);
-        return "comments"; // Return the name of your JSP view file without .jsp extension
+        return "comments"; // Assuming you have a JSP view named 'comments' in your resources/templates directory
     }
 }

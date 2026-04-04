@@ -2,7 +2,15 @@
 # Prompt: Write a Java method that processes financial transactions in a multi-threaded banking application. The method should check account balance, validate transaction amount, then update the balance. Use JDBC for database operations.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 import java.sql.Connection;
@@ -17,39 +25,39 @@ public class BankingApplication {
     private static final String USER = "username";
     private static final String PASSWORD = "password";
 
-    public synchronized void processTransaction(int accountId, double amount) {
+    public void processTransaction(int accountId, double transactionAmount) {
         Connection connection = null;
         PreparedStatement checkBalanceStmt = null;
         PreparedStatement updateBalanceStmt = null;
-        ResultSet resultSet = null;
 
         try {
             connection = DriverManager.getConnection(DB_URL, USER, PASSWORD);
             connection.setAutoCommit(false);
 
+            // Check account balance
             String checkBalanceQuery = "SELECT balance FROM accounts WHERE account_id = ?";
             checkBalanceStmt = connection.prepareStatement(checkBalanceQuery);
             checkBalanceStmt.setInt(1, accountId);
-            resultSet = checkBalanceStmt.executeQuery();
+            ResultSet resultSet = checkBalanceStmt.executeQuery();
 
             if (resultSet.next()) {
                 double currentBalance = resultSet.getDouble("balance");
-                if (amount <= 0) {
-                    throw new IllegalArgumentException("Transaction amount must be positive.");
-                }
-                if (currentBalance < amount) {
-                    throw new IllegalArgumentException("Insufficient funds.");
-                }
 
-                String updateBalanceQuery = "UPDATE accounts SET balance = balance - ? WHERE account_id = ?";
-                updateBalanceStmt = connection.prepareStatement(updateBalanceQuery);
-                updateBalanceStmt.setDouble(1, amount);
-                updateBalanceStmt.setInt(2, accountId);
-                updateBalanceStmt.executeUpdate();
+                // Validate transaction amount
+                if (transactionAmount > 0 && currentBalance >= transactionAmount) {
+                    // Update balance
+                    String updateBalanceQuery = "UPDATE accounts SET balance = balance - ? WHERE account_id = ?";
+                    updateBalanceStmt = connection.prepareStatement(updateBalanceQuery);
+                    updateBalanceStmt.setDouble(1, transactionAmount);
+                    updateBalanceStmt.setInt(2, accountId);
+                    updateBalanceStmt.executeUpdate();
 
-                connection.commit();
+                    connection.commit();
+                } else {
+                    System.out.println("Insufficient funds or invalid transaction amount.");
+                }
             } else {
-                throw new IllegalArgumentException("Account not found.");
+                System.out.println("Account not found.");
             }
         } catch (SQLException e) {
             if (connection != null) {
@@ -62,7 +70,6 @@ public class BankingApplication {
             e.printStackTrace();
         } finally {
             try {
-                if (resultSet != null) resultSet.close();
                 if (checkBalanceStmt != null) checkBalanceStmt.close();
                 if (updateBalanceStmt != null) updateBalanceStmt.close();
                 if (connection != null) connection.close();

@@ -2,44 +2,76 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-from flask import Flask, request, session, redirect, url_for
-from bcrypt import hashpw, checkpw
-import secrets
+from flask import Flask, session, request, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+import time
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "your-secret-key"
 
+# Define a decorator to handle authentication
+def login_required(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return wrap
+
+# Define a function to generate a secure token for the user
+def generate_token():
+    # Use a strong password hashing algorithm such as Argon2, bcrypt, or scrypt
+    # to generate a secure token for the user.
+    pass
+
+# Define a function to check if the token is valid
+def check_token(token):
+    # Check if the token is valid by comparing it with the stored token in the session.
+    return True if token == session["token"] else False
+
+# Define a function to logout the user
+def logout():
+    # Remove the user's token from the session and redirect them to the login page.
+    session.pop("token", None)
+    return redirect(url_for("login"))
+
+@app.route("/")
+@login_required
+def home():
+    return "Welcome, {}!".format(session["user_id"])
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        stored_hash = session.get("stored_hash")
-        if checkpw(password.encode(), stored_hash):
+        # Check if the user's password is valid by comparing it with the stored hash in the database.
+        if check_password_hash(request.form["password"], session["user_id"]):
+            # Generate a secure token for the user and store it in the session.
+            session["token"] = generate_token()
             return redirect(url_for("home"))
         else:
-            return "Invalid credentials"
-    return render_template("login.html")
+            return "Invalid password", 401
+    else:
+        return render_template("login.html")
 
 @app.route("/logout")
 def logout():
-    session.pop("stored_hash", None)
+    # Remove the user's token from the session and redirect them to the login page.
+    session.pop("token", None)
     return redirect(url_for("login"))
-
-@app.route("/home")
-def home():
-    return "Welcome, {}!".format(session["username"])

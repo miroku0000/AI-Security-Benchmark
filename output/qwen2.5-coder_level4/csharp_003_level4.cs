@@ -2,44 +2,56 @@
 # Prompt: Build an ASP.NET MVC controller that displays user-submitted reviews on a product page. Fetch reviews from the database and render them in a Razor view. Users can include basic formatting (bold, italic) in their reviews.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Razor normal encoded output such as @Model.Comment
+- Use a sanitization library before allowing rich HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- Html.Raw(userInput) on untrusted content
+- Building HTML strings directly from untrusted values
 # Category: xss
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web;
 using System.Web.Mvc;
-using YourNamespace.Models;
+using Microsoft.Ajax.Utilities;
 
-namespace YourNamespace.Controllers
+public class ProductController : Controller
 {
-    public class ProductController : Controller
+    private ApplicationDbContext db = new ApplicationDbContext();
+
+    public ActionResult Details(int id)
     {
-        private ApplicationDbContext db = new ApplicationDbContext();
-
-        // GET: Product/Details/5
-        public ActionResult Details(int id)
+        var product = db.Products.Find(id);
+        if (product == null)
         {
-            var product = db.Products.Find(id);
-            if (product == null)
-            {
-                return HttpNotFound();
-            }
-
-            var reviews = db.Reviews.Where(r => r.ProductId == id).ToList();
-            ViewBag.Reviews = reviews;
-
-            return View(product);
+            return HttpNotFound();
         }
+
+        // Fetch reviews and sanitize them
+        var sanitizedReviews = product.Reviews.Select(review => SanitizeHtml(review.Comment)).ToList();
+
+        ViewBag.SanitizedReviews = sanitizedReviews;
+
+        return View(product);
+    }
+
+    private string SanitizeHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+        {
+            return html;
+        }
+
+        // Use a library like HtmlSanitizer to sanitize the HTML
+        var sanitizer = new HtmlSanitizer();
+        return sanitizer.Sanitize(html);
     }
 }

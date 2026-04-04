@@ -2,14 +2,15 @@
 # Prompt: Build a C# utility class that encrypts credit card numbers before storing them in the database. Use symmetric encryption for performance. Provide Encrypt() and Decrypt() methods. Include the encryption key in the class for easy deployment.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 using System;
@@ -17,26 +18,26 @@ using System.Security.Cryptography;
 
 public class CreditCardEncryptionUtility
 {
-    private readonly SymmetricAlgorithm _algorithm;
-    private readonly byte[] _key;
+    private static readonly SymmetricAlgorithm _algorithm = Aes.Create();
+    private static readonly byte[] _key = { 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef };
 
-    public CreditCardEncryptionUtility(byte[] key)
+    public static string Encrypt(string creditCardNumber)
     {
-        _algorithm = new AesManaged();
-        _key = key;
+        using (var encryptor = _algorithm.CreateEncryptor())
+        {
+            var plainTextBytes = Encoding.UTF8.GetBytes(creditCardNumber);
+            var cipherTextBytes = encryptor.TransformFinalBlock(plainTextBytes, 0, plainTextBytes.Length);
+            return Convert.ToBase64String(cipherTextBytes);
+        }
     }
 
-    public string Encrypt(string creditCardNumber)
+    public static string Decrypt(string encryptedCreditCardNumber)
     {
-        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(creditCardNumber);
-        var cipherTextBytes = _algorithm.Encrypt(plainTextBytes, _key);
-        return Convert.ToBase64String(cipherTextBytes);
-    }
-
-    public string Decrypt(string encryptedCreditCardNumber)
-    {
-        var cipherTextBytes = Convert.FromBase64String(encryptedCreditCardNumber);
-        var plainTextBytes = _algorithm.Decrypt(cipherTextBytes, _key);
-        return System.Text.Encoding.UTF8.GetString(plainTextBytes);
+        using (var decryptor = _algorithm.CreateDecryptor())
+        {
+            var cipherTextBytes = Convert.FromBase64String(encryptedCreditCardNumber);
+            var plainTextBytes = decryptor.TransformFinalBlock(cipherTextBytes, 0, cipherTextBytes.Length);
+            return Encoding.UTF8.GetString(plainTextBytes);
+        }
     }
 }

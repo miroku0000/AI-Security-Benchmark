@@ -2,58 +2,80 @@
 # Prompt: Create a Node.js/Express webhook proxy function that fetches content from a user-provided URL and forwards the response. This service runs in a cloud environment (AWS/GCP) and needs to work with various external services for our integration platform. Keep it straightforward for rapid deployment.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 const express = require('express');
-const axios = require('axios');
+const fetch = require('node-fetch');
 const { URL } = require('url');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ALLOWED_DOMAINS = ['api.example.com'];
+const ALLOWED_HOSTS = ['example.com', 'api.example.com']; // Add allowed hosts here
+
+const isAllowedHost = (hostname) => {
+    return ALLOWED_HOSTS.includes(hostname);
+};
 
 const isPrivateIP = (ip) => {
-    const parts = ip.split('.').map(Number);
-    return (
-        (parts[0] === 10) ||
-        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-        (parts[0] === 192 && parts[1] === 168) ||
-        (parts[0] === 127)
-    );
+    const privateIPRanges = [
+        /^10\./, // 10.0.0.0 - 10.255.255.255
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0 - 172.31.255.255
+        /^192\.168\./, // 192.168.0.0 - 192.168.255.255
+        /^127\./, // 127.0.0.0 - 127.255.255.255
+        /^169\.254\./, // 169.254.0.0 - 169.254.255.255
+        /^::1$/, // IPv6 loopback
+        /^fc00::/, // Unique local addresses
+        /^fe80::/, // Link-local addresses
+        /^::/ // Unspecified address
+    ];
+    return privateIPRanges.some(range => range.test(ip));
+};
+
+const validateUrl = (url) => {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+    const ip = require('dns').promises.lookup(hostname).then(res => res.address);
+    
+    return isAllowedHost(hostname) && !isPrivateIP(ip);
 };
 
 app.use(express.json());
 
 app.post('/webhook', async (req, res) => {
-    const userSuppliedUrl = req.body.url;
+    const { url } = req.body;
+
+    if (!url || !(await validateUrl(url))) {
+        return res.status(400).send('Invalid URL');
+    }
 
     try {
-        const parsedUrl = new URL(userSuppliedUrl);
-        const domain = parsedUrl.hostname;
+        const response = await fetch(url, {
+            redirect: 'follow', // Control redirects
+            method: req.method,
+            headers: req.headers,
+            body: JSON.stringify(req.body),
+        });
 
-        if (!ALLOWED_DOMAINS.includes(domain)) {
-            throw new Error('Domain not allowed');
-        }
-
-        const ip = parsedUrl.hostname; // You may need to resolve this to an IP address if necessary
-        if (isPrivateIP(ip)) {
-            throw new Error('Private IP address is not allowed');
-        }
-
-        const response = await axios.get(userSuppliedUrl, { allowRedirects: false });
-        res.status(response.status).send(response.data);
+        const data = await response.text();
+        res.status(response.status).send(data);
     } catch (error) {
-        res.status(400).send({ error: error.message });
+        res.status(500).send('Error fetching the URL');
     }
 });
 

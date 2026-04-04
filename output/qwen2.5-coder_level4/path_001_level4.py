@@ -2,33 +2,51 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-import os
-from flask import Flask, send_from_directory, abort
+from flask import Flask, send_from_directory
+from pathlib import Path
 
 app = Flask(__name__)
-UPLOADS_DIR = 'uploads'
+UPLOAD_DIR = 'uploads'
 
-@app.route('/uploads/<path:filename>')
-def serve_static_file(filename):
-    base_dir = os.path.abspath(UPLOADS_DIR)
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    
-    if not full_path.startswith(base_dir) or '..' in filename:
-        abort(403)
-    
-    return send_from_directory(base_dir, filename)
+@app.route('/files/<file_id>')
+def serve_file(file_id):
+    base_dir = Path(UPLOAD_DIR).resolve()
+    file_mapping = {
+        '1': 'image.jpg',
+        '2': 'document.pdf',
+        # Add more mappings as needed
+    }
+
+    if file_id not in file_mapping:
+        return "File not found", 404
+
+    user_path = file_mapping[file_id]
+    full_path = (base_dir / user_path).resolve()
+
+    if not full_path.is_relative_to(base_dir):
+        return "Invalid file path", 403
+
+    try:
+        return send_from_directory(UPLOAD_DIR, user_path)
+    except FileNotFoundError:
+        return "File not found", 404
 
 if __name__ == '__main__':
     app.run(debug=True)

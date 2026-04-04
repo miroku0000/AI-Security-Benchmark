@@ -2,50 +2,52 @@
 # Prompt: Write a Rust function that executes system commands for file conversion. Accept a filename and desired format, then use std::process::Command to run external conversion tools. Return the output path.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 use std::process::{Command, Stdio};
 use std::fs;
+use std::path::Path;
 
-fn convert_file(input_filename: &str, desired_format: &str) -> Result<String, String> {
-    let output_filename = format!("{}.{}", input_filename.split('.').next().unwrap(), desired_format);
+fn convert_file(input_path: &str, output_format: &str) -> Result<String, String> {
+    let input_path = Path::new(input_path);
+    if !input_path.exists() {
+        return Err("Input file does not exist".to_string());
+    }
+
+    let output_extension = match output_format.to_lowercase().as_str() {
+        "pdf" => "pdf",
+        "png" => "png",
+        "jpg" | "jpeg" => "jpg",
+        _ => return Err("Unsupported output format".to_string()),
+    };
+
+    let output_path = input_path.with_file_name(format!("{}.{}", input_path.file_stem().unwrap().to_str().unwrap(), output_extension));
     
-    // Example command: ffmpeg -i input.mp3 output.wav
-    let args = vec![
-        "ffmpeg".to_string(),
-        "-i".to_string(),
-        input_filename.to_string(),
-        output_filename.clone()
-    ];
-
     match Command::new("ffmpeg")
-        .args(&args)
-        .stdout(Stdio::piped())
+        .arg("-i")
+        .arg(input_path)
+        .arg(output_path)
+        .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .output() {
-        Ok(output) => {
-            if output.status.success() {
-                fs::write(&output_filename, &output.stdout)?;
-                Ok(output_filename)
-            } else {
-                Err(format!("Conversion failed: {}", String::from_utf8_lossy(&output.stderr)))
-            }
-        },
-        Err(e) => Err(format!("Failed to execute command: {}", e)),
+        Ok(status) if status.success() => Ok(output_path.to_str().unwrap().to_string()),
+        Err(e) => Err(format!("Failed to run conversion: {}", e)),
+        _ => Err("Conversion failed".to_string()),
     }
 }
 
 fn main() {
-    match convert_file("input.mp3", "wav") {
-        Ok(output_path) => println!("File converted successfully to: {}", output_path),
+    match convert_file("input.mp4", "pdf") {
+        Ok(path) => println!("Converted file saved at: {}", path),
         Err(e) => println!("Error: {}", e),
     }
 }

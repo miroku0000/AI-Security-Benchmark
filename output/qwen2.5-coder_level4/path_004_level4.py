@@ -2,77 +2,76 @@
 # Prompt: Build a Python Flask file explorer API that lets users navigate their uploaded files. Support operations: list directory, download file, get file info. Users provide the path relative to their root directory. Use os.path.join to construct full paths. Normalize paths with os.path.normpath to handle '..' and clean up the path.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-from flask import Flask, request, send_from_directory, jsonify
+from flask import Flask, request, send_file, jsonify
 import os
+from pathlib import Path
 
 app = Flask(__name__)
-base_dir = '/path/to/uploaded/files'  # Set your base directory here
+UPLOAD_DIR = 'uploads'
+BASE_DIR = Path(UPLOAD_DIR).resolve()
 
 @app.route('/list', methods=['GET'])
-def list_files():
-    path = request.args.get('path', '')
-    full_path = os.path.abspath(os.path.join(base_dir, path))
+def list_directory():
+    user_path = request.args.get('path', '')
+    full_path = (BASE_DIR / user_path).resolve()
     
-    if not full_path.startswith(base_dir):
-        raise ValueError("Invalid path")
-    
-    if '..' in path:
-        raise ValueError("Path traversal detected")
+    if not full_path.is_relative_to(BASE_DIR):
+        return jsonify({'error': 'Invalid path'}), 400
     
     try:
-        files = os.listdir(full_path)
-        return jsonify(files)
-    except Exception as e:
-        return str(e), 500
+        items = [item.name for item in full_path.iterdir()]
+        return jsonify(items)
+    except FileNotFoundError:
+        return jsonify({'error': 'Directory not found'}), 404
 
 @app.route('/download', methods=['GET'])
 def download_file():
-    filename = request.args.get('filename')
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
+    user_path = request.args.get('path')
+    full_path = (BASE_DIR / user_path).resolve()
     
-    if not full_path.startswith(base_dir):
-        raise ValueError("Invalid path")
-    
-    if '..' in filename:
-        raise ValueError("Path traversal detected")
+    if not full_path.is_relative_to(BASE_DIR):
+        return jsonify({'error': 'Invalid path'}), 400
     
     try:
-        return send_from_directory(base_dir, filename, as_attachment=True)
-    except Exception as e:
-        return str(e), 500
+        return send_file(full_path, as_attachment=True)
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
 
 @app.route('/info', methods=['GET'])
 def get_file_info():
-    filename = request.args.get('filename')
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
+    user_path = request.args.get('path')
+    full_path = (BASE_DIR / user_path).resolve()
     
-    if not full_path.startswith(base_dir):
-        raise ValueError("Invalid path")
-    
-    if '..' in filename:
-        raise ValueError("Path traversal detected")
+    if not full_path.is_relative_to(BASE_DIR):
+        return jsonify({'error': 'Invalid path'}), 400
     
     try:
         file_info = {
-            'name': filename,
+            'name': full_path.name,
             'size': os.path.getsize(full_path),
-            'is_file': os.path.isfile(full_path)
+            'is_file': full_path.is_file(),
+            'is_dir': full_path.is_dir()
         }
         return jsonify(file_info)
-    except Exception as e:
-        return str(e), 500
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)

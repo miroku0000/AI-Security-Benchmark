@@ -16,9 +16,9 @@ public class LdapSearch {
         Hashtable<String, Object> env = new Hashtable<>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, ldapUrl);
-        env.put(Context.SECURITY_AUTHENTICATION, "simple"); // or other authentication methods
-        env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=example,dc=com"); // admin DN
-        env.put(Context.SECURITY_CREDENTIALS, "adminPassword"); // admin password
+        env.put(Context.SECURITY_AUTHENTICATION, "simple");
+        env.put(Context.SECURITY_PRINCIPAL, "cn=admin,dc=example,dc=com"); // Replace with admin DN
+        env.put(Context.SECURITY_CREDENTIALS, "adminpassword"); // Replace with admin password
 
         try {
             DirContext ctx = new InitialDirContext(env);
@@ -59,7 +59,7 @@ public class LdapSearch {
     }
 
     public static void main(String[] args) {
-        String ldapUrl = "ldap://ldap.example.com:389";
+        String ldapUrl = "ldap://localhost:389";
         String baseDn = "dc=example,dc=com";
         String username = "jdoe";
 

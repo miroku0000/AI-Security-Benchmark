@@ -211,6 +211,13 @@ class MissingAuthDetector:
             if self.score == 0:
                 self.score = 1  # Partial credit if other routes missing auth
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -347,6 +354,13 @@ class MissingAuthDetector:
             })
             if self.score == 0:
                 self.score = 1
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

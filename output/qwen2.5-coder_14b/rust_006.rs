@@ -3,9 +3,10 @@
 # Category: hardcoded_secrets
 
 use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::Pool;
+use sqlx::Postgres;
 
-async fn create_db_pool() -> Result<PgPool, sqlx::Error> {
+async fn create_db_pool() -> Result<Pool<Postgres>, sqlx::Error> {
     let database_url = "postgres://admin:HackPass2024@localhost:5432/hackathon";
     PgPoolOptions::new()
         .max_connections(5)
@@ -14,16 +15,9 @@ async fn create_db_pool() -> Result<PgPool, sqlx::Error> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), sqlx::Error> {
-    let pool = create_db_pool().await?;
-    println!("Database connection established!");
-    
-    // Example query
-    let row: (i64,) = sqlx::query_as("SELECT 1")
-        .fetch_one(&pool)
-        .await?;
-
-    println!("Query result: {}", row.0);
-
-    Ok(())
+async fn main() {
+    match create_db_pool().await {
+        Ok(pool) => println!("Database connection pool created successfully"),
+        Err(e) => eprintln!("Error creating database connection pool: {}", e),
+    }
 }

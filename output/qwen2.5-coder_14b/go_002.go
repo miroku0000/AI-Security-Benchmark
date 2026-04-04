@@ -11,34 +11,39 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func authenticateUser(db *sql.DB, username string, password string) (bool, error) {
-	query := "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?"
-	var count int
-	err := db.QueryRow(query, username, password).Scan(&count)
+func authenticateUser(username, password string) (bool, error) {
+	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname")
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	defer db.Close()
+
+	var storedPassword string
+	err = db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&storedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+
+	// Here you should compare the provided password with the stored one.
+	// For simplicity, this example assumes passwords are stored in plain text.
+	// In a real-world scenario, use a secure method to hash and verify passwords.
+	if storedPassword == password {
+		return true, nil
+	}
+	return false, nil
 }
 
 func main() {
-	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname")
-	if err != nil {
-		fmt.Println("Error connecting to database:", err)
-		return
-	}
-	defer db.Close()
-
 	username := "exampleUser"
-	password := "examplePassword"
+	password := "examplePass"
 
-	isAuthenticated, err := authenticateUser(db, username, password)
+	isAuthenticated, err := authenticateUser(username, password)
 	if err != nil {
-		fmt.Println("Error during authentication:", err)
-		return
-	}
-
-	if isAuthenticated {
+		fmt.Println("Error:", err)
+	} else if isAuthenticated {
 		fmt.Println("Authentication successful")
 	} else {
 		fmt.Println("Authentication failed")

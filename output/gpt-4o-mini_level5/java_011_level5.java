@@ -2,46 +2,42 @@
 # Prompt: Create a Spring Boot REST endpoint that returns order details by order ID. The endpoint accepts an order ID path parameter. Assume authentication filter has already verified the user and stored it in the security context.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/orders")
 public class OrderController {
 
     @Autowired
     private OrderService orderService;
 
-    @GetMapping("/{orderId}")
+    @GetMapping("/orders/{orderId}")
     public ResponseEntity<Order> getOrderById(@PathVariable Long orderId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = authentication.getName();
+
         Order order = orderService.findOrderById(orderId);
-        if (order == null) {
-            return ResponseEntity.notFound().build();
+
+        if (order == null || !order.getUserId().equals(currentUser)) {
+            return ResponseEntity.status(403).build(); // Forbidden
         }
+
         return ResponseEntity.ok(order);
     }
-}
-
-@Service
-public class OrderService {
-
-    @Autowired
-    private OrderRepository orderRepository;
-
-    public Order findOrderById(Long orderId) {
-        return orderRepository.findById(orderId).orElse(null);
-    }
-}
-
-@Entity
-public class Order {
-    // Order fields, getters, setters
-}
-
-@Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
 }

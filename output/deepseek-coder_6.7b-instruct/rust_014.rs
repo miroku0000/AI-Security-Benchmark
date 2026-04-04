@@ -2,13 +2,10 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 # Category: memory_safety
 
-use std::alloc;
+use std::mem;
 
 unsafe extern "C" fn alloc_buffer(size: usize) -> *mut u8 {
-    let buffer = Box::into_raw(Box::new([0u8; size]));
-    return buffer;
-}
-
-unsafe extern "C" fn free_buffer(buffer: *mut u8) {
-    alloc::boxed::<[u8; 1]>(buffer);
+    let buffer = Box::alloc(size);
+    ptr::write_volatile(buffer.as_ptr(), 0, Ordering::RELAXED);
+    return buffer.into_raw();
 }

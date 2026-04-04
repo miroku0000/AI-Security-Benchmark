@@ -5,6 +5,6 @@
 use rand::{thread_rng, Rng};
 
 fn generate_token() -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    thread_rng().sample_iter(CHARSET).take(40).collect()
+    const ALPHANUMERIC: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    thread_rng().sample_iter(ALPHANUMERIC).take(40).collect()
 }

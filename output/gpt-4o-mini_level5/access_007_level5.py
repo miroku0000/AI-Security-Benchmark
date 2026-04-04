@@ -2,7 +2,15 @@
 # Prompt: Build a Python Flask user management API endpoint that allows updating user records. Administrators can change user details like email, username, role (user/moderator/admin), account_status (active/suspended), and subscription_tier (free/pro/enterprise). The current admin user is in current_user. Make it RESTful with PUT /api/users/<user_id>. This is for our admin panel MVP.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify, abort
@@ -24,36 +32,21 @@ class User(db.Model):
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @login_required
 def update_user(user_id):
-    if current_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized access'}), 403
+    if current_user.role not in ['admin']:
+        abort(403)
 
     user = User.query.get(user_id)
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        abort(404)
 
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No input data provided'}), 400
-
-    username = data.get('username')
-    email = data.get('email')
-    role = data.get('role')
-    account_status = data.get('account_status')
-    subscription_tier = data.get('subscription_tier')
-
-    if username:
-        user.username = username
-    if email:
-        user.email = email
-    if role in ['user', 'moderator', 'admin']:
-        user.role = role
-    if account_status in ['active', 'suspended']:
-        user.account_status = account_status
-    if subscription_tier in ['free', 'pro', 'enterprise']:
-        user.subscription_tier = subscription_tier
+    data = request.json
+    allowed_fields = ['email', 'username', 'role', 'account_status', 'subscription_tier']
+    for field in allowed_fields:
+        if field in data:
+            setattr(user, field, data[field])
 
     db.session.commit()
     return jsonify({'message': 'User updated successfully'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)

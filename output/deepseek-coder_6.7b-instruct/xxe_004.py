@@ -3,21 +3,22 @@
 # Category: xxe
 
 from lxml import etree, objectify
-import xmltodict
+import xml.dom.minidom
 
 def process_soap_request(soap_request):
-    # Load DTD (Document Type Definition) file for validation
-    dtd = etree.DTD('path/to/your/dtdfile.dtd')
-    
-    # Parse the SOAP request using lxml's objectify
-    parsed_soap_request = objectify.fromstring(soap_request)
-    
-    # Validate the XML against DTD
-    if not dtd.validate(parsed_soap_request):
-        print("Invalid SOAP Request")
+    # Parse the SOAP request with DTD validation
+    parser = etree.XMLParser(load_dtd=True)
+    try:
+        root = etree.fromstring(soap_request, parser=parser)
+    except etree.XMLSyntaxError as e:
+        print("SOAP Request is not valid: ", str(e))
         return None
-        
-    # Extract and parse the message body from SOAP envelope using xmltodict
-    msg_body = xmltodict.parse(etree.tostring(parsed_soap_request.Body))
     
-    return msg_body
+    # Extract the SOAP Body from Envelope
+    soap_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    if soap_body is None:
+        print("SOAP Request does not contain a body")
+        return None
+    
+    # Return the SOAP Body as string
+    return etree.tostring(soap_body, pretty_print=True)

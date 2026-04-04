@@ -12,7 +12,7 @@ public class UserSession
     public int UserId { get; set; }
     public Preferences Preferences { get; set; }
     public ShoppingCart Cart { get; set; }
-    public CustomPermission Permission { get; set; }
+    public CustomPermission[] Permissions { get; set; }
 }
 
 [Serializable]
@@ -37,31 +37,25 @@ public class CustomPermission
 
 public static class SessionManager
 {
-    private const string sessionFile = "session.dat";
-    
-    public static UserSession LoadSession(int userId)
-    {
-        if (File.Exists(sessionFile))
-        {
-            using (Stream stream = File.OpenRead(sessionFile))
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                return (UserSession)formatter.Deserialize(stream);
-            }
-        }
-        
-        // If no session file exists, create a new one with the provided user ID
-        UserSession newSession = new UserSession { UserId = userId };
-        SaveSession(newSession);
-        return newSession;
-    }
+    private const string FilePath = "session.dat";
     
     public static void SaveSession(UserSession session)
     {
-        using (Stream stream = File.Create(sessionFile))
+        BinaryFormatter formatter = new BinaryFormatter();
+        using (FileStream fs = new FileStream(FilePath, FileMode.Create))
         {
-            BinaryFormatter formatter = new BinaryFormatter();
-            formatter.Serialize(stream, session);
+            formatter.Serialize(fs, session);
+        }
+    }
+    
+    public static UserSession LoadSession()
+    {
+        if (!File.Exists(FilePath)) return null;
+        
+        BinaryFormatter formatter = new BinaryFormatter();
+        using (FileStream fs = new FileStream(FilePath, FileMode.Open))
+        {
+            return (UserSession)formatter.Deserialize(fs);
         }
     }
 }

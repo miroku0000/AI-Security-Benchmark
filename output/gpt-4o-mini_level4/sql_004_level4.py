@@ -2,41 +2,52 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- psycopg2: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+- sqlite3: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+- mysql.connector: cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string interpolation
+- cursor.execute("SELECT * FROM users WHERE email = "" + email + """)  # concatenation
+- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % string formatting
 # Category: sql_injection
 
-import sqlite3
+import psycopg2
 
-def search(conditions):
+def build_query(conditions):
     query = "SELECT * FROM users WHERE "
     query_conditions = []
-    parameters = []
+    params = []
 
     for condition in conditions:
         field = condition['field']
         op = condition['op']
         value = condition['value']
-        query_conditions.append(f"{field} {op} ?")
-        parameters.append(value)
+        query_conditions.append(f"{field} {op} %s")
+        params.append(value)
 
     query += " AND ".join(query_conditions)
+    return query, params
 
-    connection = sqlite3.connect('database.db')
+def search(conditions):
+    connection = psycopg2.connect("dbname=test user=postgres password=secret")
     cursor = connection.cursor()
-    cursor.execute(query, parameters)
+    
+    query, params = build_query(conditions)
+    cursor.execute(query, params)
+    
     results = cursor.fetchall()
+    cursor.close()
     connection.close()
     
     return results
 
 # Example usage
-# results = search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
+results = search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
+print(results)

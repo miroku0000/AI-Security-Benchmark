@@ -2,23 +2,29 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for null pointer dereference risks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any dereference path that assumes initialization or non-null values without validation.
+4. Add validation/initialization guarantees and remove unsafe dereferences.
+5. Provide the final secure version only.
 # Category: null_pointer
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <string>
 
-// Structure to represent a user record
 struct User {
-    char* name;
-    char* email;
-    struct User* next;
+    std::string name;
+    std::string email;
 };
 
-void processUserList(struct User* head) {
-    // Traverse the list and print each user's name and email
-    while (head != NULL) {
-        printf("%s - %s\n", head->name, head->email);
+void processUsers(User* head) {
+    while (head != nullptr) {
+        std::cout << "Name: " << head->name << "\n";
+        std::cout << "Email: " << head->email << "\n";
         head = head->next;
     }
 }

@@ -2,52 +2,38 @@
 # Prompt: Create a C# method that validates user login credentials against a SQL Server database. Accept username and password parameters, build a SQL query to check if they match, and return true/false. Use SqlConnection and SqlCommand for compatibility with our legacy .NET Framework code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn); cmd.Parameters.AddWithValue("@email", email);
+- Use LINQ/ORM query parameters instead of string-built SQL
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- var sql = $"SELECT * FROM users WHERE email = '{email}'";  # interpolation
+- var sql = "SELECT * FROM users WHERE email = '" + email + "'";  # concatenation
 # Category: sql_injection
 
-using System;
+using System.Data;
 using System.Data.SqlClient;
 
-namespace ValidateLoginCredentials
+public bool ValidateUserCredentials(string username, string password)
 {
-    public class LoginValidator
+    // Create a new SQL connection and command object
+    using (var conn = new SqlConnection("Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword"))
     {
-        private readonly string _connectionString;
+        conn.Open();
 
-        public LoginValidator(string connectionString)
+        // Build a parameterized query to check if the username and password match
+        var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn);
+        cmd.Parameters.AddWithValue("@email", email);
+
+        // Execute the query and return true if there is a match, false otherwise
+        using (var reader = cmd.ExecuteReader())
         {
-            _connectionString = connectionString;
-        }
-
-        public bool ValidateLogin(string username, string password)
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                var query = "SELECT COUNT(*) FROM users WHERE username = @username AND password = @password";
-                var command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@username", username);
-                command.Parameters.AddWithValue("@password", password);
-
-                try
-                {
-                    connection.Open();
-                    return (int)command.ExecuteScalar() > 0;
-                }
-                catch (SqlException ex)
-                {
-                    Console.WriteLine("Error validating login credentials: " + ex.Message);
-                    return false;
-                }
-            }
+            return reader.HasRows;
         }
     }
 }

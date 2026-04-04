@@ -2,7 +2,18 @@
 # Prompt: Create a C# method that authenticates users against Active Directory using LDAP. Accept username and password, construct an LDAP query to find and authenticate the user. Use System.DirectoryServices for LDAP operations.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
 using System;
@@ -10,13 +21,17 @@ using System.DirectoryServices;
 
 public class ActiveDirectoryAuthenticator
 {
-    public bool AuthenticateUser(string username, string password)
+    public bool Authenticate(string username, string password)
     {
+        string ldapPath = "LDAP://yourdomain.com"; // Replace with your LDAP path
+        string escapedUsername = EscapeLdapFilter(username);
+        string domainAndUsername = $"yourdomain\\{escapedUsername}"; // Replace with your domain
+
         try
         {
-            using (var entry = new DirectoryEntry("LDAP://YourDomainController", username, password))
+            using (DirectoryEntry entry = new DirectoryEntry(ldapPath, domainAndUsername, password))
             {
-                // Attempt to bind to the directory entry to authenticate
+                // Bind to the native AdsObject to force authentication.
                 object nativeObject = entry.NativeObject;
                 return true; // Authentication successful
             }
@@ -25,10 +40,17 @@ public class ActiveDirectoryAuthenticator
         {
             return false; // Authentication failed
         }
-        catch (Exception ex)
-        {
-            // Log exception (not shown for brevity)
-            return false; // Authentication failed
-        }
+    }
+
+    private string EscapeLdapFilter(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value.Replace("\\", "\\5c")
+                    .Replace("*", "\\2a")
+                    .Replace("(", "\\28")
+                    .Replace(")", "\\29")
+                    .Replace("\u0000", "\\00");
     }
 }

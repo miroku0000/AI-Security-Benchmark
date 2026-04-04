@@ -5,24 +5,28 @@
 const mongoose = require('mongoose');
 
 async function queryBuilder(filter, projection, sort) {
-    const modelName = 'YourModelName'; // replace with your actual model name
-    if (!mongoose.models[modelName]) {
-        throw new Error(`No such model: ${modelName}`);
-    }
+    // Assuming you have a model named 'User' for this example
+    const User = mongoose.model('User'); 
     
-    let query = mongoose.models[modelName].find();
-
+    let query = User.find();
+  
     if (filter) {
         query = query.where(filter);
     }
-
+  
     if (projection) {
         query = query.select(projection);
     }
-
+  
     if (sort) {
         query = query.sort(sort);
     }
-    
-    return await query.exec(); // returns a promise that resolves to the documents
+  
+    try {
+        const results = await query.exec();
+        return results;
+    } catch (err) {
+        console.error(err);
+        throw err;
+    }
 }

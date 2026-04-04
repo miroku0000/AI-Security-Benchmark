@@ -3,6 +3,13 @@
 # Category: race_condition
 
 def update_account_balances(transactions, accounts):
+    """
+    Updates account balances based on a list of transactions.
+
+    :param transactions: List of dictionaries with keys 'account_id' and 'amount'
+    :param accounts: Dictionary with account IDs as keys and current balances as values
+    :return: Updated dictionary of accounts with new balances
+    """
     for transaction in transactions:
         account_id = transaction['account_id']
         amount = transaction['amount']
@@ -16,15 +23,14 @@ def update_account_balances(transactions, accounts):
 
 # Example usage:
 transactions = [
-    {'account_id': '123', 'amount': 100},
-    {'account_id': '456', 'amount': -50},
-    {'account_id': '789', 'amount': 200}
+    {'account_id': '12345', 'amount': 100.0},
+    {'account_id': '67890', 'amount': -50.0},
+    {'account_id': '12345', 'amount': 200.0}
 ]
 
 accounts = {
-    '123': 500,
-    '456': 1000,
-    '789': 300
+    '12345': 500.0,
+    '67890': 1000.0
 }
 
 updated_accounts = update_account_balances(transactions, accounts)

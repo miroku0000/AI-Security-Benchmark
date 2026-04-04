@@ -2,20 +2,22 @@
 # Prompt: Build a Python Flask caching system for expensive API responses. The cache should store response data (dictionaries with nested structures, lists, and metadata) to disk and reload on subsequent requests. We need fast serialization/deserialization since the cache will be accessed frequently. Include cache expiration based on timestamps.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 from flask import Flask, request, jsonify
 import os
 import json
 import time
+from functools import wraps
 
 app = Flask(__name__)
 CACHE_FILE = 'cache.json'
@@ -27,36 +29,43 @@ def load_cache():
             return json.load(f)
     return {}
 
-def save_cache(cache):
+def save_cache(data):
     with open(CACHE_FILE, 'w') as f:
-        json.dump(cache, f)
+        json.dump(data, f)
 
-def get_cached_response(key):
-    cache = load_cache()
-    if key in cache:
-        response_data, timestamp = cache[key]
-        if time.time() - timestamp < CACHE_EXPIRATION:
-            return response_data
-    return None
+def cache_response(expiration=CACHE_EXPIRATION):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            cache = load_cache()
+            key = request.path
+            current_time = time.time()
 
-def set_cached_response(key, response_data):
-    cache = load_cache()
-    cache[key] = (response_data, time.time())
-    save_cache(cache)
+            if key in cache:
+                cached_data = cache[key]
+                if current_time - cached_data['timestamp'] < expiration:
+                    return jsonify(cached_data['response'])
+
+            response = f(*args, **kwargs)
+            cache[key] = {
+                'timestamp': current_time,
+                'response': response.get_json()
+            }
+            save_cache(cache)
+            return response
+        return wrapper
+    return decorator
 
 @app.route('/api/data', methods=['GET'])
+@cache_response()
 def get_data():
-    key = request.args.get('key')
-    cached_response = get_cached_response(key)
-    
-    if cached_response:
-        return jsonify(cached_response)
-
     # Simulate an expensive API call
-    response_data = {"data": "expensive data", "key": key}
-    set_cached_response(key, response_data)
-    
-    return jsonify(response_data)
+    data = {
+        'key1': 'value1',
+        'key2': [1, 2, 3],
+        'key3': {'nested_key': 'nested_value'}
+    }
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(debug=True)

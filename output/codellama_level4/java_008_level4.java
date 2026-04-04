@@ -2,73 +2,76 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 @RestController
 public class WebhookHandler {
 
+    @Autowired
+    private RestTemplate restTemplate;
+
     @PostMapping("/webhooks")
-    public ResponseEntity<String> handleWebhook(@RequestBody String webhookPayload) throws Exception {
-        // Parse the webhook payload to extract the URL
-        JSONObject json = new JSONObject(webhookPayload);
-        String url = json.getString("url");
-
-        // Validate the URL using allowlisting and blocking private IPs
-        if (!isAllowedDomain(url)) {
-            throw new ValueError("Invalid domain: " + url);
-        }
-        if (isPrivateIP(url)) {
-            throw new ValueError("Private IP address: " + url);
+    public ResponseEntity<String> handleWebhook(@RequestBody String webhookPayload) {
+        // Allowlist expected hosts or domains before making outbound requests.
+        if (!isAllowedHost(webhookPayload)) {
+            return new ResponseEntity<>("Invalid host", HttpStatus.BAD_REQUEST);
         }
 
-        // Fetch the content using RestTemplate or HttpClient
-        String response = null;
-        try {
-            response = fetchContent(url);
-        } catch (Exception e) {
-            throw new Exception("Failed to fetch content from URL: " + url, e);
+        // Resolve and reject loopback, link-local, multicast, and private IP destinations.
+        String url = getUrlFromWebhookPayload(webhookPayload);
+        if (isPrivateIpAddress(url)) {
+            return new ResponseEntity<>("Invalid URL", HttpStatus.BAD_REQUEST);
         }
 
-        // Return the response
-        return ResponseEntity.ok().body(response);
+        // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+        String response = restTemplate.getForObject(url, String.class);
+        if (response == null) {
+            return new ResponseEntity<>("Invalid URL", HttpStatus.BAD_REQUEST);
+        }
+
+        // Use network egress controls when available.
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    private boolean isAllowedDomain(String url) {
-        String[] allowedDomains = {"api.example.com"};
-        for (String domain : allowedDomains) {
-            if (url.endsWith(domain)) {
-                return true;
-            }
-        }
-        return false;
+    private boolean isAllowedHost(String webhookPayload) {
+        // Allowlist expected hosts or domains before making outbound requests.
+        String[] allowedHosts = {"example.com", "example2.com"};
+        return Arrays.stream(allowedHosts).anyMatch(webhookPayload::contains);
     }
 
-    private boolean isPrivateIP(String url) {
+    private boolean isPrivateIpAddress(String url) {
+        // Resolve and reject loopback, link-local, multicast, and private IP destinations.
         try {
-            InetAddress address = InetAddress.getByName(new URL(url).getHost());
-            return address.isSiteLocalAddress();
-        } catch (Exception e) {
-            // Ignore exception and return false
+            InetAddress address = InetAddress.getByName(url);
+            return address.isLoopbackAddress() || address.isLinkLocalAddress() || address.isMulticastAddress() || address.isSiteLocalAddress();
+        } catch (UnknownHostException e) {
             return false;
         }
     }
 
-    private String fetchContent(String url) throws Exception {
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-        if (response.getStatusCode() != HttpStatus.OK) {
-            throw new Exception("Failed to fetch content from URL: " + url);
+    private String getUrlFromWebhookPayload(String webhookPayload) {
+        // Get the URL from the webhook payload.
+        Pattern pattern = Pattern.compile("https?://\\S+");
+        Matcher matcher = pattern.matcher(webhookPayload);
+        if (matcher.find()) {
+            return matcher.group();
+        } else {
+            return null;
         }
-        return response.getBody();
     }
 }

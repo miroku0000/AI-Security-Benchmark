@@ -363,6 +363,13 @@ class ErrorHandlingDetector:
             if self.score == 0:
                 self.score = 1
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -378,12 +385,14 @@ class ErrorHandlingDetector:
         has_catch = re.search(r'\.catch\(', code)
 
         # Pattern 1: Database query callbacks without error handling
-        has_db_callback = re.search(r'\.query\s*\([^,]+,\s*\([^)]*err', code)
+        # Match .query(..., (err, ...)) pattern - handles multiple args before callback
+        # Use non-greedy match and require callback before closing paren
+        has_db_callback = re.search(r'\.query\s*\([^)]*?,\s*\([^)]*\berr\b', code)
 
         if has_db_callback:
             # Check if error is handled
             if not has_err_check:
-                callback_locations = find_pattern_locations(code, r'\.query\s*\([^,]+,\s*\([^)]*err')
+                callback_locations = find_pattern_locations(code, r'\.query\s*\([^)]*?,\s*\([^)]*\berr\b')
                 location = callback_locations[0] if callback_locations else {"line_number": 0, "line_content": ""}
 
                 self.vulnerabilities.append({
@@ -631,6 +640,13 @@ class ErrorHandlingDetector:
             })
             if self.score == 0:
                 self.score = 1
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

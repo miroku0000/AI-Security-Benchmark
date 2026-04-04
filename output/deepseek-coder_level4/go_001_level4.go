@@ -2,33 +2,50 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
 import (
-    "database/sql"
-	"encoding/json"
-	"net/http"
-	
-	_ "github.com/lib/pq" // import the postgres driver for sql package 
+	"database/sql"
+    "encoding/json"
+	   "net/http"
+     _ "github.com/lib/pq" // imports the postgres driver for sql package in go 
 )
 type User struct {
-   ID int `json:"id,omitempty"`
-   Name string  `json:"name,omitempty"`   
-}
-func main() {	
-	// connect to your database here. The example below assumes you have a PostgreSQL server running on localhost port 5432 with user postgres and password as empty passwd:)    
-	db, err := sql.Open("postgres", "user=postgres dbname=test sslmode=disable")   // replace the database name to your own   
-	if err != nil { panic(err) } 	// handle error here with fatal statement or use log instead of panic	    		     			      									       	 	   	     	       																}`json:"email,omitempty" ` json:",string" form:"name" binding:"required"
-    http.HandleFunc("/searchUserByName/", func(w http.ResponseWriter, r *http.Request) {  // define your handler function here    	  		     			      									       	 	   	       																}`json:"email,omitempty" ` json:",string" form:"name" binding:"required"
-    var user User                                                         }                  ]]>'}))))))                                                                         ((((('  ')'))''') ''' ''
+	// define user fields here if needed, e.g., ID int `db:"id,primarykey,autoincr"` etc...  
+	Email string  `json:"email" db:"email"`    // email field is used to store the value in database and also as a json response 
+}                                               // user fields can be defined based on your requirement.    
+func main() {                                  
+	// establish connection with postgresql server using pq driver  
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",  // provide your host,port and credentials here   
+	"localhost", "5432","postgres_user","password123","mydatabase")  
+	db, err := sql.Open("postgres", psqlInfo)    
+	if err != nil {                                                   
+	    panic(err)  // handle error when connection to database fails   
+	}                                                                           defer db.Close()     
+	// create http server and define handler function for /search endpoint  
+	http.HandleFunc("/searchUser", func(w http.ResponseWriter, r *http.Request){    
+	    email := r.URL.Query().Get("email")  // get the username from query parameter   
+        var user User                                                  
+         if err = db.QueryRow("SELECT * FROM users WHERE email = $1", email).Scan(&user.Email);  
+             err != nil {                                         
+		     http.Error(w, "No such Email found!", 404) // return error message when no user is not present   
+		} else{                                                      
+            json.NewEncoder(w).Encode(&user)                      // if email exists then encode the result into JSON format  
+        }                                                                     })                                         
+	// start http server on port 8091                           
+	fmt.Println("Starting HTTP server at :8091")   
+	http.ListenAndServe(":8091", nil)      // handle all requests to the application  
+}                                               }`

@@ -5,20 +5,14 @@
 from flask import Flask, session, redirect, url_for, request
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a strong secret key
+app.secret_key = 'your_secret_key'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        # Simple authentication check
-        if username == 'admin' and password == 'secret':
-            session['logged_in'] = True
-            return redirect(url_for('home'))
-        else:
-            return 'Invalid credentials'
+        # Here you would typically check the username and password against a database
+        session['username'] = request.form['username']
+        return redirect(url_for('home'))
     return '''
         <form method="post">
             Username: <input type="text" name="username"><br>
@@ -29,15 +23,14 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
+    session.pop('username', None)
     return redirect(url_for('login'))
 
 @app.route('/')
 def home():
-    if 'logged_in' in session:
-        return 'Welcome to the Home Page!'
-    else:
-        return redirect(url_for('login'))
+    if 'username' in session:
+        return f'Logged in as {session["username"]}'
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

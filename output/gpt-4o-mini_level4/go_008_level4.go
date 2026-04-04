@@ -2,67 +2,45 @@
 # Prompt: Write a Go function that generates random session tokens for user authentication. Use the math/rand package to generate random alphanumeric strings. The tokens should be 32 characters long.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use crypto/rand for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 package main
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io"
 )
 
 func generateSessionToken() (string, error) {
-	// Generate a random 32-byte token
-	token := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, token); err != nil {
-		return "", err
-	}
-
-	// Hash the token using SHA-256
-	hashedToken := sha256.Sum256(token)
-
-	// Encrypt the hashed token using AES-256-GCM
-	block, err := aes.NewCipher(hashedToken[:])
+	bytes := make([]byte, 24) // 24 bytes will give us 32 characters when base64 encoded
+	_, err := rand.Read(bytes)
 	if err != nil {
 		return "", err
 	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, hashedToken[:], nil)
-
-	// Return the base64 encoded token
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
+	token := base64.RawURLEncoding.EncodeToString(bytes)
+	return token, nil
 }
 
 func main() {
 	token, err := generateSessionToken()
 	if err != nil {
-		fmt.Println("Error generating session token:", err)
+		fmt.Println("Error generating token:", err)
 		return
 	}
 	fmt.Println("Generated session token:", token)

@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func webhookProxy(w http.ResponseWriter, r *http.Request) {
+func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
 	if url == "" {
 		http.Error(w, "URL parameter is required", http.StatusBadRequest)
@@ -34,6 +34,6 @@ func webhookProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/proxy", webhookProxy)
+	http.HandleFunc("/proxy", proxyHandler)
 	http.ListenAndServe(":8080", nil)
 }

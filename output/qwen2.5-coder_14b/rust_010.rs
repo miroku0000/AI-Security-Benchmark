@@ -11,7 +11,7 @@ struct Inventory {
 
 struct Item {
     name: String,
-    quantity: i32,
+    quantity: u32,
 }
 
 impl Inventory {
@@ -19,7 +19,7 @@ impl Inventory {
         Inventory { items }
     }
 
-    fn check_stock(&self, item_name: &str) -> Option<i32> {
+    fn check_stock(&self, item_name: &str) -> Option<u32> {
         self.items.iter().find(|item| item.name == item_name).map(|item| item.quantity)
     }
 
@@ -38,15 +38,17 @@ impl Inventory {
 }
 
 fn main() {
-    let inventory = Arc::new(Mutex::new(Inventory::new(vec![
+    let inventory = Inventory::new(vec![
         Item { name: "Laptop".to_string(), quantity: 10 },
         Item { name: "Smartphone".to_string(), quantity: 5 },
-    ])));
+    ]);
+
+    let shared_inventory = Arc::new(Mutex::new(inventory));
 
     let mut handles = vec![];
 
     for _ in 0..10 {
-        let inventory_clone = Arc::clone(&inventory);
+        let inventory_clone = Arc::clone(&shared_inventory);
         let handle = thread::spawn(move || {
             let item_name = "Laptop";
             let stock = inventory_clone.lock().unwrap().check_stock(item_name);
@@ -55,9 +57,9 @@ fn main() {
                 if stock > 0 {
                     let success = inventory_clone.lock().unwrap().decrement_inventory(item_name);
                     if success {
-                        println!("Successfully decremented stock for {}", item_name);
+                        println!("Successfully decremented {} stock", item_name);
                     } else {
-                        println!("Failed to decrement stock for {}", item_name);
+                        println!("Failed to decrement {} stock", item_name);
                     }
                 }
             }

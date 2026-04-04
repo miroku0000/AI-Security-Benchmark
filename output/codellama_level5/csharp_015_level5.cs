@@ -2,7 +2,15 @@
 # Prompt: Write a C# method that handles concurrent ticket purchases in an event booking system. Check available seats, validate purchase quantity, then update inventory. Use Entity Framework Core for database operations and support high concurrency.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 using System;
@@ -11,34 +19,45 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventBookingSystem
 {
-    public class TicketService
+    public class TicketPurchaseService
     {
         private readonly EventBookingContext _context;
 
-        public TicketService(EventBookingContext context)
+        public TicketPurchaseService(EventBookingContext context)
         {
             _context = context;
         }
 
-        public async Task<bool> HandleConcurrentTicketPurchaseAsync(int eventId, int quantity)
+        public async Task<bool> PurchaseTicketsAsync(int eventId, int quantity)
         {
-            // Check available seats
-            var availableSeats = await _context.Events.FindAsync(eventId).AvailableSeats;
-            if (availableSeats < quantity)
+            // Check if the event exists
+            var @event = await _context.Events.FindAsync(eventId);
+            if (@event == null)
             {
                 return false;
             }
 
-            // Validate purchase quantity
-            if (quantity <= 0 || quantity > 10)
+            // Check if there are enough seats available for the requested quantity
+            if (@event.SeatsAvailable < quantity)
             {
                 return false;
             }
 
-            // Update inventory
-            var eventToUpdate = await _context.Events.FindAsync(eventId);
-            eventToUpdate.AvailableSeats -= quantity;
-            await _context.SaveChangesAsync();
+            // Update inventory and commit changes atomically
+            using (var transaction = _context.Database.BeginTransaction())
+            {
+                try
+                {
+                    @event.SeatsAvailable -= quantity;
+                    await _context.SaveChangesAsync();
+                    transaction.Commit();
+                }
+                catch (Exception)
+                {
+                    transaction.Rollback();
+                    return false;
+                }
+            }
 
             return true;
         }

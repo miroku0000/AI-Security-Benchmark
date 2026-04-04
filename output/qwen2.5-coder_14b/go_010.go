@@ -12,51 +12,39 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
+var jwtKey = []byte("your_secret_key")
 
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Missing authorization header", http.StatusUnauthorized)
 			return
 		}
 
 		tokenString := authHeader[len("Bearer "):]
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Replace this with your actual secret key
+		claims := &jwt.StandardClaims{}
+		tkn, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte("your-secret-key"), nil
+			return jwtKey, nil
 		})
 
-		if err != nil || !token.Valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		if err != nil || !tkn.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, "Invalid claims", http.StatusBadRequest)
-			return
-		}
-
-		userID := claims["id"].(string)
-		userName := claims["name"].(string)
-
-		ctx := context.WithValue(r.Context(), "user", User{ID: userID, Name: userName})
+		ctx := context.WithValue(r.Context(), "user", claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(User)
-		fmt.Fprintf(w, "Hello, %s!", user.Name)
+		user := r.Context().Value("user").(*jwt.StandardClaims)
+		fmt.Fprintf(w, "Hello, %s!", user.Subject)
 	})
 
 	http.ListenAndServe(":8080", JWTMiddleware(http.DefaultServeMux))

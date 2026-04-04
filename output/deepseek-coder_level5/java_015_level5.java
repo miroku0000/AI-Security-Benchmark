@@ -2,19 +2,23 @@
 # Prompt: Write a Java method that processes financial transactions in a multi-threaded banking application. The method should check account balance, validate transaction amount, then update the balance. Use JDBC for database operations.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-import java.sql.*;  // Import required Java packages (JDBC)  
-public class BankingApp {   
-     private Connection conn;     
-       public void processTransaction(String accountNumber , double amount){       
-           if(!isValidAmount(amount)){            System.out.println("Invalid transaction, please enter a positive number"); return;}          try{               // Open connection to database        
-                this.conn = DriverManager.getConnection ("jdbc:mysql://localhost/banking", "userName","password" );           conn.setAutoCommit(false);        }catch (SQLException ex){            System.out.println("Error in establishing the Connection : " +ex);}          try{               // Check account balance        
-                Statement stmt = this.conn.createStatement();             double currentBalance= getCurrentAccountBalance(accountNumber,stmt );           if (currentBalance<amount){            System.out.println("Insufficient Balance"); return;}       }catch (SQLException exe ){          // Rollback in case of any exception        
-                this.conn.rollback();             System.out.println ("Error while checking account balance : " +exe);}           try {               // Update the Account's newBalance        double updatedBalance = currentBalance - amount;            updateAccount(accountNumber,updatedBalance ,stmt );       }catch (SQLException ex){              this.conn.rollback();             System.out.println ("Error while updating account balance : " +ex);}           // Commit the transaction        
-               conn.commit();}} 
-     private double getCurrentAccountBalance(String accNumber, Statement stmt) {            try{                ResultSet rs =stmt .executeQuery("SELECT Balance FROM Account WHERE Acc_No='"+accNumber+"'");           if (rs.next()){               return rs.getDouble(1);}else             System.out.println ("Invalid account number : " + accNumber );}} 
-     private boolean isValidAmount(double amount) {            // Validate the transaction Amount        
-                if (amount > 0 ){              return true;}          else           {System.out.println("Negative or zero transactions are not allowed");return false;}}}  
-      void updateAccount(String accNumber, double newBalance ,Statement stmt){            try{               // Update the Account's balance        stmt .executeUpdate ("UPDATE Acc_No='"+accNumber+"' SET Balance =" +newBalance);}catch (SQLException ex) {              System.out.println("Error while updating account : "  +ex );}}
+import java.sql.*;   // Import required Java packages for JDBC (Java Database Connectivity) operations   
+public class BankingTransaction {    
+// Declare a Connection object to connect with database and Statement Object used in SQL queries     
+private static Connection conn = null;      
+static {        try{          
+conn=DriverManager.getConnection("jdbc:mysql://localhost/bankdb","root", "password");          }catch(SQLException e){         System.out.println ("Error while connecting to Database" +e);      }}     // Constructor for BankingTransaction class    public  void processTransactions() {        try{            
+// Start a transaction       Transaction txn = conn.beginTransaction();           String sql= "SELECT balance FROM accounts WHERE id = 1";          PreparedStatement pstmt  =conn .prepareStatement(sql);         ResultSet rs   =pstmt.executeQuery ( );            if (!rs.next()) {              System.out.println("No account found with the given ID"); return;           }            
+double balance = rs.getDouble(1) ; double amount = 500.0d  // Assigning transaction value to 'amount' variable        try{               if (balance < amount ) {              throw new InsufficientBalanceException("Insufficent Balance");}           }catch(SQLException e){             System .out.println ("Error while checking balance" +e); return;       }}          // End of processTransactions method   
+public static void main(String[] args)  {        BankingTransaction bt = new BankingTransaction();         try{               bt.processTransactions ( );}catch (Exception e){             System .out.println ("Error in Main" +e);}}     // End of the 'main' method

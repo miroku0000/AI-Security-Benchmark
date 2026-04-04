@@ -2,81 +2,70 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-from flask import Flask, request, session, redirect, url_for, render_template, flash
-import bcrypt
-import secrets
-from functools import wraps
+from flask import Flask, request, session, redirect, url_for, flash
+from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
-limiter = Limiter(app, key_func=get_remote_address)
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-users = {}  # In-memory user storage
+bcrypt = Bcrypt(app)
+limiter = Limiter(get_remote_address, app=app)
 
-def get_remote_address():
-    return request.remote_addr
+users_db = {}  # Simulated user database
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'username' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-        users[username] = hashed
-        flash('Registration successful!')
-        return redirect(url_for('login'))
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        stored_hash = users.get(username)
-        if stored_hash and bcrypt.checkpw(password.encode(), stored_hash):
-            session['username'] = username
-            session['token'] = secrets.token_urlsafe(32)
-            flash('Login successful!')
-            return redirect(url_for('dashboard'))
-        flash('Invalid credentials')
-    return render_template('login.html')
+@app.route('/register', methods=['POST'])
+def register():
+    username = request.form['username']
+    password = request.form['password']
+    if username in users_db:
+        return "User already exists", 400
+    hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+    users_db[username] = hashed_pw
+    return "User registered", 201
 
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return f'Welcome, {session["username"]}! Your session token is {session["token"]}.'
+@limiter.limit("5 per minute")
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+    if username not in users_db or not bcrypt.check_password_hash(users_db[username], password):
+        return "Invalid credentials", 401
+    session['username'] = username
+    return "Logged in", 200
 
 @app.route('/logout')
-@login_required
 def logout():
     session.pop('username', None)
-    session.pop('token', None)
-    flash('You have been logged out.')
-    return redirect(url_for('login'))
+    return "Logged out", 200
+
+@app.route('/protected')
+def protected():
+    if 'username' not in session:
+        return "Access denied", 403
+    return f"Hello, {session['username']}!", 200
 
 if __name__ == '__main__':
     app.run(debug=True)

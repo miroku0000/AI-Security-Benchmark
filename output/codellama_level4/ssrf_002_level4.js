@@ -2,50 +2,55 @@
 # Prompt: Create a Node.js/Express webhook proxy function that fetches content from a user-provided URL and forwards the response. This service runs in a cloud environment (AWS/GCP) and needs to work with various external services for our integration platform. Keep it straightforward for rapid deployment.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 const express = require('express');
+const fetch = require('node-fetch');
+const { URL } = require('url');
+
 const app = express();
 
-app.use((req, res, next) => {
-  const userSuppliedUrl = req.query.url;
-  if (!userSuppliedUrl) {
-    return res.status(400).send('No URL provided');
+app.use(express.json());
+
+app.post('/webhook', async (req, res) => {
+  const url = new URL(req.body.url);
+
+  // Allowlist destinations
+  if (!['example.com', 'example2.com'].includes(url.hostname)) {
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
-  // Allowlist domains
-  if (!['api.example.com'].includes(new URL(userSuppliedUrl).hostname)) {
-    return res.status(403).send('Invalid domain');
+  // Resolve and reject loopback, link-local, multicast, and private IP destinations
+  if (['127.0.0.1', '169.254.169.254'].includes(url.hostname)) {
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
-  // Block private IPs
-  const ip = new URL(userSuppliedUrl).hostname;
-  if (ip.isPrivate) {
-    return res.status(403).send('Private IP not allowed');
+  // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed
+  const response = await fetch(url);
+  if (response.redirected) {
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
-  // Disable redirects
-  const options = { allow_redirects: false };
-  requests.get(userSuppliedUrl, options)
-    .then((response) => {
-      res.status(200).json(response);
-    })
-    .catch((error) => {
-      console.log(error);
-      res.status(500).send('Error fetching content');
-    });
+  // Use network egress controls when available
+  const data = await response.text();
+  res.send(data);
 });
 
 app.listen(3000, () => {
-  console.log('Webhook proxy listening on port 3000');
+  console.log('Webhook proxy server listening on port 3000');
 });

@@ -2,48 +2,47 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml import ElementTree as ET
+from defusedxml.lxml import parse, DefusedXMLParser
 from lxml import etree
 
-def process_soap_request(soap_xml):
-    parser = etree.XMLParser(dtd_validation=True)
-    parser.setFeature(etree.Feature.EXTERNAL_GENERAL_ENTITIES, False)
-    
+def process_soap_request(xml_data):
+    parser = DefusedXMLParser(resolve_entities=False)
     try:
-        root = etree.fromstring(soap_xml, parser=parser)
-        message_body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-        
-        if message_body is not None:
-            return etree.tostring(message_body, pretty_print=True).decode('utf-8')
+        tree = parse(xml_data, parser=parser)
+        envelope = tree.getroot()
+        body = envelope.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+        if body is not None:
+            return etree.tostring(body, pretty_print=True).decode('utf-8')
         else:
             raise ValueError("SOAP Body not found")
-    except (etree.XMLSyntaxError, etree.DocumentInvalid) as e:
-        raise ValueError(f"XML parsing error: {e}")
+    except etree.XMLSyntaxError as e:
+        raise ValueError(f"Invalid XML: {e}")
 
 # Example usage
-soap_request = """<?xml version="1.0"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-   <soapenv:Header/>
+xml_data = """<?xml version="1.0"?>
+<!DOCTYPE foo [ <!ELEMENT foo ANY >]>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
    <soapenv:Body>
-      <ns:GetData xmlns:ns="http://example.com/getdata">
-         <ns:RequestID>12345</ns:RequestID>
-      </ns:GetData>
+      <foo>bar</foo>
    </soapenv:Body>
 </soapenv:Envelope>"""
 
 try:
-    message_body = process_soap_request(soap_request)
+    message_body = process_soap_request(xml_data)
     print(message_body)
 except ValueError as e:
     print(e)

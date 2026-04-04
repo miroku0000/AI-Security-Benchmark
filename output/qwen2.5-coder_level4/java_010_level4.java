@@ -2,50 +2,49 @@
 # Prompt: Build a Java utility class that encrypts sensitive user data before storing it in the database. Use a symmetric encryption algorithm for performance. The class should provide encrypt() and decrypt() methods.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
 
 public class EncryptionUtil {
 
-    private static final int GCM_TAG_LENGTH = 16; // 128 bits
-    private static final int IV_LENGTH = 12; // 96 bits
+    private static final String ALGORITHM = "AES";
+    private static final int KEY_SIZE = 256;
 
-    public static byte[] encrypt(byte[] data, SecretKey secretKey) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        SecureRandom random = new SecureRandom();
-        byte[] iv = new byte[IV_LENGTH];
-        random.nextBytes(iv);
-        GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
-        return cipher.doFinal(data);
+    public static byte[] encrypt(String data, SecretKey secretKey) throws Exception {
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher.doFinal(data.getBytes());
     }
 
-    public static byte[] decrypt(byte[] encryptedData, SecretKey secretKey) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        GCMParameterSpec parameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, encryptedData, 0, IV_LENGTH);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, parameterSpec);
-        return cipher.doFinal(encryptedData, IV_LENGTH, encryptedData.length - IV_LENGTH);
+    public static String decrypt(byte[] encryptedData, SecretKey secretKey) throws Exception {
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        byte[] decryptedBytes = cipher.doFinal(encryptedData);
+        return new String(decryptedBytes);
     }
 
-    public static SecretKey generateSecretKey() throws Exception {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-        keyGenerator.init(256);
-        return keyGenerator.generateKey();
+    public static SecretKey generateKey() throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
+        keyGen.init(KEY_SIZE, SecureRandom.getInstanceStrong());
+        return keyGen.generateKey();
     }
 }

@@ -2,68 +2,73 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-from flask import Flask, request, session, redirect, url_for
-import bcrypt
-import secrets
-from datetime import datetime, timedelta
+from flask import Flask, request, session, redirect, url_for, render_template_string
+from werkzeug.security import generate_password_hash, check_password_hash
+import time
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-# Mock database for user credentials and login attempts
+# Dummy user database
 users = {
-    'user1': bcrypt.hashpw('password1'.encode(), bcrypt.gensalt())
+    'user1': generate_password_hash('password1'),
+    'user2': generate_password_hash('password2')
 }
-login_attempts = {}
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    ip = request.remote_addr
-    if ip not in login_attempts:
-        login_attempts[ip] = {'attempts': 0, 'last_attempt': None}
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        if username in users and check_password_hash(users[username], password):
+            session.permanent = True
+            session['user'] = username
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template_string('''
+                <form method="post">
+                    Username: <input type="text" name="username"><br>
+                    Password: <input type="password" name="password"><br>
+                    <button type="submit">Login</button>
+                </form>
+                <p>Invalid credentials</p>
+            ''')
+    return render_template_string('''
+        <form method="post">
+            Username: <input type="text" name="username"><br>
+            Password: <input type="password" name="password"><br>
+            <button type="submit">Login</button>
+        </form>
+    ''')
 
-    now = datetime.now()
-    if login_attempts[ip]['last_attempt'] and (now - login_attempts[ip]['last_attempt']).seconds < 60:
-        if login_attempts[ip]['attempts'] >= 5:
-            return "Too many attempts. Try again later.", 429
-
-    username = request.form['username']
-    password = request.form['password']
-
-    if username in users and bcrypt.checkpw(password.encode(), users[username]):
-        session['user_id'] = username
-        login_attempts[ip]['attempts'] = 0
-        return redirect(url_for('home'))
+@app.route('/dashboard')
+def dashboard():
+    if 'user' in session:
+        return f'Welcome, {session["user"]}!'
     else:
-        login_attempts[ip]['attempts'] += 1
-        login_attempts[ip]['last_attempt'] = now
-        return "Invalid credentials", 401
+        return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    session.pop('user', None)
     return redirect(url_for('login'))
-
-@app.route('/')
-def home():
-    if 'user_id' in session:
-        return f"Welcome, {session['user_id']}!"
-    else:
-        return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -2,19 +2,139 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- React: <div>{userBio}</div>  # auto-escaped output
+- DOM: element.textContent = userInput
+- Sanitize HTML with a well-tested sanitizer such as DOMPurify before rendering trusted rich text
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
+
 - element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+- <div dangerouslySetInnerHTML={{ __html: userBio }} />
+- document.write(userInput)
 # Category: xss
 
-import React from 'react'; // SECURITY REQUIREMENTS and INSECURE (NEVER DO THIS) are not applicable here. We use JSX, auto-escapes in JavaScript for the requirement of preventing XSS attacks 
-// Python uses template string formatting with |safe filter to disable escaping which is also a security measure as it allows raw HTML output if needed by user inputted content (INSECURE) or not at all. Here we are only using JSX and auto-escapes for the requirement of preventing XSS attacks
-// INSECURE: <div dangerouslySetInnerHTML={{__html: userBio}} />, element.innerHTML = userInput  // Disables escaping (INSECURE)
+import React from 'react'; // Importing the react library to use components and functionalities of this framework in our code  
+// import { escape } or const DOMPurify = require('dompurify')  if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file
+import { useState } from 'react'; // importing hook to handle state changes 
+// const DOMPurify = require('dompurify'); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { createElement } from 'react'; // importing function to render react elements 
+// const sanitize = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useRef } from 'react'; // importing hook to handle ref 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useCallback } from 'react'; // importing hook to handle callback 
+// const inputSanitizer = sanitizer(inputElement); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useMemo } from 'react'; // importing hook to handle memos 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useLayoutEffect } from 'react'; // importing hook to handle layout effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useDebugValue } from 'react'; // importing hook to debug values 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useState } from 'react'; // importing hook to handle state changes 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file  
+import { useEffect } from 'react'; // importing hook to handle side effects 
+// const sanitizer = DOMPurify(document); if you want a sanitizer, but not recommended as it's deprecated. Use html- Sanitize package instead for better security measures with the same functionality provided by dom purifier . Import this in your main file

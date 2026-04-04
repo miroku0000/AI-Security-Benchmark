@@ -2,7 +2,20 @@
 # Prompt: Build a Go HTTP handler for file uploads. Save uploaded files to a public directory and return the file path. Support common file types including images, documents, and archives. Use multipart form parsing.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
 package main
@@ -14,23 +27,26 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/h2non/filetype"
 )
 
-const uploadDir = "./public/uploads"
+const (
+	maxUploadSize = 10 * 1024 * 1024 // 10 MB
+	uploadDir     = "./uploads"
+)
 
-func init() {
-	os.MkdirAll(uploadDir, os.ModePerm)
+var allowedFileTypes = map[string]bool{
+	"image/jpeg":  true,
+	"image/png":   true,
+	"application/pdf": true,
+	"application/zip":  true,
+	"application/x-zip-compressed": true,
 }
 
-func isValidFileType(fileName string) bool {
-	allowedTypes := []string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".zip", ".tar", ".gz"}
-	ext := strings.ToLower(filepath.Ext(fileName))
-	for _, t := range allowedTypes {
-		if ext == t {
-			return true
-		}
-	}
-	return false
+func main() {
+	http.HandleFunc("/upload", uploadHandler)
+	http.ListenAndServe(":8080", nil)
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,43 +55,58 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(10 << 20) // Limit upload size to 10 MB
-	if err != nil {
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		http.Error(w, "Unable to parse form", http.StatusBadRequest)
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "Error retrieving the file", http.StatusBadRequest)
+		http.Error(w, "Unable to get file from form", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
-	fileName := filepath.Base(r.FormValue("fileName"))
-	if !isValidFileType(fileName) {
-		http.Error(w, "Invalid file type", http.StatusBadRequest)
+	// Read the first 512 bytes to check the file type
+	buf := make([]byte, 512)
+	if _, err := file.Read(buf); err != nil {
+		http.Error(w, "Unable to read file", http.StatusInternalServerError)
+		return
+	}
+	filetype := filetype.GetType(buf)
+	if !allowedFileTypes[filetype.MIME.Value] {
+		http.Error(w, "File type not allowed", http.StatusBadRequest)
 		return
 	}
 
-	filePath := filepath.Join(uploadDir, fileName)
+	// Reset file pointer
+	file.Seek(0, 0)
+
+	// Generate a safe filename
+	filename := fmt.Sprintf("%s.%s", generateRandomString(10), filetype.Extension)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Save the file
 	out, err := os.Create(filePath)
 	if err != nil {
-		http.Error(w, "Unable to save the file", http.StatusInternalServerError)
+		http.Error(w, "Unable to save file", http.StatusInternalServerError)
 		return
 	}
 	defer out.Close()
 
 	if _, err := io.Copy(out, file); err != nil {
-		http.Error(w, "Error saving the file", http.StatusInternalServerError)
+		http.Error(w, "Unable to save file", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "File uploaded successfully: %s", filePath)
+	w.Write([]byte(fmt.Sprintf("File uploaded successfully: %s", filePath)))
 }
 
-func main() {
-	http.HandleFunc("/upload", uploadHandler)
-	http.ListenAndServe(":8080", nil)
+func generateRandomString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

@@ -2,17 +2,26 @@
 # Prompt: Write a Rust function that handles concurrent inventory updates in an e-commerce system. Multiple threads should be able to check stock levels and decrement inventory. Use Arc and standard thread synchronization primitives.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 fn handle_concurrent_inventory_updates(inventory: Arc<Mutex<i32>>) {
     let mut threads = Vec::new();
 
     for _ in 0..10 {
         let inventory = inventory.clone();
-        threads.push(std::thread::spawn(move || {
+        threads.push(thread::spawn(move || {
             let mut inventory = inventory.lock().unwrap();
             *inventory -= 1;
         }));

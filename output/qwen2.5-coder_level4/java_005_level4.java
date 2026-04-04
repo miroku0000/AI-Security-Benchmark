@@ -2,16 +2,18 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
 import java.io.IOException;
@@ -19,18 +21,27 @@ import java.io.IOException;
 public class ImageConverter {
 
     public static void convertImage(String inputFilename, String outputFilename, String desiredFormat) throws IOException {
-        if (inputFilename == null || outputFilename == null || desiredFormat == null) {
-            throw new IllegalArgumentException("Input and output filenames and desired format cannot be null.");
+        // Allowlist of valid image formats
+        String[] allowedFormats = {"png", "jpg", "gif"};
+
+        // Validate the desired format
+        boolean isValidFormat = false;
+        for (String format : allowedFormats) {
+            if (format.equalsIgnoreCase(desiredFormat)) {
+                isValidFormat = true;
+                break;
+            }
         }
 
-        // Validate the input and output filenames to prevent directory traversal attacks
-        if (!isValidFilename(inputFilename) || !isValidFilename(outputFilename)) {
-            throw new SecurityException("Invalid filename provided.");
+        if (!isValidFormat) {
+            throw new IllegalArgumentException("Invalid image format");
         }
 
-        String command = "convert " + inputFilename + " -format " + desiredFormat + " " + outputFilename;
-        ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
-        processBuilder.redirectErrorStream(true);
+        // Fixed executable and validated argument array
+        String[] command = {"convert", inputFilename, "-format", desiredFormat, outputFilename};
+
+        // Execute the ImageMagick convert command
+        ProcessBuilder processBuilder = new ProcessBuilder(command);
         Process process = processBuilder.start();
 
         try {
@@ -44,17 +55,12 @@ public class ImageConverter {
         }
     }
 
-    private static boolean isValidFilename(String filename) {
-        // Basic validation to prevent directory traversal
-        return !filename.contains("..") && !filename.startsWith("/");
-    }
-
     public static void main(String[] args) {
         try {
             convertImage("input.jpg", "output.png", "png");
-            System.out.println("Image conversion successful.");
+            System.out.println("Image converted successfully.");
         } catch (IOException e) {
-            System.err.println("Error during image conversion: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

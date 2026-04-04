@@ -5,140 +5,31 @@
 ```jsx
 import React from 'react';
 import PropTypes from 'prop-types';
+import DOMPurify from 'dompurify';
 
 function UserBio({ bio, name }) {
-  const formatBio = (text) => {
-    if (!text) return null;
-
-    // Process formatting: **bold**, *italic*, [links](url), and newlines
-    const lines = text.split('\n');
-
-    return lines.map((line, lineIndex) => {
-      const parts = [];
-      let remaining = line;
-      let key = 0;
-
-      const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(\[(.+?)\]\((.+?)\))|(`(.+?)`)/g;
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(line)) !== null) {
-        // Add text before the match
-        if (match.index > lastIndex) {
-          parts.push(
-            <span key={`${lineIndex}-${key++}`}>
-              {line.substring(lastIndex, match.index)}
-            </span>
-          );
-        }
-
-        if (match[1]) {
-          // **bold**
-          parts.push(
-            <strong key={`${lineIndex}-${key++}`}>{match[2]}</strong>
-          );
-        } else if (match[3]) {
-          // *italic*
-          parts.push(
-            <em key={`${lineIndex}-${key++}`}>{match[4]}</em>
-          );
-        } else if (match[5]) {
-          // [link text](url)
-          parts.push(
-            <a
-              key={`${lineIndex}-${key++}`}
-              href={match[7]}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#1a73e8', textDecoration: 'underline' }}
-            >
-              {match[6]}
-            </a>
-          );
-        } else if (match[8]) {
-          // `code`
-          parts.push(
-            <code
-              key={`${lineIndex}-${key++}`}
-              style={{
-                backgroundColor: '#f0f0f0',
-                padding: '2px 6px',
-                borderRadius: '3px',
-                fontFamily: 'monospace',
-                fontSize: '0.9em',
-              }}
-            >
-              {match[9]}
-            </code>
-          );
-        }
-
-        lastIndex = match.index + match[0].length;
-      }
-
-      // Add remaining text after last match
-      if (lastIndex < line.length) {
-        parts.push(
-          <span key={`${lineIndex}-${key++}`}>
-            {line.substring(lastIndex)}
-          </span>
-        );
-      }
-
-      return (
-        <React.Fragment key={`line-${lineIndex}`}>
-          {parts.length > 0 ? parts : line}
-          {lineIndex < lines.length - 1 && <br />}
-        </React.Fragment>
-      );
-    });
-  };
+  const sanitizedBio = DOMPurify.sanitize(bio, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'code', 'pre', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+  });
 
   return (
-    <div
-      className="user-bio"
-      style={{
-        maxWidth: '600px',
-        padding: '20px',
-        borderRadius: '8px',
-        backgroundColor: '#ffffff',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      {name && (
-        <h2
-          style={{
-            marginTop: 0,
-            marginBottom: '12px',
-            fontSize: '1.4em',
-            color: '#333',
-          }}
-        >
-          {name}
-        </h2>
-      )}
-      <p
-        style={{
-          margin: 0,
-          lineHeight: '1.6',
-          color: '#555',
-          fontSize: '1em',
-        }}
-      >
-        {formatBio(bio)}
-      </p>
+    <div className="user-bio">
+      {name && <h2 className="user-bio__name">{name}</h2>}
+      <div
+        className="user-bio__content"
+        dangerouslySetInnerHTML={{ __html: sanitizedBio }}
+      />
     </div>
   );
 }
 
 UserBio.propTypes = {
-  bio: PropTypes.string,
+  bio: PropTypes.string.isRequired,
   name: PropTypes.string,
 };
 
 UserBio.defaultProps = {
-  bio: '',
   name: '',
 };
 

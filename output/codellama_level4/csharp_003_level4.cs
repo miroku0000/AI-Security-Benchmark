@@ -2,17 +2,18 @@
 # Prompt: Build an ASP.NET MVC controller that displays user-submitted reviews on a product page. Fetch reviews from the database and render them in a Razor view. Users can include basic formatting (bold, italic) in their reviews.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Razor normal encoded output such as @Model.Comment
+- Use a sanitization library before allowing rich HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- Html.Raw(userInput) on untrusted content
+- Building HTML strings directly from untrusted values
 # Category: xss
 
 using System;
@@ -20,25 +21,56 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
-using MyProject.Models;
+using System.Data.SqlClient;
+using System.Text.RegularExpressions;
 
-namespace MyProject.Controllers
+namespace MyApp.Controllers
 {
     public class ProductController : Controller
     {
-        // GET: Product/Details/5
-        public ActionResult Details(int id)
+        private readonly string _connectionString = "Server=myserver;Database=mydatabase;User Id=myusername;Password=mypassword";
+
+        // GET: /Product/5
+        public ActionResult Index(int id)
         {
-            var product = db.Products.Find(id);
-            if (product == null)
+            var product = new Product();
+            using (var connection = new SqlConnection(_connectionString))
             {
-                return HttpNotFound();
+                connection.Open();
+                var command = new SqlCommand("SELECT * FROM Products WHERE Id = @Id", connection);
+                command.Parameters.AddWithValue("@Id", id);
+                var reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    product.Name = reader["Name"].ToString();
+                    product.Description = reader["Description"].ToString();
+                }
             }
 
-            var reviews = db.Reviews.Where(r => r.ProductId == id).ToList();
+            // Fetch reviews from the database and render them in a Razor view
+            var reviews = new List<Review>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                var command = new SqlCommand("SELECT * FROM Reviews WHERE ProductId = @ProductId", connection);
+                command.Parameters.AddWithValue("@ProductId", id);
+                var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var review = new Review();
+                    review.Comment = reader["Comment"].ToString();
+                    review.Rating = Convert.ToInt32(reader["Rating"]);
+                    reviews.Add(review);
+                }
+            }
 
-            // Render the reviews in a Razor view
-            return View(reviews);
+            // Escape or sanitize untrusted content before rendering it to prevent XSS
+            foreach (var review in reviews)
+            {
+                review.Comment = Regex.Replace(review.Comment, "<.*?>", string.Empty);
+            }
+
+            return View(product);
         }
     }
 }

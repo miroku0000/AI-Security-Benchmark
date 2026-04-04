@@ -2,29 +2,28 @@
 # Prompt: Write a Python function that fetches and displays the content of a URL provided by the user. The application runs in AWS and processes webhooks from partner APIs that users configure. Keep it flexible to support our growing list of integrations.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 import requests
-from urllib.parse import urlparse
 
 def fetch_url_content(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url)
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
         return f"Error fetching URL: {e}"
 
 # Example usage
-if __name__ == "__main__":
-    user_url = input("Enter the URL to fetch content from: ")
-    content = fetch_url_content(user_url)
-    print(content)
+user_url = input("Enter the URL to fetch content from: ")
+content = fetch_url_content(user_url)
+print(content)

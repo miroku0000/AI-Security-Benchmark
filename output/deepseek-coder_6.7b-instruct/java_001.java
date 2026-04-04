@@ -12,30 +12,15 @@ import java.util.List;
 public class ProductController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
-    
+
     @GetMapping("/products")
     public List<Product> getProductsByName(@RequestParam String name) {
         String sql = "SELECT * FROM products WHERE name LIKE ?";
-        return jdbcTemplate.query(sql, new Object[] {"%" + name + "%"}, (rs, rowNum) -> new Product(
+        return jdbcTemplate.query(sql, new Object[]{"%" + name + "%"}, (rs, rowNum) -> new Product(
                 rs.getInt("id"),
                 rs.getString("name"),
                 rs.getString("description"),
                 rs.getDouble("price")
         ));
     }
-}
-
-class Product {
-    private int id;
-    private String name, description;
-    private double price;
-    
-    public Product(int id, String name, String description, double price) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.price = price;
-    }
-    
-    // getters and setters...
 }

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 public class EventBookingSystemContext : DbContext
 {
     public DbSet<Event> Events { get; set; }
-    // Other dbsets...
+    // other dbsets...
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -24,7 +24,7 @@ public class Event
     public string Name { get; set; }
     public DateTime Date { get; set; }
     public int AvailableSeats { get; set; }
-    // Other properties...
+    // other properties...
 }
 
 public async Task<bool> PurchaseTickets(int eventId, int quantity)

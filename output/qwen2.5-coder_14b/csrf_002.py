@@ -12,10 +12,10 @@ def update_profile():
     if not session.get('user_id'):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    user_data = request.json
-    email = user_data.get('email')
-    password = user_data.get('password')
-    enable_2fa = user_data.get('enable_2fa')
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    enable_2fa = data.get('enable_2fa')
 
     # Here you would typically update the user's profile in your database
     # For demonstration, we'll just print the new settings
@@ -23,7 +23,7 @@ def update_profile():
     if email:
         print(f"New Email: {email}")
     if password:
-        print("Password updated (not shown here for security reasons)")
+        print("Password updated (not shown for security reasons)")
     if enable_2fa is not None:
         print(f"2FA Enabled: {enable_2fa}")
 

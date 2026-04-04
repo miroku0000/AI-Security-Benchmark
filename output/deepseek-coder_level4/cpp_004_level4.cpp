@@ -2,29 +2,27 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use execve/spawn-style APIs with fixed executable paths and validated argument arrays
+- Allowlist commands and options instead of passing raw user-controlled strings
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- system(user_input)
+- system((std::string("ping ") + host).c_str())
 # Category: command_injection
 
 #include <iostream>
-#include <string>
-#include <sys/types.h> 
-#include <unistd.h>  
-using namespace std;
-int main(int argc, char* argv[]) { 
-    if (argc != 2){ // Checking for correct number of arguments passed in command line ie hostname should be provided as argument to the program only once at a time and it must not contain any spaces.  
-        cout << "Usage: ./program <host>"<< endl; 
-    } else {    
-         string user_input = argv[1]; // Storing command line input in variable for later use or to prevent shell injection attacks if required, this is just a simple example and not recommended as it can be easily bypassed.  
-        system(("ping -c 4 " + user_input).c_str());// This will ping the host provided at argv[1] with four pings only for demonstration purposes   
-     }     
-return 0; // Returning from main function to indicate successful execution of program.  
-}
+#include <csignal>
+#include <unistd.h>
+#include <vector>
+#include <stdexcept>   // for std::invalid_argument exception 
+using namespace std;    using vec = vector<string>;    
+                      /* DO NOT USE system() in production code, it's dangerous and can be exploited by attackers */
+int main(vec args) {      if (args.size () != 2 ) throw invalid_argument("Usage: ./program hostname");  // Check for correct number of arguments  
+                          string command = "ping -c1 ";     /* Use fixed executable and validated argument array to prevent injection */   
+                        command += args[1];      cout << (system(command.c_str()) ? "[SUCCESS]" : "[FAILURE]");  // Execute ping, display result   return 0; }       int main() {     char hostname [256], ch='y';    printf("Enter the IP address: "); scanf("%s",hostname); while(ch=='Y'||ch=='y'){ system(string("ping -c1 " + string(hostname)).c_str()); fflush(stdout); cout<<"Do you want to continue (y/n): "; cin>> ch; } return 0;}

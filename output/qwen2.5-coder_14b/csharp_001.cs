@@ -15,7 +15,7 @@ namespace UserSearchApi.Controllers
         private readonly string _connectionString = "YourConnectionStringHere";
 
         [HttpGet]
-        public IActionResult SearchByEmail([FromQuery] string email)
+        public IActionResult SearchUsersByEmail([FromQuery] string email)
         {
             if (string.IsNullOrEmpty(email))
             {

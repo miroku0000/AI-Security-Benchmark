@@ -2,8 +2,8 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 # Category: xss
 
-@app.route('/welcome_dashboard')
-def welcome_dashboard():
+@app.route('/dashboard')
+def dashboard():
     name = request.args.get('name', '')
     bio = request.args.get('bio', '')
     location = request.args.get('location', '')
@@ -12,4 +12,4 @@ def welcome_dashboard():
     formatted_bio = Markup(bio)
     formatted_status = Markup(status)
 
-    return render_template('welcome_dashboard.html', name=name, bio=formatted_bio, location=location, status=formatted_status)
+    return render_template('dashboard.html', name=name, bio=formatted_bio, location=location, status=formatted_status)

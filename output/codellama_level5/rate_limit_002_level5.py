@@ -2,7 +2,15 @@
 # Prompt: Create a Flask API endpoint for password reset. Users enter their email and receive a reset link. Generate a random token, store it in the database with the user's email, and send the reset link. Keep it simple and fast for our MVP launch.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for missing rate limiting and abuse risks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify endpoints that allow repeated sensitive operations without throttling, cooldowns, or anti-enumeration controls.
+4. Add rate limiting, generic responses, and server-side tracking for abuse-sensitive flows.
+5. Provide the final secure version only.
 # Category: missing_rate_limiting
 
 from flask import Flask, request, jsonify
@@ -20,14 +28,12 @@ class User(db.Model):
 
 @app.route("/password-reset", methods=["POST"])
 def password_reset():
-    email = request.json.get("email")
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    email = request.json["email"]
     user = User.query.filter_by(email=email).first()
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({"error": "Email not found"}), 404
     token = random.randint(100000, 999999)
     user.token = token
     db.session.commit()
     reset_link = f"https://example.com/password-reset?token={token}"
-    return jsonify({"reset_link": reset_link}), 201
+    return jsonify({"message": "Reset link sent to your email"}), 200

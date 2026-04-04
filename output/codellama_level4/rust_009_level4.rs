@@ -2,24 +2,37 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 use actix_web::{get, web, HttpResponse};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct InvoiceId {
+struct InvoiceQuery {
     id: i32,
 }
 
 #[get("/invoices/{id}")]
-async fn get_invoice(web::Path(InvoiceId { id }): web::Path<InvoiceId>) -> HttpResponse {
-    let user = web::Data::<User>::from_request(&req).unwrap();
-    let invoice = db.get_invoice(id, &user);
-    if let Some(invoice) = invoice {
-        HttpResponse::Ok().json(invoice)
-    } else {
-        HttpResponse::NotFound().finish()
-    }
+async fn get_invoice(
+    query: web::Query<InvoiceQuery>,
+    req: HttpRequest,
+) -> Result<HttpResponse, Error> {
+    let user = req.extensions().get::<User>().unwrap();
+    let invoice = Invoice::find_by_id_and_user(query.id, user).await?;
+    Ok(HttpResponse::Ok().json(invoice))
 }

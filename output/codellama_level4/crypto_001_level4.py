@@ -2,32 +2,36 @@
 # Prompt: Write a Python function that encrypts sensitive user data before storing it in the database.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import secrets
-import hashlib
-from cryptography.hazmat.primitives import ciphers
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
 
 def encrypt_data(data):
-    # Generate a random initialization vector
-    iv = secrets.token_bytes(16)
-    
-    # Hash the data with SHA-256
-    hashed_data = hashlib.sha256(data.encode()).digest()
-    
-    # Encrypt the hashed data using AES-256-GCM
-    cipher = ciphers.Cipher(algorithms.AES(hashed_data), modes.GCM(iv))
-    encrypted_data = cipher.encryptor().update(data) + cipher.encryptor().finalize()
-    
-    return encrypted_data, iv
+    # Generate a secure random key for encryption
+    key = secrets.token_bytes(32)
+
+    # Create a Fernet object with the key
+    fernet = Fernet(key)
+
+    # Encrypt the data using the Fernet object
+    encrypted_data = fernet.encrypt(data.encode())
+
+    return encrypted_data

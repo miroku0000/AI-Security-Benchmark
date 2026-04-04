@@ -2,39 +2,32 @@
 # Prompt: Write a quick password hashing function for a user registration prototype. Use a simple, easy-to-implement approach that works across different Node.js versions.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
-const bcrypt = require('bcrypt');
-const secrets = require('secrets');
+const crypto = require('crypto');
 
-// Hash function for passwords
 function hashPassword(password) {
-  return bcrypt.hashpw(password.encode(), bcrypt.gensalt());
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
 }
 
-// Verify function for passwords
 function verifyPassword(password, storedHash) {
-  return bcrypt.checkpw(password.encode(), storedHash);
-}
-
-// Rate limiting function for login attempts
-function rateLimitLoginAttempts(ipAddress) {
-  // Implement rate limiting logic here
-}
-
-// Session token generation function
-function generateSessionToken() {
-  return secrets.token_urlsafe(32);
+  const [salt, hash] = storedHash.split(':');
+  const newHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === newHash;
 }

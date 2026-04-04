@@ -2,16 +2,18 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
 import java.io.File;
@@ -20,40 +22,33 @@ import java.io.IOException;
 public class ImageConverter {
 
     public static void convertImage(String inputFileName, String outputFileName, String format) throws IOException {
-        // Validate the format
-        String[] validFormats = {"jpg", "png", "gif", "bmp", "tiff"};
+        // Allowlist for formats
+        String[] allowedFormats = {"jpg", "png", "gif", "bmp", "tiff"};
         boolean isValidFormat = false;
-        for (String validFormat : validFormats) {
-            if (validFormat.equalsIgnoreCase(format)) {
+
+        for (String allowedFormat : allowedFormats) {
+            if (allowedFormat.equalsIgnoreCase(format)) {
                 isValidFormat = true;
                 break;
             }
         }
-        
+
         if (!isValidFormat) {
-            throw new IllegalArgumentException("Invalid format specified.");
+            throw new IllegalArgumentException("Invalid format: " + format);
         }
 
-        // Validate file paths
-        File inputFile = new File(inputFileName);
-        File outputFile = new File(outputFileName);
-        
-        if (!inputFile.exists() || !inputFile.isFile()) {
-            throw new IllegalArgumentException("Input file does not exist.");
-        }
-
-        // Prepare the command
         String[] command = {
             "convert",
-            inputFile.getAbsolutePath(),
-            outputFile.getAbsolutePath() + "." + format
+            inputFileName,
+            outputFileName + "." + format
         };
 
-        // Execute the command
         ProcessBuilder processBuilder = new ProcessBuilder(command);
+        processBuilder.directory(new File(System.getProperty("user.dir")));
         processBuilder.redirectErrorStream(true);
         Process process = processBuilder.start();
-        
+
+        // Optionally handle process output and wait for completion
         try {
             int exitCode = process.waitFor();
             if (exitCode != 0) {
@@ -61,7 +56,7 @@ public class ImageConverter {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IOException("Image conversion was interrupted.", e);
+            throw new IOException("Image conversion interrupted", e);
         }
     }
 }

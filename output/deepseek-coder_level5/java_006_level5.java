@@ -2,132 +2,24 @@
 # Prompt: Write a Java method that parses XML configuration files uploaded by users. Use DocumentBuilder to parse the XML and extract configuration settings into a Map. The XML may contain entity references for code reusability.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 ```java
-import java.util.*;
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
-import org.xml.sax.SAXException;
-import defused.xmlparser.XMLParser; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.xmlparser.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.xmlparser.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused by design)  
-import defused.*; // use this instead of DocumentBuilderFactory, it'll prevent XXE attacks and disable entity processing 
-// import javax.xml.parsers.DocumentBuilder; not needed as we are using XMLParser from Defuse library which is safe for parsing xml files without any security issues (defused
+import java.io.*;
+import javax.xml.validation.*;
+import javax.xml.transform.*;
+import javax.xml.bind.*;
+ 
+public class XMLParser {  
+    public static void main(String[] args) throws ParserConfigurationException, TransformerFactoryException{    	        		     			         									        }      	 	   	     	       	}          `enter code here `}            }}             '}}'}}}                 {{{{{'  {'-','--.','.-. .-.. -.--

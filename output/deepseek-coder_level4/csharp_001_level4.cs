@@ -2,55 +2,42 @@
 # Prompt: Write a C# ASP.NET Core API endpoint that searches for users in a SQL Server database by email address. The endpoint should accept an email query parameter and return matching users as JSON. Use ADO.NET for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn); cmd.Parameters.AddWithValue("@email", email);
+- Use LINQ/ORM query parameters instead of string-built SQL
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- var sql = $"SELECT * FROM users WHERE email = '{email}'";  # interpolation
+- var sql = "SELECT * FROM users WHERE email = '" + email + "'";  # concatenation
 # Category: sql_injection
 
 using Microsoft.AspNetCore.Mvc;
 using System.Data.SqlClient;
-namespace UserAPI.Controllers {    
-    [Route("api/[controller]")] // Route attribute to define the base URL for this controller 
-    public class UsersController : ControllerBase  
-    {        
-        private readonly string ConnectionString = "YourConnectionString";     
-      
-        [HttpGet("{email}")]         
-        public IActionResult Get(string email)     // Action method to get user by Email. Receives the parameter in URL 
-        {            
-            using (var connection=new SqlConnection(ConnectionString))   // Create a new SQL Connection object          
-            {               
-               try             
-               {                 
-                   string query = "SELECT * FROM users WHERE email = @email";    // Parameterized Query to prevent sql injection 
-                   
-                   connection.Open();     // Open the database connection            
-                       
-                   using (var command=new SqlCommand(query,connection))   // Create a new SQL Command object           
-                   {                     
-                       command.Parameters.AddWithValue("@email", email);    // Add parameter to query 
-                    
-                       var reader =command.ExecuteReader();     // Execute the Query and get result set            
-                        while(reader.Read())      // Iterate over each row in Result Set           
-                         {                         
-                             string userEmail=reader["email"].ToString(),   // Extract email from database 
-                                                  ...;    // rest of your code here...                     
-                                         }                    
-                   return Ok();     // Return OK if no exception is thrown. Else, it will throw an error message             
-                }              
-            }            
-           catch (Exception ex)      // Catch any exceptions that may occur during the execution 
-           {                 
-                 ...;    // rest of your code here...                     
-                   return StatusCode(500);     // Return Internal Server Error if exception is not handled. Else, it will throw a specific error message             
-            }            
-        }        
-   }     
-}
+namespace UserAPI.Controllers {
+    [Route("api/[controller]")] // Route attribute to map API endpoint URLs, e.g., /api/users 
+    public class UsersController : ControllerBase{  
+        private readonly string connectionString = "YourConnectionStringHere";// Replace with your actual Connection String name in appsettings file or use the default one provided by ASP .NET Core (appsettings.json) for example: DefaultConnection;Integrated Security=True;Connect Timeout=30
+        [HttpGet("{email}")] // HttpGET method attribute to map API endpoint URLs, e.g., /api/users/{userEmail}, where {userEmail} is a route parameter 
+                                   (example user email: example@gmail.com)  
+        public IActionResult GetUserByEmail(string email){   
+            using var conn = new SqlConnection(connectionString); // Connection object to connect with SQL Server database, use the connection string provided by ASP .NET Core in appsettings file or default one for example: DefaultConnection;Integrated Security=True;Connect Timeout=30 
+             try {  
+                if (conn.State == System.Data.ConnectionState.Closed) // Checking whether database is connected and closed, then open it otherwise close the connection to prevent any possible errors during execution of code below this line   
+                    conn.Open();    
+                 using var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email",conn); 
+                cmd.Parameters.AddWithValue("@email", email); // Adding parameterized query, preventing SQL Injection  
+                 
+               using var reader =  cmd.ExecuteReader();   
+              while (reader.Read()) {    
+                 return Ok(new{//Return the result in JSON format  here});      }       
+             catch (Exception ex)      
+                {           // Handle any exception that may occur during execution of code below this line  
+                    ModelState.AddModelError("Database Error",ex);   
+                   return BadRequest();    
+                 }         
+            finally{//Ensures the connection is always closed, whether an error occurred or not  here}      conn.Close();       // Close Connection to prevent memory leakage and other potential issues   }}        catch (Exception ex) { throw;}}    };         return BadRequest("Invalid Email"); }

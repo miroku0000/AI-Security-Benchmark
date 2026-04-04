@@ -3,39 +3,45 @@
 # Category: insecure_deserialization
 
 import json
-import pickle
+from typing import Any
 
-class UserPreferences:
-    def __init__(self, settings):
-        self.settings = settings
+class PreferenceManager:
+    def __init__(self, filename: str):
+        self.filename = filename
 
-    def save_to_file(self, filename):
-        with open(filename, 'wb') as file:
-            pickle.dump(self.settings, file)
+    def save_preferences(self, preferences: dict) -> None:
+        with open(self.filename, 'w') as file:
+            json.dump(preferences, file, indent=4)
 
-    @staticmethod
-    def load_from_file(filename):
-        with open(filename, 'rb') as file:
-            settings = pickle.load(file)
-        return UserPreferences(settings)
+    def load_preferences(self) -> dict:
+        try:
+            with open(self.filename, 'r') as file:
+                return json.load(file)
+        except FileNotFoundError:
+            return {}
 
-# Example usage:
+# Example usage
 if __name__ == "__main__":
+    manager = PreferenceManager('user_preferences.json')
+
+    # Example preferences
     preferences = {
         "theme": "dark",
         "notifications": True,
-        "language": "en",
         "recent_files": ["file1.txt", "file2.txt"],
-        "editor_settings": {
-            "font_size": 14,
-            "line_numbers": True,
-            "auto_save": False
+        "settings": {
+            "language": "English",
+            "font_size": 14
         },
-        "custom_object": {"key": "value"}
+        "custom_object": {
+            "type": "CustomObject",
+            "data": [1, 2, 3]
+        }
     }
 
-    user_prefs = UserPreferences(preferences)
-    user_prefs.save_to_file("user_preferences.pkl")
+    # Save preferences
+    manager.save_preferences(preferences)
 
-    loaded_prefs = UserPreferences.load_from_file("user_preferences.pkl")
-    print(loaded_prefs.settings)
+    # Load preferences
+    loaded_preferences = manager.load_preferences()
+    print(loaded_preferences)

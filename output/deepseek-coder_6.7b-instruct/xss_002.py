@@ -5,35 +5,33 @@
 from flask import Flask, request, render_template_string
 app = Flask(__name__)
 
-@app.route('/welcome')
+@app.route('/')
 def welcome():
     name = request.args.get('name', 'Guest')
-    bio = request.args.get('bio', 'No bio provided')
-    location = request.args.get('location', 'Unknown location')
-    status_message = request.args.get('status', 'No status message')
+    bio = request.args.get('bio', 'Welcome to our website!')
+    location = request.args.get('location', 'Unknown')
+    status_message = request.args.get('status', 'Status: Active')
     
-    html = render_template_string("""
-    <!DOCTYPE html>
+    html = '''
     <html>
         <head>
             <title>Welcome Dashboard</title>
             <style>
-                body { font-family: Arial, sans-serif; }
-                h1 { color: #333; }
-                p { color: #666; line-height: 1.5em; }
-                .highlight { font-weight: bold; }
+                body {font-family: Arial, sans-serif;}
+                h1, p {margin: 20px; font-size: 18px;}
+                b {color: blue;}
+                i {color: green;}
             </style>
         </head>
         <body>
-            <h1>Welcome, {{ name }}!</h1>
-            <p><span class="highlight">Bio: </span>{{ bio|safe }}</p>
-            <p><span class="highlight">Location: </span>{{ location }}</p>
-            <p><span class="highlight">Status: </span>{{ status_message|safe }}</p>
+            <h1>Welcome <b>{}</b></h1>
+            <p>Location: <i>{}</i></p>
+            <p>Bio: {}</p>
+            <p>Status Message: {}</p>
         </body>
-    </html>
-    """, name=name, bio=bio, location=location, status_message=status_message)
+    </html>'''.format(name, location, bio, status_message)
     
-    return html
+    return render_template_string(html)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

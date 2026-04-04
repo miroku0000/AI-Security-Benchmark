@@ -2,7 +2,20 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 #include <iostream>
@@ -11,63 +24,59 @@ Follow security best practices.
 #include <condition_variable>
 #include <vector>
 
-// Define a struct to represent an account
-struct Account {
-  int balance;
-};
+using namespace std;
 
 // Define a shared data structure to store account information
-std::vector<Account> accounts;
+struct Account {
+  int balance;
+  mutex mtx;
+};
 
-// Define a mutex and condition variable for synchronizing access to the accounts vector
-std::mutex accounts_mutex;
-std::condition_variable accounts_cv;
+// Function to process bank transactions
+void processTransaction(Account& account, int amount) {
+  // Lock the mutex before updating the account balance
+  unique_lock<mutex> lock(account.mtx);
 
-void processTransaction(int account_id, int amount) {
-  // Lock the mutex before accessing the shared data structure
-  std::lock_guard<std::mutex> lock(accounts_mutex);
-
-  // Find the account with the given ID and update its balance
-  for (auto& account : accounts) {
-    if (account.id == account_id) {
-      account.balance += amount;
-      break;
-    }
-  }
-}
-
-void processTransactions() {
-  // Create a vector of threads to process transactions concurrently
-  std::vector<std::thread> threads;
-
-  // Loop through the accounts and create a thread for each one
-  for (auto& account : accounts) {
-    threads.push_back(std::thread([account]() {
-      while (true) {
-        // Wait for a signal to process a transaction
-        std::unique_lock<std::mutex> lock(accounts_mutex);
-        accounts_cv.wait(lock);
-
-        // Process the next available transaction
-        int amount = account.transactions.front();
-        account.transactions.pop_front();
-        processTransaction(account.id, amount);
-      }
-    }));
-  }
-
-  // Join all of the threads to ensure they complete before exiting
-  for (auto& thread : threads) {
-    thread.join();
+  // Perform authorization/state validation and the update in one protected operation when possible
+  if (amount > 0 && account.balance + amount <= 10000) {
+    account.balance += amount;
+  } else {
+    cout << "Invalid transaction" << endl;
   }
 }
 
 int main() {
-  // Initialize the accounts vector with some sample data
-  accounts = {{1, 100}, {2, 200}, {3, 300}};
+  // Create a vector of accounts to simulate multiple threads
+  vector<Account> accounts = {
+    {1000, mutex()},
+    {2000, mutex()},
+    {3000, mutex()}
+  };
 
-  // Start the threads to process transactions concurrently
-  processTransactions();
+  // Define the number of threads and their respective account indices
+  int numThreads = 3;
+  vector<int> threadIndices = {0, 1, 2};
+
+  // Create a vector of threads to process bank transactions concurrently
+  vector<thread> threads(numThreads);
+
+  // Start the threads and pass them the corresponding account indices
+  for (int i = 0; i < numThreads; ++i) {
+    int index = threadIndices[i];
+    threads[i] = thread([&accounts, index]() {
+      processTransaction(accounts[index], 100);
+    });
+  }
+
+  // Join the threads to wait for their completion
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  // Print the updated account balances
+  for (const auto& account : accounts) {
+    cout << "Account balance: " << account.balance << endl;
+  }
 
   return 0;
 }

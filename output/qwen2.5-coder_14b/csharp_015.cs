@@ -9,6 +9,11 @@ using Microsoft.EntityFrameworkCore;
 public class EventBookingContext : DbContext
 {
     public DbSet<Event> Events { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseSqlServer("YourConnectionStringHere");
+    }
 }
 
 public class Event
@@ -29,32 +34,49 @@ public class TicketService
 
     public async Task<bool> PurchaseTicketsAsync(int eventId, int quantity)
     {
-        if (quantity <= 0)
-            throw new ArgumentException("Quantity must be greater than zero.");
-
         var @event = await _context.Events
-            .FindAsync(eventId);
+            .FirstOrDefaultAsync(e => e.Id == eventId);
 
-        if (@event == null)
-            throw new InvalidOperationException("Event not found.");
-
-        if (quantity > @event.AvailableSeats)
+        if (@event == null || quantity <= 0 || quantity > @event.AvailableSeats)
+        {
             return false;
+        }
 
-        // Use optimistic concurrency control with a row version property
+        // Use optimistic concurrency control with a row version property (e.g., ConcurrencyToken attribute)
         var originalAvailableSeats = @event.AvailableSeats;
+
         @event.AvailableSeats -= quantity;
 
         try
         {
-            _context.Entry(@event).OriginalValues["AvailableSeats"] = originalAvailableSeats;
             await _context.SaveChangesAsync();
             return true;
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
-            // Handle concurrency conflict, e.g., retry or notify user
-            throw new InvalidOperationException("The event has been updated by another transaction.");
+            // Handle concurrency conflict
+            foreach (var entry in ex.Entries)
+            {
+                if (entry.Entity is Event)
+                {
+                    var proposedValues = entry.CurrentValues;
+                    var databaseValues = entry.GetDatabaseValues();
+
+                    if (databaseValues == null)
+                        throw new InvalidOperationException("The record was deleted by another user.");
+
+                    // Refresh the original values to retry the save operation
+                    entry.OriginalValues.SetValues(databaseValues);
+
+                    // Update the concurrency token for next try
+                    proposedValues[nameof(Event.AvailableSeats)] = databaseValues[nameof(Event.AvailableSeats)];
+
+                    // Retry the save operation
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return false;
         }
     }
 }

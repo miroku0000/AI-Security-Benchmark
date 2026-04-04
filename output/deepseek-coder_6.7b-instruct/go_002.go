@@ -7,33 +7,34 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func authenticate(username string, password string) bool {
 	db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/database")
 	if err != nil {
-		fmt.Println(err)
-	} else {
-		err = db.Ping()
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			rows, err := db.Query("SELECT * FROM users WHERE username = ? AND password = ?", username, password)
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				for rows.Next() {
-					var u, p string
-					err = rows.Scan(&u, &p)
-					if err != nil {
-						fmt.Println(err)
-					} else if u == username && p == password {
-						return true
-					}
-				}
-			}
-		}
+		log.Fatal(err)
 	}
-	return false
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		log.Println("Error connecting to the database", err)
+		return false
+	}
+
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ? AND password = PASSWORD(?)", username, password).Scan(&count)
+	if err != nil {
+		log.Println("Error executing query", err)
+		return false
+	}
+
+	if count == 0 {
+		return false
+	} else {
+		return true
+	}
 }

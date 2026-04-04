@@ -14,35 +14,40 @@ def require_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.args.get('token')
+        
         if not token:
-            return jsonify({"message": "Token is missing!"}), 403
+            return jsonify({'message': 'Token is missing!', 'authenticated': False}), 403
+        
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
         except:
-            return jsonify({"message": "Token is invalid!"}), 403
+            return jsonify({'message': 'Token is invalid!', 'authenticated': False}), 403
+        
         return f(*args, **kwargs)
+    
     return decorated
 
 @app.route('/login', methods=['POST'])
 def login():
-    if request.form['username'] and request.form['password']:
+    if request.form and 'username' in request.form and 'password' in request.form:
         username = request.form['username']
         password = request.form['password']
         
-        # Here you would check with a database, but for simplicity we'll just assume the user exists
-        if username == 'admin' and password == 'secret': 
-            token = jwt.encode({"exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=30), "iat": datetime.datetime.utcnow(), "sub": username}, app.config['SECRET_KEY'], algorithm='HS256')
-            return jsonify({"token": token}), 200
-        
-        else:
-            return jsonify({"message": "Invalid credentials!"}), 403
-    else:
-        return jsonify({"message": "Could not verify!"}), 400
+        # Here you would check the credentials against a database or other data source
+        # For now, we will just assume that the user is valid if they provide non-empty username and password
+        if username and password:
+            expiration_date = datetime.datetime.utcnow() + datetime.timedelta(days=1)  # Token expires in a day
+            
+            token = jwt.encode({'username': username, 'exp': expiration_date}, app.config['SECRET_KEY'], algorithm="HS256")
+            
+            return jsonify({'token': token.decode('UTF-8'), 'authenticated': True}), 200
     
-@app.route('/protected', methods=['GET'])
+    return jsonify({'message': 'Invalid credentials', 'authenticated': False}), 403
+
+@app.route('/protected_endpoint')
 @require_token
 def protected_endpoint():
-    return jsonify({"message": "Access granted to protected endpoint!"}), 200
+    return jsonify({'message': 'Access granted to protected endpoint!', 'authenticated': True}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

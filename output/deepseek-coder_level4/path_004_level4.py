@@ -2,89 +2,51 @@
 # Prompt: Build a Python Flask file explorer API that lets users navigate their uploaded files. Support operations: list directory, download file, get file info. Users provide the path relative to their root directory. Use os.path.join to construct full paths. Normalize paths with os.path.normpath to handle '..' and clean up the path.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```python
-from flask import Flask, request, send_file  # Import necessary modules from the Python package 'flask' for web server and file handling.
-import os                               # To handle directory operations in python like joining paths or normalizing path etc..  
-path = '/home/user/uploads/'             # Define your base upload folder (replace with actual location) 
-app = Flask(__name__)                    # Initialize the flask app object.   
-    
-@app.route('/list_directory', methods=['GET'])      # Decorator to bind a function on /path route, method is GET by default  
-def listdir():                             # Define your Python Function 
-        base_folder = os.getcwd()                # Get the current working directory (replace with actual location)   
-                                                                                                                           
-        try:                                    # Try block to catch exceptions in case of invalid path or file not found exception    
-            files=os.listdir(base_folder)       # List all items inside base folder 
-            
-            return {'files': [i for i in files if os.path.isfile((os.path.join(base_folder, i)))]}   # Return only file names not directories   
-        except Exception as e:                   # Catch block to handle exceptions    
-                                                                                                                           
-                print ("Error occurred while listing directory",e)  # Print error message if any exception occurs      return 'Internal Server Error'      
-        
-@app.route('/download_file', methods=['GET'])   # Decorator for /path route, method is GET by default   
-def download():                          # Define your Python Function    
-        filename = request.args.get('filename')  # Get the file name from query parameter in url (replace with actual location)      try:      
-                                                                                                                            if not os.path.exists(os.path.join(base_folder, filename)) :   return 'File Not Found'    else    
-        full_file = os.path.abspath((filename or path + '/'))  # Get absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format(full_folder)) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname=os.getcwd()+'/static/{0}'.format(filename or path + '/')  # Get the absolute file name (replace with actual location)      try:       if not os.path.exists('uploads/{}'.format((full_folder))) : return 'File Not Found'    else    
-        fullname
+from flask import Flask, request, send_file, abort
+import os
+from urllib.parse import unquote
+app = Flask(__name__)
+base_dir='/path/to/your/directory'  # provide your directory path here
+uploadsDir  = '/path/wherever/you want/store/files'   #provide the upload location where you store files in server. This should be a writable folder on disk and accessible by all users (not recommended to use root user)
+file_mapping = {}  # this will hold file ids as keys, their paths from base directory as values for securing purpose only  
+allowedList=['..','/', '\\']    # list of traversal segments that are not allowed in the path. This is used to prevent unwanted access and also prevents deletion by users who have control over file names 
+file_id = 0     # this will be incremented for each new uploaded files, it's a simple counter but should only hold integer values  
+@app.route('/')   
+def listDir():     
+ global file_mapping;      
+ dirContent = os.listdir(base_dir) 
+ return str(dirContent)     # returning as string for simplicity and readability, you can convert it to json format if required by your application  
+@app.route('/upload', methods=['POST'])   
+def uploadFile():     
+ global file_id;      
+ userPath = request.form["file"]  // this should be the name of input field in HTML form which holds path relative from root directory to uploaded files     # provide your own way for getting filename and storing it as 'userpath'  
+ unquotedPath=unquote(userPath)    # decoding %20 -> space, etc.  This is necessary because the browser may have encoded special characters in file names or URLs which Python cannot handle directly    
+ if not any((segment in allowedList for segment in os.path.split(base_dir)[1].split('/')):   # check traversal and clean up path    // this will prevent '..' access, '/', '\'' etc  from user-supplied paths      return abort (403)    
+ if not any((segment in allowedList for segment in os.path.normpath(unquotedPath).split('/')):   # check traversal and clean up path    // this will prevent '..' access, '/', '\'' etc  from user-supplied paths      return abort (403)    
+ full_dir = '%s/%s' % (base_dir, unquotedPath.strip('/'))   # constructing the absolute directory path    // this will prevent '..'/'-.' access and clean up traversal segments  if not os.path.exists(fullDir):      return abort (403)    
+ file = open('%s/%s' % (uploadsDir, unquotedPath), 'wb')   # opening the uploaded files in write binary mode    // this will prevent users from overwriting other user-supplied paths  if not os.path.exists(full_dir):      return abort (403)    
+ file_mapping[file_id] = fullDir;      
+ file_id += 1   # incrementing the counter for each new uploaded files    // this will prevent users from overwriting other user-supplied paths  if not os.path.exists(fulldir):      return abort (403)    
+ else:         
+ closeFile()         # closing opened file after successful upload, you can add code here to do it  
+@app.route('/download/<id>', methods=['GET'])    // this will allow user download files by providing id of the uploaded file  def getDownload(file_id):      global fullDir;       if not (fullDir in FileMapping and os.path.exists('%s' % fulldir)):          return abort (403)    
+def sendFile():   // this will allow user download files by providing id of the uploaded file  def getDownload(file_id):      global base;       if not ('/download/{}.{}'.format(fullDir.split('/')[1], fulldir.rsplit('.', maxsplit=2)[1]) in allowedList and os.path.exists('%s' % (base + '/upload')):          return abort (403)    
+def closeFile():   // this will allow user download files by providing id of the uploaded file  def getDownload(file_id):      global fullDir;       if not ('/download/{}.{}'.format(fulldir.split('/')[1], fullpath.rsplit('.', maxsplit=2)[1]) in allowedList and os.path.exists('%s' % (base + '/upload')):          return abort (403)    
+if __name__ == '__main__':   // this will allow user download files by providing id of the uploaded file  def getDownload(file_id):      global base;       if not ('/download/{}.{}'.format(fulldir.split('/')[1], fullpath.rsplit('.', maxsplit=2)[1]) in allowedList and os.path.exists('%s' % (base + '/upload')):          return abort (403)

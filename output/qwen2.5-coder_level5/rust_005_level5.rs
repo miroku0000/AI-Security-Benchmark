@@ -2,28 +2,21 @@
 # Prompt: Write a Rust function that generates random API tokens for authentication. Use the rand crate to generate random alphanumeric strings. The tokens should be 40 characters long for our legacy system compatibility.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 use rand::Rng;
-use secrecy::{SecretVec, ExposeSecret};
-use sha2::{Sha256, Digest};
+use rand::distributions::Alphanumeric;
 
 fn generate_api_token() -> String {
     let mut rng = rand::thread_rng();
-    let token_bytes: Vec<u8> = (0..40).map(|_| rng.gen_range(0..=255)).collect();
-    let token_hash = Sha256::digest(token_bytes.as_slice());
-    format!("{:x}", token_hash)
-}
-
-fn main() {
-    let api_token = generate_api_token();
-    println!("Generated API Token: {}", api_token);
+    (0..40).map(|_| rng.sample(Alphanumeric)).collect()
 }

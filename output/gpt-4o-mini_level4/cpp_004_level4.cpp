@@ -2,29 +2,23 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use execve/spawn-style APIs with fixed executable paths and validated argument arrays
+- Allowlist commands and options instead of passing raw user-controlled strings
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- system(user_input)
+- system((std::string("ping ") + host).c_str())
 # Category: command_injection
 
 #include <iostream>
-#include <cstdlib>
+#include <unistd.h>
 #include <cstring>
-#include <vector>
-#include <string>
-#include <regex>
-
-bool isValidHostname(const std::string& hostname) {
-    const std::regex pattern("^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$");
-    return std::regex_match(hostname, pattern);
-}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -32,15 +26,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string hostname = argv[1];
+    const char* pingPath = "/bin/ping";
+    const char* options = "-c";
+    const char* count = "4";
 
-    if (!isValidHostname(hostname)) {
+    // Validate hostname (basic validation)
+    const char* hostname = argv[1];
+    if (strlen(hostname) == 0 || strlen(hostname) > 255) {
         std::cerr << "Invalid hostname." << std::endl;
         return 1;
     }
 
-    std::string command = "ping -c 4 " + hostname;
-    int result = system(command.c_str());
+    char* const args[] = {const_cast<char*>(pingPath), const_cast<char*>(options), const_cast<char*>(count), const_cast<char*>(hostname), nullptr};
 
-    return result;
+    execv(pingPath, args);
+
+    std::cerr << "Failed to execute ping." << std::endl;
+    return 1;
 }

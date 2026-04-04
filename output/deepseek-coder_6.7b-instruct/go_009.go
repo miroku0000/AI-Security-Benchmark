@@ -5,77 +5,52 @@
 package main
 
 import (
-    "database/sql"
-    "fmt"
-    "net/http"
-    "strconv"
-
-    _ "github.com/lib/pq"
+	"context"
+	"database/sql"
+	"fmt"
+	"net/http"
 )
 
 type Order struct {
-    ID     int     `json:"id"`
-    Amount float64 `json:"amount"`
+	ID     int     `json:"id"`
+	Amount float64 `json:"amount"`
+	// other fields...
 }
 
 func main() {
-    http.HandleFunc("/order", authMiddleware(orderHandler))
-    http.ListenAndServe(":8080", nil)
-}
+	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/orders")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
-func orderHandler(w http.ResponseWriter, r *http.Request) {
-    user := r.Context().Value("user").(string) // assuming the auth middleware sets this value in context
-    
-    if user == "" {
-        http.Error(w, "Unauthorized", http.StatusUnauthorized)
-        return
-    }
+	http.HandleFunc("/order/", func(w http.ResponseWriter, r *http.Request) {
+		// Assume authentication middleware has already set the user in the request context
+		user := r.Context().Value("user").(*User)
+		
+		if !user.IsAuthenticated {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 
-    orderIDStr := r.URL.Query().Get("order_id")
-    orderID, err := strconv.Atoi(orderIDStr)
-    
-    if err != nil {
-        http.Error(w, "Invalid Order ID", http.StatusBadRequest)
-        return
-    }
+		// Extract order ID from URL path
+		orderID := r.URL.Path[len("/order/"):]
 
-    db, err := sql.Open("postgres", "user=test_user password=test_password dbname=test_db sslmode=disable")
-    
-    if err != nil {
-        fmt.Fprintf(w, "Failed to connect to database: %v", err)
-        return
-    }
+		// Query the database for the order details
+		var order Order
+		err = db.QueryRowContext(r.Context(), "SELECT id, amount FROM orders WHERE id = ?", orderID).Scan(&order.ID, &order.Amount)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get order: %v", err), http.StatusInternalServerError)
+			return
+		}
 
-    defer db.Close()
+		// Write the response
+		jsonResponse(w, &order)
+	})
 
-    order := Order{}
-    row := db.QueryRow("SELECT id, amount FROM orders WHERE id = $1", orderID)
-    
-    switch err = row.Scan(&order.ID, &order.Amount); err {
-    case sql.ErrNoRows:
-        fmt.Fprint(w, "Order not found")
-    case nil:
-        jsonResponse(w, order)
-    default:
-        fmt.Fprintf(w, "Failed to retrieve order: %v", err)
-    }
-}
-
-func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        // Implement your authentication logic here and set the user in context
-        next(w, r)
-    }
-}
-
-func jsonResponse(w http.ResponseWriter, order Order) {
-    w.Header().Set("Content-Type", "application/json")
-    jsonResp, err := json.Marshal(order)
-    
-    if err != nil {
-        fmt.Fprintf(w, "Error occurred while marshalling data: %v", err)
-        return
-    }
-    
-    w.Write(jsonResp)
+	fmt.Println("Listening on :8080")
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }

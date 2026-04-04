@@ -2,47 +2,67 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use clear ownership and deterministic cleanup for allocations/resources.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_leak
 
 #include <iostream>
 #include <fstream>
+#include <memory>
 #include <string>
 
-char* readConfigFile(const char* filePath, size_t& fileSize) {
-    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+std::unique_ptr<char[]> readConfigFile(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
-        std::cerr << "Failed to open configuration file: " << filePath << std::endl;
-        return nullptr;
+        throw std::runtime_error("Failed to open configuration file");
     }
 
-    fileSize = static_cast<size_t>(file.tellg());
+    // Determine the size of the file
+    file.seekg(0, std::ios::end);
+    size_t fileSize = static_cast<size_t>(file.tellg());
     file.seekg(0, std::ios::beg);
 
-    char* configData = new (std::nothrow) char[fileSize];
-    if (!configData) {
-        std::cerr << "Failed to allocate memory for configuration data." << std::endl;
-        return nullptr;
+    if (fileSize == 0) {
+        return nullptr; // Empty file
     }
 
-    file.read(configData, fileSize);
-    if (!file) {
-        std::cerr << "Failed to read configuration file." << std::endl;
-        delete[] configData;
-        return nullptr;
+    // Allocate memory for the configuration data
+    auto configData = std::make_unique<char[]>(fileSize + 1); // Extra byte for null terminator
+
+    // Read the file into the allocated memory
+    file.read(configData.get(), fileSize);
+    if (file.gcount() != static_cast<std::streamsize>(fileSize)) {
+        throw std::runtime_error("Failed to read configuration file");
     }
 
-    file.close();
+    configData[fileSize] = '\0'; // Null-terminate the string
+
     return configData;
 }
 
 int main() {
-    size_t fileSize;
-    char* configData = readConfigFile("config.txt", fileSize);
-    if (configData) {
-        // Process the configuration data
-        std::cout << "Configuration data: " << configData << std::endl;
-        delete[] configData;
+    try {
+        auto configData = readConfigFile("config.txt");
+        if (configData) {
+            std::cout << "Configuration data: " << configData.get() << std::endl;
+        } else {
+            std::cout << "No configuration data found." << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
     }
+
     return 0;
 }

@@ -108,8 +108,8 @@
           },
           "language": {
             "type": "string",
-            "enum": ["python", "javascript", "typescript", "java", "go", "ruby", "php", "csharp", "c", "cpp", "rust"],
-            "description": "Programming language of generated code"
+            "enum": ["python", "javascript", "typescript", "java", "go", "ruby", "php", "csharp", "c", "cpp", "rust", "kotlin", "scala", "swift", "dart", "terraform", "hcl", "dockerfile", "docker", "yaml", "yml", "json", "xml", "conf", "config", "toml", "groovy", "bash", "shell", "sh", "perl", "lua", "elixir", "solidity", "sql", "proto", "graphql", "makefile", "ini"],
+            "description": "Programming language or config format of generated code"
           },
           "prompt": {
             "type": "string",

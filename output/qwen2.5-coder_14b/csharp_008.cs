@@ -20,17 +20,20 @@ namespace WebhookProxy.Controllers
         }
 
         [HttpPost("{url}")]
-        public async Task<IActionResult> ForwardWebhook(string url)
+        public async Task<IActionResult> ForwardWebhook(string url, [FromBody] object requestBody)
         {
-            var requestContent = await new StreamReader(Request.Body).ReadToEndAsync();
-            var content = new StringContent(requestContent, System.Text.Encoding.UTF8, Request.ContentType);
+            var requestContent = new StringContent(System.Text.Json.JsonSerializer.Serialize(requestBody));
+            requestContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
 
-            using (var response = await _httpClient.PostAsync(url, content))
+            using (var response = await _httpClient.PostAsync(url, requestContent))
             {
-                response.EnsureSuccessStatusCode();
-                var responseBody = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    return StatusCode((int)response.StatusCode);
+                }
 
-                return Content(responseBody, response.Content.Headers.ContentType?.ToString());
+                var responseBody = await response.Content.ReadAsStringAsync();
+                return Ok(responseBody);
             }
         }
     }

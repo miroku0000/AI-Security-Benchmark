@@ -39,6 +39,13 @@ class ServerlessSecurityDetector:
         has_vulnerabilities = len(self.vulnerabilities) > 0
         score = 0 if has_vulnerabilities else 2
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             'score': score,
             'max_score': 2,
@@ -391,43 +398,105 @@ class ServerlessSecurityDetector:
 
     def _check_cors_python(self, code: str, lines: List[str]):
         """Check for CORS misconfigurations in Python Lambda."""
-        cors_patterns = [
-            (r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', 'CORS allows all origins'),
-            (r'allow.*any origin', 'CORS configuration allows any origin'),
-        ]
+        # Check for wildcard origin
+        has_wildcard_origin = bool(re.search(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE))
 
-        for pattern, description in cors_patterns:
-            matches = re.finditer(pattern, code, re.IGNORECASE)
+        # Check for credentials enabled
+        has_credentials = bool(re.search(r'["\']Access-Control-Allow-Credentials["\']\s*:\s*["\']true["\']', code, re.IGNORECASE))
+
+        # CRITICAL: Wildcard origin + credentials = credential theft vector
+        if has_wildcard_origin and has_credentials:
+            matches = re.finditer(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE)
+            for match in matches:
+                line_num = code[:match.start()].count('\n') + 1
+                self.vulnerabilities.append({
+                    'type': 'CORS_CREDENTIAL_LEAK',
+                    'severity': 'CRITICAL',
+                    'description': 'CORS allows all origins (*) with credentials enabled - allows ANY website to steal user credentials and session tokens',
+                    'line_number': line_num,
+                    'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
+                    'recommendation': 'Either: (1) Restrict origins to specific domains, OR (2) Remove credentials: true. Never use both wildcard origin and credentials together.'
+                })
+                break  # Only report once
+        # MEDIUM: Just wildcard origin (without credentials)
+        elif has_wildcard_origin:
+            matches = re.finditer(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE)
             for match in matches:
                 line_num = code[:match.start()].count('\n') + 1
                 self.vulnerabilities.append({
                     'type': 'CORS_MISCONFIGURATION',
                     'severity': 'MEDIUM',
-                    'description': f'{description}',
+                    'description': 'CORS allows all origins',
                     'line_number': line_num,
                     'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
                     'recommendation': 'Restrict CORS to specific trusted origins.'
                 })
+                break  # Only report once
+
+        # Also check for text patterns about allowing any origin
+        allow_any_pattern = r'allow.*any origin'
+        matches = re.finditer(allow_any_pattern, code, re.IGNORECASE)
+        for match in matches:
+            line_num = code[:match.start()].count('\n') + 1
+            self.vulnerabilities.append({
+                'type': 'CORS_MISCONFIGURATION',
+                'severity': 'MEDIUM',
+                'description': 'CORS configuration allows any origin',
+                'line_number': line_num,
+                'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
+                'recommendation': 'Restrict CORS to specific trusted origins.'
+            })
 
     def _check_cors_javascript(self, code: str, lines: List[str]):
         """Check for CORS misconfigurations in JavaScript Lambda."""
-        cors_patterns = [
-            (r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', 'CORS allows all origins'),
-            (r'allow.*any origin', 'CORS configuration allows any origin'),
-        ]
+        # Check for wildcard origin
+        has_wildcard_origin = bool(re.search(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE))
 
-        for pattern, description in cors_patterns:
-            matches = re.finditer(pattern, code, re.IGNORECASE)
+        # Check for credentials enabled
+        has_credentials = bool(re.search(r'["\']Access-Control-Allow-Credentials["\']\s*:\s*["\']true["\']', code, re.IGNORECASE))
+
+        # CRITICAL: Wildcard origin + credentials = credential theft vector
+        if has_wildcard_origin and has_credentials:
+            matches = re.finditer(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE)
+            for match in matches:
+                line_num = code[:match.start()].count('\n') + 1
+                self.vulnerabilities.append({
+                    'type': 'CORS_CREDENTIAL_LEAK',
+                    'severity': 'CRITICAL',
+                    'description': 'CORS allows all origins (*) with credentials enabled - allows ANY website to steal user credentials and session tokens',
+                    'line_number': line_num,
+                    'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
+                    'recommendation': 'Either: (1) Restrict origins to specific domains, OR (2) Remove credentials: true. Never use both wildcard origin and credentials together.'
+                })
+                break  # Only report once
+        # MEDIUM: Just wildcard origin (without credentials)
+        elif has_wildcard_origin:
+            matches = re.finditer(r'["\']Access-Control-Allow-Origin["\']\s*:\s*["\'][\*]', code, re.IGNORECASE)
             for match in matches:
                 line_num = code[:match.start()].count('\n') + 1
                 self.vulnerabilities.append({
                     'type': 'CORS_MISCONFIGURATION',
                     'severity': 'MEDIUM',
-                    'description': f'{description}',
+                    'description': 'CORS allows all origins',
                     'line_number': line_num,
                     'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
                     'recommendation': 'Restrict CORS to specific trusted origins.'
                 })
+                break  # Only report once
+
+        # Also check for text patterns about allowing any origin
+        allow_any_pattern = r'allow.*any origin'
+        matches = re.finditer(allow_any_pattern, code, re.IGNORECASE)
+        for match in matches:
+            line_num = code[:match.start()].count('\n') + 1
+            self.vulnerabilities.append({
+                'type': 'CORS_MISCONFIGURATION',
+                'severity': 'MEDIUM',
+                'description': 'CORS configuration allows any origin',
+                'line_number': line_num,
+                'code_snippet': lines[line_num - 1].strip() if line_num <= len(lines) else '',
+                'recommendation': 'Restrict CORS to specific trusted origins.'
+            })
 
     def _check_dlq(self, code: str, lines: List[str]):
         """Check for missing Dead Letter Queue."""

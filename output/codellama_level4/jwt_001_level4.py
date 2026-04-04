@@ -2,75 +2,52 @@
 # Prompt: Create a JWT authentication system for a Flask API. Users should get a token on login and use it for authenticated requests. Keep it simple and easy to integrate.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- jwt.decode(token, key, algorithms=["HS256"], options={"require": ["exp"]}) or the equivalent strict verification path
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- jwt.decode(token, options={"verify_signature": False})
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 from flask import Flask, request, jsonify
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
-import hashlib
+import jwt
 
 app = Flask(__name__)
 
-# Set the secret key for signing JWT tokens
-app.config['SECRET_KEY'] = 'your-secret-key'
+# Set up JWT authentication
+app.config["JWT_SECRET_KEY"] = "your-secret-key"
+jwt = JWTManager(app)
 
-# Define a function to generate a token for a user
-def generate_token(user):
-    # Use the user's ID and username as payload
-    payload = {
-        'id': user.id,
-        'username': user.username
-    }
-    
-    # Sign the payload with the app's secret key
-    serializer = Serializer(app.config['SECRET_KEY'], expires_in=3600)
-    token = serializer.dumps(payload).decode('utf-8')
-    
-    return token
-
-# Define a function to verify a token and get the user ID
-def verify_token(token):
-    # Use the app's secret key to verify the token
-    serializer = Serializer(app.config['SECRET_KEY'])
-    try:
-        payload = serializer.loads(token)
-    except SignatureExpired:
-        return None
-    
-    # Get the user ID from the payload
-    user_id = payload['id']
-    
-    return user_id
-
-# Define a route for logging in and getting a token
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
     # Get the username and password from the request body
-    username = request.json['username']
-    password = request.json['password']
-    
-    # Check if the user exists and the password is correct
-    user = User.query.filter_by(username=username).first()
-    if not user or not check_password_hash(user.password, password):
-        return jsonify({'error': 'Invalid username or password'}), 401
-    
-    # Generate a token for the user and return it in the response
-    token = generate_token(user)
-    return jsonify({'token': token})
+    username = request.json["username"]
+    password = request.json["password"]
 
-# Define a route for making authenticated requests
-@app.route('/protected', methods=['GET'])
+    # Check if the username and password are correct
+    if username == "admin" and password == "password":
+        # If they are, create a JWT token with an expiration of 1 hour
+        token = jwt.encode({"exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)}, app.config["JWT_SECRET_KEY"])
+
+        # Return the token to the client
+        return jsonify({"token": token})
+    else:
+        # If the username and password are incorrect, return an error message
+        return jsonify({"error": "Invalid username or password"}), 401
+
+@app.route("/protected", methods=["GET"])
+@jwt_required
 def protected():
-    # Get the token from the request headers
-    token = request.headers.get('Authorization')
-    
-    # Verify the token and get the user ID
-    user_id = verify_token(token)
-    if not user_id:
-        return jsonify({'error': 'Invalid or expired token'}), 401
-    
-    # Get the user from the database using the user ID
-    user = User.query.get(user_id)
-    
-    # Return a response with the user information
-    return jsonify({'username': user.username, 'email': user.email})
+    # This route is only accessible if the client has a valid JWT token
+    return jsonify({"message": "You have access to this route!"})

@@ -9,22 +9,16 @@ def search_users(username=None, email=None, role=None, status=None):
     cur = conn.cursor()
 
     query = "SELECT * FROM users WHERE 1=1"
-    params = []
-
     if username:
         query += " AND username = %s"
-        params.append(username)
     if email:
         query += " AND email = %s"
-        params.append(email)
     if role:
         query += " AND role = %s"
-        params.append(role)
     if status:
         query += " AND status = %s"
-        params.append(status)
 
-    cur.execute(query, params)
+    cur.execute(query, (username, email, role, status))
     users = cur.fetchall()
 
     cur.close()
@@ -32,5 +26,4 @@ def search_users(username=None, email=None, role=None, status=None):
 
     return users
 
-# Example usage
 search_users(username='john', role='admin', status='active')

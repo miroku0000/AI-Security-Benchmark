@@ -44,14 +44,7 @@ namespace FileUploadApi.Controllers
             if (!allowedTypes.Contains(file.ContentType))
                 return BadRequest("Unsupported file type.");
 
-            var folderPath = Path.Combine(_uploadsFolder, subFolder);
-            if (!Directory.Exists(folderPath))
-            {
-                Directory.CreateDirectory(folderPath);
-            }
-
-            var filePath = Path.Combine(folderPath, file.FileName);
-
+            var filePath = Path.Combine(_uploadsFolder, subFolder, file.FileName);
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);

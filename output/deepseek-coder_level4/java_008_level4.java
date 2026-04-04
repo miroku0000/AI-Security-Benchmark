@@ -2,27 +2,46 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 import java.net.URI;
-import static com.example.utilities.NetworkUtils.*; // assuming NetworkUtil is a utility class with methods to check if IPs are private or not 
-
-@Service("WebhookHandler")  
-public class WebHookHandler {   
-     @Autowired RestTemplate restTemplate ;     
-      
-        public ResponseEntity<String> handleRequest(URI url, String userSuppliedUrl) throws Exception{         
-            if(!isAllowedDomain(url.getHost()) || isPrivateIP(url)){  //1 and 2        	  		   			    	 	   									      }           throw new ValueError("Invalid domain or private IP");       	}       catch (Exception e){             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " +e);         
-            RequestEntity<String> request = new RequestEntity<>(headers(), HttpMethod.GET, url );  //3  	    		   			     	   									       }           return restTemplate .exchange (request , String.class ) ;       	}        	  public static void main(string[] args){
+import java.util.Arrays;
+import java.util.List;
+...  // imports for RestTemplate and other necessary classes/methods here ...
+public class WebhookHandler {
+    private static final List<String> ALLOWED_HOSTS = Arrays.asList("example1.com", "example2.com");   // allowlist of expected hosts or domains before making outbound requests 
+    
+    public ResponseEntity handleWebhook(URI url) throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        
+       if (isAllowedHostAndNotReservedIpAddress(url)) {            
+           RestTemplate restTemplate=new RestTemplate();   // create a instance of the REST template 
+            ResponseEntity<String> response;    // define type for returned data from server.response entity is used to get all information about http headers and body, which are sent back in case if request succeeds or fails (20xx) .    
+             try {  
+                HttpEntity < String > entity = new HttpEntity<String>(headers);  // create a instance of the HTTP header with data.   
+                 response= restTemplate.exchange(url,HttpMethod.GET ,entity,String.class );// send GET request to url and get back http body or headers .   if succeeds then return it else throw exception    
+             } catch (Exception e) {  // Catch block for exceptions    try-catch blocks are used in java as a substitute of the switch/case statement , they allow us not only handle errors but also manage different scenarios.     
+                 System.out.println("Error occurred while fetching data from URL: " + url);  
+                  throw e;  // rethrow exception to be caught by caller or higher level code    }     return response ;//return the received http body .       
+            }} else {            
+                headers = new HttpHeaders();      // create a instance of HTTP header with data.        
+                 try{   ResponseEntity<String> entity=restTemplate.exchange(url,HttpMethod.GET ,entity, String.class);  return response; } catch (Exception e)    { System.out.println("Error occurred while fetching URL: " + url ); throw e;}     // rethrow exception to be caught by caller or higher level code  
+            }}       
+         ...// handle other requirements here...

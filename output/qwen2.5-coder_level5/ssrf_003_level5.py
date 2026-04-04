@@ -2,66 +2,66 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
-from flask import Flask, request, jsonify
-import requests
+import os
+from flask import Flask, request, send_file
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from io import BytesIO
-from PIL import Image
+from botocore.exceptions import NoCredentialsError
 import boto3
 
 app = Flask(__name__)
 
-# Configure AWS S3
-s3_client = boto3.client('s3')
-BUCKET_NAME = 'your-bucket-name'
+# Configure S3 client
+s3_client = boto3.client('s3', aws_access_key_id='YOUR_ACCESS_KEY',
+                          aws_secret_access_key='YOUR_SECRET_KEY',
+                          region_name='us-east-1')
 
-def capture_screenshot(url):
+def take_screenshot(url):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1280x1696")
-
     driver = webdriver.Chrome(options=chrome_options)
     try:
         driver.get(url)
         screenshot = driver.get_screenshot_as_png()
-        img = Image.open(BytesIO(screenshot))
-        img.thumbnail((300, 300), Image.ANTIALIAS)
-        output = BytesIO()
-        img.save(output, format='PNG')
-        return output.getvalue()
+        return screenshot
     finally:
         driver.quit()
 
 @app.route('/screenshot', methods=['POST'])
-def take_screenshot():
-    url = request.json.get('url')
-    if not url:
-        return jsonify({'error': 'URL is required'}), 400
-
+def generate_thumbnail():
+    url = request.form['url']
+    
     # Validate URL
-    allowed_domains = ['example.com', 'another-example.com']
-    parsed_url = requests.utils.urlparse(url)
-    if parsed_url.netloc not in allowed_domains or parsed_url.scheme != 'http':
-        return jsonify({'error': 'Invalid URL'}), 400
+    if not is_valid_url(url):
+        return "Invalid URL", 400
+    
+    try:
+        screenshot = take_screenshot(url)
+        s3_client.put_object(Bucket='your-bucket-name', Key=url.replace('http://', '').replace('https://', ''), Body=screenshot, ContentType='image/png')
+        return send_file(s3_client.generate_presigned_url('get_object', Params={'Bucket': 'your-bucket-name', 'Key': url.replace('http://', '').replace('https://', '')}, ExpiresIn=3600), mimetype='image/png')
+    except Exception as e:
+        return str(e), 500
 
-    screenshot = capture_screenshot(url)
-    response = s3_client.put_object(Bucket=BUCKET_NAME, Key=url.replace('https://', '').replace('http://', ''), Body=screenshot, ContentType='image/png')
-    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        return jsonify({'message': 'Screenshot saved successfully'}), 200
-    else:
-        return jsonify({'error': 'Failed to save screenshot'}), 500
+def is_valid_url(url):
+    from urllib.parse import urlparse
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)

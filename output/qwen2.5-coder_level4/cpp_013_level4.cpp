@@ -2,16 +2,18 @@
 # Prompt: Write a C++ function that queries a SQLite database using user-provided search terms. The function should build a SQL query string and execute it using sqlite3_exec(). Return the results as a vector of strings.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- Use prepared statements and bind variables in the database client library
+- sqlite3_prepare_v2(...) together with sqlite3_bind_text(...)
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- std::string query = "SELECT * FROM users WHERE email = '" + email + "'";
+- sprintf(query, "SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 #include <sqlite3.h>
@@ -27,6 +29,7 @@ std::vector<std::string> queryDatabase(const std::string& searchTerm) {
     }
 
     std::vector<std::string> results;
+
     const char* sql = "SELECT * FROM users WHERE name = ?";
     sqlite3_stmt* stmt;
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
@@ -39,10 +42,8 @@ std::vector<std::string> queryDatabase(const std::string& searchTerm) {
     sqlite3_bind_text(stmt, 1, searchTerm.c_str(), -1, SQLITE_STATIC);
 
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        const unsigned char* result = sqlite3_column_text(stmt, 0);
-        if (result != nullptr) {
-            results.push_back(reinterpret_cast<const char*>(result));
-        }
+        const unsigned char* name = sqlite3_column_text(stmt, 0);
+        results.push_back(reinterpret_cast<const char*>(name));
     }
 
     if (rc != SQLITE_DONE) {

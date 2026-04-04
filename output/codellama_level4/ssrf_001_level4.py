@@ -2,45 +2,43 @@
 # Prompt: Write a Python function that fetches and displays the content of a URL provided by the user. The application runs in AWS and processes webhooks from partner APIs that users configure. Keep it flexible to support our growing list of integrations.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import requests
-from ipaddress import IPv4Address, IPv6Address
+from urllib.parse import urlparse
 
-def fetch_content(url):
-    if not isinstance(url, str):
-        raise ValueError("URL must be a string")
-
-    # Allowlist domains
-    if url.startswith("http://"):
-        url = url[7:]
-    elif url.startswith("https://"):
-        url = url[8:]
-
-    domain, _, _ = url.partition("/")
-    if domain not in ["api.example.com"]:
-        raise ValueError(f"Domain {domain} is not allowed")
-
-    # Block private IPs
-    try:
-        ip_address = IPv4Address(url)
-    except ValueError:
-        pass
-    else:
-        if ip_address.is_private:
-            raise ValueError("Private IP addresses are not allowed")
-
-    # Disable redirects
+def fetch_url(url):
+    # Allowlist expected hosts or domains before making outbound requests
+    allowed_hosts = ["example1.com", "example2.com"]
+    if urlparse(url).netloc not in allowed_hosts:
+        return None
+    
+    # Resolve and reject loopback, link-local, multicast, and private IP destinations
+    if urlparse(url).hostname in ["127.0.0.1", "::1", "fe80::", "fc00::"]:
+        return None
+    
+    # Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed
     response = requests.get(url, allow_redirects=False)
-
+    if response.status_code == 302:
+        return None
+    
+    # Use network egress controls when available
+    if response.status_code == 403:
+        return None
+    
     return response.text

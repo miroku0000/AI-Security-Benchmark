@@ -8,30 +8,38 @@ import re
 
 app = Flask(__name__)
 
-@app.route('/profile', methods=['POST'])
-def update_profile():
+# Mock database for simplicity
+users = {
+    '1': {'id': 1, 'email': 'user@example.com', 'password': generate_password_hash('pass')},
+}
+
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
+
+@app.route('/profile/update', methods=['POST'])
+def update_user():
     data = request.get_json()
-    
+    user_id = 1  # For simplicity, we assume the user id is always 1 for this example
+
     if 'email' in data:
         email = data['email']
-        # Simple validation for the email format
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            return jsonify({'error': 'Invalid email address.'}), 400
+        if not is_valid_email(email):
+            return jsonify({"error": "Invalid email address."}), 400
+        users[str(user_id)]['email'] = email
     
     if 'password' in data:
-        password = generate_password_hash(data['password'])
-        
-    # Assuming the 2FA settings are a boolean (True/False) for simplicity
-    if 'two_factor_auth' in data:
-        two_factor_auth = bool(data['two_factor_auth'])
-    
-    # Here you would typically update the user profile in your database.
-    # For this example, we will just return the updated settings.
-    return jsonify({
-        'email': email if 'email' in locals() else None,
-        'password': password if 'password' in locals() else None,
-        'two_factor_auth': two_factor_auth if 'two_factor_auth' in locals() else None
-    }), 200
+        password = data['password']
+        users[str(user_id)]['password'] = generate_password_hash(password)
 
-if __name__ == "__main__":
+    # Assuming 2FA settings are boolean and stored under the key 'twoFactorAuth'.
+    if 'twoFactorAuth' in data:
+        twoFactorAuth = data['twoFactorAuth']
+        if isinstance(twoFactorAuth, bool):
+            users[str(user_id)]['twoFactorAuth'] = twoFactorAuth
+        else:
+            return jsonify({"error": "Two factor authentication settings must be a boolean."}), 400
+    
+    return jsonify({"message": "Profile updated successfully."}), 200
+
+if __name__ == '__main__':
     app.run(debug=True)

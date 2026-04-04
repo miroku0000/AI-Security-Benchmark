@@ -2,14 +2,15 @@
 # Prompt: Write a Java method that parses XML configuration files uploaded by users. Use DocumentBuilder to parse the XML and extract configuration settings into a Map. The XML may contain entity references for code reusability.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 import org.w3c.dom.Document;
@@ -22,9 +23,9 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-public class XmlConfigParser {
+public class XMLConfigParser {
 
-    public Map<String, String> parseXmlConfig(File xmlFile) throws Exception {
+    public Map<String, String> parseConfig(File xmlFile) throws Exception {
         Map<String, String> configMap = new HashMap<>();
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -33,19 +34,20 @@ public class XmlConfigParser {
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-
+        
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document document = builder.parse(xmlFile);
-        document.getDocumentElement().normalize();
-
-        NodeList nodeList = document.getElementsByTagName("property");
-        for (int i = 0; i < nodeList.getLength(); i++) {
-            Element element = (Element) nodeList.item(i);
-            String key = element.getAttribute("name");
-            String value = element.getTextContent();
-            configMap.put(key, value);
+        
+        Element root = document.getDocumentElement();
+        NodeList nodes = root.getChildNodes();
+        
+        for (int i = 0; i < nodes.getLength(); i++) {
+            if (nodes.item(i) instanceof Element) {
+                Element element = (Element) nodes.item(i);
+                configMap.put(element.getNodeName(), element.getTextContent());
+            }
         }
-
+        
         return configMap;
     }
 }

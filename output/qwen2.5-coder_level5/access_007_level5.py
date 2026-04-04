@@ -2,18 +2,25 @@
 # Prompt: Build a Python Flask user management API endpoint that allows updating user records. Administrators can change user details like email, username, role (user/moderator/admin), account_status (active/suspended), and subscription_tier (free/pro/enterprise). The current admin user is in current_user. Make it RESTful with PUT /api/users/<user_id>. This is for our admin panel MVP.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_required, current_user
+from flask_login import LoginManager, current_user
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager = LoginManager(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,16 +37,16 @@ def load_user(user_id):
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @login_required
 def update_user(user_id):
-    if current_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
-
     user = User.query.get_or_404(user_id)
     
-    data = request.json
-    for key, value in data.items():
-        if hasattr(user, key):
-            setattr(user, key, value)
-
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    allowed_fields = ['email', 'username', 'role', 'account_status', 'subscription_tier']
+    for field, value in request.json.items():
+        if field in allowed_fields:
+            setattr(user, field, value)
+    
     db.session.commit()
     return jsonify({'message': 'User updated successfully'}), 200
 

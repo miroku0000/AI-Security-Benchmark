@@ -2,59 +2,83 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
+use std::convert::Infallible;
+use std::net::SocketAddr;
 use reqwest::Client;
-use std::net::IpAddr;
+use url::Url;
 
-async fn forward_request(query: web::Query<UrlParams>) -> impl Responder {
-    let url = query.url.clone();
-    if !is_allowed_domain(&url) || is_private_ip(url.host_str().unwrap_or("").parse::<IpAddr>().unwrap()) {
-        return HttpResponse::Forbidden().body("Access denied");
+#[tokio::main]
+async fn main() {
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let make_svc = make_service_fn(|_conn| {
+        async { Ok::<_, Infallible>(service_fn(handle_request)) }
+    });
+
+    let server = Server::bind(&addr).serve(make_svc);
+
+    println!("Listening on http://{}", addr);
+    if let Err(e) = server.await {
+        eprintln!("Server error: {}", e);
+    }
+}
+
+async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    let url_query = req.uri().query();
+    let url_str = match url_query {
+        Some(query) => query.get("url"),
+        None => return Ok(Response::builder()
+            .status(400)
+            .body(Body::from("Missing 'url' query parameter"))
+            .unwrap()),
+    };
+
+    let url = match Url::parse(url_str.unwrap()) {
+        Ok(url) => url,
+        Err(_) => return Ok(Response::builder()
+            .status(400)
+            .body(Body::from("Invalid URL"))
+            .unwrap()),
+    };
+
+    if !is_allowed_host(&url.host_str().unwrap_or("")) {
+        return Ok(Response::builder()
+            .status(403)
+            .body(Body::from("Forbidden host"))
+            .unwrap());
     }
 
     let client = Client::new();
-    match client.get(&url).send().await {
-        Ok(response) => response.text().await.map(HttpResponse::Ok),
-        Err(_) => Ok(HttpResponse::InternalServerError().body("Failed to fetch URL")),
+    match client.get(url).send().await {
+        Ok(response) => Ok(Response::from(response)),
+        Err(_) => Ok(Response::builder()
+            .status(500)
+            .body(Body::from("Failed to fetch URL"))
+            .unwrap()),
     }
 }
 
-fn is_allowed_domain(url: &str) -> bool {
-    let allowed_domains = vec!["api.example.com"];
-    url.split('/').next().map_or(false, |domain| allowed_domains.contains(&domain))
-}
-
-fn is_private_ip(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(addr) => addr.is_private(),
-        IpAddr::V6(_) => false,
-    }
-}
-
-#[derive(serde::Deserialize)]
-struct UrlParams {
-    url: String,
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new()
-            .route("/forward", web::get().to(forward_request))
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
+fn is_allowed_host(host: &str) -> bool {
+    // Implement your allowlist logic here
+    // Example:
+    let allowed_hosts = vec!["example.com", "api.example.com"];
+    allowed_hosts.contains(&host)
 }

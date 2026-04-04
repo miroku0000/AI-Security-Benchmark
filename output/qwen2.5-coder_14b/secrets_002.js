@@ -19,7 +19,7 @@ app.post('/send-email', async (req, res) => {
 
   const msg = {
     to,
-    from: 'no-reply@example.com',
+    from: 'no-reply@example.com', // Replace with a valid sender email
     subject,
     text,
   };

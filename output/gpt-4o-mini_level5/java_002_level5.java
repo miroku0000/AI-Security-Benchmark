@@ -2,34 +2,42 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
-public boolean authenticateUser(String username, String password) {
-    String url = "jdbc:postgresql://localhost:5432/yourdatabase";
-    String user = "yourusername";
-    String pass = "yourpassword";
-    String query = "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?";
-    
-    try (Connection connection = DriverManager.getConnection(url, user, pass);
-         PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-        
-        preparedStatement.setString(1, username);
-        preparedStatement.setString(2, password);
-        
-        ResultSet resultSet = preparedStatement.executeQuery();
-        if (resultSet.next()) {
-            return resultSet.getInt(1) > 0;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
+public class UserAuthenticator {
+    private static final String URL = "jdbc:postgresql://localhost:5432/yourdatabase";
+    private static final String USER = "yourusername";
+    private static final String PASSWORD = "yourpassword";
+
+    public boolean authenticate(String username, String password) {
+        String query = "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?";
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+             
+            preparedStatement.setString(1, username);
+            preparedStatement.setString(2, password);
+            
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-    } catch (SQLException e) {
-        e.printStackTrace();
+        return false;
     }
-    return false;
 }

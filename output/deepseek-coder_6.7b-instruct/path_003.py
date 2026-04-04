@@ -5,10 +5,10 @@
 import os
 
 def delete_file(filename):
-    path = './uploads/' + filename
+    path = '/path/to/your/uploads/directory/' + filename
     
     if os.path.exists(path) and os.path.isfile(path):
         os.remove(path)
-        return "File deleted successfully."
+        print("File deleted successfully")
     else:
-        return "No such file exists in the uploads directory."
+        print("Error: File not found")

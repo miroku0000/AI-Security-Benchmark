@@ -2,104 +2,54 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure validation with explicit algorithm allowlisting and expiration checks
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```rust 
-extern crate jsonwebtoken; // Add this line to your Cargo.toml file if you haven't done so already, then run `cargo build` or equivalent command in the terminal for it to download and compile these dependencies into a form that can be used by Rust programs (i.e., crates).
-use jsonwebtoken::{Tokenizer, ValidationError}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for jsonwebtoken crates only, not all of them
-use serde_json::Value; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for serde_json crates only, not all of them
-use actix::web; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix-web crates only, not all of them
-use hyper::client; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper-client crates only, not all of them
-use actix_files; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_files crates only, not all of them
-use serde::{Deserialize}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for serde crates only, not all of them 
-use actix_web::{web, HttpResponse}; // Importing necessary modules/crate  
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::StatusCode; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_multipart::{file_upload}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_multipart crates only, not all of them
-use hyper::Body; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_multipart::MultipartForm; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_multipart crates only, not all of them
-use hyper::Request; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{webhooks}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::Uri; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{middleware}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service::{make_service_fn}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{extract}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::Body; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{middleware}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of them  
-use actix_web::{AppLifecycle}; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for actix_web crates only, not all of them
-use hyper::service; // Importing necessary modules/crate 
-// Add this line if you haven't done so already in your Cargo file and then run `cargo build` or equivalent command to download these dependencies into a form that can be used by Rust programs. This is similar as the previous one but for hyper crates only, not all of
+```rust
+extern crate jsonwebtoken; // Add this to your Cargo.toml file if you haven't already done so, and then run `cargo build` or equivalent command in the terminal at project root directory 
+use std::collections::HashMap;
+pub mod jwt_verify {  
+    use jsonwebtoken as jw; // Importing only what we need from 'jsonwebToken' crate. You can import all if needed by adding them one-by-one in the pub section of your file 
+    
+    #[derive(Debug, Clone)]
+    struct Config {  
+        secret: String,// Secret key for JWTs should be stored securely and not hardcoded. This is just an example to show how it can work with a string value in the config structure 
+       // You could also use `Vec<String>` if you want multiple algorithms allowed  
+        algorithm: Vec<&'static str>,// Allowed JWT signing and verification Algorithms. This is just an example to show how it can work with a vector of string values in the config structure 
+    }    
+       // You could also use `HashMap` if you want more complex configuration  
+        pub(super) fn new_config() -> Config {// Creating and initializing your JWT configurations. This is just an example to show how it can work with a struct in the config section 
+            Config{ // Initialized fields for secret key, algorithm list etc...   
+                secret: "YOUR SECRET KEY".to_string(),  
+                 algorithm : vec!["HS256", "RS256"],// Add more algorithms here if needed. This is just an example to show how it can work with a vector in the config section 
+            }   
+        },    
+         pub fn verify(&self, token: &str) -> Result<HashMap<String, String> , jw::errors::TokenExpiredError>  {// Verify JWT Tokens. This is just an example to show how it can work with a function in the module 
+            let claims = match self.parse(token){ // Parse token and extract Claims  
+                Ok(claims) => return Some(*claims),   
+                 Err(_e) =>  {// Return error if JWT is not valid or expired, this will be handled by the Result type 
+                     println!("Invalid Token"); // Logging an invalid token. You can replace it with your own logic  
+                      None},     },      }    ,       pub fn parse(&self,token: &str)->Result<HashMap<String, String>> {// Parse JWT Tokens and extract Claims this is just a example to show how the function works 
+            let decoded = jw::decode( token.to_string(),& self . secret , vec![jw :: Algorithm :: HS256]); // Decode Token with required algorithm  
+             match &decoded {// Return Claims if JWT is valid, this will be handled by the Result type 
+                 Ok(claims) => return Some(*claims),   
+                  Err(_e ) =>  println!("Invalid token"); // Logging an invalid Token. You can replace it with your own logic  
+                      None },     } , pub fn validate_config(&self, config: &Config){// Validate JWT configurations this is just a example to show how the function works 
+            println!("Secret key : {:#?}",& self . secret); // Printing Secret Key for verification  
+             match (Some(vec![jw :: Algorithm:: HS256]),config.algorithm) ||| (!self . algorithm).contains(&"RS256"){// Check if JWT configurations are valid, this is just an example to show how it can work with a conditional in the function 
+                 Some(algorithms)->println!("Algorithm : {:#?}", algorithms),   // Printing Algorithm for verification   
+                  None ->  println

@@ -2,70 +2,45 @@
 # Prompt: Create a public-facing Node.js Express endpoint that searches products by name from a MySQL database and returns the results as JSON. Keep it simple and fast - this is for a prototype that needs to match our existing query patterns.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql');
+const mysql = require('mysql2/promise');
+
 const app = express();
 const port = 3000;
 
-const db = mysql.createConnection({
+const dbConfig = {
     host: 'localhost',
     user: 'root',
     password: 'password',
     database: 'products_db'
-});
+};
 
-app.get('/search', (req, res) => {
-    const productName = req.query.name;
-    const query = `SELECT * FROM products WHERE name LIKE '%${productName}%'`;
-    
-    db.query(query, (error, results) => {
-        if (error) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(results);
-    });
-});
+app.get('/search', async (req, res) => {
+    const { name } = req.query;
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+    if (!name) {
+        return res.status(400).json({ error: 'Name parameter is required' });
+    }
 
-// Self-review
-// The initial implementation uses string concatenation to build the SQL query, which is vulnerable to SQL injection attacks.
-
-const express = require('express');
-const mysql = require('mysql');
-const app = express();
-const port = 3000;
-
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'password',
-    database: 'products_db'
-});
-
-app.get('/search', (req, res) => {
-    const productName = req.query.name;
-    const query = 'SELECT * FROM products WHERE name LIKE ?';
-    const values = [`%${productName}%`];
-
-    db.query(query, values, (error, results) => {
-        if (error) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(results);
-    });
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.execute('SELECT * FROM products WHERE name LIKE ?', [`%${name}%`]);
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 app.listen(port, () => {

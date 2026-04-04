@@ -13,7 +13,7 @@ DB_PATH = "legacy_users.db"
 
 @contextmanager
 def get_db_connection():
-    """Context manager for database connections compatible with legacy SQLite systems."""
+    """Context manager for database connections - compatible with legacy SQLite systems."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -60,9 +60,11 @@ def register_user(username, password):
                 (username, password_hash, salt)
             )
             conn.commit()
-            return {"success": True, "message": f"User '{username}' registered successfully."}
+            print(f"User '{username}' registered successfully.")
+            return True
         except sqlite3.IntegrityError:
-            return {"success": False, "message": f"Username '{username}' already exists."}
+            print(f"Error: Username '{username}' already exists.")
+            return False
 
 
 def login(username, password):
@@ -74,52 +76,75 @@ def login(username, password):
         password (str): The plaintext password to verify.
     
     Returns:
-        dict: A dictionary with 'success' (bool), 'message' (str), and optionally 'user' data.
+        dict or None: User record dict if authentication succeeds, None otherwise.
     """
     if not username or not password:
-        return {"success": False, "message": "Username and password are required."}
-    
+        print("Error: Username and password are required.")
+        return None
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
         # Query using parameterized query to prevent SQL injection
         cursor.execute(
-            "SELECT id, username, password_hash, salt, is_active FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, salt, is_active, created_at, last_login "
+            "FROM users WHERE username = ?",
             (username,)
         )
         
-        user_record = cursor.fetchone()
+        user = cursor.fetchone()
         
-        if user_record is None:
-            return {"success": False, "message": "Invalid username or password."}
+        if user is None:
+            print("Login failed: Invalid username or password.")
+            return None
         
         # Check if account is active (legacy systems may have deactivated accounts)
-        if not user_record["is_active"]:
-            return {"success": False, "message": "Account is deactivated. Contact administrator."}
+        if not user["is_active"]:
+            print("Login failed: Account is deactivated.")
+            return None
         
         # Verify password
-        stored_hash = user_record["password_hash"]
-        salt = user_record["salt"]
+        stored_hash = user["password_hash"]
+        salt = user["salt"]
         computed_hash, _ = _hash_password(password, salt)
         
-        if computed_hash == stored_hash:
-            # Update last login timestamp
-            cursor.execute(
-                "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-                (user_record["id"],)
-            )
-            conn.commit()
-            
-            return {
-                "success": True,
-                "message": "Login successful.",
-                "user": {
-                    "id": user_record["id"],
-                    "username": user_record["username"]
-                }
-            }
-        else:
-            return {"success": False, "message": "Invalid username or password."}
+        if computed_hash != stored_hash:
+            print("Login failed: Invalid username or password.")
+            return None
+        
+        # Update last login timestamp
+        cursor.execute(
+            "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+            (user["id"],)
+        )
+        conn.commit()
+        
+        user_data = {
+            "id": user["id"],
+            "username": user["username"],
+            "is_active": bool(user["is_active"]),
+            "created_at": user["created_at"],
+            "last_login": user["last_login"],
+        }
+        
+        print(f"Login successful! Welcome, {username}.")
+        return user_data
+
+
+def deactivate_user(username):
+    """Deactivate a user account (legacy soft-delete pattern)."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET is_active = 0 WHERE username = ?",
+            (username,)
+        )
+        conn.commit()
+        if cursor.rowcount > 0:
+            print(f"User '{username}' has been deactivated.")
+            return True
+        print(f"User '{username}' not found.")
+        return False
 
 
 def list_users():
@@ -128,40 +153,46 @@ def list_users():
         cursor = conn.cursor()
         cursor.execute("SELECT id, username, is_active, created_at, last_login FROM users")
         users = cursor.fetchall()
-        return [dict(user) for user in users]
+        for user in users:
+            status = "active" if user["is_active"] else "inactive"
+            print(f"  ID: {user['id']}, Username: {user['username']}, "
+                  f"Status: {status}, Last Login: {user['last_login']}")
+        return [dict(u) for u in users]
 
 
-# Demo / Testing
+# --- Demo / Main ---
 if __name__ == "__main__":
     # Initialize database
     init_database()
     
-    # Register some test users
-    print("=== Registration ===")
-    print(register_user("admin", "admin123"))
-    print(register_user("john_doe", "securepass456"))
-    print(register_user("admin", "duplicate"))  # Should fail - duplicate
+    print("=== User Registration ===")
+    register_user("admin", "admin123")
+    register_user("johndoe", "securepass456")
+    register_user("legacy_user", "oldpassword")
     
-    # Test login scenarios
-    print("\n=== Login Tests ===")
+    print("\n=== Login Attempts ===")
     
     # Successful login
     result = login("admin", "admin123")
-    print(f"Valid credentials:   {result}")
+    print(f"  Result: {result}\n")
     
     # Wrong password
     result = login("admin", "wrongpassword")
-    print(f"Wrong password:      {result}")
+    print(f"  Result: {result}\n")
     
     # Non-existent user
     result = login("nonexistent", "password")
-    print(f"Unknown user:        {result}")
+    print(f"  Result: {result}\n")
+    
+    # Deactivate and try login
+    print("=== Deactivating legacy_user ===")
+    deactivate_user("legacy_user")
+    result = login("legacy_user", "oldpassword")
+    print(f"  Result: {result}\n")
     
     # Empty credentials
     result = login("", "")
-    print(f"Empty credentials:   {result}")
+    print(f"  Result: {result}\n")
     
-    # List all users
-    print("\n=== All Users ===")
-    for user in list_users():
-        print(f"  {user}")
+    print("=== All Users ===")
+    list_users()

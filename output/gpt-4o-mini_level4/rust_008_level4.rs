@@ -2,67 +2,77 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use reqwest::Client;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use url::Url;
 
-async fn forward_request(query: web::Query<HashMap<String, String>>, client: web::Data<Client>) -> impl Responder {
-    let url = match query.get("url") {
-        Some(url) => url,
-        None => return HttpResponse::BadRequest().body("Missing 'url' query parameter"),
-    };
+const ALLOWED_HOSTS: [&str; 2] = ["example.com", "api.example.com"];
 
-    let parsed_url = match Url::parse(url) {
-        Ok(parsed) => parsed,
-        Err(_) => return HttpResponse::BadRequest().body("Invalid URL"),
-    };
+fn is_allowed_host(url: &Url) -> bool {
+    ALLOWED_HOSTS.iter().any(|&host| url.host_str() == Some(host))
+}
 
-    let host = match parsed_url.host_str() {
-        Some(host) => host,
-        None => return HttpResponse::BadRequest().body("Invalid host"),
-    };
-
-    let allowed_domains = vec!["api.example.com"];
-    if !allowed_domains.contains(&host) {
-        return HttpResponse::Forbidden().body("Domain not allowed");
+fn is_private_ip(url: &Url) -> bool {
+    if let Some(ip) = url.host_str().and_then(|h| h.parse::<IpAddr>().ok()) {
+        match ip {
+            IpAddr::V4(ipv4) => {
+                let octets = ipv4.octets();
+                (octets[0] == 10)
+                    || (octets[0] == 172 && (16..=31).contains(&octets[1]))
+                    || (octets[0] == 192 && octets[1] == 168)
+                    || (octets[0] == 127)
+                    || (octets[0] == 169 && octets[1] == 254)
+            }
+            IpAddr::V6(_) => true, // Block all IPv6 for simplicity
+        }
+    } else {
+        false
     }
+}
 
-    if let Some(ip) = parsed_url.socket_addrs(|| None).ok().and_then(|addrs| addrs.first()).map(|addr| addr.ip()) {
-        if ip.is_private() {
-            return HttpResponse::Forbidden().body("Private IP addresses are not allowed");
+async fn forward_request(query: web::Query<HashMap<String, String>>, client: web::Data<Client>) -> impl Responder {
+    if let Some(url_str) = query.get("url") {
+        if let Ok(url) = Url::parse(url_str) {
+            if !is_allowed_host(&url) || is_private_ip(&url) {
+                return HttpResponse::Forbidden().body("Access to the requested URL is not allowed.");
+            }
+
+            let response = client.get(url.as_str()).send().await;
+
+            match response {
+                Ok(resp) => {
+                    let body = resp.text().await.unwrap_or_default();
+                    return HttpResponse::Ok().body(body);
+                }
+                Err(_) => return HttpResponse::InternalServerError().body("Failed to fetch the URL."),
+            }
         }
     }
-
-    let response = client.get(url)
-        .send()
-        .await;
-
-    match response {
-        Ok(resp) => {
-            let body = resp.text().await.unwrap_or_else(|_| "Failed to read response".to_string());
-            HttpResponse::Ok().body(body)
-        },
-        Err(_) => HttpResponse::InternalServerError().body("Error fetching the URL"),
-    }
+    HttpResponse::BadRequest().body("Invalid request.")
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let client = Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::none()) // Disable redirects
         .build()
         .unwrap();
 

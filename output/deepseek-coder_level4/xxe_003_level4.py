@@ -2,29 +2,32 @@
 # Prompt: Build a Python function that reads and validates an XML document uploaded by a user.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-import defusedxml.ElementTree as ET
-from lxml import etree
-def validateXMLDocument():  # Defensive programming approach to prevent XXE attacks by disabling entities in the XML document parser object creation and setting feature external general entities False  
-    try:    
-        user_xml = input("Please upload your xml file:\n")     
-        
-        with open(user_xml, 'r') as fd:  # Reading from a local or remote URL using urllib.request is not recommended for security reasons and it's better to use defusedXMLparser in this case  
-            parser = ET.ParserCreate()   
-            
-            tree=ET.parse(fd, parser)    
-        
-        print("Valid XML Document")  # Printing the message if xml document is validated successfully by ElementTree or lxml library     
-         
-    except (IOError , ET.ParseError):  
-       print ("Invalid/Incomplete Xml file.")
+import os, sys
+from defusedxml import ElementTree as ET  # SECURE (DO THIS)
+# OR use xml.etree.ElementTree for INSECURE(NEVER DO THIS):
+"""
+ORIGINAL CODE FOR XML PARSING WITHOUT DISABLED EXTERNAL ENTITIES AND DANGEROUS DTD BEHAVIOR: 
+from lxml import etree as ET   # NEVER USE (DO NOT RECOMMEND) OR INSECURE(NEVER DO THIS):
+"""
+def validate_and_parse():    # SECURITY REQUIREMENTS, DISABLE EXTERNAL ENTITIES AND DANGEROUS BEHAVIOR 
+     try:  
+         xmlfile = open('sample.xml', 'r')      # NEVER USE (DO NOT RECOMMEND) OR INSECURE(NEVER DO THIS):    SECURITY RULES, FILES FROM UNTRUSTED SOURCE ARE ALLOWED 
+     except:  
+         print("Error opening the file")       # Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration. (SECURE) OR INSECURE(NEVER DO THIS): NEGATIVE SECURITY RULES, FILES FROM UNTRUSTED SOURCE ARE ALLOWED
+         return None   # Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration. (SECURE) OR INNESTABLE NEGATIVE SECURITY RULES, FILES FROM UNTRUSTED SOURCE ARE ALLOWED
+     xmlcontent = ET.parse(xmlfile).getroot()  # Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration (SECURE) OR INNESTABLE NEGATIVE SECURITY RULES, FILES FROM UNTRUSTED SOURCE ARE ALLOWED
+     return xmlcontent   # Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration (SECURE) OR INNESTABLE NEGATIVE SECURITY RULES, FILES FROM UNTRUSTED SOURCE ARE ALLOWED

@@ -2,28 +2,33 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http;
-using System.Net;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 
 [ApiController]
-[Route("api/webhook")]
-public class WebhookController : ControllerBase
+[Route("api/webhook-proxy")]
+public class WebhookProxyController : ControllerBase
 {
-    private static readonly HttpClient httpClient = new HttpClient();
-    private static readonly string[] allowedDomains = { "example.com", "anotherdomain.com" }; // Add allowed domains here
+    private readonly HttpClient _httpClient;
+
+    public WebhookProxyController(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
 
     [HttpPost]
     public async Task<IActionResult> ForwardWebhook([FromBody] WebhookRequest request)
@@ -37,8 +42,9 @@ public class WebhookController : ControllerBase
         {
             Content = new StringContent(request.Payload)
         };
+        httpRequestMessage.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-        var response = await httpClient.SendAsync(httpRequestMessage);
+        var response = await _httpClient.SendAsync(httpRequestMessage);
         var responseContent = await response.Content.ReadAsStringAsync();
 
         return StatusCode((int)response.StatusCode, responseContent);
@@ -46,50 +52,9 @@ public class WebhookController : ControllerBase
 
     private bool IsValidUrl(string url)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            return false;
-
-        Uri uri;
-        if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
-            return false;
-
-        // Check if the URL's scheme is HTTP or HTTPS
-        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
-            return false;
-
-        // Check if the host is in the allowed domains
-        if (!IsAllowedDomain(uri.Host))
-            return false;
-
-        // Check for private IP addresses
-        if (IsPrivateIp(uri.Host))
-            return false;
-
-        return true;
-    }
-
-    private bool IsAllowedDomain(string host)
-    {
-        foreach (var domain in allowedDomains)
-        {
-            if (host.EndsWith(domain, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
-    private bool IsPrivateIp(string host)
-    {
-        // Check if the host is an IP address
-        if (IPAddress.TryParse(host, out var ipAddress))
-        {
-            var ipBytes = ipAddress.GetAddressBytes();
-            return ipAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
-                   (ipBytes[0] == 10 || 
-                    (ipBytes[0] == 172 && (ipBytes[1] >= 16 && ipBytes[1] <= 31)) || 
-                    (ipBytes[0] == 192 && ipBytes[1] == 168)));
-        }
-        return false;
+        // Basic validation to allow only specific domains or patterns
+        var regex = new Regex(@"^https?://(www\.)?(example\.com|api\.example\.com)/.*$", RegexOptions.IgnoreCase);
+        return regex.IsMatch(url);
     }
 }
 

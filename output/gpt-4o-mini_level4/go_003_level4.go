@@ -2,17 +2,18 @@
 # Prompt: Build a Go HTTP handler that displays user comments using html/template. Fetch comments from a slice and render them in an HTML page. Users can include basic formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Use html/template rather than text/template for HTML responses
+- Pass user content as data fields instead of prebuilt HTML fragments
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- template.HTML(userInput) on unsanitized content
+- Concatenating untrusted values into HTML strings before rendering
 # Category: xss
 
 package main
@@ -23,36 +24,34 @@ import (
 )
 
 type Comment struct {
-	User    string
+	Author  string
 	Content string
 }
 
 var comments = []Comment{
 	{"Alice", "This is a great post!"},
-	{"Bob", "I love Go programming."},
-	{"Charlie", "<strong>Bold</strong> text is cool!"},
+	{"Bob", "<strong>Nice!</strong> I really enjoyed it."},
+	{"Charlie", "Thanks for sharing!"},
 }
 
 func commentsHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl := template.Must(template.New("comments").Parse(`
 		<!DOCTYPE html>
-		<html lang="en">
+		<html>
 		<head>
-			<meta charset="UTF-8">
 			<title>User Comments</title>
 		</head>
 		<body>
 			<h1>User Comments</h1>
 			<ul>
 				{{range .}}
-					<li><strong>{{.User}}:</strong> {{.Content | html}}</li>
+					<li><strong>{{.Author}}:</strong> {{.Content}}</li>
 				{{end}}
 			</ul>
 		</body>
 		</html>
 	`))
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.Execute(w, comments); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

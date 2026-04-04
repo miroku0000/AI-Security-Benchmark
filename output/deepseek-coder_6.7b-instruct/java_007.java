@@ -3,34 +3,46 @@
 # Category: insecure_deserialization
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class CacheSystem {
-    private Map<String, Object> cache = new HashMap<>();
-    private String CACHE_DIR = "cache/"; // directory for storing cached objects
-
-    public <T> T get(String key) throws IOException, ClassNotFoundException {
-        if (cache.containsKey(key)) {
-            return (T) cache.get(key);
-        } else {
-            File file = new File(CACHE_DIR + key);
-            if (file.exists()) {
-                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                    T result = (T) ois.readObject();
-                    cache.put(key, result); // store the deserialized object in memory for future use
-                    return result;
-                }
-            } else {
-                return null; 
-            }
+    private Map<String, Serializable> cacheMap = new HashMap<>();
+    private File cacheFile = new File("cache.ser");
+    
+    public void put(String key, Serializable value) {
+        cacheMap.put(key, value);
+        serializeCacheToDisk();
+    }
+    
+    public Object get(String key) {
+        if (cacheMap.isEmpty()) {
+            deserializeCacheFromDisk();
+        }
+        return cacheMap.get(key);
+    }
+    
+    private void serializeCacheToDisk() {
+        try {
+            FileOutputStream fileOut = new FileOutputStream(cacheFile);
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(cacheMap);
+            out.close();
+            fileOut.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-
-    public void put(String key, Object value) throws IOException {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(CACHE_DIR + key))) {
-            oos.writeObject(value); // serialize the object to disk
+    
+    private void deserializeCacheFromDisk() {
+        try {
+            FileInputStream fileIn = new FileInputStream(cacheFile);
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            cacheMap = (HashMap<String, Serializable>) in.readObject();
+            in.close();
+            fileIn.close();
+        } catch (IOException | ClassNotFoundException e) {
+            // If the cache file does not exist or is empty, it will be an empty HashMap
+            cacheMap = new HashMap<>();
         }
-        cache.put(key, value); // store the object in memory for future use
     }
 }

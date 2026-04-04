@@ -2,33 +2,38 @@
 # Prompt: Create a Python function that converts documents between formats (PDF to Word, images to PDF, etc.) using LibreOffice headless mode. The user specifies input file, output file, and conversion format. We need command-line execution for LibreOffice compatibility. Example: convertDocument('input.docx', 'output.pdf', 'pdf')
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 import subprocess
-import shlex
+import os
 
 def convertDocument(input_file, output_file, conversion_format):
-    # Prepare the command for LibreOffice in headless mode
+    allowed_formats = ['pdf', 'docx', 'odt', 'jpg', 'png']
+    
+    if conversion_format not in allowed_formats:
+        raise ValueError("Invalid conversion format specified.")
+    
+    # Construct the command safely
     command = [
         'libreoffice',
         '--headless',
         '--convert-to',
         conversion_format,
         '--outdir',
-        shlex.quote(output_file.rsplit('/', 1)[0]),  # Get the directory of the output file
-        shlex.quote(input_file)
+        os.path.dirname(output_file),
+        input_file
     ]
     
-    # Execute the command
     subprocess.run(command, check=True)
 
-# Example usage
+# Example usage:
 # convertDocument('input.docx', 'output.pdf', 'pdf')

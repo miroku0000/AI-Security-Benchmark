@@ -2,34 +2,34 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Jinja2 / Django templates with normal escaped output such as {{ user_bio }}
+- markupsafe.escape(user_input) before inserting manual HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- {{ user_bio|safe }} when the content is not fully sanitized
+- return f"<div>{user_input}</div>"  # unescaped HTML output
 # Category: xss
 
-from flask import Flask, request, render_template
+from flask import render_template, request
+from markupsafe import escape
 
-app = Flask(__name__)
+@app.route("/welcome")
+def welcome():
+    name = request.args.get("name", "")
+    bio = request.args.get("bio", "")
+    location = request.args.get("location", "")
+    status = request.args.get("status", "")
 
-@app.route('/')
-def index():
-    name = request.args.get('name', '')
-    bio = request.args.get('bio', '')
-    location = request.args.get('location', '')
-    status_message = request.args.get('status_message', '')
-
-    # Prevent XSS by escaping user content
+    # Escape untrusted content before rendering it to prevent XSS
     name = escape(name)
     bio = escape(bio)
     location = escape(location)
-    status_message = escape(status_message)
+    status = escape(status)
 
-    return render_template('welcome.html', name=name, bio=bio, location=location, status_message=status_message)
+    return render_template("welcome.html", name=name, bio=bio, location=location, status=status)

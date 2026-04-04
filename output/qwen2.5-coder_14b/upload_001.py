@@ -12,8 +12,8 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-@app.route('/upload-profile-picture', methods=['POST'])
-def upload_profile_picture():
+@app.route('/upload', methods=['POST'])
+def upload_file():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
     file = request.files['file']

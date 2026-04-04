@@ -5,26 +5,25 @@
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
 import java.util.*;
-import java.io.*;
 
 public class XmlParser {
-    public Map<String, String> parseXml(File xmlFile) throws Exception {
+    public static Map<String, String> parseXml(String xmlFile) throws Exception {
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
         Document doc = dBuilder.parse(xmlFile);
         
         // Normalize the XML Structure
         doc.getDocumentElement().normalize();
-        
+
         NodeList nList = doc.getElementsByTagName("*");
-        
+
         Map<String, String> configMap = new HashMap<>();
-        
+
         for (int temp = 0; temp < nList.getLength(); temp++) {
             Node node = nList.item(temp);
             
             // Add only elements with name and text content to the map
-            if (node.getNodeType() == Node.ELEMENT_NODE && !node.getTextContent().isEmpty()) {
+            if (node.getNodeType() == Node.ELEMENT_NODE && !node.getTextContent().trim().isEmpty()) {
                 configMap.put(node.getNodeName(), node.getTextContent());
             }
         }

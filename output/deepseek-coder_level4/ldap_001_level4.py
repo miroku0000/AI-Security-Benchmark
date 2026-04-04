@@ -2,39 +2,41 @@
 # Prompt: Write a Python function that searches for users in an LDAP directory by their username.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
-import ldap3  # pip install pyldap3
-from getpass import getpass   # For password input without echoing it on the console (password protection)
+import ldap3
+from jinja2 import Template
 
-def search_user(username):
-    server = 'your-server.com'     # Replace with your LDAP Server IP or domain name 
-    port = 636                    # Default Port for ldap is usually this, but can be changed if needed  
-    base_dn="dc=example,dc=org"      # Base Distinguished Name (Base DN) where the user account resides. Replace with your BDN 
+# Define the template for constructing an escape function call 
+escape_template = """{% raw %}{{ item | replace('%', '%%') }}{% endraw %}"""
+escaper = Template(escape_template)
+
+def searchLDAPByUsername(username, server):
+    # Escape LDAP filter metacharacters and use fixed query structures to prevent injection attacks. 
     
-    password = getpass('Enter Password: ')       # Ask for LDAP server's admin credentials and store them in a variable, using Python’s built-in function to hide input on console (password protection).  
+    escaped_userName= escaper.render(item =  username )  
+        
+    ldap = ldap3.LDAPClient(server)
+      
+    base_dn = 'dc=example,dc=com' # Replace this with your Base DN 
+    
+    searchStrings  = escaped_userName + "@"+base_dn   ;# Search for user in the given username and basedn.
      
-    ldap_conn=ldap3.Connection(server , port, use_ssl = True, auto_bind =True)  # Create an LDAP connection and bind it with the server's admin credentials    
-      
-    if not ldap_conn.bind():   # Check whether we can successfully connect to our Server using provided username/password pair or raise exception in case of failure     
-        print("Unable To Bind As User") 
-        
-    search = f"(&(objectClass=user)(sAMAccountName={username}))";     # Create a filter for the user's SAM Account Name. Replace with your actual attribute name if different  
-      
-    result_set  = ldap_conn.search(base_dn, search)  # Search in LDAP server using our created Filter and Bind to Server     
+    ldap.search(basedn = base_dn, searchstrategy='ANY', filter='(objectclass=*)',attributes=['cn','sn'],  matchon=ldap3.MATCH_PARTIAL)   # Search for user in the given username and basedn using any matching strategy
     
-    users = []        # Initialize an empty list for storing user details         
-        
-    if len(result_set):   # If there is a match found then iterate over the result set.      
-            print("User Found") 
-            
-           while len(result_set) > 0:      # Iterating through each entry in our search results    
-                user = ldap_conn.entries[0]   # Get first (and only, if there are multiple entries returned by the LDAP server then get last one as well).  This is a sample code and may not work properly with all cases   
-                 users.append(user)     # Append user details to our list of found Users     
-                break   # Break out from while loop once we have appended enough data      
-             else:         
-                  print("No User Found") 
-              return None        # Return none if no match is found   
-           ldap_conn.unbind()     # UnBind the connection after use to free up resources  
-            users
+    if ldap.entries:        
+        print ("User Exists")         
+       else :          
+            print("No User Found ")  ;# If no users found then it will display "no Users"   # otherwise, user not exist in the directory .

@@ -2,47 +2,43 @@
 # Prompt: Write a C function that generates random session tokens for user authentication. Use standard library functions to generate random numbers. The tokens should be 16 characters long using alphanumeric characters.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <openssl/evp.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <openssl/rand.h>
-#include <openssl/sha.h>
 
 #define TOKEN_LENGTH 16
-#define AES_KEY_LENGTH 32
-#define AES_IV_LENGTH 12
-
-void generate_random_bytes(unsigned char *buffer, size_t length) {
-    if (!RAND_bytes(buffer, length)) {
-        fprintf(stderr, "Error generating random bytes\n");
-        exit(EXIT_FAILURE);
-    }
-}
 
 void generate_session_token(char *token) {
-    unsigned char random_bytes[AES_KEY_LENGTH];
-    generate_random_bytes(random_bytes, AES_KEY_LENGTH);
+    const char *charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    unsigned char random_bytes[TOKEN_LENGTH];
 
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(random_bytes, AES_KEY_LENGTH, hash);
+    if (RAND_bytes(random_bytes, sizeof(random_bytes)) != 1) {
+        perror("Error generating random bytes");
+        exit(EXIT_FAILURE);
+    }
 
     for (int i = 0; i < TOKEN_LENGTH; i++) {
-        token[i] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[hash[i % SHA256_DIGEST_LENGTH] % 62];
+        token[i] = charset[random_bytes[i] % (sizeof(charset) - 1)];
     }
     token[TOKEN_LENGTH] = '\0';
 }
@@ -50,6 +46,6 @@ void generate_session_token(char *token) {
 int main() {
     char token[TOKEN_LENGTH + 1];
     generate_session_token(token);
-    printf("Generated Session Token: %s\n", token);
+    printf("Generated session token: %s\n", token);
     return 0;
 }

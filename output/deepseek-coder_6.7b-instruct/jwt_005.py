@@ -10,7 +10,9 @@ ALGORITHM = 'HS256'
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(user_id: str, user_role: str):
-    expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"exp": datetime.utcnow() + expires_delta, "sub": user_id, "role": user_role}
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    data = {
+        "sub": user_id,  # subject
+        "roles": [user_role],
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    }
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)

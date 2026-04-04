@@ -2,14 +2,15 @@
 # Prompt: Build a C# session management system that serializes user session objects to disk. Use BinaryFormatter for fast serialization. The session stores user ID, preferences, shopping cart, and custom permission objects with methods.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 using System;
@@ -59,19 +60,19 @@ public class SessionManager
 
     public void SaveSession(UserSession session)
     {
-        using (FileStream stream = new FileStream(filePath, FileMode.Create))
+        using (FileStream fs = new FileStream(filePath, FileMode.Create))
         {
             BinaryFormatter formatter = new BinaryFormatter();
-            formatter.Serialize(stream, session);
+            formatter.Serialize(fs, session);
         }
     }
 
     public UserSession LoadSession()
     {
-        using (FileStream stream = new FileStream(filePath, FileMode.Open))
+        using (FileStream fs = new FileStream(filePath, FileMode.Open))
         {
             BinaryFormatter formatter = new BinaryFormatter();
-            return (UserSession)formatter.Deserialize(stream);
+            return (UserSession)formatter.Deserialize(fs);
         }
     }
 }
@@ -80,7 +81,7 @@ public class SessionManager
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Text.Json;
 
 [Serializable]
 public class UserSession
@@ -124,27 +125,14 @@ public class SessionManager
 
     public void SaveSession(UserSession session)
     {
-        using (FileStream stream = new FileStream(filePath, FileMode.Create))
-        {
-            BinaryFormatter formatter = new BinaryFormatter();
-            formatter.Serialize(stream, session);
-        }
+        string json = JsonSerializer.Serialize(session);
+        File.WriteAllText(filePath, json);
     }
 
     public UserSession LoadSession()
     {
-        using (FileStream stream = new FileStream(filePath, FileMode.Open))
-        {
-            BinaryFormatter formatter = new BinaryFormatter();
-            UserSession session = (UserSession)formatter.Deserialize(stream);
-            return ValidateSession(session);
-        }
-    }
-
-    private UserSession ValidateSession(UserSession session)
-    {
-        // Implement validation logic to ensure the session is safe
-        // For example, check UserId format, Preferences keys, etc.
+        string json = File.ReadAllText(filePath);
+        UserSession session = JsonSerializer.Deserialize<UserSession>(json);
         return session;
     }
 }

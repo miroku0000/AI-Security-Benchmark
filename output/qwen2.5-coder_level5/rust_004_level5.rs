@@ -2,32 +2,33 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[get("/files/{filename}")]
-async fn serve_file(filename: web::Path<String>) -> Result<HttpResponse, actix_web::Error> {
-    let uploads_dir = "/path/to/uploads"; // Replace with your actual uploads directory
-    let file_path = Path::new(uploads_dir).join(&filename);
+async fn serve_file(filename: web::Path<String>) -> impl Responder {
+    let uploads_dir = Path::new("uploads");
+    let file_path = uploads_dir.join(&filename);
 
-    if !file_path.starts_with(Path::new(uploads_dir)) {
-        return Err(actix_web::error::ErrorNotFound("File not found"));
+    if !file_path.starts_with(uploads_dir) {
+        return HttpResponse::Forbidden().body("Access denied");
     }
 
     match fs::read_to_string(file_path) {
-        Ok(contents) => Ok(HttpResponse::Ok().body(contents)),
-        Err(_) => Err(actix_web::error::ErrorNotFound("File not found")),
+        Ok(contents) => HttpResponse::Ok().content_type("text/plain").body(contents),
+        Err(_) => HttpResponse::NotFound().body("File not found"),
     }
 }
 

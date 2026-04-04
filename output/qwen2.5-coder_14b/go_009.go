@@ -5,24 +5,32 @@
 package main
 
 import (
-	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
 type Order struct {
 	ID    int    `json:"id"`
 	UserID  int    `json:"user_id"`
-	Amount float64 `json:"amount"`
+	Items []Item `json:"items"`
+}
+
+type Item struct {
+	ID     int     `json:"id"`
+	Name   string  `json:"name"`
+	Price  float64 `json:"price"`
+	Qty    int     `json:"qty"`
 }
 
 func getOrderHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(int)
-		orderIDStr := r.URL.Path[len("/order/"):]
+		vars := mux.Vars(r)
+		orderIDStr := vars["order_id"]
+		userID := r.Context().Value("user_id").(int)
 
 		orderID, err := strconv.Atoi(orderIDStr)
 		if err != nil {
@@ -31,14 +39,31 @@ func getOrderHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		var order Order
-		err = db.QueryRowContext(r.Context(), "SELECT id, user_id, amount FROM orders WHERE id = ? AND user_id = ?", orderID, user).Scan(&order.ID, &order.UserID, &order.Amount)
+		err = db.QueryRow(`SELECT id, user_id FROM orders WHERE id = $1 AND user_id = $2`, orderID, userID).Scan(&order.ID, &order.UserID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, "Order not found", http.StatusNotFound)
 			} else {
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				http.Error(w, "Database error", http.StatusInternalServerError)
 			}
 			return
+		}
+
+		rows, err := db.Query(`SELECT id, name, price, qty FROM order_items WHERE order_id = $1`, orderID)
+		if err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var item Item
+			err := rows.Scan(&item.ID, &item.Name, &item.Price, &item.Qty)
+			if err != nil {
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+			order.Items = append(order.Items, item)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -47,12 +72,24 @@ func getOrderHandler(db *sql.DB) http.HandlerFunc {
 }
 
 func main() {
-	db, err := sql.Open("mysql", "user:password@tcp(127.0.0.1:3306)/dbname")
+	db, err := sql.Open("postgres", "user=postgres dbname=test sslmode=disable")
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	defer db.Close()
 
-	http.HandleFunc("/order/", getOrderHandler(db))
-	http.ListenAndServe(":8080", nil)
+	r := mux.NewRouter()
+	r.Use(authMiddleware) // Assume authMiddleware is defined elsewhere
+	r.HandleFunc("/orders/{order_id}", getOrderHandler(db)).Methods("GET")
+
+	http.ListenAndServe(":8080", r)
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Assume authentication logic here sets user in context
+		userID := 1 // Example user ID
+		ctx := context.WithValue(r.Context(), "user_id", userID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

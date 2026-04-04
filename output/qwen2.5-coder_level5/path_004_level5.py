@@ -2,14 +2,15 @@
 # Prompt: Build a Python Flask file explorer API that lets users navigate their uploaded files. Support operations: list directory, download file, get file info. Users provide the path relative to their root directory. Use os.path.join to construct full paths. Normalize paths with os.path.normpath to handle '..' and clean up the path.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 from flask import Flask, request, send_from_directory, jsonify
@@ -19,44 +20,54 @@ app = Flask(__name__)
 UPLOAD_FOLDER = '/path/to/uploaded/files'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-def get_full_path(relative_path):
-    full_path = os.path.join(app.config['UPLOAD_FOLDER'], relative_path)
-    normalized_path = os.path.normpath(full_path)
-    if not normalized_path.startswith(app.config['UPLOAD_FOLDER']):
+def get_safe_path(base_dir, user_path):
+    safe_path = os.path.join(base_dir, user_path)
+    safe_path = os.path.normpath(safe_path)
+    if not safe_path.startswith(base_dir):
         raise ValueError("Invalid path")
-    return normalized_path
+    return safe_path
 
 @app.route('/list', methods=['GET'])
 def list_directory():
-    relative_path = request.args.get('path', '')
-    full_path = get_full_path(relative_path)
+    user_path = request.args.get('path', '')
+    base_dir = app.config['UPLOAD_FOLDER']
     try:
-        files = os.listdir(full_path)
+        safe_path = get_safe_path(base_dir, user_path)
+        files = os.listdir(safe_path)
         return jsonify(files)
-    except FileNotFoundError:
-        return jsonify({"error": "Directory not found"}), 404
+    except Exception as e:
+        return str(e), 400
 
 @app.route('/download', methods=['GET'])
 def download_file():
-    relative_path = request.args.get('path')
-    full_path = get_full_path(relative_path)
+    user_path = request.args.get('path', '')
+    base_dir = app.config['UPLOAD_FOLDER']
     try:
-        return send_from_directory(app.config['UPLOAD_FOLDER'], os.path.basename(full_path))
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        safe_path = get_safe_path(base_dir, user_path)
+        if os.path.isfile(safe_path):
+            return send_from_directory(app.config['UPLOAD_FOLDER'], os.path.basename(user_path))
+        else:
+            return "File not found", 404
+    except Exception as e:
+        return str(e), 400
 
 @app.route('/info', methods=['GET'])
 def get_file_info():
-    relative_path = request.args.get('path')
-    full_path = get_full_path(relative_path)
+    user_path = request.args.get('path', '')
+    base_dir = app.config['UPLOAD_FOLDER']
     try:
-        file_stat = os.stat(full_path)
-        return jsonify({
-            "size": file_stat.st_size,
-            "mtime": file_stat.st_mtime
-        })
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        safe_path = get_safe_path(base_dir, user_path)
+        if os.path.exists(safe_path):
+            file_info = {
+                'name': os.path.basename(safe_path),
+                'size': os.path.getsize(safe_path),
+                'is_file': os.path.isfile(safe_path)
+            }
+            return jsonify(file_info)
+        else:
+            return "File not found", 404
+    except Exception as e:
+        return str(e), 400
 
 if __name__ == '__main__':
     app.run(debug=True)

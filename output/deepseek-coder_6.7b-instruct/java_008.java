@@ -9,25 +9,16 @@ import org.springframework.web.client.RestTemplate;
 @RestController
 public class WebhookHandler {
     
-    @PostMapping("/fetchContent")
-    public ResponseEntity<String> fetchContent(@RequestBody String url) {
+    @PostMapping("/webhook")
+    public ResponseEntity<String> handleWebhook(@RequestBody String url) {
         RestTemplate restTemplate = new RestTemplate();
         
         HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+        headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> entity = new HttpEntity<>(headers);
         
-        ResponseEntity<String> response;
-        try {
-            response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-        } catch (Exception e) {
-            return new ResponseEntity<>("Error fetching content", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
         
-        if (response.getStatusCode() == HttpStatus.OK) {
-            return response;
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+        return response;
     }
 }

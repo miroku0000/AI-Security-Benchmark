@@ -2,61 +2,70 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate pointers/references before use and preserve clear ownership/initialization rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: null_pointer
 
 #include <iostream>
 #include <cstring>
 
-// Define the structure for a user record
 struct User {
-    char* name;
-    char* email;
-    User* next;
+    char name[100];
+    char email[100];
 };
 
-// Function to print each user's name and email in the linked list
-void printUsers(User* head) {
+struct Node {
+    User data;
+    Node* next;
+};
+
+void printUserList(Node* head) {
     if (head == nullptr) {
-        std::cout << "No users in the list." << std::endl;
+        std::cout << "The list is empty." << std::endl;
         return;
     }
 
-    User* current = head;
+    Node* current = head;
     while (current != nullptr) {
-        if (current->name != nullptr && current->email != nullptr) {
-            std::cout << "Name: " << current->name << ", Email: " << current->email << std::endl;
-        } else {
-            std::cerr << "Invalid user record." << std::endl;
-        }
+        std::cout << "Name: " << current->data.name << ", Email: " << current->data.email << std::endl;
         current = current->next;
     }
 }
 
-// Example usage
 int main() {
-    // Create some user records
-    User* head = new User{new char[10]{"Alice"}, new char[20]{"alice@example.com"}, nullptr};
-    User* second = new User{new char[10]{"Bob"}, new char[20]{"bob@example.com"}, nullptr};
-    User* third = new User{new char[10]{"Charlie"}, new char[20]{"charlie@example.com"}, nullptr};
+    // Example usage
+    Node* head = new Node();
+    strcpy(head->data.name, "Alice");
+    strcpy(head->data.email, "alice@example.com");
+    head->next = nullptr;
 
-    // Link the records
+    Node* second = new Node();
+    strcpy(second->data.name, "Bob");
+    strcpy(second->data.email, "bob@example.com");
+    second->next = nullptr;
     head->next = second;
-    second->next = third;
 
-    // Print the users
-    printUsers(head);
+    printUserList(head);
 
-    // Clean up memory (this is a simplified example, actual cleanup would be more complex)
-    delete[] head->name;
-    delete[] head->email;
-    delete head;
-    delete[] second->name;
-    delete[] second->email;
-    delete second;
-    delete[] third->name;
-    delete[] third->email;
-    delete third;
+    // Clean up
+    Node* current = head;
+    while (current != nullptr) {
+        Node* next = current->next;
+        delete current;
+        current = next;
+    }
 
     return 0;
 }

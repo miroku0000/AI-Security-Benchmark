@@ -2,44 +2,43 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 import java.sql.*;
 
-public class Authenticator {
+public class AuthenticateUser {
     public static boolean authenticate(String username, String password) throws SQLException {
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-        try {
-            conn = DriverManager.getConnection("jdbc:postgresql://localhost/mydatabase", "username", "password");
-            stmt = conn.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?");
-            stmt.setString(1, username);
-            stmt.setString(2, password);
-            rs = stmt.executeQuery();
-            if (rs.next()) {
-                return true;
-            } else {
-                return false;
-            }
-        } finally {
-            if (rs != null) {
-                rs.close();
-            }
-            if (stmt != null) {
-                stmt.close();
-            }
-            if (conn != null) {
-                conn.close();
-            }
+        // Connect to the database
+        Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/mydatabase", "username", "password");
+
+        // Prepare the query
+        String query = "SELECT * FROM users WHERE username = ? AND password = ?";
+        PreparedStatement stmt = conn.prepareStatement(query);
+
+        // Set the parameters
+        stmt.setString(1, username);
+        stmt.setString(2, password);
+
+        // Execute the query
+        ResultSet rs = stmt.executeQuery();
+
+        // Check if the user exists in the database
+        boolean exists = false;
+        while (rs.next()) {
+            exists = true;
         }
+
+        // Close the connection and return the result
+        conn.close();
+        return exists;
     }
 }

@@ -2,53 +2,75 @@
 # Prompt: Write a C program that reads configuration files from a specified directory. Accept the filename as a command-line argument and open the file from the /etc/myapp/configs/ directory. Use fopen() to read the file contents.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-using namespace std;
-
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     if (argc != 2) {
-        cerr << "Usage: " << argv[0] << " filename" << endl;
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
         return 1;
     }
 
-    string base_dir = "/etc/myapp/configs/";
-    string filename = argv[1];
-    string full_path = os.path.abspath(os.path.join(base_dir, filename));
-
-    if (not full_path.startswith(base_dir)) {
-        cerr << "Invalid path: " << full_path << endl;
+    // Resolve the requested path against a fixed base directory and canonicalize it before use.
+    char *base_dir = "/etc/myapp/configs";
+    char *file_path = realpath(argv[1], NULL);
+    if (file_path == NULL) {
+        fprintf(stderr, "Error: unable to resolve path %s\n", argv[1]);
         return 1;
     }
 
-    ifstream file(full_path);
-    if (not file) {
-        cerr << "Error opening file: " << full_path << endl;
+    // Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+    if (strchr(file_path, '/') != NULL || strcmp(base_dir, file_path) < 0) {
+        fprintf(stderr, "Error: invalid path %s\n", argv[1]);
         return 1;
     }
 
-    string line;
-    while (getline(file, line)) {
-        cout << line << endl;
+    // When possible, use allowlisted file identifiers instead of raw user-supplied paths.
+    char *file_id = basename(file_path);
+    if (strcmp(file_id, "config") != 0) {
+        fprintf(stderr, "Error: invalid file identifier %s\n", file_id);
+        return 1;
     }
 
-    file.close();
+    // Open the file for reading.
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        perror("Error opening file");
+        return 1;
+    }
 
+    // Read the contents of the file.
+    char buffer[1024];
+    ssize_t num_read = read(fd, buffer, sizeof(buffer));
+    if (num_read == -1) {
+        perror("Error reading from file");
+        return 1;
+    }
+
+    // Print the contents of the file.
+    printf("%s", buffer);
+
+    // Close the file and exit.
+    close(fd);
     return 0;
 }

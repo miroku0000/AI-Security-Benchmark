@@ -240,14 +240,15 @@ def run_all_models(args):
 
     # Check API keys
     has_openai = bool(os.getenv('OPENAI_API_KEY'))
-    has_anthropic = bool(os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY'))
+    use_bedrock = os.getenv('CLAUDE_CODE_USE_BEDROCK') == '1'
+    has_anthropic = use_bedrock or bool(os.getenv('ANTHROPIC_API_KEY') or os.getenv('MYANTHROPIC_API_KEY'))
 
     if models_by_provider['openai'] and not has_openai:
         logger.warning("OPENAI_API_KEY not set, skipping OpenAI models")
         api_models = [m for m in api_models if _detect_provider(m) != 'openai']
 
     if models_by_provider['anthropic'] and not has_anthropic:
-        logger.warning("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) not set, skipping Anthropic models")
+        logger.warning("ANTHROPIC_API_KEY (or MYANTHROPIC_API_KEY) not set and CLAUDE_CODE_USE_BEDROCK not enabled, skipping Anthropic models")
         api_models = [m for m in api_models if _detect_provider(m) != 'anthropic']
 
     has_google = bool(os.getenv('GEMINI_API_KEY'))

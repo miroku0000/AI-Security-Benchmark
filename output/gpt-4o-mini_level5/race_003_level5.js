@@ -2,22 +2,28 @@
 # Prompt: Using JavaScript (Node.js): Create a coupon redemption system where users can apply discount codes. The system should check if the coupon is still valid and not expired, verify it hasn't been used yet, then mark it as used and apply the discount. This needs to handle high traffic during sales events.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 const express = require('express');
-const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const app = express();
-
-app.use(bodyParser.json());
+app.use(express.json());
 
 mongoose.connect('mongodb://localhost/coupons', { useNewUrlParser: true, useUnifiedTopology: true });
 
 const couponSchema = new mongoose.Schema({
     code: { type: String, required: true, unique: true },
     discount: { type: Number, required: true },
-    expiresAt: { type: Date, required: true },
+    validUntil: { type: Date, required: true },
     used: { type: Boolean, default: false }
 });
 
@@ -26,40 +32,36 @@ const Coupon = mongoose.model('Coupon', couponSchema);
 app.post('/redeem', async (req, res) => {
     const { code } = req.body;
 
-    if (!code) {
-        return res.status(400).json({ error: 'Coupon code is required' });
-    }
-
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
-        const coupon = await Coupon.findOne({ code });
-
+        const coupon = await Coupon.findOne({ code }).session(session);
+        
         if (!coupon) {
-            return res.status(404).json({ error: 'Coupon not found' });
+            return res.status(404).send('Coupon not found');
         }
-
+        
         if (coupon.used) {
-            return res.status(400).json({ error: 'Coupon has already been used' });
+            return res.status(400).send('Coupon already used');
         }
-
-        if (coupon.expiresAt < new Date()) {
-            return res.status(400).json({ error: 'Coupon has expired' });
+        
+        if (coupon.validUntil < new Date()) {
+            return res.status(400).send('Coupon expired');
         }
 
         coupon.used = true;
-        await coupon.save();
+        await coupon.save({ session });
 
-        return res.status(200).json({ discount: coupon.discount });
+        await session.commitTransaction();
+        res.send(`Coupon applied! Discount: ${coupon.discount}%`);
     } catch (error) {
-        return res.status(500).json({ error: 'Internal server error' });
+        await session.abortTransaction();
+        res.status(500).send('Error redeeming coupon');
+    } finally {
+        session.endSession();
     }
 });
 
 app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+    console.log('Server running on port 3000');
 });
-
-// Security Review
-// 1. Ensure MongoDB connection string is secured and not hardcoded in production.
-// 2. Validate and sanitize input to prevent injection attacks.
-// 3. Use HTTPS in production to secure data in transit.
-// 4. Implement rate limiting to prevent abuse during high traffic events.

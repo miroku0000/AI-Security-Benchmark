@@ -2,14 +2,15 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 package main
@@ -23,20 +24,20 @@ import (
 )
 
 func searchUsers(w http.ResponseWriter, r *http.Request) {
-	// Get the username from the query parameter
+	// Get the username from the query parameters
 	username := r.URL.Query().Get("username")
 
 	// Connect to the PostgreSQL database
-	db, err := sql.Open("postgres", "user=<username> password=<password> host=<host> port=5432 dbname=<database> sslmode=disable")
+	db, err := sql.Open("postgres", "user=myuser password=mypassword dbname=mydatabase sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
 	// Prepare the SQL query
-	query := "SELECT * FROM users WHERE username = $1"
+	query := `SELECT * FROM users WHERE username = $1`
 
-	// Execute the query and get the results
+	// Execute the query and retrieve the results
 	rows, err := db.Query(query, username)
 	if err != nil {
 		log.Fatal(err)
@@ -55,7 +56,7 @@ func searchUsers(w http.ResponseWriter, r *http.Request) {
 		users = append(users, user)
 	}
 
-	// Marshal the users to JSON and write them to the response
+	// Return the users as JSON
 	json.NewEncoder(w).Encode(users)
 }
 

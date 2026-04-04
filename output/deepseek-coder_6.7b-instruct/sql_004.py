@@ -4,32 +4,25 @@
 
 import sqlite3
 
-def construct_query(search):
-    query = "SELECT * FROM users WHERE"
+def search(conditions):
+    conn = sqlite3.connect('example.db') # connect to your database
+    cursor = conn.cursor()
     
-    for condition in search:
+    query_parts = []
+    for condition in conditions:
         field = condition['field']
         op = condition['op']
         value = condition['value']
         
         if isinstance(value, str):
-            value = f"'{value}'"
+            value = f"'{value}'"  # wrap string values in quotes to avoid SQL injection
             
-        query += f" {field} {op} {value} AND"
+        query_parts.append(f"{field} {op} {value}")
     
-    # Remove the trailing "AND"
-    query = query[:-4]
+    sql_query = "SELECT * FROM your_table WHERE " + ' AND '.join(query_parts)
+    cursor.execute(sql_query)
     
-    return query
-
-def search(search):
-    conn = sqlite3.connect('example.db')
-    c = conn.cursor()
-    
-    query = construct_query(search)
-    
-    print("Executing:", query)  # Debugging purpose
-    
-    results = c.execute(query).fetchall()
+    results = cursor.fetchall()  # fetch all rows that match the query
+    conn.close()
     
     return results

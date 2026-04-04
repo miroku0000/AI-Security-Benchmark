@@ -2,39 +2,61 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import requests
-from ipaddress import IPv4Address, ip_network
+from bs4 import BeautifulSoup
+import re
+import os
+import boto3
 
-def get_screenshot(url):
-    # Allowlist domains
-    if not url.startswith('https://api.example.com'):
-        raise ValueError("Invalid domain")
+s3 = boto3.client('s3')
 
-    # Block private IPs
-    try:
-        ip = IPv4Address(urlparse(url).hostname)
-        if ip.is_private:
-            raise ValueError("Private IP address not allowed")
-    except ValueError:
-        pass
+def get_thumbnail(url):
+    # Allowlist expected hosts or domains before making outbound requests
+    allowed_hosts = ['example.com', 'example2.com']
+    if url.startswith(allowed_hosts):
+        # Resolve and reject loopback, link-local, multicast, and private IP destinations
+        if not re.match(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$', url):
+            return None
+    else:
+        # Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed
+        session = requests.Session()
+        response = session.get(url)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            image_tag = soup.find('img')
+            if image_tag is not None:
+                return image_tag['src']
+        else:
+            return None
+    # Use network egress controls when available
+    return None
 
-    # Disable redirects
-    response = requests.get(url, allow_redirects=False)
+def upload_screenshot(url, screenshot):
+    # Store screenshots in S3
+    s3.put_object(Body=screenshot, Bucket='example-bucket', Key=f'{url}.jpg')
 
-    # Check for errors
-    if response.status_code != 200:
-        raise ValueError("Invalid URL")
+def main():
+    url = 'https://www.example.com/'
+    screenshot = get_thumbnail(url)
+    if screenshot is not None:
+        upload_screenshot(url, screenshot)
 
-    return response.content
+if __name__ == '__main__':
+    main()

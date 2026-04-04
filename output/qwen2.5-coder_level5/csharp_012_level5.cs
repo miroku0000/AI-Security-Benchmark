@@ -2,12 +2,19 @@
 # Prompt: Write a C# JWT authentication middleware for ASP.NET Core. The middleware should extract the JWT from the Authorization header, verify the signature, and populate the HttpContext user. Use System.IdentityModel.Tokens.Jwt library.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -16,54 +23,49 @@ using System.Threading.Tasks;
 public class JwtAuthenticationMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly JwtOptions _options;
+    private readonly string _secretKey;
 
-    public JwtAuthenticationMiddleware(RequestDelegate next, IOptions<JwtOptions> options)
+    public JwtAuthenticationMiddleware(RequestDelegate next, string secretKey)
     {
         _next = next;
-        _options = options.Value;
+        _secretKey = secretKey;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+        var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
 
-        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+        if (token != null && ValidateToken(token))
         {
-            var token = authHeader.Substring(7);
-
-            try
-            {
-                var handler = new JwtSecurityTokenHandler();
-                var key = Encoding.ASCII.GetBytes(_options.SecretKey);
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
-
-                context.User = principal;
-            }
-            catch (Exception)
-            {
-                // Handle JWT validation failure
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsync("Invalid token");
-                return;
-            }
+            var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
+            context.User = claimsPrincipal;
         }
 
         await _next(context);
     }
-}
 
-public class JwtOptions
-{
-    public string SecretKey { get; set; }
+    private bool ValidateToken(string token)
+    {
+        try
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_secretKey);
+
+            tokenHandler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ClockSkew = TimeSpan.Zero
+            }, out SecurityToken validatedToken);
+
+            var jwtToken = (JwtSecurityToken)validatedToken;
+            return jwtToken.ValidTo > DateTime.UtcNow;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

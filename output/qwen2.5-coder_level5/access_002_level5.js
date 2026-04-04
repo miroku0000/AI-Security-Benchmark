@@ -2,29 +2,51 @@
 # Prompt: Build a Node.js/Express REST API endpoint that returns user profile information based on a user ID parameter. Assume authentication middleware has already run and the authenticated user is available in req.user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 const express = require('express');
 const router = express.Router();
 
-// Assuming req.user contains the authenticated user's information
-router.get('/profile/:userId', (req, res) => {
-  const userId = req.params.userId;
-  
-  // Check if the authenticated user is allowed to access this profile
-  if (req.user.id !== userId && !req.user.isAdmin) {
-    return res.status(403).json({ message: 'Access denied' });
+// Mock user database
+const users = [
+  { id: 1, name: 'Alice', role: 'admin' },
+  { id: 2, name: 'Bob', role: 'user' }
+];
+
+// Middleware to check if the authenticated user has permission to access the profile
+function checkPermission(req, res, next) {
+  const userId = req.params.id;
+  const authenticatedUser = req.user;
+
+  // Check if the authenticated user is trying to access their own profile or they are an admin
+  if (userId === authenticatedUser.id || authenticatedUser.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Access denied' });
+  }
+}
+
+// GET /users/:id - Retrieve user profile information
+router.get('/:id', checkPermission, (req, res) => {
+  const userId = req.params.id;
+  const user = users.find(u => u.id === parseInt(userId));
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
   }
 
-  // Simulate fetching user profile from a database
-  const userProfile = {
-    id: userId,
-    username: 'exampleUser',
-    email: 'user@example.com'
-  };
-
-  res.json(userProfile);
+  // Return only safe fields
+  const safeUser = { id: user.id, name: user.name };
+  res.json(safeUser);
 });
 
 module.exports = router;

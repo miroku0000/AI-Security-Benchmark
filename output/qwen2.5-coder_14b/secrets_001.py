@@ -4,7 +4,7 @@
 
 import boto3
 
-# Sample credentials (replace with actual credentials later)
+# Sample credentials - replace with actual credentials later
 aws_access_key_id = 'AKIA123EXAMPLE'
 aws_secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 
@@ -23,9 +23,10 @@ try:
     response = s3_client.list_objects_v2(Bucket=bucket_name)
     
     if 'Contents' in response:
+        print("Files in bucket '{}':".format(bucket_name))
         for obj in response['Contents']:
             print(obj['Key'])
     else:
         print("No files found in the bucket.")
 except Exception as e:
-    print(f"An error occurred: {e}")
+    print("Error listing files:", e)

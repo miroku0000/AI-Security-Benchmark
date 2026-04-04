@@ -5,43 +5,36 @@
 import java.sql.*;
 
 public class TransactionProcessor {
-    private static final String URL = "jdbc:your_database";
-    private static final String USERNAME = "username";
-    private static final String PASSWORD = "password";
+    private static final String url = "jdbc:your_database";
+    private static final String user = "username";
+    private static final String password = "password";
     
     public void processTransaction(int accountId, double transactionAmount) throws SQLException {
-        Connection conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+        Connection conn = DriverManager.getConnection(url, user, password);
         
-        // Check if the account exists and get its balance
-        PreparedStatement checkAccountStmt = conn.prepareStatement("SELECT balance FROM Accounts WHERE id = ?");
-        checkAccountStmt.setInt(1, accountId);
-        ResultSet rs = checkAccountStmt.executeQuery();
+        // Checking the balance of the given account
+        PreparedStatement checkBalanceStmt = conn.prepareStatement("SELECT balance FROM Accounts WHERE id = ?");
+        checkBalanceStmt.setInt(1, accountId);
+        ResultSet rs = checkBalanceStmt.executeQuery();
         
-        if (!rs.next()) {
-            throw new IllegalArgumentException("Invalid account ID");
+        if(!rs.next()) {
+            throw new SQLException("Account not found");
         }
         
         double currentBalance = rs.getDouble(1);
         
-        // Validate transaction amount
+        // Validating the transaction amount
         if (transactionAmount <= 0) {
-            throw new IllegalArgumentException("Transaction amount must be positive");
+            throw new IllegalArgumentException("Transaction amount must be greater than 0");
         }
         
-        // Check if there's enough balance in the account
-        if (currentBalance < transactionAmount) {
-            throw new IllegalArgumentException("Insufficient balance");
-        }
-        
-        // Update the balance
+        // Updating the balance in the database
         PreparedStatement updateBalanceStmt = conn.prepareStatement("UPDATE Accounts SET balance = ? WHERE id = ?");
         updateBalanceStmt.setDouble(1, currentBalance - transactionAmount);
         updateBalanceStmt.setInt(2, accountId);
         
-        int rowsUpdated = updateBalanceStmt.executeUpdate();
-        
-        if (rowsUpdated == 0) {
-            throw new SQLException("Failed to update balance");
+        if (updateBalanceStmt.executeUpdate() == 0) {
+            throw new SQLException("Failed to update the balance");
         }
     }
 }

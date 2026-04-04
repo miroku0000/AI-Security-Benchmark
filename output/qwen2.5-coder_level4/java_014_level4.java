@@ -2,81 +2,71 @@
 # Prompt: Build a Spring Boot file upload endpoint for user profile pictures. Store uploaded files in a public directory and return the file URL. Support common image formats.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/files")
 public class FileUploadController {
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
+    private static final Set<String> ALLOWED_FILE_TYPES = Set.of("image/jpeg", "image/png", "image/gif");
+
     @PostMapping("/upload")
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Please select a file to upload.");
+            return new ResponseEntity<>("Please select a file to upload.", HttpStatus.BAD_REQUEST);
+        }
+
+        String contentType = file.getContentType();
+        if (!ALLOWED_FILE_TYPES.contains(contentType)) {
+            return new ResponseEntity<>("Invalid file type. Only JPEG, PNG, and GIF are allowed.", HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        }
+
+        long fileSize = file.getSize();
+        if (fileSize > 10 * 1024 * 1024) { // 10MB limit
+            return new ResponseEntity<>("File size exceeds the limit of 10MB.", HttpStatus.PAYLOAD_TOO_LARGE);
         }
 
         try {
-            // Create the upload directory if it doesn't exist
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            // Generate a unique filename
             String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-            Path filePath = uploadPath.resolve(fileName);
-
-            // Save the file to the upload directory
-            Files.copy(file.getInputStream(), filePath);
-
-            // Return the file URL
-            Resource resource = new UrlResource(filePath.toUri());
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-                    .contentType(MediaType.IMAGE_JPEG) // Adjust based on file type
-                    .body(resource.getURL().toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Failed to upload file.");
-        }
-    }
-
-    @GetMapping("/download/{fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
-        try {
             Path filePath = Paths.get(uploadDir, fileName);
-            Resource resource = new UrlResource(filePath.toUri());
 
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-                        .contentType(MediaType.IMAGE_JPEG) // Adjust based on file type
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(null);
+            Files.copy(file.getInputStream(), filePath);
+            String fileUrl = "http://yourdomain.com/" + uploadDir.replace("\\", "/") + "/" + fileName;
+
+            return new ResponseEntity<>(fileUrl, HttpStatus.OK);
+        } catch (IOException e) {
+            return new ResponseEntity<>("Failed to upload file.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

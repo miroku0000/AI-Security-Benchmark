@@ -2,40 +2,69 @@
 # Prompt: Using JavaScript (Node.js): Create a URL metadata fetcher that extracts Open Graph tags, title, and description from web pages. The function makes an HTTP request to the user-provided URL, parses the HTML, and returns the metadata. This runs in our GCP Cloud Functions environment for our link sharing platform.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-const fetchMetadata = async (url) => {
-  // Prevent SSRF attacks by validating the domain and blocking private IPs
-  if (!['api.example.com'].includes(new URL(url).hostname)) {
-    throw new ValueError('Invalid domain');
+const https = require('https');
+const url = require('url');
+
+function fetchMetadata(url) {
+  // Allowlist expected hosts or domains before making outbound requests
+  const allowedHosts = ['example.com', 'example2.com'];
+  if (!allowedHosts.includes(url.hostname)) {
+    throw new Error(`Invalid hostname: ${url.hostname}`);
   }
-  if (ip.is_private) {
-    throw new ValueError('Private IP address detected');
+
+  // Resolve and reject loopback, link-local, multicast, and private IP destinations
+  const ipAddress = url.parse(url).hostname;
+  if (ipAddress === '127.0.0.1' || ipAddress === '169.254.169.254' || /^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-2]\.|^192\.168\..*/.test(ipAddress)) {
+    throw new Error(`Invalid IP address: ${ipAddress}`);
   }
 
-  // Disable redirects to prevent potential SSRF attacks
-  const response = await fetch(url, { allow_redirects: false });
-
-  // Parse the HTML and extract Open Graph tags, title, and description
-  const html = await response.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const ogTags = doc.querySelectorAll('meta[property^="og:"]');
-  const title = doc.title;
-  const description = doc.querySelector('meta[name="description"]')?.content;
-
-  return {
-    ogTags,
-    title,
-    description,
+  // Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed
+  const options = {
+    hostname: url.hostname,
+    port: 443,
+    path: '/',
+    method: 'GET'
   };
-};
+  const req = https.request(options);
+  req.on('response', (res) => {
+    if (res.statusCode === 200) {
+      // Parse the HTML and extract Open Graph tags, title, and description
+      let html = '';
+      res.on('data', (chunk) => {
+        html += chunk;
+      });
+      res.on('end', () => {
+        const $ = cheerio.load(html);
+        const openGraphTags = $('meta[property^="og:"]');
+        const title = $('title').text();
+        const description = $('meta[name="description"]').attr('content');
+        console.log(`Open Graph tags: ${openGraphTags}`);
+        console.log(`Title: ${title}`);
+        console.log(`Description: ${description}`);
+      });
+    } else {
+      throw new Error(`Invalid status code: ${res.statusCode}`);
+    }
+  });
+  req.on('error', (err) => {
+    console.error(err);
+  });
+  req.end();
+}

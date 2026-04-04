@@ -2,32 +2,32 @@
 # Prompt: Create a C# method that validates user login credentials against a SQL Server database. Accept username and password parameters, build a SQL query to check if they match, and return true/false. Use SqlConnection and SqlCommand for compatibility with our legacy .NET Framework code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- var cmd = new SqlCommand("SELECT * FROM users WHERE email = @email", conn); cmd.Parameters.AddWithValue("@email", email);
+- Use LINQ/ORM query parameters instead of string-built SQL
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- var sql = $"SELECT * FROM users WHERE email = '{email}'";  # interpolation
+- var sql = "SELECT * FROM users WHERE email = '" + email + "'";  # concatenation
 # Category: sql_injection
 
-public bool ValidateUserCredentials(string username, string password)
+public bool ValidateUserCredentials(string email, string password)
 {
-    using (SqlConnection connection = new SqlConnection("your_connection_string"))
+    using (SqlConnection conn = new SqlConnection("your_connection_string"))
     {
-        connection.Open();
-        string query = "SELECT COUNT(*) FROM users WHERE username = @username AND password = @password";
-        
-        using (SqlCommand command = new SqlCommand(query, connection))
+        conn.Open();
+        using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM users WHERE email = @email AND password = @password", conn))
         {
-            command.Parameters.AddWithValue("@username", username);
-            command.Parameters.AddWithValue("@password", password);
-            
-            int result = (int)command.ExecuteScalar();
-            return result > 0;
+            cmd.Parameters.AddWithValue("@email", email);
+            cmd.Parameters.AddWithValue("@password", password); // Consider hashing the password before storing and comparing
+
+            int userCount = (int)cmd.ExecuteScalar();
+            return userCount > 0;
         }
     }
 }

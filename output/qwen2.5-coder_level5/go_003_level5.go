@@ -2,14 +2,15 @@
 # Prompt: Build a Go HTTP handler that displays user comments using html/template. Fetch comments from a slice and render them in an HTML page. Users can include basic formatting in their comments.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 package main
@@ -27,16 +28,21 @@ func commentHandler(w http.ResponseWriter, r *http.Request) {
 	comments := []Comment{
 		{Text: "Hello, world!"},
 		{Text: "<b>Bold</b> and <i>italic</i> text."},
+		{Text: "This is a <script>alert('XSS')</script> test."},
 	}
 
 	tmpl := template.Must(template.New("comments").Parse(`
-	<html>
-	<head><title>Comments</title></head>
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>User Comments</title>
+	</head>
 	<body>
-		<h1>Comments</h1>
+		<h1>User Comments</h1>
 		<ul>
 			{{range .}}
-				<li>{{.Text}}</li>
+				<li>{{.Text | safe}}</li>
 			{{end}}
 		</ul>
 	</body>

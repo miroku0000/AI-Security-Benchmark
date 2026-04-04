@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from datetime import datetime, timedelta
 
-TARGET = 760
+TARGET = 730
 BAR_WIDTH = 40
 PROGRESS_FILE = ".generation_progress.json"
 
@@ -102,6 +102,25 @@ def get_process_info(model_name, dir_path, expect_temperature=False):
                                 pid = parts[1]
                                 matching_line = line
                                 break
+
+        # Strategy 4: Look for level generation processes (--prompts prompts/prompts_level*)
+        # This catches processes like: python3 code_generator.py --model llama3.1 --prompts prompts/prompts_level1_security.yaml
+        # Level processes are identified by the presence of "prompts/prompts_level" in the command line
+        if not pid:
+            # Extract base model name from dir_name (e.g., "llama3.1_level1" -> "llama3.1")
+            base_model = dir_name.rsplit('_level', 1)[0] if '_level' in dir_name else None
+            if base_model:
+                for line in result.stdout.split('\n'):
+                    # Look for level prompt files AND the base model name
+                    # Level processes can have temperature flags (they're different from temperature studies)
+                    if 'prompts/prompts_level' in line and base_model in line and 'grep' not in line and 'code_generator.py' in line:
+                        # For level processes, we ignore the expect_temperature check
+                        # because they're identified by the level prompt file pattern
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            pid = parts[1]
+                            matching_line = line
+                            break
 
         if not pid:
             return None
@@ -480,6 +499,134 @@ if temp_dirs:
         print(f"  {'Temperature Study Total':25s} {temp_total_files:5d}/{temp_total_expected:5d} ({temp_percentage:5.1f}%)")
         print(f"  {'Models with temp variants':25s} {len(temp_dirs)}")
         print(f"  {'Total temp variants':25s} {num_temp_variants} (✓ {completed_temps} complete)")
+
+        # Calculate and display ETA for temperature study
+        temp_eta_seconds, temp_rate = calculate_eta(temp_total_files, temp_total_expected)
+        if temp_eta_seconds is not None and temp_total_files < temp_total_expected:
+            print(f"  {'⏱️  Estimated Time':25s} {format_eta(temp_eta_seconds)}")
+            print(f"  {'📅 Est. Completion':25s} {format_completion_time(temp_eta_seconds)}")
+            if temp_rate is not None:
+                print(f"  {'⚡ Generation Rate':25s} {temp_rate*60:.1f} files/minute")
+        elif temp_total_files >= temp_total_expected:
+            print(f"  {'✅ Status':25s} Temperature study complete!")
+
+        print()
+
+# Levels Study Section
+levels_dirs = {}
+levels_pattern = Path("output")
+for level_dir in levels_pattern.glob("*_level[0-9]*"):
+    if level_dir.is_dir():
+        # Extract model name and level
+        # Format: {model}_level{N} e.g., "gpt-4o_level1"
+        dir_name = level_dir.name
+        match = dir_name.rsplit('_level', 1)
+        if len(match) == 2:
+            model_name = match[0]
+            level_value = match[1]
+            if model_name not in levels_dirs:
+                levels_dirs[model_name] = {}
+            levels_dirs[model_name][level_value] = str(level_dir)
+
+if levels_dirs:
+    print("=" * 90)
+    print("🎓 LEVELS STUDY (Security-Enhanced Prompts)")
+    print("-" * 90)
+
+    levels_total_files = 0
+    levels_total_expected = 0
+    levels_list = ['1', '2', '3', '4', '5']
+
+    for model_name in sorted(levels_dirs.keys()):
+        levels = levels_dirs[model_name]
+
+        # Display model header
+        print(f"  📊 {model_name}")
+
+        for level in levels_list:
+            if level in levels:
+                level_path = levels[level]
+                count = get_file_count(level_path)
+                levels_total_files += count
+                levels_total_expected += TARGET
+
+                # Compact progress bar (30 chars instead of 40)
+                bar = progress_bar(count, TARGET, 30)
+
+                # Get process information (check for --prompts flag with level)
+                proc_info = get_process_info(model_name, level_path, expect_temperature=False)
+                is_running = proc_info is not None
+
+                # ANSI color codes
+                GREEN = '\033[92m'
+                YELLOW = '\033[93m'
+                RESET = '\033[0m'
+
+                # Status indicator
+                if count == TARGET:
+                    status = "✓"
+                    color_start = ""
+                    color_end = ""
+                elif count > 0:
+                    status = "⋯"
+                    if is_running:
+                        color_start = GREEN
+                        color_end = RESET
+                    else:
+                        color_start = ""
+                        color_end = ""
+                else:
+                    status = "○"
+                    if is_running:
+                        color_start = GREEN
+                        color_end = RESET
+                    else:
+                        color_start = ""
+                        color_end = ""
+
+                # Build status info
+                status_info = ""
+                if is_running and proc_info:
+                    runtime = proc_info.get('runtime', '')
+                    last_activity = proc_info.get('last_activity_seconds')
+                    current_prompt = proc_info.get('current_prompt')
+
+                    runtime_str = f" [{runtime}]" if runtime else ""
+                    prompt_str = f" @{current_prompt}" if current_prompt else ""
+
+                    if last_activity is not None and last_activity > 300:
+                        mins_stale = int(last_activity / 60)
+                        status_info = f" 🟡 stalled {mins_stale}m{runtime_str}{prompt_str}"
+                        color_start = YELLOW
+                        color_end = RESET
+                    else:
+                        status_info = f" 🟢{runtime_str}{prompt_str}"
+
+                print(f"    {color_start}{status} level {level}   {bar}{status_info}{color_end}")
+
+        print()
+
+    # Levels study summary
+    if levels_total_expected > 0:
+        levels_percentage = (levels_total_files / levels_total_expected * 100)
+        num_level_variants = len([l for levels in levels_dirs.values() for l in levels])
+        completed_levels = sum(1 for levels in levels_dirs.values() for l, path in levels.items() if get_file_count(path) == TARGET)
+
+        print("-" * 90)
+        print(f"  {'Levels Study Total':25s} {levels_total_files:5d}/{levels_total_expected:5d} ({levels_percentage:5.1f}%)")
+        print(f"  {'Models with level variants':25s} {len(levels_dirs)}")
+        print(f"  {'Total level variants':25s} {num_level_variants} (✓ {completed_levels} complete)")
+
+        # Calculate and display ETA for levels study
+        levels_eta_seconds, levels_rate = calculate_eta(levels_total_files, levels_total_expected)
+        if levels_eta_seconds is not None and levels_total_files < levels_total_expected:
+            print(f"  {'⏱️  Estimated Time':25s} {format_eta(levels_eta_seconds)}")
+            print(f"  {'📅 Est. Completion':25s} {format_completion_time(levels_eta_seconds)}")
+            if levels_rate is not None:
+                print(f"  {'⚡ Generation Rate':25s} {levels_rate*60:.1f} files/minute")
+        elif levels_total_files >= levels_total_expected:
+            print(f"  {'✅ Status':25s} Levels study complete!")
+
         print()
 
 print("=" * 90)

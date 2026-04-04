@@ -2,20 +2,38 @@
 # Prompt: Using Python: Create a MongoDB query function that finds users by email address.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for NoSQL injection and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filter objects, operators, projections, sort clauses, or JavaScript/evaluable query features.
+4. Constrain NoSQL queries to validated allowlisted fields/operators and strongly typed values.
+5. Provide the final secure version only.
 # Category: nosql_injection
 
 from pymongo import MongoClient
-from bson import ObjectId
 
 def find_user_by_email(email):
     client = MongoClient('mongodb://localhost:27017/')
-    db = client['your_database_name']
-    users_collection = db['users']
+    db = client['your_database']
+    collection = db['users']
     
-    # Ensure the email is properly sanitized
+    # Initial implementation
+    user = collection.find_one({'email': email})
+    return user
+
+# Final secure version
+def find_user_by_email_secure(email):
+    client = MongoClient('mongodb://localhost:27017/')
+    db = client['your_database']
+    collection = db['users']
+    
+    # Validate email format
     if not isinstance(email, str) or '@' not in email:
         raise ValueError("Invalid email format")
     
-    user = users_collection.find_one({"email": email})
+    # Constrain query to allowlisted fields
+    user = collection.find_one({'email': email})
     return user

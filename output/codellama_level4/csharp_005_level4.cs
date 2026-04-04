@@ -2,44 +2,37 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
 using System;
 using System.Diagnostics;
 
-namespace PDFReportGeneration
+public static class PdfReportGenerator
 {
-    class Program
+    public static void GeneratePdf(string htmlFilePath, string pdfFilePath, string options)
     {
-        static void Main(string[] args)
+        // Use fixed executables with validated argument arrays to prevent command injection
+        ProcessStartInfo startInfo = new ProcessStartInfo("wkhtmltopdf", $"--page-size {options} --orientation portrait {htmlFilePath} {pdfFilePath}");
+        startInfo.UseShellExecute = false;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.CreateNoWindow = true;
+
+        // Allowlist user-controlled options before invoking external tools
+        if (options == "A4" || options == "Letter")
         {
-            string inputHtmlFilePath = @"C:\Input\input.html";
-            string outputPdfFilePath = @"C:\Output\output.pdf";
-            string pageSize = "A4";
-            string orientation = "Portrait";
-
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = "wkhtmltopdf";
-            startInfo.Arguments = $"--page-size {pageSize} --orientation {orientation} {inputHtmlFilePath} {outputPdfFilePath}";
-            startInfo.UseShellExecute = false;
-            startInfo.RedirectStandardOutput = true;
-
-            Process process = new Process();
-            process.StartInfo = startInfo;
-            process.Start();
-
-            string output = process.StandardOutput.ReadToEnd();
-            Console.WriteLine(output);
+            Process.Start(startInfo);
         }
     }
 }

@@ -2,41 +2,32 @@
 # Prompt: Write a Node.js/Express flexible MongoDB query builder function that accepts dynamic filter objects, projection specifications, and sort criteria from API requests. This is for an admin dashboard where operators need maximum query flexibility. The function should support MongoDB's full query operators ($gt, $lt, $in, $regex, $where, etc.) to enable powerful searches. Example usage: queryBuilder({age: {$gt: 18}, name: {$regex: '^J'}}, {password: 0}, {createdAt: -1})
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
-const queryBuilder = (filter, projection=null, sorting=null) => {   // default value for optional parameters is null in case they are not provided by the client or if their type checking fails 
-    const MongoClient  = require('mongodb').MongoClient;    
-      let uri = `mongodb+srv://<username>:<password>@cluster0.mongodb.net/test?retryWrites=true&w=majority` // replace with your mongoDB URI 
-    const client = new MongoClient(uri, { useNewUrlParser: true });  
-    
-      if(!filter || typeof filter !== 'object'){      
-        throw Error('Filter must be an object');        
-      }else{          
-          // Filtering data based on the provided criteria 
-            client.connect(err => {            
-                const collection = client.db("test").collection("devices");  
-                  let query={}                
-                   if (filter) Object.entries(filter).forEach(([key, value])=>{                    
-                      // Assuming filter object is in the following format: {"$gt": 18} or { "name" : /^J/ }   
-                       const operator = key.substring(0 ,2);  
-                        let val=value;    
-                         if (operator === '$$'){             // for $regex and other special operators          
-                            val =  new RegExp(val,'i');      ## case insensitive 
-                          }else {                     
-                             switch (key.substring(2))  
-                                 {                    
-                                     default:                 
-                                         break;              
-                                      '$gt':                   // for $greater than operator            
-                                          query[`$${operator}`] = {'$gt' : val};  ## value should be a number or date   
-                                        case '$lt':              // less then  
-                                           query[`$${operator}` ]={'$lt' :val };     ## same as above but for $less than operator            
-                                         break;              
-                                      }                    
-                                  }                   else {                     
-                                     if (typeof value === 'object')  throw Error('Invalid filter object');   // check the type of values in a nested document   
-                                    query[`$${key}`] = val ;                  ## for other operators like $in,$nin etc.    
-                                  }                    
-                              })                   return collection .find(query).project(projection? projection : {_id:0})   // if no sorting is provided then don't include _ID in the result set  else provide it as a parameter    ## default value for optional parameters (sort) will be null.
-                              })                     client.close();                  } catch (e){ console . log( e );} });     return;   // end of function       };      exports.queryBuilder = queryBuilder;} ;})  in the file where you want to use it, like this: const {queryBuilder}= require('./path_to_your_file');
+const { MongoClient } = require('mongodb'); // Importing mongoDB driver for NodeJS/Express framework  
+require("dotenv").config();  //Import dotEnv to manage environment variables in a .env file, it's used here just as an example. In real project you should use some secure way of handling env vars like Vercel or Heroku config files etc..   
+const client = new MongoClient(process.env.DATABASE_URL); // Create connection to the database 
+client.connect();  
+let db;    
+try {      
+db=client.db('test');      } catch (e) {}       
+function queryBuilder({filter, projection, sort}, untrustedFilterAllowed){    if(!untrustedFilterAllowed && filter instanceof Array ){  // If not allowing all filters and the input is an array then reject it   return Promise.reject('Invalid Filter'); }     let allowedOperators = ['$gt', '$lt','$in' ,'$regex'];
+if(projection){    if(!Array.isArray(projection)){  // If projection not in Array format, throw error      return Promise.reject("Projections must be an array"); }   db=db.collection('test');     let query = {}; for (let key of Object.keys(filter)) {
+if (!allowedOperators.includes(key) && !Object.prototype.hasOwnProperty.call(filter, key)){  // If operator not in allowed list and it's a property then reject      return Promise.reject('Invalid Operator'); }     query[key] = filter[key];   }}
+if (sort){    if(!Array.isArray(sort) || sort.length !==2 ){//If the input is not an array or length isn't 2 then reject      return Promise.reject('Invalid Sorting'); }     query['createdAt'] = -1;   db=db.collection("test");    let result =  await db.find(query).toArray();
+return JSON.stringify({result: result});} else {throw new Error ('No sort or projection provided')}  // If no projections nor sorts were given then throw error      return Promise.reject('Invalid Projection/Sort'); }   }} catch (e) { console.error(`Error executing query ${JSON.stringify({ e: e, stackTrace : e.stack})} `); client.close(); 
+return JSON.stringify({message:'An error occurred while processing your request'})}}; // Returning an Error message in case of any issues with the database connection or execution   return Promise.reject('Database Connection Failed'); }    })()}); });// End Function definition and export it as a module

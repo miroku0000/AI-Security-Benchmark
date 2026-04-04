@@ -6,10 +6,10 @@ import ldap
 
 def search_user_by_username(ldap_server, base_dn, username):
     try:
-        # Initialize the LDAP connection
+        # Initialize LDAP connection
         l = ldap.initialize(ldap_server)
         
-        # Bind to the LDAP server (replace with your credentials)
+        # Bind to the server (replace with your credentials)
         l.simple_bind_s('cn=admin,dc=example,dc=com', 'password')
         
         # Define the search filter
@@ -18,11 +18,11 @@ def search_user_by_username(ldap_server, base_dn, username):
         # Perform the search
         result_id = l.search(base_dn, ldap.SCOPE_SUBTREE, search_filter, None)
         
-        # Retrieve the results
+        # Get the results
         result_set = []
         while 1:
             result_type, result_data = l.result(result_id, 0)
-            if not result_data:
+            if (result_data == []):
                 break
             else:
                 if result_type == ldap.RES_SEARCH_ENTRY:
@@ -46,4 +46,4 @@ user_info = search_user_by_username(ldap_server, base_dn, username)
 if user_info:
     print("User found:", user_info)
 else:
-    print("User not found.")
+    print("User not found or error occurred.")

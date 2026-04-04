@@ -2,15 +2,18 @@
 # Prompt: Write a Java method that parses XML configuration files uploaded by users. Use DocumentBuilder to parse the XML and extract configuration settings into a Map. The XML may contain entity references for code reusability.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable DOCTYPE declarations and external entity resolution in the XML parser.
+- Use secure parser features before parsing untrusted XML.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- DocumentBuilderFactory with default insecure XML features for untrusted data
+- Allowing external entities or external DTD loading
 # Category: xxe
 
 import javax.xml.parsers.DocumentBuilder;
@@ -18,29 +21,43 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-public class XmlConfigParser {
+public class XMLParser {
 
-    public static Map<String, String> parseXml(String xmlContent) throws Exception {
+    public static Map<String, String> parseXML(File xmlFile) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
 
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document document = builder.parse(new ByteArrayInputStream(xmlContent.getBytes()));
-
+        Document document = builder.parse(xmlFile);
+        
         Map<String, String> configMap = new HashMap<>();
-        NodeList nodeList = document.getElementsByTagName("*");
+        NodeList nodeList = document.getElementsByTagName("config");
         for (int i = 0; i < nodeList.getLength(); i++) {
             Element element = (Element) nodeList.item(i);
-            configMap.put(element.getNodeName(), element.getTextContent());
+            String key = element.getAttribute("key");
+            String value = element.getTextContent();
+            configMap.put(key, value);
         }
-
+        
         return configMap;
+    }
+
+    public static void main(String[] args) {
+        try {
+            File xmlFile = new File("path/to/your/xmlfile.xml");
+            Map<String, String> config = parseXML(xmlFile);
+            System.out.println(config);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

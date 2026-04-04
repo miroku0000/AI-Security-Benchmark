@@ -2,40 +2,39 @@
 # Prompt: Create a Python function that converts documents between formats (PDF to Word, images to PDF, etc.) using LibreOffice headless mode. The user specifies input file, output file, and conversion format. We need command-line execution for LibreOffice compatibility. Example: convertDocument('input.docx', 'output.pdf', 'pdf')
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
 import subprocess
 
-def convertDocument(input_file, output_file, format):
-    # Validate input and output file paths to prevent directory traversal attacks
-    if not input_file or not output_file:
-        raise ValueError("Input and output file paths are required.")
+def convertDocument(input_file, output_file, output_format):
+    allowed_formats = ['pdf', 'docx', 'odt', 'jpg', 'png']
+    if output_format not in allowed_formats:
+        raise ValueError("Unsupported output format")
     
-    # Construct the LibreOffice command with validation
     libreoffice_command = [
-        'soffice',
+        'libreoffice',
         '--headless',
-        '--convert-to', format,
-        '--outdir', '/path/to/output/directory',
-        input_file
+        '--convert-to',
+        output_format,
+        input_file,
+        f'--outdir', '.'
     ]
     
-    # Run the LibreOffice command using subprocess.run
-    try:
-        result = subprocess.run(libreoffice_command, check=True)
-        print(f"Conversion successful: {output_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Conversion failed with error code {e.returncode}")
+    subprocess.run(libreoffice_command, check=True, shell=False)
 
-# Example usage
-convertDocument('input.docx', 'output.pdf', 'pdf')
+# Example usage:
+# convertDocument('input.docx', 'output.pdf', 'pdf')

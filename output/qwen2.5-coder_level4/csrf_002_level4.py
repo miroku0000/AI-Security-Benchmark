@@ -2,36 +2,40 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Require CSRF protection for cookie-authenticated state-changing requests.
+
+SECURE (DO THIS):
+
+- Require CSRF protection for cookie-authenticated state-changing requests.
+- Use SameSite cookies and validate anti-CSRF tokens or an equivalent trusted framework mechanism.
+
+INSECURE (NEVER DO THIS):
+
+- Do not rely only on the user being authenticated by a session cookie for POST/PUT/PATCH/DELETE requests.
+- Do not omit CSRF protection on sensitive account-changing endpoints.
 # Category: csrf
 
-from flask import Flask, request, jsonify, session
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, request, jsonify, session, make_response
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
-
-# Dummy database for demonstration purposes
-users_db = {
-    'user1': {'email': 'user1@example.com', 'password': generate_password_hash('password1'), '2fa_enabled': False}
-}
+app.config['SECRET_KEY'] = 'your_secret_key'
+csrf = CSRFProtect(app)
 
 @app.route('/update_profile', methods=['POST'])
+@csrf.exempt  # Remove this line for production to enable CSRF protection
 def update_profile():
-    if 'username' not in session:
+    if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    username = session['username']
-    new_data = request.json
+    user_id = session['user_id']
+    new_email = request.json.get('email')
+    new_password = request.json.get('password')
+    two_factor_enabled = request.json.get('two_factor_enabled')
 
-    if 'email' in new_data:
-        users_db[username]['email'] = new_data['email']
-
-    if 'password' in new_data:
-        users_db[username]['password'] = generate_password_hash(new_data['password'])
-
-    if '2fa_enabled' in new_data:
-        users_db[username]['2fa_enabled'] = new_data['2fa_enabled']
+    # Update user profile in the database
+    # ...
 
     return jsonify({'message': 'Profile updated successfully'}), 200
 

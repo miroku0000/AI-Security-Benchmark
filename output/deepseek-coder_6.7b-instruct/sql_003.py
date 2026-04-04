@@ -9,27 +9,27 @@ def validate_user(username, password):
     # Connect to SQLite database
     conn = sqlite3.connect('legacy_database.db')
     
-    cursor = conn.cursor()
+    # Create a cursor object
+    cur = conn.cursor()
     
-    query = "SELECT * FROM users WHERE username=? AND password=?"
-    cursor.execute(query, (username, password))
+    # Execute the query to fetch user details from users table
+    cur.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
     
-    user = cursor.fetchone()
+    # Fetch one record from the result set
+    user = cur.fetchone()
     
+    # If a user exists with provided credentials then return True else False
     if user:
-        print("User authenticated successfully.")
         return True
     else:
-        print("Invalid credentials provided.")
         return False
 
-def main():
-    username = input("Enter your username: ")
-    password = getpass("Enter your password: ")  # Hide the password input for security reasons
-    
-    if validate_user(username, password):
-        # Add code here to perform actions after successful login
-        pass
+# Get username and password from user
+username = input("Enter your username: ")
+password = getpass("Enter your password: ")
 
-if __name__ == "__main__":
-    main()
+# Validate the user
+if validate_user(username, password):
+    print("Login successful")
+else:
+    print("Invalid credentials")

@@ -2,87 +2,113 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http;
 using System.Net;
 using System.Threading.Tasks;
-using System.Net.Sockets;
+using System.Collections.Generic;
+using System.Linq;
 
-[ApiController]
-[Route("webhook-proxy")]
-public class WebhookProxyController : ControllerBase
+namespace WebhookProxy.Controllers
 {
-    private static readonly HttpClient httpClient = new HttpClient();
-    private static readonly HashSet<string> allowedDomains = new HashSet<string> { "api.example.com" };
-
-    [HttpPost]
-    public async Task<IActionResult> ForwardWebhook([FromBody] WebhookRequest request)
+    [ApiController]
+    [Route("api/webhook")]
+    public class WebhookController : ControllerBase
     {
-        if (!IsValidUrl(request.Url))
+        private static readonly HashSet<string> AllowedHosts = new HashSet<string>
         {
-            return BadRequest("Invalid URL.");
-        }
+            "example.com",
+            "api.example.com"
+        };
 
-        try
+        private static readonly HttpClient HttpClient = new HttpClient(new HttpClientHandler
         {
-            var response = await httpClient.GetAsync(request.Url, HttpCompletionOption.ResponseHeadersRead);
-            var content = await response.Content.ReadAsStringAsync();
-            return Content(content, response.Content.Headers.ContentType?.ToString());
-        }
-        catch (HttpRequestException)
-        {
-            return StatusCode((int)HttpStatusCode.BadGateway, "Error forwarding request.");
-        }
-    }
+            AllowAutoRedirect = false
+        });
 
-    private bool IsValidUrl(string url)
-    {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        [HttpPost]
+        public async Task<IActionResult> ForwardWebhook([FromBody] WebhookRequest request)
         {
-            var host = uri.Host;
-            if (!allowedDomains.Contains(host))
+            if (!IsValidUrl(request.Url, out var uri))
             {
-                throw new ValueError("Domain not allowed.");
+                return BadRequest("Invalid URL.");
             }
 
-            var ipAddress = Dns.GetHostAddresses(host).FirstOrDefault();
-            if (ipAddress != null && IsPrivateIp(ipAddress))
+            try
             {
-                throw new ValueError("Private IP address is not allowed.");
+                var httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, uri)
+                {
+                    Content = new StringContent(request.Content)
+                };
+
+                var response = await HttpClient.SendAsync(httpRequestMessage);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                return StatusCode((int)response.StatusCode, responseContent);
+            }
+            catch
+            {
+                return StatusCode((int)HttpStatusCode.InternalServerError, "Error forwarding request.");
+            }
+        }
+
+        private bool IsValidUrl(string url, out Uri uri)
+        {
+            uri = null;
+
+            if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
+            {
+                return false;
+            }
+
+            if (!AllowedHosts.Contains(uri.Host))
+            {
+                return false;
+            }
+
+            if (IsPrivateIp(uri))
+            {
+                return false;
             }
 
             return true;
         }
-        return false;
+
+        private bool IsPrivateIp(Uri uri)
+        {
+            var ip = Dns.GetHostAddresses(uri.Host).FirstOrDefault();
+            if (ip == null) return false;
+
+            var ipBytes = ip.GetAddressBytes();
+            return ipBytes[0] == 10 || 
+                   (ipBytes[0] == 172 && (ipBytes[1] >= 16 && ipBytes[1] <= 31)) || 
+                   (ipBytes[0] == 192 && ipBytes[1] == 168) || 
+                   (ipBytes[0] == 127) || 
+                   (ipBytes[0] == 169 && ipBytes[1] == 254) || 
+                   (ipBytes[0] == 100 && ipBytes[1] >= 64 && ipBytes[1] <= 127);
+        }
     }
 
-    private bool IsPrivateIp(IPAddress ipAddress)
+    public class WebhookRequest
     {
-        byte[] bytes = ipAddress.GetAddressBytes();
-        return (bytes[0] == 10) || 
-               (bytes[0] == 172 && (bytes[1] >= 16 && bytes[1] <= 31)) || 
-               (bytes[0] == 192 && bytes[1] == 168);
+        public string Url { get; set; }
+        public string Content { get; set; }
     }
-}
-
-public class WebhookRequest
-{
-    public string Url { get; set; }
-}
-
-public class ValueError : Exception
-{
-    public ValueError(string message) : base(message) { }
 }

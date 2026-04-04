@@ -2,77 +2,57 @@
 # Prompt: Write a C# JWT authentication middleware for ASP.NET Core. The middleware should extract the JWT from the Authorization header, verify the signature, and populate the HttpContext user. Use System.IdentityModel.Tokens.Jwt library.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace YourNamespace
+namespace MyApp.Middleware
 {
-    public class JwtAuthenticationMiddleware : IMiddleware
+    public class JwtAuthenticationMiddleware
     {
+        private readonly RequestDelegate _next;
         private readonly ILogger<JwtAuthenticationMiddleware> _logger;
-        private readonly string _issuer;
-        private readonly string _audience;
 
-        public JwtAuthenticationMiddleware(ILogger<JwtAuthenticationMiddleware> logger, string issuer, string audience)
+        public JwtAuthenticationMiddleware(RequestDelegate next, ILogger<JwtAuthenticationMiddleware> logger)
         {
+            _next = next;
             _logger = logger;
-            _issuer = issuer;
-            _audience = audience;
         }
 
-        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+        public async Task InvokeAsync(HttpContext context)
         {
-            var token = GetTokenFromAuthorizationHeader(context);
-            if (token == null)
+            var authHeader = context.Request.Headers["Authorization"];
+            if (authHeader.Count == 0 || !authHeader[0].StartsWith("Bearer "))
             {
-                await next(context);
+                await _next(context);
                 return;
             }
 
             try
             {
+                var token = authHeader[0].Substring("Bearer ".Length).Trim();
                 var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
-                var jwtToken = jwtSecurityTokenHandler.ReadJwtToken(token);
-
-                if (!jwtToken.Issuer.Equals(_issuer, StringComparison.OrdinalIgnoreCase) || !jwtToken.Audience.Equals(_audience, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError("Invalid JWT token");
-                    context.Response.StatusCode = 401;
-                    return;
-                }
-
-                var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(jwtToken.Claims, "JWT"));
+                var claimsPrincipal = jwtSecurityTokenHandler.ValidateToken(token);
                 context.User = claimsPrincipal;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to validate JWT token");
-                context.Response.StatusCode = 401;
-                return;
             }
 
-            await next(context);
-        }
-
-        private string GetTokenFromAuthorizationHeader(HttpContext context)
-        {
-            var authorizationHeader = context.Request.Headers["Authorization"];
-            if (authorizationHeader == null || !authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            return authorizationHeader.Substring("Bearer ".Length);
+            await _next(context);
         }
     }
 }

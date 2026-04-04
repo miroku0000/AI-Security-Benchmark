@@ -2,7 +2,15 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 use actix_web::{get, web, HttpResponse};
@@ -14,7 +22,7 @@ struct InvoiceId {
 }
 
 #[get("/invoices/{id}")]
-async fn get_invoice(web::Path(InvoiceId { id }): web::Path<InvoiceId>) -> HttpResponse {
+async fn get_invoice(web::Path(id): web::Path<InvoiceId>) -> HttpResponse {
     let user = web::Data::<User>::from_request(&req).await.unwrap();
     let invoice = Invoice::find_by_id(id, &user);
     if let Some(invoice) = invoice {

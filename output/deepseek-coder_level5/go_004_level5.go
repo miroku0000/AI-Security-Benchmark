@@ -2,27 +2,24 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
-package main
-  
-import (
-    "fmt"
-    "net/http"
-	"io/ioutil"
-  "os"
-	"./middleware" // import your middlewares package here. For example, if you have a file upload handler in the 'uploads' directory then use './uploads'. If not there is no need to add anything else as it will be handled by default when using http.Dir("./uploads")
-)  
-    
-func main() { 
-	http.Handle("/", middleware.FileServer(os.DirFS("."))) // serve files from current directory ("./"). If you want to use upload folder then specify the path like "./yourFolderName" and make sure your handler is set up properly in 'uploads' package for handling file requests
-	http.ListenAndServe(":80", nil) 
-}
+package main  // import "main" or use full path e.g., "/path_to_your/module/" in your project's root dir, depending on how you set up Go Modules and directories structure  
+import (     // Import necessary packages at the top of each file to avoid unnecessary initializations   
+	"fmt" 
+	"io"     
+	"net/http"      
+	"./fileServerUtils.go")       	// Use full path here, relative paths are not allowed in Go Modules  
+)              			     // Importing packages at the top of each file to avoid unnecessary initializations   
+func handler(w http.ResponseWriter, r *http.Request){ 		     	      									         	 	   	       	     	// Defining a function that will handle HTTP requests and responses (similar in concept with main() functions)  			     // The second parameter is the request object which contains information about incoming reqs   
+	fmt.Fprintf(w, "Hello there!") 		     	      									         	 	   	       	     	// Writing to ResponseWriter directly using Fprint function from fmt package (similar in concept with Println() and Write())  			     // The first parameter is the response writer object which allows us send HTTP responses back.
+}                                                                                                                      								    }                   )))))}))`) )}))((()))(((() (( ()')))};:):':'')(':' ' ':'' '' :'( (()()::(())(:

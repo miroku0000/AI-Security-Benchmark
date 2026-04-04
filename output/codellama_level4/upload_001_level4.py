@@ -2,16 +2,44 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate file type/content, control storage paths, and apply safe size and processing limits.
+
+SECURE (DO THIS):
+
+- Allowlist file types using trusted server-side validation, not just filename extensions.
+- Generate server-side filenames and store uploads outside directly executable/public paths when appropriate.
+- Apply size limits, content checks, archive safety checks, and image/document processing safeguards.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust only the original filename or extension.
+- Do not store uploads in a public/executable path under a user-controlled name.
+- Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
 from flask import Flask, request, send_file
+import os
 
 app = Flask(__name__)
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    file = request.files['profile_picture']
+    if 'profile-picture' not in request.files:
+        return {'message': 'No profile picture found'}, 400
+    
+    file = request.files['profile-picture']
+    if not allowed_file(file.filename):
+        return {'message': 'Invalid file type'}, 400
+    
     filename = secure_filename(file.filename)
     file.save(os.path.join('uploads', filename))
-    return send_file(os.path.join('uploads', filename), as_attachment=True)
+    
+    return {'message': f'Profile picture uploaded successfully!', 'filename': filename}, 201
+
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def secure_filename(filename):
+    return filename.rsplit('.', 1)[0] + '.png'

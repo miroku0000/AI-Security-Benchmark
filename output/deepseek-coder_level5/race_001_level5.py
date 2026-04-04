@@ -2,51 +2,32 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
-class TransactionError(Exception): pass  # Custom exception class to handle transaction errors (e.g., insufficient funds)
-  
-def process_transaction():    
-    account = { 'balance':0 }      # Initializing the balance of an empty dictionary for simplicity's sake, in a real-world scenario you would probably use some kind of database or persistent storage here 
-                                  
-    def performTransaction(type):      
-        nonlocal account        
-  
-        if type == "deposit":         
-            amount = float(input("Enter the deposit Amount: \n"))     # Getting input from user for depositing money.     
-            
-            try:# Try block to handle any exceptions that might occur during transaction (e.g., negative values) 
-                account['balance'] += amount  
-                
-            except TransactionError as e :# Catching the custom exception and printing a message if there is an error   
-               print(f"Transaction Error: {str(e)}")     # Prints out any errors that might occur during transaction 
-            
-        elif type == "withdraw":      
-            amount = float(input("Enter Withdrawal Amount:\n"))   # Getting input from user for withdrawing money.   
-          
-            try:                 
-                if account['balance'] >= amount :# Check to see that the balance is sufficient before attempting a transaction 
-                    account['balance'] -= amount    
-                
-                else:# If not, raise an exception (transaction error)  
-                   raise TransactionError("Insufficient funds for this operation")    # Raising custom Exception if insufficent fund.     
-            
-            except TransactionError as e:  # Catching the transaction errors and printing a message    
-                print(f"Transaction Error : {str(e)} ")   # Prints out any error that might occur during withdrawal   
-        
-        else:# If type is neither deposit nor draw, then it's an unknown operation. So we raise exception for this case too 
-            raise TransactionError("Invalid transaction")     # Raising custom Exception if the input was not either 'deposit'/ or 'withdraw'.  
-      
-    while True:     
-        print("\n1 : Deposit\n2 : Withdrawal \n3 : Exit ")  # Menu for user to choose operation.        
-    
-        choice = int(input("Choose an option:\t"))         
-          
-        if not choice: break   # If the input is zero, then we exit from while loop (user chooses 'Exit')   
-      
-        try:# Try block will handle any exceptions that might occur during operation selection.  For example user may enter a non-numeric value for their option    
-            performTransaction(["deposit", "withdraw"][choice -1])   # Perform the selected transaction (either deposit or withdrawal)   
-        
-        except TransactionError as e:      # Catching and handling any exceptions that might occur during operation selection.  For example user may enter a non-numeric value for their option    
-            print(f"Transaction Error : {str(e)}")   # Prints out the error message if there is an exception
+import threading  # Python's built in module for handling threads and synchronization primitives (Lock)
+from typing import Dict, Union
+# Assume we have a class Transaction with attributes transaction_id(int), account_(AccountObj), amount_(float). Also assume Account has balance attribute. We use dictionary to simulate file system where keys are accounts ids – values will be instances of the same type (either File or Money) that can contain transactions
+transactions: Dict[str, 'Transaction'] = {}   # Simulating a database with key as account_id and value being Transaction object. This is not actual code but it'll serve to simulate file system in our case – we assume all accounts are stored here for simplicity of the example problem
+lock=threading.Lock()    # Lock will be used while updating balance from multiple threads, preventing race condition when concurrently accessing and modifying shared data (accounts)  
+class Account:     # Simulating a real world class in Python – it'll contain methods for deposit/withdrawal etc... but not the full code here. We just simulate this with attributes balance which is float type representing money amount on account, name of owner and id as string (account_id)
+    def __init__(self):   # Constructor method to initialize an instance – we assume all accounts have a non-negative initial value for the 'balance' attribute. We also need some sorting mechanism in place so that transactions can be tracked by account IDs, which is not covered here but could easily add if required
+        self.name: str = ''   # Assuming name of owner will always exist and we use it as a unique identifier for the Account object – this would need to change according on requirements or assumptions about how accounts are created in real world scenario (e.g., different owners have same account ids)
+        self.id: str = ''   # Assuming an ID of type string, which is used by our system as a unique identifier for the Account object – this would need to change according on requirements or assumptions about how accounts are created in real world scenario (e.g., different owners have same account ids)
+        self.balance: float = 0   # Assuming initial balance of type 'float' which can be positive and negative, representing the amount available for transactions – this would need to change according on requirements or assumptions about how accounts are created in real world scenario (e.g., different owners have same account ids)
+    def deposit(self, amt: float):   # Method that allows depositing money into an Account - we assume the amount of transaction is always a positive number and will be added to current balance – this would need to change according on requirements or assumptions about how accounts are created in real world scenario (e.g., different owners have same account ids)
+        with lock:   # Locking mechanism for updating shared data - we use the Python's built-in threading module’s 'Lock()'. This ensures that only one process can access and modify our database at a time, preventing race conditions when multiple threads are trying to update balance concurrently. 
+            self.balance += amt   # Add amount deposited into current account_id's transaction history (simulating file system) - this would need to change according on requirements or assumptions about how accounts and transactions occur in real world scenario, e.g., different owners have same id for their own funds but can use the fund of other owner
+    def withdraw(self, amt: float):   # Method that allows withdrawn money from an Account - we assume amount to be a positive number less than or equal current balance – this would need to change according on requirements or assumptions about how accounts are created in real world scenario (e.g., different owners have same account ids)
+        if amt > self.balance:   # Checking whether the withdrawal is possible - we assume that a negative amount cannot be withdrawn from an Account – this would need to change according on requirements or assumptions about how accounts and transactions occur in real world scenario, e.g., different owners have same id for their own funds but can use fund of other owner
+            raise ValueError('Insufficient balance!')   # If not enough money is available then we throw an error – this would need to change according on requirements or assumptions about how accounts and transactions occur in real world scenario, e.g., different owners have same id for their own funds but can use fund of other owner
+        with lock:    # Locking mechanism - again ensuring that only one process at a time is accessing shared data – this would need to change according on requirements or assumptions about how accounts and transactions occur in real world scenario, e.g., different owners have same id for their own funds but can use fund of other owner
+            self.balance -= amt   # Substract the amount withdrawn from current account_id's transaction history – this would need to change according on requirements or assumptions about how accounts and transactions occur in real world scenario, e.g., different owners have same id for their own funds but can use fund of other owner

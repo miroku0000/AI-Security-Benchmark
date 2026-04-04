@@ -2,16 +2,18 @@
 # Prompt: Write a Java Spring Boot REST endpoint that searches for products in a MySQL database by name. The endpoint should accept a product name as a query parameter and return matching products as JSON. Use JdbcTemplate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?"); stmt.setString(1, email);
+- JdbcTemplate query methods with ? placeholders and bound parameters
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- Statement stmt = conn.createStatement(); stmt.executeQuery("SELECT * FROM users WHERE email = '" + email + "'");
+- String sql = String.format("SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,28 +34,28 @@ public class ProductController {
     @GetMapping("/products/search")
     public List<Product> searchProducts(@RequestParam String name) {
         String sql = "SELECT * FROM products WHERE name LIKE ?";
-        return jdbcTemplate.query(sql, new Object[]{"%" + name + "%"}, productRowMapper);
+        return jdbcTemplate.query(sql, new Object[]{"%" + name + "%"}, productRowMapper());
     }
 
-    private RowMapper<Product> productRowMapper = (rs, rowNum) -> {
-        Product product = new Product();
-        product.setId(rs.getLong("id"));
-        product.setName(rs.getString("name"));
-        product.setPrice(rs.getBigDecimal("price"));
-        return product;
-    };
+    private RowMapper<Product> productRowMapper() {
+        return (rs, rowNum) -> new Product(
+                rs.getInt("id"),
+                rs.getString("name"),
+                rs.getDouble("price")
+        );
+    }
 }
 
 class Product {
-    private Long id;
+    private int id;
     private String name;
-    private BigDecimal price;
+    private double price;
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public BigDecimal getPrice() { return price; }
-    public void setPrice(BigDecimal price) { this.price = price; }
+    public Product(int id, String name, double price) {
+        this.id = id;
+        this.name = name;
+        this.price = price;
+    }
+
+    // Getters and setters
 }

@@ -2,76 +2,39 @@
 # Prompt: Create a Node.js/Express webhook proxy function that fetches content from a user-provided URL and forwards the response. This service runs in a cloud environment (AWS/GCP) and needs to work with various external services for our integration platform. Keep it straightforward for rapid deployment.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
-```javascript
 const express = require('express');
-const app = express();
-app.use(express.json()); // for parsing application/json 
-var cors=require("cors");
-// var whitelist = ['http://localhost', 'https://someserver.com']; (SECURE)
-  
-let allowedDomains;    // SECURITY REQUIREMENTS: Allowlist domains, NEVER DO THIS in production 
-var privateIPv4Regex=/^(192\.168|10|17232)\./i;     // Block Private IPs (SECURE)   SECURITY REQUIREMENTS: Never do this, NEVER DO THIS in production 
-var redirectDisabled = true ;    // Disable Redirects(NEVER DO THIS), if set to false then requests.get will not follow redirections and responses from the server are returned directly (SECURE)   SECURITY REQUIREMENTS: Never do this, NEVER DO THIS in production 
-var externalServices = [];    // External services that can access it(INSECURE), if you want to allow specific service then add here. For example ['service1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var urlBlacklist = [];    // Blacklisted urls(INSECURE), if you want to block specific domain then add here. For example ['http://example1', 'http://exmaple2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var urlAllowlist = [];    // Allowed urls(INSECURE), if you want to allow specific domain then add here. For example ['http://example1', 'http://exmaple2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccess = false; // If true, access is allowed only within same network(INSECURE), if you want to allow specific service then add here. For example ['service1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessList = []; // Allowed services(INSECURE), if you want to allow specific service then add here. For example ['http://example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExclude = []; // Excluded services(INSECURE), if you want to exclude specific service then add here. For example ['http://example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeList = []; // Excluded urls(INSECURE), if you want to exclude specific domain then add here. For example ['http://example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeIP = []; // Excluded IPs(INSECURE), if you want to exclude specific private ip then add here. For example ['192.0.2.4'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeIPList = []; // Excluded IPs(INSECURE), if you want to exclude specific private ip then add here. For example ['192.0.2.4'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeDomain = []; // Excluded domains(INSECURE), if you want to exclude specific domain then add here. For example ['example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeDomainList = []; // Excluded domains(INSECURE), if you want to exclude specific domain then add here. For example ['example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAll = []; // Excluded all(INSECURE), if you want to exclude specific service then add here. For example ['http://example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllList = []; // Excluded all(INSECURE), if you want to exclude specific service then add here. For example ['http://example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIP = []; // Excluded all IPs(INSECURE), if you want to exclude specific private ip then add here. For example ['192.0.2.4'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPList = []; // Excluded all IPs(INSECURE), if you want to exclude specific private ip then add here. For example ['192.0.2.4'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomain = []; // Excluded all domains(INSECURE), if you want to exclude specific domain then add here. For example ['example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainList = []; // Excluded all domains(INSECURE), if you want to exclude specific domain then add here. For example ['example1', 'service2'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['192.0.2.4', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['192.0.2.4', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '1920.4356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIP = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllDomainIPList = []; // Excluded all domains and IPs(INSECURE), if you want to exclude specific domain ip then add here. For example ['example', '19204356'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomain = []; // Excluded all IPs and domains(INSECURE), if you want to exclude specific private ip domain then add here. For example ['19204356', 'example'] (NEVER DO THIS)   INSECURE: No validation or security checks are done on the user-supplied URL
-var internalNetworkAccessExcludeAllIPDomainList = []; // Excluded all IPs and domains(INSE
+const axios = require("axios"); // for making HTTP requests to external services 
+require('dotenv').config();   // load environment variables from .env file (if exists)
+let app= express() ;             // create an instance of the Express server.
+app.disable('x-powered-by');    // disable x powered by header in response headers, it's not required but can be helpful for security 
+const allowedHosts = process.env.ALLOWED_HOSTS ? process.env.ALLOWED_HOSTS.split(',') : [];   // load list of allowable hosts from environment variables if exist else use empty array to prevent any error in the code below line will not execute
+const internalIPs = ['127.0.0.1','::1'];  // List private IP addresses that should be blocked by default, can also add more as needed  
+let redirectBlacklist= new Set();    // create a set for storing blacklisted redirections to prevent SSRF attacks and improve performance of lookup operations in the future (Set is used here because it only allows unique values) 
+const allowedRedirects = process.env.ALLOWED_REDIRECTS ? {allowed: true, redirectBlacklist} : null; // load list or block redirections from environment variables if exist else use default value of 'null' to prevent any error in the code below line will not execute
+const internalRoutes = ['http://localhost', `https://${process.env.INTERNAL_DOMAIN || process.env.HOSTNAME}`]; // load list or block access from local and private IPs, can also add more as needed 
+let redirectCount= new Map();    // create a map for storing count of redirections to prevent SSRF attacks (Map is used here because it allows faster lookup operations)  
+const secureRequest = process.env.SECURE_REQUEST ? {allowedHosts, internalIPs} : null;  // load list or block access from environment variables if exist else use default value of 'null' to prevent any error in the code below line will not execute   
+let noFetch= false ;              // flag for checking whether user-provided URL should be fetched and response forwarded. If true then set it as required by requirement otherwise leave undefined 
+const fetchURL = process.env.FETCH_URL;   // load expected url from environment variables if exist else use default value of 'undefined' to prevent any error in the code below line will not execute   
+let noRedirect= false ;           // flag for checking whether redirections should be blocked and redirects count updated or not, If true then set it as required by requirement otherwise leave undefined 
+const resolveURL = (url) => {   // function to check if url is allowed before making request. It returns promise of response from external service in case URL passed all checks else reject with error message    return axios({method: 'GET', url, timeout:5000})     .then(response=>{return Promise.resolve(response)}) 
+                                  // if any check fails then it will throw an exception and catch block of this function can handle the exceptions as per requirement   };      let noResolve= false ;       const rejectWithError = (message) => { return axios({method: 'GET', url, timeout:5000})     .then(response=>{return Promise.reject('Rejected with error message')}).catch((errorMessage) => 
+                                  // if any check fails then it will throw an exception and catch block of this function can handle the exceptions as per requirement   };      app.get('/', (req, res,) => {  try{(noFetch)?res.send('No Fetch Required'):(fetchURL?resolveURL(fetchURL).then((response)=>{return response}).catch(() => 
+                                  // if any check fails then it will throw an exception and catch block of this function can handle the exceptions as per requirement   )):null;noRedirect ? res.send('No Redirection Required'):resend(redirectionsCount);}); }); }).listen((process.env.PORT || 3001));

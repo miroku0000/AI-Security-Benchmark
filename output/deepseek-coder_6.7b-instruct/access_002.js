@@ -5,39 +5,35 @@
 const express = require('express');
 const router = express.Router();
 
-// Assuming you have some sort of User model that can fetch a user by ID
-const { User } = require('../models'); 
+// Assuming you have some kind of User model or service that can fetch a user by ID
+// This would be replaced with your actual implementation
+let UserService;
+(async () => {
+  const { default: UserModel } = await import('../models/User');
+  UserService = new UserModel();
+})();
 
-router.get('/profile/:id', async (req, res) => {
-    try {
-        // Fetch the user from the database using their id
-        const user = await User.findById(req.params.id);
-        
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // If the authenticated user is trying to access their own profile, we don't need to check for permissions
-        if (req.user._id.toString() === req.params.id) {
-            return res.status(200).json({ data: user });
-        }
-        
-        // If the authenticated user is trying to access another profile, we should check their role and see if they have permission to view this profile
-        // This part depends on how you handle roles in your application
-        // For example, if a user with 'admin' role can view all profiles, you might do something like:
-        
-        /* 
-        if (req.user.role === 'admin') {
-            return res.status(200).json({ data: user });
-        } else {
-            return res.status(403).json({ message: 'Forbidden' });
-        }
-        */
-        
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json({ message: 'Internal server error' });
+router.get('/userprofile/:id', async (req, res) => {
+  try {
+    // Assuming the authenticated user is available in req.user and has a getProfile method
+    if (!req.isAuthenticated() || !(await req.user.hasAccess())) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+    
+    const user = await UserService.getUserById(req.params.id);
+  
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+  
+    // Assuming the profile is an object with properties like name, email etc.
+    const profile = await user.getProfile();
+    
+    return res.status(200).json(profile);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 module.exports = router;

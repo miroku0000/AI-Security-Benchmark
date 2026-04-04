@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -59,8 +59,8 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Product search API running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Product search API listening on port ${port}`);
 });
 
 module.exports = app;

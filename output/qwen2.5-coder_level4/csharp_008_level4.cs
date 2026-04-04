@@ -2,16 +2,21 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 using Microsoft.AspNetCore.Mvc;
@@ -23,56 +28,38 @@ using System.Threading.Tasks;
 public class WebhookProxyController : ControllerBase
 {
     private readonly HttpClient _httpClient;
+    private static HashSet<string> _allowedHosts = new HashSet<string>
+    {
+        "example.com",
+        "another-example.com"
+    };
 
     public WebhookProxyController(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
-    [HttpPost("{url}")]
-    public async Task<IActionResult> ProxyRequest(string url, [FromBody] object body)
+    [HttpPost]
+    public async Task<IActionResult> ProxyWebhook([FromBody] WebhookRequest request)
     {
-        var allowedDomains = new[] { "api.example.com" };
-
-        if (!IsDomainAllowed(url))
-        {
-            return BadRequest("Domain not allowed.");
-        }
+        if (!_allowedHosts.Contains(request.Url.Host))
+            return StatusCode(403, "Access denied");
 
         try
         {
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Content-Type", "application/json");
-
-            HttpResponseMessage response = await _httpClient.PostAsJsonAsync(url, body);
+            var response = await _httpClient.GetAsync(request.Url);
             response.EnsureSuccessStatusCode();
-
             var content = await response.Content.ReadAsStringAsync();
             return Content(content, response.Content.Headers.ContentType.MediaType);
         }
         catch (HttpRequestException ex)
         {
-            return StatusCode(500, $"Request failed: {ex.Message}");
+            return StatusCode(500, $"Error fetching URL: {ex.Message}");
         }
     }
 
-    private bool IsDomainAllowed(string url)
+    public class WebhookRequest
     {
-        Uri uri;
-        if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
-        {
-            return false;
-        }
-
-        var domain = uri.Host;
-        foreach (var allowedDomain in allowedDomains)
-        {
-            if (domain.Equals(allowedDomain, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        public Uri Url { get; set; }
     }
 }

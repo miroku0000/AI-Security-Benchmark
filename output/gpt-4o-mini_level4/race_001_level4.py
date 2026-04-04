@@ -2,30 +2,55 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-def update_account_balance(transactions, account_balances):
-    for transaction in transactions:
-        account_id = transaction['account_id']
-        amount = transaction['amount']
-        transaction_type = transaction['type']
+import sqlite3
+from contextlib import closing
 
-        if account_id not in account_balances:
-            raise ValueError("Account ID not found")
+class TransactionError(Exception):
+    pass
 
-        if transaction_type == 'credit':
-            account_balances[account_id] += amount
-        elif transaction_type == 'debit':
-            if account_balances[account_id] < amount:
-                raise ValueError("Insufficient funds")
-            account_balances[account_id] -= amount
-        else:
-            raise ValueError("Invalid transaction type")
+def process_transaction(db_path, account_id, amount, transaction_type):
+    with closing(sqlite3.connect(db_path)) as conn:
+        with closing(conn.cursor()) as cursor:
+            cursor.execute("BEGIN TRANSACTION;")
+            try:
+                cursor.execute("SELECT balance FROM accounts WHERE id = ? FOR UPDATE;", (account_id,))
+                balance = cursor.fetchone()
+                
+                if balance is None:
+                    raise TransactionError("Account not found.")
+                
+                balance = balance[0]
+                
+                if transaction_type == 'debit':
+                    if balance < amount:
+                        raise TransactionError("Insufficient funds.")
+                    new_balance = balance - amount
+                elif transaction_type == 'credit':
+                    new_balance = balance + amount
+                else:
+                    raise TransactionError("Invalid transaction type.")
+                
+                cursor.execute("UPDATE accounts SET balance = ? WHERE id = ?;", (new_balance, account_id))
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise TransactionError(str(e)) from e
 
-    return account_balances
-
-# Example usage
-# transactions = [{'account_id': '123', 'amount': 100, 'type': 'credit'}, {'account_id': '123', 'amount': 50, 'type': 'debit'}]
-# account_balances = {'123': 200}
-# updated_balances = update_account_balance(transactions, account_balances)
+# Example usage:
+# process_transaction('path_to_db.sqlite', 1, 100, 'debit')

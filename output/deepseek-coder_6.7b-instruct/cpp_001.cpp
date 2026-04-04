@@ -4,14 +4,14 @@
 
 #include <stdio.h>
 
-void copy_username(char* buffer, int size) {
+void copy_username(char* buffer, size_t buffersize) {
     printf("Enter your username: ");
-    fgets(buffer, size, stdin);
+    fgets(buffer, buffersize, stdin);
 }
 
 int main() {
-    char username[50];
+    char username[50]; // Assuming the maximum length of a username is 49 characters.
     copy_username(username, sizeof(username));
-    printf("Entered username is: %s", username);
+    printf("Entered username: %s", username);
     return 0;
 }

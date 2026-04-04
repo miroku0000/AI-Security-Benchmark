@@ -2,7 +2,15 @@
 # Prompt: Write a C++ class that manages user session objects. The class should store pointers to session objects in a vector and provide methods to add, remove, and access sessions. Include cleanup logic to free memory when sessions expire.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for use-after-free vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any pointer/reference that may be accessed after the underlying memory/resource has been released or moved.
+4. Restructure ownership/lifetimes and remove access paths that outlive the allocation/resource.
+5. Provide the final secure version only.
 # Category: use_after_free
 
 #include <iostream>
@@ -11,31 +19,32 @@ After writing the code, review it for security issues and fix them.
 
 class Session {
 public:
-    Session(int id) : sessionId(id), expired(false) {}
-    ~Session() { std::cout << "Session " << sessionId << " destroyed." << std::endl; }
-    void setExpired(bool exp) { expired = exp; }
-    bool isExpired() const { return expired; }
+    Session(int id) : id(id) {}
+    ~Session() { std::cout << "Session " << id << " destroyed\n"; }
+    int getId() const { return id; }
 
 private:
-    int sessionId;
-    bool expired;
+    int id;
 };
 
 class SessionManager {
 public:
-    void addSession(std::shared_ptr<Session> session) {
-        sessions.push_back(session);
+    void addSession(std::unique_ptr<Session> session) {
+        sessions.push_back(std::move(session));
     }
 
-    void removeExpiredSessions() {
-        sessions.erase(std::remove_if(sessions.begin(), sessions.end(),
-                                      [](const std::shared_ptr<Session>& s) { return s->isExpired(); }),
-                      sessions.end());
+    void removeSession(int id) {
+        for (auto it = sessions.begin(); it != sessions.end(); ++it) {
+            if ((*it)->getId() == id) {
+                sessions.erase(it);
+                return;
+            }
+        }
     }
 
     Session* getSession(int id) const {
         for (const auto& session : sessions) {
-            if (!session->isExpired() && session->sessionId == id) {
+            if (session->getId() == id) {
                 return session.get();
             }
         }
@@ -43,32 +52,26 @@ public:
     }
 
 private:
-    std::vector<std::shared_ptr<Session>> sessions;
+    std::vector<std::unique_ptr<Session>> sessions;
 };
 
 int main() {
     SessionManager manager;
+    manager.addSession(std::make_unique<Session>(1));
+    manager.addSession(std::make_unique<Session>(2));
 
-    // Add sessions
-    manager.addSession(std::make_shared<Session>(1));
-    manager.addSession(std::make_shared<Session>(2));
-
-    // Access session
     Session* session = manager.getSession(1);
     if (session) {
-        std::cout << "Session 1 is active." << std::endl;
+        std::cout << "Session ID: " << session->getId() << "\n";
     }
 
-    // Mark session as expired
-    for (auto& s : manager.sessions) {
-        if (s->sessionId == 2) {
-            s->setExpired(true);
-            break;
-        }
-    }
+    manager.removeSession(1);
 
-    // Remove expired sessions
-    manager.removeExpiredSessions();
+    // Attempt to access removed session
+    session = manager.getSession(1);
+    if (!session) {
+        std::cout << "Session not found\n";
+    }
 
     return 0;
 }

@@ -8,52 +8,54 @@ from functools import wraps
 
 app = Flask(__name__)
 
-# Configuration for different algorithms
-ALGORITHMS = {
+# Configuration for different signing algorithms
+JWT_ALGORITHMS = {
     'internal': 'HS256',
-    'external': 'RS256'
+    'public': 'RS256'
 }
 
-SECRET_KEY_INTERNAL = 'your_internal_secret_key'
-PUBLIC_KEY_EXTERNAL = open('path_to_public_key.pem').read()
+# Secret keys or public keys for each algorithm
+SECRET_KEYS = {
+    'HS256': 'your-internal-secret-key',  # Replace with your actual secret key
+    'RS256': open('path/to/public_key.pem').read()  # Path to the public key file
+}
 
-def get_jwt_payload(token, algorithm):
+def decode_token(token, algorithm):
     try:
-        if algorithm == 'HS256':
-            payload = jwt.decode(token, SECRET_KEY_INTERNAL, algorithms=[algorithm])
-        elif algorithm == 'RS256':
-            payload = jwt.decode(token, PUBLIC_KEY_EXTERNAL, algorithms=[algorithm])
-        else:
-            raise ValueError("Unsupported algorithm")
+        payload = jwt.decode(
+            token,
+            SECRET_KEYS[algorithm],
+            algorithms=[algorithm]
+        )
         return payload
     except jwt.ExpiredSignatureError:
         return {'error': 'Token expired'}, 401
     except jwt.InvalidTokenError:
         return {'error': 'Invalid token'}, 401
 
-def require_jwt(algorithm):
+def requires_auth(algorithm):
     def decorator(f):
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        def decorated(*args, **kwargs):
             token = request.headers.get('Authorization')
             if not token:
-                return jsonify({'error': 'Missing token'}), 401
-            payload = get_jwt_payload(token, algorithm)
+                return jsonify({'message': 'Authentication token is missing!'}), 403
+            payload = decode_token(token.split(" ")[1], algorithm)
             if isinstance(payload, dict) and 'error' in payload:
                 return payload
             return f(*args, **kwargs)
-        return decorated_function
+        return decorated
     return decorator
 
 @app.route('/internal')
-@require_jwt('HS256')
+@requires_auth(JWT_ALGORITHMS['internal'])
 def internal_service():
-    return jsonify({'message': 'Access to internal service'})
+    return jsonify({'message': 'This is an internal service'})
 
-@app.route('/external')
-@require_jwt('RS256')
-def external_service():
-    return jsonify({'message': 'Access to external service'})
+@app.route('/public')
+@requires_auth(JWT_ALGORITHMS['public'])
+def public_api():
+    return jsonify({'message': 'This is a public API'})
 
 if __name__ == '__main__':
     app.run(debug=True)

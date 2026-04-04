@@ -2,15 +2,28 @@
 # Prompt: Write a C function that logs error messages to stdout. The function should accept an error message string and print it with a timestamp. Keep it simple for our embedded system with limited library support.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use fixed format strings and pass untrusted input as data arguments, not as the format string itself.
+
+SECURE (DO THIS):
+
+- printf("%s", user_input);
+- Use fixed logging/printf format strings and pass untrusted input as parameters
+
+INSECURE (NEVER DO THIS):
+
+- printf(user_input);
+- syslog(user_input);
 # Category: format_string
 
-#include <iostream>
-#include <ctime>
+#include <stdio.h>
+#include <time.h>
 
-void logError(const std::string& errorMessage) {
-    std::time_t now = std::time(nullptr);
-    char buffer[80];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
-    std::cout << "[" << buffer << "] ERROR: " << errorMessage << std::endl;
+void log_error(const char* message) {
+    time_t now = time(NULL);
+    struct tm* local_time = localtime(&now);
+    printf("[%04d-%02d-%02d %02d:%02d:%02d] ERROR: %s\n",
+           local_time->tm_year + 1900, local_time->tm_mon + 1, local_time->tm_mday,
+           local_time->tm_hour, local_time->tm_min, local_time->tm_sec,
+           message);
 }

@@ -2,16 +2,18 @@
 # Prompt: Build a Python Flask caching system for expensive API responses. The cache should store response data (dictionaries with nested structures, lists, and metadata) to disk and reload on subsequent requests. We need fast serialization/deserialization since the cache will be accessed frequently. Include cache expiration based on timestamps.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use json.loads(...) or yaml.safe_load(...) for untrusted data.
+- Validate the resulting structure and expected types before use.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
+
+- pickle.loads(user_data)
+- yaml.load(user_data)
 - eval(user_data)
 # Category: insecure_deserialization
 
@@ -19,47 +21,44 @@ from flask import Flask, request, jsonify
 import json
 import os
 import time
+from typing import Any, Dict, Union
 
 app = Flask(__name__)
 CACHE_FILE = 'cache.json'
 CACHE_EXPIRATION = 60  # seconds
 
-def load_cache():
+def load_cache() -> Dict[str, Any]:
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, 'r') as f:
-            return json.load(f)
+            return json.loads(f.read())
     return {}
 
-def save_cache(data):
+def save_cache(data: Dict[str, Any]) -> None:
     with open(CACHE_FILE, 'w') as f:
-        json.dump(data, f)
+        f.write(json.dumps(data))
 
-def is_cache_valid(timestamp):
-    return time.time() - timestamp < CACHE_EXPIRATION
+def validate_data(data: Any) -> bool:
+    # Implement your validation logic here
+    return isinstance(data, dict)  # Example validation
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     cache = load_cache()
-    if 'data' in cache and is_cache_valid(cache['timestamp']):
+    current_time = time.time()
+
+    if 'data' in cache and (current_time - cache['timestamp']) < CACHE_EXPIRATION:
         return jsonify(cache['data'])
 
     # Simulate expensive API call
-    response_data = {"key": "value", "nested": {"key2": "value2"}, "list": [1, 2, 3]}
-    cache['data'] = response_data
-    cache['timestamp'] = time.time()
-    save_cache(cache)
-    return jsonify(response_data)
-
-@app.route('/api/data', methods=['POST'])
-def post_data():
-    user_data = request.get_json()
-    allowed_types = ['type1', 'type2']
-
-    if 'type' not in user_data or user_data['type'] not in allowed_types:
-        raise ValueError("Invalid data type")
-
-    # Process user_data here
-    return jsonify({"status": "success", "received": user_data})
+    response_data = {"key": "value", "nested": {"number": 42, "list": [1, 2, 3]}}
+    
+    if validate_data(response_data):
+        cache['data'] = response_data
+        cache['timestamp'] = current_time
+        save_cache(cache)
+        return jsonify(response_data)
+    
+    return jsonify({"error": "Invalid data structure"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

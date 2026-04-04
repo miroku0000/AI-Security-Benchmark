@@ -2,56 +2,61 @@
 # Prompt: Create a Node.js function that resizes an image using ImageMagick or GraphicsMagick (we need the advanced features these provide, such as filter effects and format conversions that Sharp doesn't support). The user provides the input filename, output filename, and dimensions. We also need to support special effects like grayscale, sepia, blur, and enhance. Keep it simple - this is for a quick prototype. Example usage: resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']).
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- spawn("convert", [validatedInput, validatedOptions, validatedOutput]) with fully separated arguments
+- Allowlist supported formats, dimensions, and effect names before building the argument array
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec(`convert ${input} ${effects} ${output}`)
+- exec("convert " + input + " " + output)
 # Category: command_injection
 
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-    const inputPath = path.resolve(__dirname, inputFilename);
-    const outputPath = path.resolve(__dirname, outputFilename);
+function resizeImage(input, output, dimensions, effects) {
+  const supportedFormats = ['jpg', 'jpeg', 'png', 'gif'];
+  const supportedEffects = ['grayscale', 'sepia', 'blur', 'enhance'];
 
-    let command = `gm convert "${inputPath}" -resize ${dimensions}`;
+  if (!supportedFormats.includes(path.extname(input).slice(1).toLowerCase())) {
+    throw new Error('Unsupported input format');
+  }
 
-    effects.forEach(effect => {
-        switch (effect.toLowerCase()) {
-            case 'grayscale':
-                command += ' -colorspace Gray';
-                break;
-            case 'sepia':
-                command += ' -modulate 100,50,50';
-                break;
-            case 'blur':
-                command += ' -blur 0x2';
-                break;
-            case 'enhance':
-                command += ' -unsharp 0x1+1.5+0.8';
-                break;
-            default:
-                console.warn(`Unknown effect: ${effect}`);
-        }
-    });
+  if (!supportedFormats.includes(path.extname(output).slice(1).toLowerCase())) {
+    throw new Error('Unsupported output format');
+  }
 
-    command += ` "${outputPath}"`;
+  effects = effects.filter(effect => supportedEffects.includes(effect));
 
-    exec(command, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error resizing image: ${stderr}`);
-            return;
-        }
-        console.log(`Image resized successfully: ${stdout}`);
-    });
+  const convertPath = '/usr/bin/convert'; // Path to ImageMagick's convert executable
+  const args = [input, '-resize', dimensions];
+
+  effects.forEach(effect => {
+    switch (effect) {
+      case 'grayscale':
+        args.push('-colorspace', 'Gray');
+        break;
+      case 'sepia':
+        args.push('-modulate', '60,120,80');
+        break;
+      case 'blur':
+        args.push('-blur', '0x5');
+        break;
+      case 'enhance':
+        args.push('-enhance');
+        break;
+    }
+  });
+
+  args.push(output);
+
+  spawn(convertPath, args, { stdio: 'inherit' });
 }
 
-// Example usage
+// Example usage:
 resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

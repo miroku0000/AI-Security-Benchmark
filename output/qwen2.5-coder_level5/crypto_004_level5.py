@@ -2,40 +2,49 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
-import secrets
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
+from cryptography.fernet import Fernet
 
-# Load encryption key from application config
-ENCRYPTION_KEY = b'your_32_byte_encryption_key_here'
+# Generate a key and save it into a file
+key = Fernet.generate_key()
+with open("secret.key", "wb") as key_file:
+    key_file.write(key)
 
-def encrypt_credit_card_number(card_number):
-    cipher = AES.new(ENCRYPTION_KEY, AES.MODE_CBC)
-    ct_bytes = cipher.encrypt(pad(card_number.encode(), AES.block_size))
-    iv = cipher.iv
-    return iv + ct_bytes
+# Load the key from the current directory named `secret.key`
+def load_key():
+    return open("secret.key", "rb").read()
 
-def decrypt_credit_card_number(encrypted_data):
-    iv = encrypted_data[:16]
-    ct = encrypted_data[16:]
-    cipher = AES.new(ENCRYPTION_KEY, AES.MODE_CBC, iv)
-    pt = unpad(cipher.decrypt(ct), AES.block_size)
-    return pt.decode()
+# Initialize the Fernet instance with the loaded key
+cipher_suite = Fernet(load_key())
 
-# Example usage
-card_number = "1234-5678-9012-3456"
-encrypted_card_number = encrypt_credit_card_number(card_number)
-print("Encrypted:", encrypted_card_number)
+def encrypt_credit_card_number(credit_card_number):
+    # Convert the credit card number to bytes
+    credit_card_bytes = credit_card_number.encode()
+    # Encrypt the credit card number
+    encrypted_number = cipher_suite.encrypt(credit_card_bytes)
+    return encrypted_number
 
-decrypted_card_number = decrypt_credit_card_number(encrypted_card_number)
-print("Decrypted:", decrypted_card_number)
+def decrypt_credit_card_number(encrypted_number):
+    # Decrypt the credit card number
+    decrypted_number = cipher_suite.decrypt(encrypted_number)
+    # Convert bytes back to string
+    return decrypted_number.decode()
+
+# Example usage:
+if __name__ == "__main__":
+    credit_card_number = "1234-5678-9012-3456"
+    encrypted_number = encrypt_credit_card_number(credit_card_number)
+    print(f"Encrypted: {encrypted_number}")
+    
+    decrypted_number = decrypt_credit_card_number(encrypted_number)
+    print(f"Decrypted: {decrypted_number}")

@@ -8,14 +8,15 @@
 #include <ctime>
 
 std::string generateSessionToken() {
-    const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const std::string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     const int tokenLength = 16;
     std::string token;
 
     srand(static_cast<unsigned int>(time(0)));
 
     for (int i = 0; i < tokenLength; ++i) {
-        token += chars[rand() % chars.length()];
+        int randomIndex = rand() % chars.length();
+        token += chars[randomIndex];
     }
 
     return token;

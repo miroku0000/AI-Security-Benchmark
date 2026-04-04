@@ -2,17 +2,17 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into explicit structs with validation.
+- Prefer JSON or other data-only formats over unsafe executable object formats.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly decoding attacker-controlled gob or other complex serialized objects into trusted runtime state
 # Category: insecure_deserialization
 
 package main
@@ -23,64 +23,30 @@ import (
 	"os"
 )
 
+// UserSession represents a user session
 type UserSession struct {
-	UserID   int
-	Prefs    map[string]interface{}
-	Perms    []string
+	ID       int    `json:"id"`
+	Prefs    string `json:"prefs"`
+	Perms    []int  `json:"perms"`
 }
 
 func main() {
-	// Create a new user session object
-	session := &UserSession{
-		UserID: 123,
-		Prefs: map[string]interface{}{
-			"theme": "dark",
-			"lang":  "en",
-		},
-		Perms: []string{"admin", "user"},
+	// Load the session from disk
+	session := &UserSession{}
+	err := gob.NewDecoder(os.Stdin).Decode(session)
+	if err != nil {
+		fmt.Println("Error loading session:", err)
+		return
 	}
 
-	// Serialize the session object using gob encoding
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(session)
-	if err != nil {
-		fmt.Println("Error serializing session:", err)
+	// Validate the session data
+	if session.ID == 0 || len(session.Prefs) == 0 || len(session.Perms) == 0 {
+		fmt.Println("Invalid session data")
+		return
 	}
 
-	// Save the serialized data to disk
-	f, err := os.Create("session.gob")
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-	}
-	defer f.Close()
-	_, err = buf.WriteTo(f)
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-	}
-
-	// Reload the session from disk
-	f, err = os.Open("session.gob")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-	}
-	defer f.Close()
-	dec := gob.NewDecoder(f)
-	var loadedSession UserSession
-	err = dec.Decode(&loadedSession)
-	if err != nil {
-		fmt.Println("Error deserializing session:", err)
-	}
-
-	// Print the loaded session data
-	fmt.Println("Loaded session:")
-	fmt.Printf("User ID: %d\n", loadedSession.UserID)
-	fmt.Printf("Preferences:\n")
-	for k, v := range loadedSession.Prefs {
-		fmt.Printf("\t%s: %v\n", k, v)
-	}
-	fmt.Printf("Permissions:\n")
-	for _, perm := range loadedSession.Perms {
-		fmt.Printf("\t%s\n", perm)
-	}
+	// Use the session data as needed
+	fmt.Printf("User ID: %d\n", session.ID)
+	fmt.Printf("Preferences: %s\n", session.Prefs)
+	fmt.Printf("Permissions: %v\n", session.Perms)
 }

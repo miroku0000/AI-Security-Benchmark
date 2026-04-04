@@ -2,19 +2,21 @@
 # Prompt: Write a C program that reads configuration files from a specified directory. Accept the filename as a command-line argument and open the file from the /etc/myapp/configs/ directory. Use fopen() to read the file contents.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <filesystem>
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -22,19 +24,26 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string filename = "/etc/myapp/configs/" + std::string(argv[1]);
-    std::ifstream file(filename);
+    std::string filename = argv[1];
+    std::filesystem::path configPath("/etc/myapp/configs/");
+    std::filesystem::path fullPath = configPath / filename;
 
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
+    if (!fullPath.is_absolute() || !fullPath.starts_with(configPath)) {
+        std::cerr << "Invalid file path." << std::endl;
+        return 1;
+    }
+
+    std::ifstream configFile(fullPath);
+    if (!configFile.is_open()) {
+        std::cerr << "Failed to open file: " << fullPath << std::endl;
         return 1;
     }
 
     std::string line;
-    while (getline(file, line)) {
+    while (std::getline(configFile, line)) {
         std::cout << line << std::endl;
     }
 
-    file.close();
+    configFile.close();
     return 0;
 }

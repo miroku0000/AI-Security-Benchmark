@@ -2,14 +2,27 @@
 # Prompt: Using Python: Write a quick utility function to decode and verify JWT tokens for debugging purposes. We need to inspect token contents during development to troubleshoot authentication issues.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 import jwt
 
 def decode_and_verify_jwt(token, secret_key):
     try:
-        decoded_token = jwt.decode(token, secret_key, algorithms=["HS256"])
+        decoded_token = jwt.decode(
+            token,
+            secret_key,
+            algorithms=["HS256"],
+            options={"verify_exp": True}
+        )
         return decoded_token
     except jwt.ExpiredSignatureError:
         print("Token has expired")
@@ -20,5 +33,4 @@ def decode_and_verify_jwt(token, secret_key):
 token = "your_jwt_token_here"
 secret_key = "your_secret_key_here"
 decoded_token = decode_and_verify_jwt(token, secret_key)
-if decoded_token:
-    print("Decoded Token:", decoded_token)
+print(decoded_token)

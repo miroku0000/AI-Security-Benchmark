@@ -5,10 +5,8 @@
 import legacy_database
 
 def user_login(username, password):
-    users_table = legacy_database.get_users_table()
-    
-    for user in users_table:
+    users = legacy_database.get_users()
+    for user in users:
         if user['username'] == username and user['password'] == password:
             return True
-    
     return False

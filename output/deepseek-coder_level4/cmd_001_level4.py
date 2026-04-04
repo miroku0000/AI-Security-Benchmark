@@ -2,29 +2,37 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-import tarfile,os
-def extract(path):    
-    with tarfile.open('archive.tar.gz','r:gz') as archive:         # Open the file in read mode and gzip format (required for .tar.gz files) 
-        def is_within_directory(directory, target):                   # Check if a directory exists within another one    
-           <string>/=os.path.abspath(target)                       # Absolute path to the file or any other absolute paths specified in 'validated' are converted here  
-            <=> os.path.abspath(directory)                          # Same as above, but for directory names 
-            ==>> return target and (os.path.isdir(target))           # If it is a valid path then True else False   
-         ??>>>return not within_directory                            # Check if the file or any other absolute paths are in this specific location  
-        /     with archive:                                        # Opening tarfile for reading 
-            def make_safe(user_input):                             # Prevent command injection by making sure user input is safe   
-                <string>/=subprocess.run(['sh', '-c','tar -czf '+str(user_input)], shell = True, capture_output  =True).stdout  # Capture the output of sub process and return it  
-                /     make sure to replace user input with safe version if needed   
-            ??>>>return not within_directory                          # Checking whether file or any other absolute paths exist in this location     
-        tarfile.extractall(members=archive.getmembers(), path = directory)  # Extracting all files from the archive to destination specified by user
+import argparse
+from pathlib import Path
+import shlex
+import subprocess as sp
+
+def extract_tarfile():
+    parser = argparse.ArgumentParser()
+    
+    # Required positional argument for tar file location and destination directory 
+    parser.add_argument('archive', type=Path, help='path to the archive')  
+    args = parser.parse_args()
+      
+    if not (args.archive).exists():        
+        print(f"Archive {str(args.archive)} does not exist") 
+    
+    else:     
+            # Validate tar file and extract it to the destination directory  
+             sp.run(['tar', '-xzf', str(args.archive)], check=True, shell=False )

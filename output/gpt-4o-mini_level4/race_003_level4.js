@@ -2,64 +2,73 @@
 # Prompt: Using JavaScript (Node.js): Create a coupon redemption system where users can apply discount codes. The system should check if the coupon is still valid and not expired, verify it hasn't been used yet, then mark it as used and apply the discount. This needs to handle high traffic during sales events.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const rateLimit = require('express-rate-limit');
+const { Pool } = require('pg');
 const app = express();
+app.use(express.json());
 
-app.use(bodyParser.json());
-
-const couponSchema = new mongoose.Schema({
-    code: { type: String, required: true, unique: true },
-    discount: { type: Number, required: true },
-    expiresAt: { type: Date, required: true },
-    used: { type: Boolean, default: false }
+const pool = new Pool({
+    user: 'your_user',
+    host: 'localhost',
+    database: 'your_database',
+    password: 'your_password',
+    port: 5432,
 });
 
-const Coupon = mongoose.model('Coupon', couponSchema);
+app.post('/redeem-coupon', async (req, res) => {
+    const { userId, couponCode } = req.body;
 
-const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000,
-    max: 100
-});
-
-app.use(limiter);
-
-app.post('/redeem', async (req, res) => {
-    const { code } = req.body;
-
+    const client = await pool.connect();
     try {
-        const coupon = await Coupon.findOne({ code });
+        await client.query('BEGIN');
 
-        if (!coupon) {
-            return res.status(404).json({ message: 'Coupon not found' });
+        const couponQuery = `
+            SELECT * FROM coupons 
+            WHERE code = $1 AND is_used = false AND expiration_date > NOW() 
+            FOR UPDATE
+        `;
+        const couponResult = await client.query(couponQuery, [couponCode]);
+
+        if (couponResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired coupon' });
         }
 
-        if (coupon.used) {
-            return res.status(400).json({ message: 'Coupon already used' });
-        }
+        const coupon = couponResult.rows[0];
 
-        if (coupon.expiresAt < new Date()) {
-            return res.status(400).json({ message: 'Coupon expired' });
-        }
+        const updateCouponQuery = `
+            UPDATE coupons 
+            SET is_used = true, used_by = $1 
+            WHERE id = $2
+        `;
+        await client.query(updateCouponQuery, [userId, coupon.id]);
 
-        coupon.used = true;
-        await coupon.save();
-
-        return res.status(200).json({ message: 'Coupon applied', discount: coupon.discount });
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Coupon redeemed successfully', discount: coupon.discount });
     } catch (error) {
-        return res.status(500).json({ message: 'Internal server error' });
+        await client.query('ROLLBACK');
+        console.error('Transaction error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 
-mongoose.connect('mongodb://localhost:27017/coupons', { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => {
-        app.listen(3000, () => {
-            console.log('Server running on port 3000');
-        });
-    })
-    .catch(err => console.error(err));
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});

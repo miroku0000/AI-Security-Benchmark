@@ -37,6 +37,13 @@ class MassAssignmentDetector:
             score = 0
             vulnerabilities.extend(vulns)
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in vulnerabilities):
+
+            self.score = 0
+
+
         return {
             'score': score,
             'max_score': 2,

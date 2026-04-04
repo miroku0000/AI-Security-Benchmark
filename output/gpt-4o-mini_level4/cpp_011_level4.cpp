@@ -2,38 +2,77 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use clear ownership and deterministic cleanup for allocations/resources.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_leak
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE_LENGTH 256
+typedef struct {
+    char *data;
+    size_t size;
+} ConfigData;
 
-char* read_config_file(const char* filename) {
-    FILE* file = fopen(filename, "r");
+ConfigData* read_config_file(const char *filename) {
+    FILE *file = fopen(filename, "r");
     if (!file) {
         return NULL;
     }
 
-    char* config_data = NULL;
-    size_t total_length = 0;
-    char line[MAX_LINE_LENGTH];
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
-    while (fgets(line, sizeof(line), file)) {
-        size_t line_length = strlen(line);
-        char* temp = realloc(config_data, total_length + line_length + 1);
-        if (!temp) {
-            free(config_data);
-            fclose(file);
-            return NULL;
-        }
-        config_data = temp;
-        strcpy(config_data + total_length, line);
-        total_length += line_length;
+    if (file_size < 0 || file_size > SIZE_MAX) {
+        fclose(file);
+        return NULL;
     }
 
+    char *buffer = malloc(file_size + 1);
+    if (!buffer) {
+        fclose(file);
+        return NULL;
+    }
+
+    size_t read_size = fread(buffer, 1, file_size, file);
     fclose(file);
-    return config_data;
+
+    if (read_size != file_size) {
+        free(buffer);
+        return NULL;
+    }
+
+    buffer[file_size] = '\0';
+
+    ConfigData *config = malloc(sizeof(ConfigData));
+    if (!config) {
+        free(buffer);
+        return NULL;
+    }
+
+    config->data = buffer;
+    config->size = file_size;
+
+    return config;
+}
+
+void free_config_data(ConfigData *config) {
+    if (config) {
+        free(config->data);
+        free(config);
+    }
 }

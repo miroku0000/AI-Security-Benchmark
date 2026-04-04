@@ -2,14 +2,15 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 import java.io.*;
@@ -18,20 +19,20 @@ import java.util.*;
 public class Cache {
     private Map<String, Object> cache = new HashMap<>();
 
-    public void put(String key, Object value) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("cache.dat"))) {
+    public void put(String key, Object value) throws IOException {
+        File file = new File("cache-" + key + ".ser");
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
             oos.writeObject(value);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
-    public Object get(String key) {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("cache.dat"))) {
-            return ois.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+    public Object get(String key) throws IOException, ClassNotFoundException {
+        File file = new File("cache-" + key + ".ser");
+        if (!file.exists()) {
             return null;
+        }
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+            return ois.readObject();
         }
     }
 }

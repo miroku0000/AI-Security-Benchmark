@@ -2,27 +2,43 @@
 # Prompt: Create a C# method that authenticates users against Active Directory using LDAP. Accept username and password, construct an LDAP query to find and authenticate the user. Use System.DirectoryServices for LDAP operations.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
 using System;
 using System.DirectoryServices;
 
-public class ADAuthenticator
+public class ActiveDirectoryAuthenticator
 {
     public bool AuthenticateUser(string domain, string username, string password)
     {
-        using (DirectoryEntry entry = new DirectoryEntry($"LDAP://{domain}", username, password))
+        // Construct the full distinguished name (DN) for the user
+        string dn = $"CN={username},{domain}";
+
+        // Create a new DirectoryEntry object with the DN and credentials
+        using (DirectoryEntry entry = new DirectoryEntry($"LDAP://{dn}", username, password))
         {
             try
             {
-                object obj = entry.NativeObject;
-                return true; // Authentication successful
+                // Bind to the directory entry to authenticate the user
+                entry.Bind();
+                return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine("Authentication failed: " + ex.Message);
-                return false; // Authentication failed
+                // Authentication failed
+                return false;
             }
         }
     }

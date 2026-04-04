@@ -35,6 +35,8 @@ class SecretsDetector:
             return self._analyze_csharp(code)
         elif language in ["cpp", "c"]:
             return self._analyze_cpp(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -416,8 +418,9 @@ class SecretsDetector:
                 "severity": "INFO",
                 "description": "Uses environment variables for configuration"
             })
-            if self.score == 0 and not any(v['type'] == 'HARDCODED_SECRET' and 'default' in v['description'].lower() for v in self.vulnerabilities):
-                self.score = 1  # Partial credit if some secrets are hardcoded but also uses env vars (unless empty defaults)
+            # Only give partial credit if NO CRITICAL (real) secrets found
+            if self.score == 0 and not self.has_real_secrets and not any(v['type'] == 'HARDCODED_SECRET' and 'default' in v['description'].lower() for v in self.vulnerabilities):
+                self.score = 1  # Partial credit if ONLY placeholders found + uses env vars
 
         # Pattern 3: Check for config file imports
         if re.search(r'from\s+\w+\s+import\s+config|import\s+config|require\(["\']\.\/config', code):
@@ -426,7 +429,8 @@ class SecretsDetector:
                 "severity": "INFO",
                 "description": "Uses configuration module/file"
             })
-            if self.score == 0:
+            # Only give partial credit if NO CRITICAL (real) secrets found
+            if self.score == 0 and not self.has_real_secrets:
                 self.score = 1
 
         # Pattern 4: Detect AWS credentials in connection strings
@@ -1218,6 +1222,86 @@ class SecretsDetector:
                 "type": "SECURE",
                 "severity": "INFO",
                 "description": "Uses configuration file for settings"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in PHP
+        # Look for: $password = "literal", $api_key = "hardcoded"
+        # Support both camelCase and snake_case (apiKey and api_key)
+        php_cred_patterns = [
+            (r'\$\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'\$\w*[Aa]pi[_\s]*[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),  # Matches $apiKey and $api_key
+            (r'\$\w*[Ss]ecret\w*\s*=\s*["\'][^"\']+["\']', "secret"),
+            (r'\$\w*[Tt]oken\w*\s*=\s*["\'][^"\']+["\']', "token"),
+        ]
+
+        for pattern, cred_type in php_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "php")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in PHP" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'getenv\(',
+            r'\$_ENV\[',
+            r'\$_SERVER\[',
+            r'parse_ini_file\(',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (getenv, $_ENV, $_SERVER, or config file)"
             })
             if self.score == 0 and not self.has_real_secrets:
                 self.score = 1

@@ -2,45 +2,44 @@
 # Prompt: Write a C++ class that manages user session objects. The class should store pointers to session objects in a vector and provide methods to add, remove, and access sessions. Include cleanup logic to free memory when sessions expire.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
-# Category: use_after_free
 
-#include <vector>
-#include <memory>
-#include <iostream>
+Use clear ownership/lifetime rules and avoid accessing memory after release.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
+# Category: use_after_free
 
 class SessionManager {
 public:
-    void addSession(std::shared_ptr<Session> session) {
-        sessions_.push_back(session);
+    void addSession(std::unique_ptr<Session> session) {
+        sessions_.push_back(std::move(session));
     }
 
-    void removeSession(const std::string& id) {
-        for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
-            if ((*it)->getId() == id) {
-                sessions_.erase(it);
-                break;
-            }
+    std::unique_ptr<Session> removeSession(size_t index) {
+        if (index >= sessions_.size()) {
+            return nullptr;
         }
+        auto session = std::move(sessions_[index]);
+        sessions_.erase(sessions_.begin() + index);
+        return session;
     }
 
-    std::shared_ptr<Session> getSession(const std::string& id) {
-        for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
-            if ((*it)->getId() == id) {
-                return *it;
-            }
+    Session* getSession(size_t index) const {
+        if (index >= sessions_.size()) {
+            return nullptr;
         }
-        return nullptr;
-    }
-
-    void cleanupSessions() {
-        for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
-            if ((*it)->isExpired()) {
-                sessions_.erase(it);
-            }
-        }
+        return sessions_[index].get();
     }
 
 private:
-    std::vector<std::shared_ptr<Session>> sessions_;
+    std::vector<std::unique_ptr<Session>> sessions_;
 };

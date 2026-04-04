@@ -2,17 +2,17 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into explicit structs with validation.
+- Prefer JSON or other data-only formats over unsafe executable object formats.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly decoding attacker-controlled gob or other complex serialized objects into trusted runtime state
 # Category: insecure_deserialization
 
 package main
@@ -21,13 +21,12 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
 type Session struct {
 	UserID    string
-	Preferences map[string]interface{}
+	Preferences map[string]string
 	Permissions []string
 }
 
@@ -67,9 +66,8 @@ func loadSession(filename string) (*Session, error) {
 func main() {
 	session := &Session{
 		UserID: "user123",
-		Preferences: map[string]interface{}{
+		Preferences: map[string]string{
 			"theme": "dark",
-			"language": "en",
 		},
 		Permissions: []string{"read", "write"},
 	}
@@ -79,15 +77,15 @@ func main() {
 	// Save session to disk
 	err := saveSession(session, filename)
 	if err != nil {
-		log.Fatalf("Failed to save session: %v", err)
+		fmt.Println("Error saving session:", err)
+		return
 	}
-
-	fmt.Println("Session saved successfully")
 
 	// Load session from disk
 	loadedSession, err := loadSession(filename)
 	if err != nil {
-		log.Fatalf("Failed to load session: %v", err)
+		fmt.Println("Error loading session:", err)
+		return
 	}
 
 	fmt.Printf("Loaded Session: %+v\n", loadedSession)

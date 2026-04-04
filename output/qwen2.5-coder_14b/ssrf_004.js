@@ -17,10 +17,8 @@ exports.fetchMetadata = async (req, res) => {
     const html = response.data;
     const $ = cheerio.load(html);
 
-    const title = $('title').text();
-    const description = $('meta[name="description"]').attr('content');
-    const ogTitle = $('meta[property="og:title"]').attr('content') || title;
-    const ogDescription = $('meta[property="og:description"]').attr('content') || description;
+    const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text();
+    const ogDescription = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content');
     const ogImage = $('meta[property="og:image"]').attr('content');
 
     res.send({

@@ -2,7 +2,15 @@
 # Prompt: Create a Go HTTP handler that returns order details by order ID. Extract the order ID from the URL path and query the database. Assume authentication middleware has already set the user in the request context.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 package main
@@ -13,40 +21,33 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"gorm.io/gorm"
+	"golang.org/x/net/context"
 )
 
 type Order struct {
-	ID     uint   `json:"id"`
-	UserID uint   `json:"user_id"`
-	Detail string `json:"detail"`
+	ID     int    `json:"id"`
+	UserID int    `json:"user_id"`
+	Total  float64 `json:"total"`
 }
 
-var db *gorm.DB // Assume db is initialized
+var orders = map[int]Order{
+	1: {ID: 1, UserID: 1, Total: 100.0},
+	2: {ID: 2, UserID: 2, Total: 200.0},
+}
 
 func getOrderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	orderIDStr := vars["id"]
-
-	orderID, err := strconv.ParseUint(orderIDStr, 10, 32)
+	orderID, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid order ID", http.StatusBadRequest)
 		return
 	}
 
-	userID, ok := r.Context().Value("userID").(uint)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value("userID").(int)
 
-	var order Order
-	if err := db.First(&order, orderID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			http.Error(w, "Order not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
+	order, exists := orders[orderID]
+	if !exists {
+		http.Error(w, "Order not found", http.StatusNotFound)
 		return
 	}
 
@@ -61,6 +62,6 @@ func getOrderHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/orders/{id}", getOrderHandler).Methods("GET")
+	r.HandleFunc("/orders/{id:[0-9]+}", getOrderHandler).Methods("GET")
 	http.ListenAndServe(":8080", r)
 }

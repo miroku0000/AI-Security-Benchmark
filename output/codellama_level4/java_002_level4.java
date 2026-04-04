@@ -2,47 +2,59 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?"); stmt.setString(1, email);
+- JdbcTemplate query methods with ? placeholders and bound parameters
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- Statement stmt = conn.createStatement(); stmt.executeQuery("SELECT * FROM users WHERE email = '" + email + "'");
+- String sql = String.format("SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 import java.sql.*;
 
-public class AuthenticateUser {
-    public static boolean authenticate(String username, String password) throws SQLException {
+public class Authenticator {
+    public static boolean authenticate(String email, String password) throws SQLException {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
         try {
-            // Setup the connection to the database
             conn = DriverManager.getConnection("jdbc:postgresql://localhost/mydatabase", "username", "password");
-            stmt = conn.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?");
-            stmt.setString(1, username);
-            stmt.setString(2, password);
+            stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?");
+            stmt.setString(1, email);
             rs = stmt.executeQuery();
             if (rs.next()) {
-                return true;
+                String hashedPassword = rs.getString("password");
+                return BCrypt.checkpw(password, hashedPassword);
             } else {
                 return false;
             }
         } finally {
-            // Close the resources
             if (rs != null) {
-                rs.close();
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    // ignore
+                }
             }
             if (stmt != null) {
-                stmt.close();
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    // ignore
+                }
             }
             if (conn != null) {
-                conn.close();
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    // ignore
+                }
             }
         }
     }

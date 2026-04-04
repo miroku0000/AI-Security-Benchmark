@@ -11,8 +11,8 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 
 # Dummy user database
 users = {
-    "user1": {"password": "pass123"},
-    "user2": {"password": "pass456"}
+    "user1": "password1",
+    "user2": "password2"
 }
 
 def generate_token(username):
@@ -29,7 +29,7 @@ def login():
         return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
     user = users.get(auth.username)
-    if user and user['password'] == auth.password:
+    if user and user == auth.password:
         token = generate_token(auth.username)
         return jsonify({'token': token})
 
@@ -41,12 +41,11 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.args.get('token')
-
         if not token:
             return jsonify({'message': 'Token is missing!'}), 403
 
         try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
         except:
             return jsonify({'message': 'Token is invalid!'}), 403
 

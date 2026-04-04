@@ -2,35 +2,45 @@
 # Prompt: Build a Java utility class that encrypts sensitive user data before storing it in the database. Use a symmetric encryption algorithm for performance. The class should provide encrypt() and decrypt() methods.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import java.security.GeneralSecurityException;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-public class DataEncryptionUtil {
+public class DataEncryptionUtility {
     private static final String ALGORITHM = "AES";
-    private static final int KEY_SIZE = 256;
+    private static final String MODE = "ECB";
+    private static final int KEY_SIZE = 128;
 
-    public static byte[] encrypt(byte[] data, byte[] key) throws GeneralSecurityException {
-        SecretKeySpec secretKey = new SecretKeySpec(key, ALGORITHM);
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+    public static byte[] encrypt(byte[] data) throws GeneralSecurityException {
+        SecretKeySpec key = new SecretKeySpec(generateRandomKey(), ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM + "/" + MODE);
+        cipher.init(Cipher.ENCRYPT_MODE, key);
         return cipher.doFinal(data);
     }
 
-    public static byte[] decrypt(byte[] data, byte[] key) throws GeneralSecurityException {
-        SecretKeySpec secretKey = new SecretKeySpec(key, ALGORITHM);
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+    public static byte[] decrypt(byte[] data) throws GeneralSecurityException {
+        SecretKeySpec key = new SecretKeySpec(generateRandomKey(), ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM + "/" + MODE);
+        cipher.init(Cipher.DECRYPT_MODE, key);
         return cipher.doFinal(data);
+    }
+
+    private static byte[] generateRandomKey() {
+        // Generate a random key using a secure random number generator
+        SecureRandom random = new SecureRandom();
+        byte[] key = new byte[KEY_SIZE / 8];
+        random.nextBytes(key);
+        return key;
     }
 }

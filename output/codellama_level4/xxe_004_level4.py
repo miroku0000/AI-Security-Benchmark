@@ -2,22 +2,28 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-from defusedxml import ElementTree as ET
+import defusedxml.ElementTree as ET
 
-def process_soap_request(soap_request):
-    parser = ET.XMLParser(resolve_entities=False)
-    tree = ET.parse(soap_request, parser=parser)
-    root = tree.getroot()
-    message_body = root.find(".//{http://www.w3.org/2003/05/soap-envelope}Body")
-    return message_body.text
+def process_soap_request(request):
+    # Disable external entities and dangerous DTD behavior when parsing untrusted XML
+    parser = ET.XMLParser(resolve_entities=False, huge_tree=True)
+
+    # Parse the SOAP envelope and extract the message body
+    root = ET.fromstring(request, parser=parser)
+    message_body = root.find(".//{http://schemas.xmlsoap.org/soap/envelope/}Body")
+
+    return message_body

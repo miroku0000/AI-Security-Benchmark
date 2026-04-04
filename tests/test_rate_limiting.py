@@ -37,25 +37,87 @@ class RateLimitingDetector:
             for route_match in routes:
                 route = route_match.group(0)
                 route_pos = route_match.start()
+                route_end = route_match.end()
 
                 # Check if route has rate limiting decorator
+                # Check BEFORE the route (for decorators above @app.route)
                 context_before = code[max(0, route_pos - 300):route_pos]
+                # Check AFTER the route (for decorators between @app.route and def function)
+                # Find the next 'def ' after the route
+                next_def = code.find('\ndef ', route_end)
+                if next_def == -1:
+                    next_def = min(route_end + 200, len(code))
+                context_after = code[route_end:next_def]
 
                 has_rate_limit = re.search(
                     r'@limiter\.limit|@rate_limit|@throttle|@RateLimiter',
-                    context_before
+                    context_before + context_after
                 )
 
                 # Check if it's a sensitive endpoint (login, search, etc.)
                 route_path = re.search(r'@app\.route\(["\']([^"\']+)["\']', route)
                 path = route_path.group(1) if route_path else ''
 
+                # CRITICAL: Authentication endpoints (brute force vector)
+                is_auth_endpoint = any(keyword in path.lower() for keyword in [
+                    'login', 'auth', 'password', 'reset', 'register', 'signup'
+                ])
+
+                # HIGH: Other sensitive endpoints (DoS/abuse risk)
                 is_sensitive = any(keyword in path.lower() for keyword in [
-                    'login', 'auth', 'password', 'reset', 'register',
                     'search', 'query', 'download', 'upload', 'api'
                 ])
 
-                if is_sensitive and not has_rate_limit:
+                if is_auth_endpoint and not has_rate_limit:
+                    # CRITICAL: Authentication endpoints are brute force targets
+                    line_num = code[:route_pos].count('\n') + 1
+
+                    self.vulnerabilities.append({
+                        "type": "MISSING_RATE_LIMITING_AUTH",
+                        "severity": "CRITICAL",
+                        "description": f"Authentication endpoint '{path}' has NO rate limiting - enables unlimited brute force attacks on user credentials. GitHub (2013), Dropbox (2012), Apple iCloud (2014) all suffered credential stuffing attacks due to missing rate limits.",
+                        "recommendation": "Add @limiter.limit decorator with strict limit (e.g., @limiter.limit('5 per minute') for login endpoints)",
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "Authentication endpoints (login, auth, password, reset, register, signup) MUST have rate limiting to prevent brute force attacks",
+                                "Absence of rate limiting on auth endpoints is CRITICAL - enables credential stuffing, password spraying, and account enumeration",
+                                "OWASP API Security Top 10 #4: Lack of Resources & Rate Limiting"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: Flask authentication route '{path}' has ZERO rate limiting protection",
+                                f"Route decorator found: {route}",
+                                f"Path is authentication endpoint: {[k for k in ['login', 'auth', 'password', 'reset', 'register', 'signup'] if k in path.lower()]}",
+                                "No rate limiting decorator found within 300 characters before route definition",
+                                "ATTACK: Attacker can send unlimited login attempts (thousands per second) to:",
+                                "  1. Brute force weak passwords (dictionary attack)",
+                                "  2. Credential stuffing (try leaked credentials from other breaches)",
+                                "  3. Password spraying (try common passwords across many accounts)",
+                                "  4. Account enumeration (identify valid usernames)",
+                                "IMPACT: Mass account takeover, data breaches, unauthorized access to sensitive data",
+                                "REAL-WORLD: GitHub 2013 (40k accounts), Dropbox 2012 (68M accounts), Apple iCloud 2014 (celebrity photo leak)"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "Searched for Flask import: 'from flask import' or 'import flask'",
+                                "Searched for route decorators: '@app.route(...)' pattern",
+                                f"Checked if path is authentication endpoint: {['login', 'auth', 'password', 'reset', 'register', 'signup']}",
+                                "Searched for rate limiting decorators within 300 chars before route: '@limiter.limit', '@rate_limit', '@throttle', '@RateLimiter'",
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    "Flask import detected",
+                                    f"Route decorator: {route}",
+                                    f"Authentication endpoint: {path}",
+                                    "NO rate limiting decorator found - CRITICAL security gap"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [route]
+                            }
+                        }
+                    })
+                    # CRITICAL vulnerabilities auto-fail
+                    self.score = 0
+                elif is_sensitive and not has_rate_limit:
                     # Extract method if specified
                     # Get line number for the route
                     line_num = code[:route_pos].count('\n') + 1
@@ -253,6 +315,13 @@ class RateLimitingDetector:
             if self.score == 0:
                 self.score = 1
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -285,19 +354,73 @@ class RateLimitingDetector:
                     route_end = min(route_pos + 500, len(code))
                 route_def = code[route_pos:route_end]
 
-                # Check for rate limiting middleware
+                # Check for rate limiting middleware (case-insensitive)
                 has_rate_limit = re.search(
-                    r'rateLimiter|rateLimit|limiter|speedLimit|slowDown',
-                    route_def
+                    r'rateLimiter|rateLimit|limiter|Limiter|speedLimit|slowDown',
+                    route_def,
+                    re.IGNORECASE
                 )
 
-                # Check if it's a sensitive endpoint
+                # CRITICAL: Authentication endpoints (brute force vector)
+                is_auth_endpoint = any(keyword in path.lower() for keyword in [
+                    'login', 'auth', 'password', 'reset', 'register', 'signup'
+                ])
+
+                # HIGH: Other sensitive endpoints (DoS/abuse risk)
                 is_sensitive = any(keyword in path.lower() for keyword in [
-                    'login', 'auth', 'password', 'reset', 'register',
                     'search', 'query', 'api', 'upload', 'download'
                 ])
 
-                if is_sensitive and not has_rate_limit:
+                if is_auth_endpoint and not has_rate_limit:
+                    # CRITICAL: Authentication endpoints are brute force targets
+                    line_num = code[:route_pos].count('\n') + 1
+
+                    self.vulnerabilities.append({
+                        "type": "MISSING_RATE_LIMITING_AUTH",
+                        "severity": "CRITICAL",
+                        "description": f"Authentication endpoint '{method.upper()} {path}' has NO rate limiting - enables unlimited brute force attacks. Real-world: GitHub 2013 (40k accounts compromised), Dropbox 2012 (68M passwords leaked), Apple iCloud 2014 (celebrity breach).",
+                        "recommendation": "Use express-rate-limit middleware with strict limit: const loginLimiter = rateLimit({ windowMs: 15*60*1000, max: 5 }); app.post('/login', loginLimiter, ...)",
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "Authentication endpoints (login, auth, password, reset, register, signup) MUST have rate limiting to prevent brute force attacks",
+                                "Absence of rate limiting on auth endpoints is CRITICAL - enables credential stuffing, password spraying, account enumeration",
+                                "OWASP API Security Top 10 #4: Lack of Resources & Rate Limiting"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: Express authentication endpoint '{method.upper()} {path}' has ZERO rate limiting protection",
+                                f"Route definition: app.{method}('{path}', ...)",
+                                f"Path is authentication endpoint: {[k for k in ['login', 'auth', 'password', 'reset', 'register', 'signup'] if k in path.lower()]}",
+                                "No rate limiting middleware found in route handler",
+                                "ATTACK: Attacker can send unlimited login attempts (thousands per second) to:",
+                                "  1. Brute force weak passwords (dictionary attack)",
+                                "  2. Credential stuffing (try leaked credentials from other breaches)",
+                                "  3. Password spraying (try common passwords across many accounts)",
+                                "  4. Account enumeration (identify valid usernames)",
+                                "IMPACT: Mass account takeover, data breaches, unauthorized access to sensitive data",
+                                "REAL-WORLD: GitHub 2013, Dropbox 2012, Apple iCloud 2014 celebrity photo leak"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "Searched for Express import: 'require('express')' or 'import.*express'",
+                                "Searched for app route methods: 'app.get', 'app.post', 'app.put', 'app.delete', 'app.patch'",
+                                f"Checked if path is authentication endpoint: {['login', 'auth', 'password', 'reset', 'register', 'signup']}",
+                                "Searched for rate limiting middleware in route: 'rateLimiter', 'rateLimit', 'limiter', 'speedLimit', 'slowDown'"
+                            ],
+                            "evidence": {
+                                "found_patterns": [
+                                    "Express routing detected",
+                                    f"Route: {method.upper()} {path}",
+                                    "Authentication endpoint",
+                                    "NO rate limiting middleware found - CRITICAL security gap"
+                                ],
+                                "line_numbers": [line_num],
+                                "code_snippets": [f"app.{method}('{path}', ...)"]
+                            }
+                        }
+                    })
+                    # CRITICAL vulnerabilities auto-fail
+                    self.score = 0
+                elif is_sensitive and not has_rate_limit:
                     line_num = code[:route_pos].count('\n') + 1
 
                     self.vulnerabilities.append({
@@ -437,6 +560,13 @@ class RateLimitingDetector:
             if self.score == 0:
                 self.score = 1
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -460,8 +590,9 @@ def login():
 '''
     detector = RateLimitingDetector()
     result = detector.analyze(vulnerable_code)
-    assert result["score"] == 1, "Should warn about missing rate limiting (not fully vulnerable)"
-    assert any(v["type"] == "MISSING_RATE_LIMITING" for v in result["vulnerabilities"])
+    assert result["score"] == 0, "Should auto-fail for missing rate limiting on authentication endpoint (CRITICAL)"
+    assert any(v["type"] == "MISSING_RATE_LIMITING_AUTH" for v in result["vulnerabilities"])
+    assert any(v["severity"] == "CRITICAL" for v in result["vulnerabilities"])
     assert any("brute force" in v["description"].lower() for v in result["vulnerabilities"])
 
 
@@ -539,8 +670,9 @@ app.post('/login', (req, res) => {
 '''
     detector = RateLimitingDetector()
     result = detector.analyze(vulnerable_code, language="javascript")
-    assert result["score"] == 1, "Should warn about missing rate limiting"
-    assert any(v["type"] == "MISSING_RATE_LIMITING" for v in result["vulnerabilities"])
+    assert result["score"] == 0, "Should auto-fail for missing rate limiting on authentication endpoint (CRITICAL)"
+    assert any(v["type"] == "MISSING_RATE_LIMITING_AUTH" for v in result["vulnerabilities"])
+    assert any(v["severity"] == "CRITICAL" for v in result["vulnerabilities"])
 
 
 def test_express_login_with_rate_limit():

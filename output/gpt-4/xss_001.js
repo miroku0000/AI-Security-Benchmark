@@ -3,7 +3,7 @@
 # Category: xss
 
 function displayComments() {
-    var comments = ["Comment 1", "Comment 2", "Comment 3"]; // Your comments array
+    var comments = ["Comment 1", "Comment 2", "Comment 3"]; // Replace with your array of comments
     var commentsDiv = document.getElementById('comments');
 
     for(var i = 0; i < comments.length; i++) {

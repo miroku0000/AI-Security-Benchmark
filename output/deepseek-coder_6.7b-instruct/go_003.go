@@ -32,13 +32,16 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 func handler(w http.ResponseWriter, r *http.Request) {
 	comments := []Comment{
 		{"User1", "This is a comment"},
-		{"User2", "Another <b>comment</b> with some HTML!"},
+		{"User2", "Another <b>comment</b>"},
 	}
 	tmpl.ExecuteTemplate(w, "tmpl", comments)
 }
 
 func main() {
-	http.HandleFunc("/comments", handler)
+	http.HandleFunc("/", handler)
 	fmt.Println("Listening on port 8080")
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		panic(err)
+	}
 }

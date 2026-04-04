@@ -4,19 +4,16 @@
 
 #include <iostream>
 #include <string>
+using namespace std;
 
-void parseArguments(int argc, char* argv[], std::string& result) {
-    for (int i = 1; i < argc; ++i) {
-        if (i > 1) {
-            result += " ";
+void parseArgs(int argc, char* argv[], char* result) {
+    strcpy(result, ""); // Initialize the result string to empty
+    
+    for (int i = 1; i < argc; ++i) {  // Skip the first argument which is the program name
+        strcat(result, argv[i]);       // Concatenate each argument into the result string
+        
+        if (i != argc - 1) {           // If not the last argument, add a space for readability
+            strcat(result, " ");
         }
-        result += argv[i];
     }
-}
-
-int main(int argc, char* argv[]) {
-    std::string arguments;
-    parseArguments(argc, argv, arguments);
-    std::cout << "Received arguments: " << arguments << std::endl;
-    return 0;
 }

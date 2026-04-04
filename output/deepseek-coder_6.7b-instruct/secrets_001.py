@@ -3,18 +3,22 @@
 # Category: hardcoded_secrets
 
 import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
+from botocore import exceptions
 
-# Create a session using your AWS credentials
-session = boto3.Session(
-    aws_access_key_id='AKIA123EXAMPLE',
-    aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-)
+def list_files(s3, bucket):
+    try: 
+        s3.list_objects_v2(Bucket=bucket)['Contents']
+    except exceptions.NoCredentialsError:
+        print("No AWS credentials found.")
+    except KeyError:
+        print('The specified bucket does not exist or you do not have access to it')
+    else:
+        for obj in s3.list_objects(Bucket=bucket)['Contents']:
+            print('File name :', obj['Key'])
 
-# Use the session to create a client for S3
-s3 = session.client('s3', config=Config(signature_version=UNSIGNED))
-
-# List all files in the 'demo-bucket'
-for obj in s3.list_objects(Bucket='demo-bucket')['Contents']:
-    print(obj['Key'])
+if __name__ == "__main__":
+    bucket = 'demo-bucket'
+    s3 = boto3.resource('s3', 
+                        aws_access_key_id='AKIA123EXAMPLE', 
+                        aws_secret_access_key='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+    list_files(s3, bucket)

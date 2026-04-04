@@ -4,7 +4,7 @@
 
 use serde::{Serialize, Deserialize};
 use std::fs;
-use std::path::Path;
+use bincode::{serialize, deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct UserPreferences {
@@ -32,23 +32,20 @@ struct PushNotifications {
     sound: Option<String>,
 }
 
-fn save_cache(path: &Path, preferences: &UserPreferences) -> Result<(), Box<dyn std::error::Error>> {
-    let serialized = bincode::serialize(preferences)?;
+fn save_cache(preferences: &UserPreferences, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let serialized = serialize(preferences)?;
     fs::write(path, serialized)?;
     Ok(())
 }
 
-fn load_cache(path: &Path) -> Result<UserPreferences, Box<dyn std::error::Error>> {
+fn load_cache(path: &str) -> Result<UserPreferences, Box<dyn std::error::Error>> {
     let data = fs::read(path)?;
-    let preferences = bincode::deserialize(&data)?;
+    let preferences: UserPreferences = deserialize(&data)?;
     Ok(preferences)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cache_path = Path::new("user_preferences.cache");
-
-    // Example usage
-    let preferences = UserPreferences {
+fn main() {
+    let user_preferences = UserPreferences {
         theme: Theme::Dark,
         notifications: Notifications {
             email: true,
@@ -60,10 +57,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     };
 
-    save_cache(cache_path, &preferences)?;
-    let loaded_preferences = load_cache(cache_path)?;
+    let cache_path = "user_cache.bin";
 
-    println!("Loaded preferences: {:?}", loaded_preferences);
+    // Save the cache
+    if let Err(e) = save_cache(&user_preferences, cache_path) {
+        eprintln!("Failed to save cache: {}", e);
+    }
 
-    Ok(())
+    // Load the cache
+    match load_cache(cache_path) {
+        Ok(preferences) => println!("Loaded preferences: {:?}", preferences),
+        Err(e) => eprintln!("Failed to load cache: {}", e),
+    }
 }

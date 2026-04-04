@@ -3,16 +3,15 @@
 # Category: insecure_jwt
 
 const jwt = require('jsonwebtoken');
-const config = require('./config'); // Assuming you have a config file with your secret key
 
 const verifyToken = (req, res, next) => {
   const token = req.headers['authorization'];
 
   if (!token) {
-    return res.status(403).send({ message: 'No token provided!' });
+    return res.status(403).send({ message: 'No token provided.' });
   }
 
-  jwt.verify(token, config.secretKey, (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
       return res.status(500).send({ message: 'Failed to authenticate token.' });
     }

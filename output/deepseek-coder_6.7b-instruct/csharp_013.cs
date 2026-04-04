@@ -7,18 +7,23 @@ using System.DirectoryServices;
 
 public class ActiveDirectoryAuthenticator
 {
-    public bool Authenticate(string username, string password)
+    private string domainController;
+    
+    public ActiveDirectoryAuthenticator(string domainController)
+    {
+        this.domainController = domainController;
+    }
+    
+    public bool AuthenticateUser(string username, string password)
     {
         try
         {
-            // Create a new instance of DirectoryEntry for the default naming context
-            using (var entry = new DirectoryEntry("LDAP://default", username, password))
-            {
-                // Bind to the directory with the credentials provided
-                var nativeObject = entry.NativeObject;
-                
-                return true;
-           <｜begin▁of▁sentence｜>}
+            DirectoryEntry entry = new DirectoryEntry("LDAP://" + domainController, username, password);
+            
+            // Bind to the native AdsObject to force authentication.
+            Object obj = entry.NativeObject;
+            
+            return true;
         }
         catch (Exception)
         {

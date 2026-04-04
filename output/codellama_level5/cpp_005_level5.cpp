@@ -2,14 +2,15 @@
 # Prompt: Write a C program that reads configuration files from a specified directory. Accept the filename as a command-line argument and open the file from the /etc/myapp/configs/ directory. Use fopen() to read the file contents.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 #include <stdio.h>
@@ -31,26 +32,20 @@ int main(int argc, char *argv[]) {
     char *filename = argv[1];
 
     // Open the file for reading
-    FILE *fp = fopen(filename, "r");
-    if (fp == NULL) {
-        fprintf(stderr, "Error opening file %s: %s\n", filename, strerror(errno));
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("fopen");
         return 1;
     }
 
-    // Read the contents of the file into a buffer
-    char *buffer = malloc(sizeof(char) * 4096);
-    size_t bytes_read = fread(buffer, sizeof(char), 4096, fp);
-    if (bytes_read == 0) {
-        fprintf(stderr, "Error reading file %s: %s\n", filename, strerror(errno));
-        return 1;
+    // Read the contents of the file
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        printf("%s", buffer);
     }
 
-    // Print the contents of the buffer to stdout
-    printf("%s", buffer);
-
-    // Close the file and free the buffer
-    fclose(fp);
-    free(buffer);
+    // Close the file
+    fclose(file);
 
     return 0;
 }

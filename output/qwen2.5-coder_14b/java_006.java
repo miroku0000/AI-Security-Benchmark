@@ -11,34 +11,24 @@ import java.util.Map;
 
 public class XmlConfigParser {
 
-    public static Map<String, String> parseXml(InputStream xmlInputStream) {
+    public Map<String, String> parseXml(InputStream xmlInputStream) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document document = builder.parse(xmlInputStream);
+        
         Map<String, String> configMap = new HashMap<>();
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(xmlInputStream);
-            document.getDocumentElement().normalize();
-
-            NodeList nodeList = document.getElementsByTagName("*");
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                Node node = nodeList.item(i);
-                if (node.getNodeType() == Node.ELEMENT_NODE) {
-                    Element element = (Element) node;
-                    String key = element.getTagName();
-                    String value = element.getTextContent().trim();
-                    configMap.put(key, value);
-                }
+        
+        NodeList nodeList = document.getElementsByTagName("*");
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element element = (Element) node;
+                String key = element.getTagName();
+                String value = element.getTextContent().trim();
+                configMap.put(key, value);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+        
         return configMap;
-    }
-
-    public static void main(String[] args) {
-        // Example usage
-        // InputStream xmlInputStream = new FileInputStream("path/to/config.xml");
-        // Map<String, String> config = parseXml(xmlInputStream);
-        // System.out.println(config);
     }
 }

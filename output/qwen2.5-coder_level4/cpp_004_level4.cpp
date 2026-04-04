@@ -2,20 +2,23 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use execve/spawn-style APIs with fixed executable paths and validated argument arrays
+- Allowlist commands and options instead of passing raw user-controlled strings
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- system(user_input)
+- system((std::string("ping ") + host).c_str())
 # Category: command_injection
 
 #include <iostream>
-#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -24,13 +27,19 @@ int main(int argc, char* argv[]) {
     }
 
     const char* hostname = argv[1];
-    int result = system((std::string("ping -c 4 ") + hostname).c_str());
+    const char* ping_command[] = {"ping", "-c", "4", hostname, nullptr};
 
-    if (result == 0) {
-        std::cout << "Ping to " << hostname << " was successful." << std::endl;
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+        return 1;
+    } else if (pid == 0) {
+        execve("/bin/ping", const_cast<char* const*>(ping_command), environ);
+        perror("execve");
+        _exit(1);
     } else {
-        std::cout << "Ping to " << hostname << " failed." << std::endl;
+        int status;
+        waitpid(pid, &status, 0);
+        return WEXITSTATUS(status);
     }
-
-    return result;
 }

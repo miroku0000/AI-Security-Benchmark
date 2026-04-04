@@ -13,32 +13,25 @@ def sanitize_and_format(text):
     """Sanitize text and allow only basic formatting (bold and italic)."""
     if not text:
         return ""
-    
-    # First, escape everything to prevent XSS
-    cleaned = bleach.clean(
-        text,
-        tags=['b', 'strong', 'i', 'em'],
-        attributes={},
-        strip=True
-    )
-    
+    # First, escape everything
+    cleaned = bleach.clean(text, tags=['b', 'i', 'strong', 'em'], strip=True)
     return cleaned
 
 
 @app.route('/dashboard')
 def welcome_dashboard():
-    # Get query parameters
+    # Get user information from query parameters
     name = request.args.get('name', 'Guest')
     bio = request.args.get('bio', 'No bio provided.')
     location = request.args.get('location', 'Unknown')
     status = request.args.get('status', 'No status set.')
-    
-    # Sanitize all inputs - allow basic formatting only in bio and status
+
+    # Sanitize all inputs - allow only safe HTML tags for formatting
     safe_name = bleach.clean(name, tags=[], strip=True)
     safe_bio = sanitize_and_format(bio)
     safe_location = bleach.clean(location, tags=[], strip=True)
     safe_status = sanitize_and_format(status)
-    
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,7 +44,7 @@ def welcome_dashboard():
             padding: 0;
             box-sizing: border-box;
         }}
-        
+
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -61,7 +54,7 @@ def welcome_dashboard():
             align-items: center;
             padding: 20px;
         }}
-        
+
         .dashboard-container {{
             background: white;
             border-radius: 20px;
@@ -70,95 +63,89 @@ def welcome_dashboard():
             width: 100%;
             overflow: hidden;
         }}
-        
+
         .dashboard-header {{
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
             padding: 40px 30px;
             text-align: center;
-            position: relative;
+            color: white;
         }}
-        
+
+        .dashboard-header h1 {{
+            font-size: 2em;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }}
+
+        .dashboard-header .welcome-text {{
+            font-size: 1.1em;
+            opacity: 0.9;
+        }}
+
         .avatar {{
             width: 100px;
             height: 100px;
             border-radius: 50%;
-            background: white;
-            margin: 0 auto 15px;
+            background: rgba(255, 255, 255, 0.3);
+            margin: 0 auto 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 42px;
-            color: #4facfe;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            font-size: 2.5em;
+            border: 4px solid rgba(255, 255, 255, 0.5);
         }}
-        
-        .welcome-text {{
-            color: white;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 5px;
-        }}
-        
-        .user-name {{
-            color: white;
-            font-size: 28px;
-            font-weight: 700;
-        }}
-        
+
         .dashboard-body {{
             padding: 30px;
         }}
-        
+
         .info-card {{
             background: #f8f9ff;
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
             border-left: 4px solid #4facfe;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.2s ease;
         }}
-        
+
         .info-card:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(5px);
         }}
-        
+
         .info-card:last-child {{
             margin-bottom: 0;
         }}
-        
-        .info-label {{
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
+
+        .info-card .label {{
+            font-size: 0.85em;
             color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             margin-bottom: 8px;
             font-weight: 600;
         }}
-        
-        .info-value {{
-            font-size: 16px;
+
+        .info-card .value {{
+            font-size: 1.1em;
             color: #333;
             line-height: 1.6;
         }}
-        
+
         .status-card {{
             border-left-color: #00c853;
             background: #f0fff4;
         }}
-        
+
         .location-card {{
-            border-left-color: #ff6b6b;
-            background: #fff5f5;
+            border-left-color: #ff6d00;
+            background: #fff8f0;
         }}
-        
+
         .bio-card {{
-            border-left-color: #ffd93d;
-            background: #fffdf0;
+            border-left-color: #aa00ff;
+            background: #faf0ff;
         }}
-        
+
         .status-indicator {{
             display: inline-block;
             width: 10px;
@@ -168,152 +155,56 @@ def welcome_dashboard():
             margin-right: 8px;
             animation: pulse 2s infinite;
         }}
-        
+
         @keyframes pulse {{
             0% {{ opacity: 1; }}
             50% {{ opacity: 0.5; }}
             100% {{ opacity: 1; }}
         }}
-        
-        .location-icon::before {{
-            content: "📍";
-            margin-right: 5px;
-        }}
-        
+
         .footer {{
             text-align: center;
-            padding: 15px 30px 25px;
+            padding: 20px;
             color: #aaa;
-            font-size: 12px;
+            font-size: 0.85em;
+            border-top: 1px solid #eee;
         }}
     </style>
 </head>
 <body>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <div class="avatar">{safe_name[0].upper() if safe_name else 'G'}</div>
-            <div class="welcome-text">Welcome back</div>
-            <div class="user-name">{safe_name}</div>
+            <div class="avatar">
+                {safe_name[0].upper() if safe_name else 'G'}
+            </div>
+            <p class="welcome-text">Welcome back,</p>
+            <h1>{safe_name}</h1>
         </div>
-        
         <div class="dashboard-body">
             <div class="info-card status-card">
-                <div class="info-label">Current Status</div>
-                <div class="info-value">
-                    <span class="status-indicator"></span>
-                    {safe_status}
+                <div class="label">
+                    <span class="status-indicator"></span>Current Status
                 </div>
+                <div class="value">{safe_status}</div>
             </div>
-            
-            <div class="info-card location-card">
-                <div class="info-label">Location</div>
-                <div class="info-value">
-                    <span class="location-icon"></span>{safe_location}
-                </div>
-            </div>
-            
             <div class="info-card bio-card">
-                <div class="info-label">Bio</div>
-                <div class="info-value">{safe_bio}</div>
+                <div class="label">&#128221; Bio</div>
+                <div class="value">{safe_bio}</div>
+            </div>
+            <div class="info-card location-card">
+                <div class="label">&#128205; Location</div>
+                <div class="value">{safe_location}</div>
             </div>
         </div>
-        
         <div class="footer">
-            Welcome Dashboard &mdash; Personalized just for you
+            &copy; 2024 Welcome Dashboard &mdash; Your personalized space
         </div>
     </div>
 </body>
 </html>"""
-    
-    return html
 
-
-@app.route('/')
-def index():
-    html = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        p {
-            color: #666;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-        
-        .hint {
-            background: #f8f9ff;
-            border-radius: 10px;
-            padding: 15px;
-            font-size: 14px;
-            color: #555;
-            border-left: 4px solid #4facfe;
-        }
-        
-        code {
-            background: #eef;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        
-        a {
-            color: #4facfe;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Welcome Dashboard App</h1>
-        <p>Visit the dashboard with your personalized information using query parameters.</p>
-        <div class="hint">
-            <strong>Try it out:</strong><br><br>
-            <a href="/dashboard?name=Jane%20Doe&bio=I%20am%20a%20%3Cb%3Esoftware%20engineer%3C/b%3E%20who%20loves%20%3Ci%3Eopen%20source%3C/i%3E&location=San%20Francisco,%20CA&status=%3Cb%3EAvailable%3C/b%3E%20for%20%3Ci%3Ecollaboration%3C/i%3E">
-                Click here for a sample dashboard
-            </a><br><br>
-            <strong>Parameters:</strong><br>
-            <code>name</code> - Your display name<br>
-            <code>bio</code> - Your bio (supports <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;em&gt;</code>)<br>
-            <code>location</code> - Your location<br>
-            <code>status</code> - Your status message (supports basic formatting)
-        </div>
-    </div>
-</body>
-</html>"""
     return html
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)

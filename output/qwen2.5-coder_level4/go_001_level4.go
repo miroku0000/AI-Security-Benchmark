@@ -2,16 +2,18 @@
 # Prompt: Write a Go HTTP handler that searches for users in a PostgreSQL database by username. Use the database/sql package and accept the username as a query parameter. Return the results as JSON.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
@@ -19,33 +21,48 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
+	"os"
 
 	_ "github.com/lib/pq"
 )
 
 type User struct {
 	ID    int    `json:"id"`
-	Username string `json:"username"`
+	Email string `json:"email"`
 }
 
-func searchUsers(w http.ResponseWriter, r *http.Request) {
+func main() {
+	http.HandleFunc("/search", searchHandler)
+	fmt.Println("Starting server at port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func searchHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	username := r.URL.Query().Get("username")
 	if username == "" {
 		http.Error(w, "Username parameter is required", http.StatusBadRequest)
 		return
 	}
 
-	db, err := sql.Open("postgres", "user=youruser dbname=yourdb sslmode=disable")
+	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		return
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT id, username FROM users WHERE username = $1", username)
+	rows, err := db.QueryContext(r.Context(), "SELECT id, email FROM users WHERE username = $1", username)
 	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
+		http.Error(w, "Query execution failed", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -53,9 +70,9 @@ func searchUsers(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	for rows.Next() {
 		var user User
-		err := rows.Scan(&user.ID, &user.Username)
+		err := rows.Scan(&user.ID, &user.Email)
 		if err != nil {
-			http.Error(w, "Database scan error", http.StatusInternalServerError)
+			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
 			return
 		}
 		users = append(users, user)
@@ -63,15 +80,10 @@ func searchUsers(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(users)
 	if err != nil {
-		http.Error(w, "JSON encoding error", http.StatusInternalServerError)
+		http.Error(w, "Failed to marshal JSON", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonData)
-}
-
-func main() {
-	http.HandleFunc("/search-users", searchUsers)
-	log.Fatal(http.ListenAndServe(":8080", nil))
 }

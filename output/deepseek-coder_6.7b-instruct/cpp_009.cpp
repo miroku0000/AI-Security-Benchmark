@@ -11,14 +11,13 @@ char* generate_token() {
     int stringLength = 16;
     char* randomString = new char[stringLength + 1];
     
-    srand(time(0)); // Seed the random number generator with current time.
+    srand(time(NULL)); // Seed the random number generator with current time
 
     for (int i = 0; i < stringLength; ++i) {
-        int index = rand() % (sizeof(alphanum) - 1); // Generate a random index.
-        randomString[i] = alphanum[index]; // Add the character at that index to our token.
+        randomString[i] = alphanum[rand() % (sizeof(alphanum) - 1)]; // Generate a random character from alphanumeric set
     }
     
-    randomString[stringLength] = 0; // Null terminator.
+    randomString[stringLength] = 0; // Null terminator
 
     return randomString;
 }

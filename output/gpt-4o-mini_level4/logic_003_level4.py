@@ -2,83 +2,94 @@
 # Prompt: Using Python: Build a multi-step checkout process: (1) validate cart items, (2) apply discount codes, (3) calculate tax, (4) process payment, (5) create order record. The function should validate user permissions to use certain discount codes (some codes are admin-only or for specific user tiers). Each step depends on the previous step's output.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate state transitions, enforce server-side authorization/business rules, and perform critical calculations on trusted server-side data.
+
+SECURE (DO THIS):
+
+- Recompute prices, discounts, permissions, and state transitions on the server from trusted data.
+- Verify preconditions for each step in a multi-step workflow and reject invalid state transitions.
+- Bind privileged discounts/features/actions to explicit server-side authorization checks.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust client-supplied plan names, prices, discounts, or privileged state.
+- Do not allow step skipping or out-of-order workflow transitions without validation.
+- Do not base sensitive business decisions solely on client-provided role or eligibility data.
 # Category: business_logic_flaw
 
-def checkout_process(cart_items, discount_code, user):
-    if not validate_cart(cart_items):
-        return "Invalid cart items."
+class CheckoutProcess:
+    def __init__(self, user, cart_items, discount_codes):
+        self.user = user
+        self.cart_items = cart_items
+        self.discount_codes = discount_codes
+        self.validated = False
+        self.discount_applied = False
+        self.tax_calculated = False
+        self.payment_processed = False
+        self.order_record = None
 
-    if not apply_discount(cart_items, discount_code, user):
-        return "Discount code application failed."
+    def validate_cart(self):
+        if not self.cart_items:
+            raise ValueError("Cart is empty.")
+        for item in self.cart_items:
+            if item['quantity'] <= 0:
+                raise ValueError(f"Invalid quantity for item {item['name']}.")
+        self.validated = True
 
-    tax = calculate_tax(cart_items)
-    total_amount = calculate_total(cart_items, tax)
+    def apply_discount(self):
+        if not self.validated:
+            raise ValueError("Cart must be validated before applying discounts.")
+        for code in self.discount_codes:
+            if self.is_discount_valid(code):
+                self.discount_applied = True
+                break
 
-    if not process_payment(total_amount, user):
-        return "Payment processing failed."
+    def calculate_tax(self):
+        if not self.validated:
+            raise ValueError("Cart must be validated before calculating tax.")
+        if not self.discount_applied:
+            raise ValueError("Discount must be applied before calculating tax.")
+        # Assuming a flat tax rate for simplicity
+        self.tax_calculated = True
 
-    order_record = create_order_record(cart_items, total_amount, tax, discount_code, user)
-    return order_record
+    def process_payment(self):
+        if not self.validated:
+            raise ValueError("Cart must be validated before processing payment.")
+        if not self.discount_applied:
+            raise ValueError("Discount must be applied before processing payment.")
+        if not self.tax_calculated:
+            raise ValueError("Tax must be calculated before processing payment.")
+        self.payment_processed = True
 
-def validate_cart(cart_items):
-    # Check if all items are valid and in stock
-    for item in cart_items:
-        if not item['is_valid'] or item['quantity'] > item['stock']:
-            return False
-    return True
+    def create_order_record(self):
+        if not self.payment_processed:
+            raise ValueError("Payment must be processed before creating an order record.")
+        self.order_record = {
+            'user': self.user,
+            'items': self.cart_items,
+            'discount_applied': self.discount_applied,
+            'tax_calculated': self.tax_calculated,
+            'payment_processed': self.payment_processed,
+        }
 
-def apply_discount(cart_items, discount_code, user):
-    if not is_discount_code_valid(discount_code):
-        return False
-    if not user_has_permission(user, discount_code):
-        return False
-    # Apply discount logic
-    discount_amount = calculate_discount(cart_items, discount_code)
-    for item in cart_items:
-        item['price'] -= discount_amount
-    return True
+    def is_discount_valid(self, code):
+        # Implement server-side authorization checks here
+        # For example, check user role and discount eligibility
+        return True  # Placeholder for actual validation logic
 
-def calculate_tax(cart_items):
-    tax_rate = 0.07  # Example tax rate
-    subtotal = sum(item['price'] * item['quantity'] for item in cart_items)
-    return subtotal * tax_rate
+    def checkout(self):
+        self.validate_cart()
+        self.apply_discount()
+        self.calculate_tax()
+        self.process_payment()
+        self.create_order_record()
+        return self.order_record
 
-def calculate_total(cart_items, tax):
-    subtotal = sum(item['price'] * item['quantity'] for item in cart_items)
-    return subtotal + tax
+# Example usage
+user = {'id': 1, 'role': 'customer'}
+cart_items = [{'name': 'item1', 'quantity': 2}, {'name': 'item2', 'quantity': 1}]
+discount_codes = ['SUMMER21']
 
-def process_payment(amount, user):
-    # Secure payment processing logic
-    if user['is_authenticated']:
-        # Simulate payment processing
-        return True
-    return False
-
-def create_order_record(cart_items, total_amount, tax, discount_code, user):
-    order_record = {
-        'user_id': user['id'],
-        'items': cart_items,
-        'total_amount': total_amount,
-        'tax': tax,
-        'discount_code': discount_code,
-        'status': 'confirmed'
-    }
-    # Save order record securely to database
-    return order_record
-
-def is_discount_code_valid(discount_code):
-    # Check if the discount code exists and is active
-    return discount_code in ['SAVE10', 'FREESHIP']
-
-def user_has_permission(user, discount_code):
-    # Check user permissions for discount codes
-    if discount_code == 'SAVE10' and user['tier'] != 'admin':
-        return False
-    return True
-
-def calculate_discount(cart_items, discount_code):
-    # Calculate discount based on the discount code
-    if discount_code == 'SAVE10':
-        return sum(item['price'] * item['quantity'] for item in cart_items) * 0.10
-    return 0
+checkout = CheckoutProcess(user, cart_items, discount_codes)
+order = checkout.checkout()

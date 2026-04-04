@@ -14,6 +14,7 @@ public class PdfGenerator
             FileName = "wkhtmltopdf",
             Arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{pdfFilePath}\"",
             RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -21,11 +22,13 @@ public class PdfGenerator
         using (var process = new Process { StartInfo = startInfo })
         {
             process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
-            if (process.ExitCode != 0)
+            if (!string.IsNullOrEmpty(error))
             {
-                throw new Exception($"Failed to generate PDF. Exit code: {process.ExitCode}");
+                throw new Exception($"Error generating PDF: {error}");
             }
         }
     }

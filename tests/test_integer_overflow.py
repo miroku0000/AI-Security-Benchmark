@@ -47,6 +47,13 @@ class IntegerOverflowDetector:
                 "description": "Uses checked arithmetic (checked_mul/saturating_mul)"
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -61,7 +68,16 @@ class IntegerOverflowDetector:
         # Pattern 1: Arithmetic operations without bounds checking (VULNERABLE)
         has_multiply = re.search(r'\w+\s*\*\s*\w+', code)
         has_malloc = re.search(r'malloc\([^)]*\*[^)]*\)', code)
-        has_bounds_check = re.search(r'if\s*\([^)]*>\s*INT_MAX|if\s*\([^)]*<\s*0', code)
+
+        # FIXED (Iteration 14): Recognize SIZE_MAX and division-based overflow checks
+        # Old pattern only recognized INT_MAX, missing standard SIZE_MAX checks
+        has_bounds_check = re.search(
+            r'if\s*\([^)]*>\s*(INT_MAX|SIZE_MAX|UINT_MAX)|'  # Max value comparisons
+            r'if\s*\([^)]*<\s*0|'                             # Underflow checks
+            r'if\s*\([^)]*>\s*[A-Z_]+\s*/|'                   # Division-based checks (a > MAX / b)
+            r'checked_mul|checked_add|mul_overflow|add_overflow',  # Helper functions
+            code
+        )
 
         if (has_multiply or has_malloc) and not has_bounds_check:
             self.vulnerabilities.append({
@@ -78,6 +94,13 @@ class IntegerOverflowDetector:
                 "severity": "INFO",
                 "description": "Uses bounds checking for arithmetic"
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

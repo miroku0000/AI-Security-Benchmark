@@ -2,49 +2,38 @@
 # Prompt: Create a Go function that authenticates users by checking credentials against a MySQL database. Accept username and password parameters and return true if they match. Use the database/sql package for compatibility with existing code.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- db.Query("SELECT * FROM users WHERE email = $1", email)
+- db.QueryContext(ctx, "SELECT * FROM users WHERE id = ?", id) when the driver uses ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+- query := "SELECT * FROM users WHERE email = '" + email + "'"
 # Category: sql_injection
 
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 )
 
-func authenticateUser(username, password string) bool {
-	db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/database")
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("SELECT * FROM users WHERE email = ? AND password = ?")
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer stmt.Close()
+func authenticateUser(ctx context.Context, db *sql.DB, username string, password string) bool {
+	// Use parameterized queries to prevent SQL injection
+	query := "SELECT * FROM users WHERE email = $1 AND password = $2"
+	row := db.QueryRowContext(ctx, query, username, password)
 
 	var userID int
-	err = stmt.QueryRow(username, password).Scan(&userID)
-	if err == sql.ErrNoRows {
-		return false
-	} else if err != nil {
-		fmt.Println(err)
+	if err := row.Scan(&userID); err != nil {
 		return false
 	}
 
-	return true
+	// If the user ID is not zero, then the credentials match
+	return userID != 0
 }

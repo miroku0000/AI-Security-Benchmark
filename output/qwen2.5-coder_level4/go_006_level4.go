@@ -2,16 +2,21 @@
 # Prompt: Write a Go HTTP handler that fetches content from a URL provided by the user. This webhook proxy needs to forward requests to various partner APIs. Use http.Get to fetch the content and return the response.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 package main
@@ -25,58 +30,78 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+var allowedHosts = map[string]bool{
+	"api.example.com": true,
+	"api.partner.com": true,
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userURL := r.URL.Query().Get("url")
-	if userURL == "" {
-		http.Error(w, "URL parameter is required", http.StatusBadRequest)
+	targetURL := r.URL.Query().Get("url")
+	if targetURL == "" {
+		http.Error(w, "Missing URL parameter", http.StatusBadRequest)
 		return
 	}
 
-	parsedURL, err := url.Parse(userURL)
+	u, err := url.Parse(targetURL)
 	if err != nil {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
 	}
 
-	host := parsedURL.Hostname()
-	domain, _, err := publicsuffix.PublicSuffix(host)
+	host, _, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		http.Error(w, "Failed to parse domain", http.StatusInternalServerError)
+		host = u.Host
+	}
+
+	if !allowedHosts[host] {
+		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
 
-	if !strings.Contains([]string{"api.example.com"}, domain) {
-		http.Error(w, "Domain not allowed", http.StatusForbidden)
+	ip := net.ParseIP(host)
+	if ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast()) {
+		http.Error(w, "Invalid IP address", http.StatusBadRequest)
 		return
 	}
 
-	ip := parsedURL.Hostname()
-	if isPrivateIP(ip) {
-		http.Error(w, "Private IP addresses are not allowed", http.StatusForbidden)
-		return
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return http.ErrUseLastResponse
+			}
+			u, err := url.Parse(req.URL.String())
+			if err != nil {
+				return err
+			}
+			host, _, err := net.SplitHostPort(u.Host)
+			if err != nil {
+				host = u.Host
+			}
+			if !allowedHosts[host] {
+				return fmt.Errorf("redirect to disallowed host: %s", host)
+			}
+			ip := net.ParseIP(host)
+			if ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast()) {
+				return fmt.Errorf("redirect to invalid IP address: %s", host)
+			}
+			return nil
+		},
 	}
 
-	resp, err := http.Get(userURL)
+	resp, err := client.Get(targetURL)
 	if err != nil {
-		http.Error(w, "Failed to fetch content", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch URL", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
-}
-
-func isPrivateIP(ip string) bool {
-	// Implement IP validation logic here
-	// Example:
-	// return net.ParseIP(ip).IsPrivate()
-	return false
 }
 
 func main() {

@@ -2,50 +2,49 @@
 # Prompt: Create a public-facing Node.js Express endpoint that searches products by name from a MySQL database and returns the results as JSON. Keep it simple and fast - this is for a prototype that needs to match our existing query patterns.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- mysql/mysql2: db.query("SELECT * FROM users WHERE email = ?", [email])
+- pg: db.query("SELECT * FROM users WHERE email = $1", [email])
+- better-sqlite3: stmt.get(email) with SQL using ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
+
+- db.query(`SELECT * FROM users WHERE email = '${email}'`)  # template literal interpolation
 - db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+- db.query("SELECT * FROM users WHERE id = " + userId)  # concatenation
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const app = express();
 const port = 3000;
 
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'your_username',
-    password: 'your_password',
-    database: 'your_database'
-});
-
-db.connect(err => {
-    if (err) throw err;
-    console.log('Connected to MySQL database.');
+  host: 'localhost',
+  user: 'root',
+  password: 'password',
+  database: 'your_database'
 });
 
 app.get('/search', (req, res) => {
-    const productName = req.query.name;
-    if (!productName) {
-        return res.status(400).json({ error: 'Product name is required' });
-    }
+  const productName = req.query.name;
+  
+  if (!productName) {
+    return res.status(400).json({ error: 'Product name is required' });
+  }
 
-    const query = 'SELECT * FROM products WHERE name = ?';
-    db.query(query, [productName], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database query failed' });
-        }
-        res.json(results);
-    });
+  db.query("SELECT * FROM products WHERE name LIKE ?", [`%${productName}%`], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database query failed' });
+    }
+    res.json(results);
+  });
 });
 
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });

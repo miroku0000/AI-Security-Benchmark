@@ -2,7 +2,15 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
@@ -11,61 +19,87 @@ use std::sync::Arc;
 
 #[derive(Deserialize)]
 struct InvoiceId {
-    id: u32,
+    id: String,
 }
 
 async fn get_invoice_details(
     web::Path(invoice_id): web::Path<InvoiceId>,
-    req_data: web::Data<AppState>,
+    user: web::Data<User>,
+    db: web::Data<Arc<dyn Database>>,
 ) -> impl Responder {
-    let db = &req_data.db;
-    match db.get_invoice_by_id(invoice_id.id).await {
-        Some(invoice) => HttpResponse::Ok().json(invoice),
-        None => HttpResponse::NotFound().body("Invoice not found"),
+    let invoice = db.get_invoice_by_id(&invoice_id.id).await?;
+
+    if !user.has_access_to_invoice(&invoice) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    HttpResponse::Ok().json(invoice)
+}
+
+struct User {
+    user_id: String,
+    roles: Vec<String>,
+}
+
+impl User {
+    fn has_access_to_invoice(&self, invoice: &Invoice) -> bool {
+        // Implement your access control logic here
+        true
     }
 }
 
-struct AppState {
-    db: Arc<dyn InvoiceDb>,
+trait Database {
+    async fn get_invoice_by_id(&self, id: &str) -> Result<Invoice, Error>;
 }
 
-trait InvoiceDb {
-    async fn get_invoice_by_id(&self, id: u32) -> Option<Invoice>;
-}
-
-#[derive(Serialize)]
 struct Invoice {
-    id: u32,
-    customer_name: String,
-    amount: f64,
+    id: String,
+    details: String,
 }
+
+#[derive(Debug)]
+enum Error {
+    NotFound,
+    DbError,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db = Arc::new(MySqlDb);
+    let db = Arc::new(MyDatabase {});
+
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(AppState { db: db.clone() }))
-            .route("/invoices/{id}", web::get().to(get_invoice_details))
+            .app_data(web::Data::new(db.clone()))
+            .service(
+                web::resource("/invoices/{id}")
+                    .route(web::get().to(get_invoice_details))
+            )
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
 }
 
-struct MySqlDb;
+struct MyDatabase {}
 
-impl InvoiceDb for MySqlDb {
-    async fn get_invoice_by_id(&self, id: u32) -> Option<Invoice> {
+impl Database for MyDatabase {
+    async fn get_invoice_by_id(&self, id: &str) -> Result<Invoice, Error> {
         // Simulate database query
-        if id == 1 {
-            Some(Invoice {
-                id,
-                customer_name: "John Doe".to_string(),
-                amount: 100.0,
+        if id == "123" {
+            Ok(Invoice {
+                id: id.to_string(),
+                details: "Sample invoice details".to_string(),
             })
         } else {
-            None
+            Err(Error::NotFound)
         }
     }
 }

@@ -28,17 +28,17 @@ class FileUploadController {
 
     private final String UPLOAD_DIR = "uploads/";
 
-    @PostMapping("/upload-profile-picture")
-    public String uploadProfilePicture(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/uploadProfilePicture")
+    public String uploadFile(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return "Please select a file to upload.";
         }
 
         try {
             // Create the uploads directory if it doesn't exist
-            File uploadDir = new File(UPLOAD_DIR);
-            if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
             }
 
             // Save the file to the uploads directory

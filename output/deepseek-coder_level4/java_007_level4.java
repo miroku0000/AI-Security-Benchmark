@@ -2,135 +2,41 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate the schema/types before use.
+- Avoid native object deserialization for untrusted data.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- ObjectInputStream on untrusted data
+- Deserializing complex session or cache objects from untrusted sources without validation
 # Category: insecure_deserialization
 
-```java
-import java.io.*;  // Import the necessary classes for serialization and deserialization of objects to/from streams (InputStream, OutputStream).
-import com.fasterxml.jackson.databind.*;   // For JSON parsing & generation using Jackson library which is more secure than pickle or eval method in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */
-import org.yaml.snakeyaml.Yaml;   // For YAML parsing & generation using yml library which is more secure than pickle or eval method in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */
-import com.google.gson.Gson;     // GSON for JSON serialization/deserialization, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.core.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.InvalidFormatException; // For handling Invalid Format exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException; // For handling UnRecognised Property exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.UnwrappedException; // For handling UnWrapped Exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonMappingException; // For handling Json Mapping exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonParseException; // For handling Json Parse exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.exc.JsonProcessingException; // For handling Json Process exception, used here to avoid code execution by deserialize() function call in Python's json module 
-// import java.security.*;    /* Not required as we are not implementing any security measures */  
-import com.fasterxml.jackson.databind.
+import java.io.*;
+import com.fasterxml.jackson.databind.*;
+ 
+public class Cache {
+    private File file; // The serialized data will be stored in this location on disk  
+    
+    public static ObjectMapper mapper = new ObjectMapper();// for JSON parsing and writing to the json files     
+      
+    /** Construct a cache with an associated storage. */ 
+        Cache(String filename) { file=new File (filename); } // constructor, create it if not exists  
+    
+         public void putObject(Serializable sz ) throws IOException{          
+             ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file));   
+            try { 
+                mapper.writeValue(out ,sz );// write the object to file, using json formatting   // serialize data and store it in a disk location    
+              } finally{     
+                 if ( out != null )       out .close();       
+             }}   
+         public Serializable getObject() throws IOException { 
+            ObjectInputStream in = new ObjectInputStream(new FileInputStream(file));   // read the object from file, using json formatting    
+           try{      return mapper.readValue (in ,Serializable .class); }       finally       
+             if ( in != null )         in .close();         
+            }} 
+}

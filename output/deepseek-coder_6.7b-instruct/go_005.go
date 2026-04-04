@@ -9,7 +9,7 @@ import (
 )
 
 func ConvertImage(inputFile string, outputFile string, format string) error {
-	cmd := exec.Command("convert", inputFile, "-resize", "200x200", "-background", "white", "-flatten", outputFile+"."+format)
+	cmd := exec.Command("convert", inputFile, "-resize", "200x200", "-background", "white", "-flatten", outputFile)
 	err := cmd.Run()
 	return err
 }

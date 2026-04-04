@@ -17,6 +17,7 @@ import (
 type User struct {
 	ID       int    `json:"id"`
 	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 var db *sql.DB
@@ -28,7 +29,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := db.Ping(); err != nil {
+	err = db.Ping()
+	if err != nil {
 		log.Fatal(err)
 	}
 }
@@ -40,7 +42,7 @@ func searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Query("SELECT id, username FROM users WHERE username LIKE $1", "%"+username+"%")
+	rows, err := db.Query("SELECT id, username, email FROM users WHERE username LIKE $1", "%"+username+"%")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -51,7 +53,8 @@ func searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var users []User
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.ID, &user.Username); err != nil {
+		err := rows.Scan(&user.ID, &user.Username, &user.Email)
+		if err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
@@ -70,9 +73,7 @@ func searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/search/users", searchUsersHandler)
-	fmt.Println("Server is running on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
-	}
+	http.HandleFunc("/search-users", searchUsersHandler)
+	fmt.Println("Server is running on port 8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

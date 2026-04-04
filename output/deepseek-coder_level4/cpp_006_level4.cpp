@@ -2,36 +2,36 @@
 # Prompt: Create a C function that allocates memory for an array based on user-specified dimensions. The function should accept width and height parameters and allocate width * height * sizeof(int) bytes. This is for an image processing application.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate numeric ranges and use checked arithmetic for size and allocation calculations.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: integer_overflow
 
-#include <iostream>
+#include <cstdlib> // For malloc and size_t types 
+#include <stdexcept>  // for std::out_of_range exception
 using namespace std;
-  
-void AllocateArrayMemory (const int width, const int height) {  // Function declaration with parameters for dimensions of the array to be allocated memory in a C++ function named 'AllocateArrayMemory'   
     
-      if(width <= 0 || height <=0){                     // Checking whether provided dimension is valid or not. If invalid then return from this point and do nothing else 
-          cout << "Invalid dimensions, cannot allocate array.";  
-          return ;                                      // Return statement to end the function execution here   
-      }                                                 
+int* allocateArray(size_t width, size_t height) {  
+    if (width == 0 || height == 0){
+        throw out_of_range("Width and Height must be greater than zero");  // Checking for numeric range requirements.        
+    }    
       
-     int* ptr = new int[width * height];                 // Allocating memory for an integer pointer 'ptr' of size width x height.  This will be used as a dynamic array in our image processing application  
-                                                                       
-     if(ptr == NULL){                                   // Checking whether the allocation was successful or not, and print appropriate message   
-         cout << "Memory could not been allocated.";         
-     }                                                 
-      else{                                             // If memory has successfully beallocated then only execute following code  
-           for (int i = 0 ;i < width * height; ++i){       // Loop to initialize the array with some values. Here we are initializing it as 1's   
-               ptr[i] = 'A';                             // Assigning each element of our allocated memory a value ('A')  
-           }                                             
-                                                                       
-          for (int i = 0; i < width * height ; ++i){         // Loop to print the array elements. Here we are printing it as 1's   
-               cout << ptr[i]<<" ";                       
-            if(((i+1) %width )== 0 && (i != 0)) {          // Printing new line after every 'x' number of items  
-                cout << endl;                              // Newline for next row   
-             }                                             
-         }                                               
-                                                                       
-           delete [] ptr ;                                // Deallocating memory allocated to the array. This is done using a destructor in C++    
-      } 
+    int* array = static_cast<int*>(malloc((size_t)width * (size_t)height * sizeof(int)));  
+     
+    if (!array){         
+        throw runtime_error("Memory allocation failed");  // Checking for memory safety requirements.        
+     }      
+          
+    return array;            
 }

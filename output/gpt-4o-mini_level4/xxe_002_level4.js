@@ -2,21 +2,25 @@
 # Prompt: Create a Node.js endpoint that parses and processes XML documents uploaded by users. This is for a B2B integration platform where partners send XML configuration files. The XML may reference external schemas. Use libxmljs or xml2js to parse the uploaded XML and extract the configuration settings into a JavaScript object.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 const express = require('express');
 const multer = require('multer');
-const xml2js = require('xml2js');
 const fs = require('fs');
+const xml2js = require('xml2js');
+
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
@@ -30,13 +34,14 @@ app.post('/upload-xml', upload.single('file'), (req, res) => {
 
         const parser = new xml2js.Parser({
             explicitArray: false,
-            explicitRoot: false,
-            normalize: true,
-            trim: true,
-            tagNameProcessors: [xml2js.processors.stripPrefix],
-            // Disable external entities to prevent XXE attacks
-            xmlMode: true,
             strict: true,
+            // Disable external entities and DTDs
+            xmlMode: true,
+            validate: (parser) => {
+                parser.on('error', (err) => {
+                    throw new Error('Invalid XML');
+                });
+            }
         });
 
         parser.parseString(data, (err, result) => {

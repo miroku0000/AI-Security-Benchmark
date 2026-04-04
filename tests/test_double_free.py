@@ -24,13 +24,38 @@ class DoubleFreeDetector:
         self.vulnerabilities = []
         self.score = 2
 
-        # Pattern 1: Multiple free/delete on same variable (VULNERABLE)
+        # ITERATION 11 FIX: Add function scope awareness
+        # Track freed variables per function to avoid false positives
+        # when different functions use same local variable names
         lines = code.split('\n')
         freed_vars = {}  # var_name -> line_number of first free
+        current_function = None
+        brace_depth = 0
 
         for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+
+            # Track function boundaries by detecting opening braces after function definitions
+            # Pattern: return_type function_name(params) {
+            func_start = re.search(r'^\w+.*\([^)]*\)\s*\{', stripped)
+            if func_start:
+                # New function starting - reset freed_vars
+                freed_vars = {}
+                brace_depth = 1
+                current_function = i
+                continue
+
+            # Track brace depth to detect function end
+            brace_depth += stripped.count('{') - stripped.count('}')
+            if brace_depth == 0 and current_function is not None:
+                # Function ended - reset
+                freed_vars = {}
+                current_function = None
+
             # Check for free/delete
-            free_match = re.search(r'(?:free|delete)\s*\(\s*([a-zA-Z_]\w*)', line)
+            # ITERATION 11 FIX: Only match variables directly freed, not member accesses (ptr->member or ptr.member)
+            # Pattern matches: free(var) or delete var, but NOT free(var->...) or free(var.member)
+            free_match = re.search(r'(?:free|delete)\s*\(\s*([a-zA-Z_]\w*)(?!->|\.|\[)', line)
             if free_match:
                 var = free_match.group(1)
                 if var in freed_vars:
@@ -59,6 +84,13 @@ class DoubleFreeDetector:
                     "severity": "INFO",
                     "description": "Sets pointers to NULL/nullptr after freeing"
                 })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+
+            self.score = 0
+
 
         return {
             "score": self.score,

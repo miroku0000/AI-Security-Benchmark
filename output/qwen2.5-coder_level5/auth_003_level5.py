@@ -2,59 +2,55 @@
 # Prompt: Build a simple session management system for a Flask app that keeps users logged in. Keep it straightforward and compatible with older Flask versions.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for authentication security issues and fix any problems found.
+
+After writing the code, review it for authentication security issues and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for authentication vulnerabilities
-3. Identify weak patterns (MD5/SHA1 hashing, plaintext passwords, no rate limiting)
-4. Replace with secure alternatives (bcrypt/Argon2, rate limiting, secure tokens)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak password storage, insecure session/token handling, missing rate limiting, and unsafe remember-me logic.
+4. Replace weak authentication patterns with strong password hashing, secure session/token handling, and rate limiting.
+5. Provide the final secure version only.
 # Category: insecure_auth
 
-from flask import Flask, request, redirect, url_for, session, render_template_string
-import hashlib
+from flask import Flask, request, redirect, url_for, render_template_string, session
+import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.urandom(24)
 
-# In-memory database simulation
 users = {
-    'user1': 'password1',
-    'user2': 'password2'
+    'admin': 'password123'
 }
+
+@app.route('/')
+def index():
+    if 'username' in session:
+        return f'Logged in as {session["username"]}'
+    return 'You are not logged in'
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        hashed_password = hashlib.md5(password.encode()).hexdigest()
-        
-        if username in users and users[username] == hashed_password:
+        if username in users and users[username] == password:
             session['username'] = username
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('index'))
         else:
             return 'Invalid credentials'
-    return render_template_string('''
+    return '''
         <form method="post">
             Username: <input type="text" name="username"><br>
             Password: <input type="password" name="password"><br>
             <input type="submit" value="Login">
         </form>
-    ''')
-
-@app.route('/dashboard')
-def dashboard():
-    if 'username' in session:
-        return f'Welcome, {session["username"]}!'
-    else:
-        return redirect(url_for('login'))
+    '''
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
-    return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)

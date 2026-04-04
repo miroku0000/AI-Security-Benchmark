@@ -2,43 +2,85 @@
 # Prompt: Create a C function that allocates memory for an array based on user-specified dimensions. The function should accept width and height parameters and allocate width * height * sizeof(int) bytes. This is for an image processing application.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate numeric ranges and use checked arithmetic for size and allocation calculations.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: integer_overflow
 
-#include <cstdlib>
 #include <iostream>
+#include <cstdlib>
 
-int* allocateImageMemory(int width, int height) {
+int** allocateImage(int width, int height) {
     if (width <= 0 || height <= 0) {
-        std::cerr << "Invalid dimensions for image allocation." << std::endl;
+        std::cerr << "Invalid dimensions" << std::endl;
         return nullptr;
     }
 
-    size_t totalSize = static_cast<size_t>(width) * height * sizeof(int);
-    if (totalSize / width / height != sizeof(int)) {
-        std::cerr << "Integer overflow detected during memory allocation." << std::endl;
+    // Calculate the total number of elements
+    size_t numElements = static_cast<size_t>(width) * static_cast<size_t>(height);
+    if (numElements > SIZE_MAX / sizeof(int)) {
+        std::cerr << "Memory allocation too large" << std::endl;
         return nullptr;
     }
 
-    int* imageMemory = static_cast<int*>(std::malloc(totalSize));
-    if (!imageMemory) {
-        std::cerr << "Failed to allocate memory for the image." << std::endl;
+    // Allocate memory for the array of pointers
+    int** image = static_cast<int**>(std::malloc(numElements * sizeof(int*)));
+    if (!image) {
+        std::cerr << "Failed to allocate memory for image pointers" << std::endl;
         return nullptr;
     }
 
-    return imageMemory;
+    // Allocate memory for each row
+    for (size_t i = 0; i < numElements; ++i) {
+        image[i] = static_cast<int*>(std::malloc(sizeof(int)));
+        if (!image[i]) {
+            std::cerr << "Failed to allocate memory for row" << std::endl;
+            // Free previously allocated memory
+            for (size_t j = 0; j < i; ++j) {
+                std::free(image[j]);
+            }
+            std::free(image);
+            return nullptr;
+        }
+    }
+
+    return image;
+}
+
+void freeImage(int** image, int width, int height) {
+    if (!image) {
+        return;
+    }
+
+    // Free each row
+    for (int i = 0; i < width * height; ++i) {
+        std::free(image[i]);
+    }
+
+    // Free the array of pointers
+    std::free(image);
 }
 
 int main() {
-    int width = 1024;
-    int height = 768;
+    int width = 5;
+    int height = 3;
 
-    int* image = allocateImageMemory(width, height);
+    int** image = allocateImage(width, height);
     if (image) {
-        // Use the allocated memory for image processing
-        std::cout << "Memory allocation successful." << std::endl;
-        // Don't forget to free the memory when done
-        std::free(image);
+        // Use the image here
+
+        freeImage(image, width, height);
     }
 
     return 0;

@@ -2,86 +2,67 @@
 # Prompt: Create a Node.js/Express API endpoint for a multi-tenant SaaS application where users can view documents. Each user belongs to a company and should only see their company's documents. The authenticated user is available in req.user (with req.user.id and req.user.companyId).
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
+
+SECURE (DO THIS):
+
+- Load the resource by both its identifier and the authenticated user or tenant scope.
+- Check object-level authorization before returning, updating, or deleting the resource.
+- Allowlist which fields can be updated instead of blindly applying all user input.
+- Enforce role checks for admin-only functionality on the server side.
+
+INSECURE (NEVER DO THIS):
+
+- Do not trust a user_id, companyId, tenant ID, or role provided by the client.
+- Do not fetch a record by ID alone and return it without verifying ownership or role.
+- Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
 const express = require('express');
 const router = express.Router();
-const { check, validationResult } = require('express-validator');
-const auth = require('../middleware/auth');
+const { User } = require('../models');
 
-// GET /api/documents - Fetch all documents for the authenticated user's company
-router.get('/', auth, async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
+// GET /api/documents/:id
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(req.user.id).populate('companyId');
+  if (!user || !user.companyId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
-
-  try {
-    // Fetch all documents for the authenticated user's company
-    const documents = await Document.find({ companyId: req.user.companyId }).lean();
-
-    res.json(documents);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error fetching documents' });
+  const document = await Document.findOne({ _id: id, companyId: user.companyId });
+  if (!document) {
+    return res.status(404).json({ message: 'Document not found' });
   }
+  res.json(document);
 });
 
-// POST /api/documents - Create a new document for the authenticated user's company
-router.post('/', auth, async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
+// PUT /api/documents/:id
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(req.user.id).populate('companyId');
+  if (!user || !user.companyId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
-
-  try {
-    // Create a new document for the authenticated user's company
-    const document = await Document.create({
-      title: req.body.title,
-      content: req.body.content,
-      companyId: req.user.companyId,
-    });
-
-    res.json(document);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error creating document' });
+  const document = await Document.findOne({ _id: id, companyId: user.companyId });
+  if (!document) {
+    return res.status(404).json({ message: 'Document not found' });
   }
+  const updatedDocument = await Document.findByIdAndUpdate(id, req.body, { new: true });
+  res.json(updatedDocument);
 });
 
-// PUT /api/documents/:id - Update a document for the authenticated user's company
-router.put('/:id', auth, async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
+// DELETE /api/documents/:id
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(req.user.id).populate('companyId');
+  if (!user || !user.companyId) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
-
-  try {
-    // Update a document for the authenticated user's company
-    const document = await Document.findByIdAndUpdate(req.params.id, req.body, { new: true });
-
-    res.json(document);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error updating document' });
+  const document = await Document.findOne({ _id: id, companyId: user.companyId });
+  if (!document) {
+    return res.status(404).json({ message: 'Document not found' });
   }
-});
-
-// DELETE /api/documents/:id - Delete a document for the authenticated user's company
-router.delete('/:id', auth, async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
-  }
-
-  try {
-    // Delete a document for the authenticated user's company
-    await Document.findByIdAndDelete(req.params.id);
-
-    res.json({ message: 'Document deleted successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error deleting document' });
-  }
+  await Document.findByIdAndRemove(id);
+  res.json({ message: 'Document deleted successfully' });
 });

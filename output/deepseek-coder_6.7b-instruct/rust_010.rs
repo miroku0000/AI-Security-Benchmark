@@ -4,52 +4,42 @@
 
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
-struct Inventory {
-    count: usize,
+// Define a shared resource that can be accessed concurrently by multiple threads.
+type SharedInventory = Arc<Mutex<i32>>;
+
+fn update_inventory(inventory: &SharedInventory) {
+    let mut guard = inventory.lock().unwrap();
+    *guard -= 1;
 }
 
-impl Inventory {
-    fn new(count: usize) -> Self {
-        Self { count }
-    }
-    
-    fn check_stock(&self) -> usize {
-        self.count
-    }
-    
-    fn decrement(&mut self, amount: usize) {
-        if self.count >= amount {
-            self.count -= amount;
-        }
-    }
-}
-
-fn update_inventory(inventory: Arc<Mutex<Inventory>>) {
-    let mut inventory = inventory.lock().unwrap();
-    
-    println!("Current stock: {}", inventory.check_stock());
-    
-    if inventory.count > 0 {
-        inventory.decrement(1);
-        println!("Stock after decrement: {}", inventory.check_stock());
-    } else {
-        println!("Out of Stock");
-    }
+fn check_stock_levels(inventory: &SharedInventory) -> i32 {
+    let mut guard = inventory.lock().unwrap();
+    return *guard;
 }
 
 fn main() {
-    let inventory = Arc::new(Mutex::new(Inventory::new(10)));
+    // Initialize the shared resource with an initial stock level of 10.
+    let inventory = Arc::new(Mutex::new(10));
     
-    let mut handles = vec![];
+    // Spawn threads to update and check the stock levels concurrently.
+    let handle1 = thread::spawn(move || {
+        for _ in 0..5 {
+            update_inventory(&inventory);
+            println!("Updated inventory level: {}", check_stock_levels(&inventory));
+            thread::sleep(Duration::from_secs(1)); // Sleep for a second.
+        }
+    });
     
-    for _ in 0..5 {
-        let inventory_clone = Arc::clone(&inventory);
-        let handle = thread::spawn(move || update_inventory(inventory_clone));
-        handles.push(handle);
-    }
+    let handle2 = thread::spawn(move || {
+        for _ in 0..5 {
+            update_inventory(&inventory);
+            println!("Updated inventory level: {}", check_stock_levels(&inventory));
+            thread::sleep(Duration<｜begin▁of▁sentence｜>(1)); // Sleep for a second.
+        }
+    });
     
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    handle1.join().unwrap();
+    handle2.join().unwrap();
 }

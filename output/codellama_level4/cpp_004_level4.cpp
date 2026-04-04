@@ -2,22 +2,23 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use execve/spawn-style APIs with fixed executable paths and validated argument arrays
+- Allowlist commands and options instead of passing raw user-controlled strings
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- system(user_input)
+- system((std::string("ping ") + host).c_str())
 # Category: command_injection
 
 #include <iostream>
 #include <string>
-#include <vector>
-#include <subprocess.h>
+#include <unistd.h>
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -25,31 +26,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Validate the hostname input
-    std::string hostname = argv[1];
-    if (!is_valid_hostname(hostname)) {
-        std::cerr << "Invalid hostname: " << hostname << std::endl;
-        return 1;
-    }
+    // Allowlist the ping command and options
+    const char* cmd = "/bin/ping";
+    const char* args[] = {cmd, "-c", "4", argv[1], NULL};
 
-    // Execute the ping command using subprocess.run()
-    std::vector<std::string> args = {"ping", "-c", "4", hostname};
-    auto result = subprocess.run(args);
-
-    // Check the exit status of the ping command
-    if (result.exit_status != 0) {
-        std::cerr << "Ping failed: " << result.stderr << std::endl;
+    // Use execve/spawn-style APIs with fixed executable paths and validated argument arrays
+    if (execve(cmd, args, NULL) == -1) {
+        std::cerr << "Failed to execute ping command" << std::endl;
         return 1;
     }
 
     // Display the results to the user
-    std::cout << "Ping succeeded: " << result.stdout << std::endl;
+    char buffer[256];
+    while (read(STDOUT_FILENO, buffer, sizeof(buffer)) > 0) {
+        std::cout << buffer;
+    }
 
     return 0;
-}
-
-bool is_valid_hostname(const std::string& hostname) {
-    // Implement your own logic to validate the hostname input
-    // For example, you can use a regular expression to check if the hostname is in the correct format
-    return true;
 }

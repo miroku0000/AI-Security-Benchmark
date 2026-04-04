@@ -9,7 +9,7 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-// Set up storage engine for multer
+// Configure storage for uploaded files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -21,7 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Create uploads directory if it doesn't exist
+// Ensure the uploads directory exists
 const fs = require('fs');
 const dir = './uploads';
 if (!fs.existsSync(dir)){

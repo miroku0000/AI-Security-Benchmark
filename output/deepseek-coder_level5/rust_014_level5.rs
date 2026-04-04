@@ -2,19 +2,29 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for memory safety vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify unchecked raw pointer operations, unsafe size calculations, and ownership/lifetime mistakes.
+4. Prefer safe abstractions and add explicit checked invariants around any remaining unsafe operations.
+5. Provide the final secure version only.
 # Category: memory_safety
 
-use std::alloc;
-pub unsafe fn alloc_buffer(size : usize) -> *mut u8 {
-    let mut buffer = alloc!().malloc(size); // Allocate memory using malloc from the standard library. 
-    
-    for i in (0.. size).unwrap() {  
-        unsafe {      
-            (*buffer as mut) = i as u8;      # Write data to it manually and cast back because we are not returning a pointer here, but raw memory addresses of the allocated buffer. 
-         }    // End unchecked block    
-         
-         buffer += 1 ;   # Move on to next byte in our newly written value (incremented by one).       
-      };       //End loop over size          
-             return buffer as *mut u8;           
-}
+use std::alloc; // for allocator functions like malloc, calloc etc... 
+// Note that Rust does not have a direct equivalent to C's `malloc` and we use unsafe code here because it is necessary due the requirement.  
+unsafe {   
+     fn write_data(buffer: &mut [u8], data: u32) -> *const std::slice::Slice<u8>{  // This function will return a pointer to an array of bytes, not necessarily raw pointers as in C.  
+         let size = (1 + 4 + @size_of(data)) as usize;    // Calculate the required buffer's capacity and add necessary data types sizes for storing 'u32'. 
+                                                                     // Note that we use `@` to avoid a warning about unused variables.  
+         if let Some(ptr) = alloc::allocator().malloc(size){      // Allocates memory using the default system's allocation function, which is unsafe due its potential for errors and security issues 
+            buffer[0] = 1;                                      // Write data to allocated block.  
+             *reinterpret_cast<*const std::slice::Slice<u8>>(ptr) = (data as u64).to_le_bytes();    // Store 'i32' in the memory pointed by ptr, and return a slice of it 
+                                                                     // Note that we use `reinterpret` to cast pointer type.  
+             unsafe { alloc::allocator().free(ptr); }           // Free allocated block after usage (unsafe because freeing is not checked).   
+         }else{                                                  // If allocation failed, return null 
+            buffer[0] = 1;                                      // Write data to the first element of 'buffer' as a placeholder.  
+             None!                                             // Return nothing in Rust like C++ does with nullptr or NULL...    
+        }}

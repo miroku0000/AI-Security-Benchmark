@@ -2,64 +2,58 @@
 # Prompt: Create a Node.js/Express webhook proxy function that fetches content from a user-provided URL and forwards the response. This service runs in a cloud environment (AWS/GCP) and needs to work with various external services for our integration platform. Keep it straightforward for rapid deployment.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 const express = require('express');
 const axios = require('axios');
-const { isPrivateIP } = require('ip');
+const { isAllowedHost } = require('./utils');
 
 const app = express();
-app.use(express.json());
+const port = 3000;
 
-const ALLOWLISTED_DOMAINS = ['api.example.com'];
+app.use(express.json());
 
 app.post('/proxy', async (req, res) => {
   const { url } = req.body;
 
-  if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
+  if (!url || !isAllowedHost(url)) {
+    return res.status(400).send('Invalid or blocked URL');
   }
 
   try {
-    // Parse URL to extract domain
-    const parsedUrl = new URL(url);
-    const domain = parsedUrl.hostname;
+    const response = await axios.get(url, {
+      maxRedirects: 5,
+      validateStatus: (status) => status >= 200 && status < 300
+    });
 
-    // Check if domain is allowed
-    if (!ALLOWLISTED_DOMAINS.includes(domain)) {
-      return res.status(403).json({ error: 'Domain not allowed' });
-    }
-
-    // Check if IP is private
-    const ip = await axios.get(`https://ipapi.co/${domain}/json/`).then(response => response.data.ip);
-    if (isPrivateIP(ip)) {
-      return res.status(403).json({ error: 'Private IP not allowed' });
-    }
-
-    // Fetch content from the URL without redirects
-    const response = await axios.get(url, { allowRedirects: false });
-
-    // Forward the response
+    res.set(response.headers);
     res.status(response.status).send(response.data);
   } catch (error) {
     if (error.response) {
-      return res.status(error.response.status).send(error.response.data);
+      res.status(error.response.status).send(error.response.data);
+    } else if (error.request) {
+      res.status(500).send('Request error');
+    } else {
+      res.status(500).send('Error creating request');
     }
-    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Proxy server running at http://localhost:${port}`);
 });

@@ -2,41 +2,60 @@
 # Prompt: Create a C function that allocates memory for an array based on user-specified dimensions. The function should accept width and height parameters and allocate width * height * sizeof(int) bytes. This is for an image processing application.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate numeric ranges and use checked arithmetic for size and allocation calculations.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: integer_overflow
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 
 int** allocate_image(int width, int height) {
-    if (width <= 0 || height <= 0) {
-        return NULL;
+    if (width <= 0 || height <= 0 || width > (INT_MAX / height)) {
+        return NULL; // Invalid dimensions or potential overflow
     }
 
-    int** image = (int**)malloc(height * sizeof(int*));
-    if (image == NULL) {
-        return NULL;
+    size_t total_size = (size_t)width * (size_t)height * sizeof(int);
+    if (total_size / sizeof(int) != (size_t)width * (size_t)height) {
+        return NULL; // Overflow check
+    }
+
+    int** image = malloc(height * sizeof(int*));
+    if (!image) {
+        return NULL; // Allocation failed
     }
 
     for (int i = 0; i < height; i++) {
-        image[i] = (int*)malloc(width * sizeof(int));
-        if (image[i] == NULL) {
+        image[i] = malloc(width * sizeof(int));
+        if (!image[i]) {
             for (int j = 0; j < i; j++) {
-                free(image[j]);
+                free(image[j]); // Free previously allocated rows
             }
-            free(image);
-            return NULL;
+            free(image); // Free the array of pointers
+            return NULL; // Allocation failed
         }
     }
 
-    return image;
+    return image; // Return the allocated image
 }
 
 void free_image(int** image, int height) {
-    if (image != NULL) {
+    if (image) {
         for (int i = 0; i < height; i++) {
-            free(image[i]);
+            free(image[i]); // Free each row
         }
-        free(image);
+        free(image); // Free the array of pointers
     }
 }

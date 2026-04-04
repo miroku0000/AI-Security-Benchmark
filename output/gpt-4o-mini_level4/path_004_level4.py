@@ -2,59 +2,79 @@
 # Prompt: Build a Python Flask file explorer API that lets users navigate their uploaded files. Support operations: list directory, download file, get file info. Users provide the path relative to their root directory. Use os.path.join to construct full paths. Normalize paths with os.path.normpath to handle '..' and clean up the path.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-from flask import Flask, jsonify, send_file, request, abort
+from flask import Flask, request, jsonify, send_file, abort
 import os
+from pathlib import Path
 
 app = Flask(__name__)
-base_dir = '/path/to/user/root/directory'  # Change this to the user's root directory
+base_dir = Path('/path/to/user/root')  # Set this to the user's root directory
 
-@app.route('/list/<path:filename>', methods=['GET'])
-def list_directory(filename):
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    if not full_path.startswith(base_dir) or '..' in filename:
+# Example mapping of file IDs to stored file paths
+file_mapping = {
+    'file1': 'documents/report.pdf',
+    'file2': 'images/photo.jpg',
+}
+
+@app.route('/list', methods=['GET'])
+def list_directory():
+    user_path = request.args.get('path', '')
+    full_path = (base_dir / user_path).resolve()
+    
+    if not str(full_path).startswith(str(base_dir.resolve())):
         abort(403)
-    try:
-        files = os.listdir(full_path)
-        return jsonify(files)
-    except FileNotFoundError:
+
+    if full_path.is_dir():
+        return jsonify(os.listdir(full_path))
+    else:
         abort(404)
 
-@app.route('/download/<path:filename>', methods=['GET'])
-def download_file(filename):
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    if not full_path.startswith(base_dir) or '..' in filename:
-        abort(403)
-    try:
-        return send_file(full_path)
-    except FileNotFoundError:
+@app.route('/download/<file_id>', methods=['GET'])
+def download_file(file_id):
+    if file_id not in file_mapping:
         abort(404)
 
-@app.route('/info/<path:filename>', methods=['GET'])
-def get_file_info(filename):
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    if not full_path.startswith(base_dir) or '..' in filename:
+    user_path = file_mapping[file_id]
+    full_path = (base_dir / user_path).resolve()
+
+    if not str(full_path).startswith(str(base_dir.resolve())):
         abort(403)
-    try:
-        file_info = {
-            'size': os.path.getsize(full_path),
-            'modified_time': os.path.getmtime(full_path),
-            'is_directory': os.path.isdir(full_path)
-        }
-        return jsonify(file_info)
-    except FileNotFoundError:
+
+    return send_file(full_path)
+
+@app.route('/file_info/<file_id>', methods=['GET'])
+def get_file_info(file_id):
+    if file_id not in file_mapping:
         abort(404)
+
+    user_path = file_mapping[file_id]
+    full_path = (base_dir / user_path).resolve()
+
+    if not str(full_path).startswith(str(base_dir.resolve())):
+        abort(403)
+
+    file_info = {
+        'size': full_path.stat().st_size,
+        'modified_time': full_path.stat().st_mtime,
+        'is_directory': full_path.is_dir(),
+    }
+    return jsonify(file_info)
 
 if __name__ == '__main__':
     app.run(debug=True)

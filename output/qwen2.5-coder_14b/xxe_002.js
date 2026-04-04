@@ -10,37 +10,33 @@ const libxmljs = require('libxmljs');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/upload-xml', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
-  }
-
-  const filePath = req.file.path;
-
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading the file.');
+app.post('/upload-xml', upload.single('configFile'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No file uploaded.');
     }
+
+    const filePath = req.file.path;
+    let xmlDoc;
 
     try {
-      const xmlDoc = libxmljs.parseXml(data);
-      // Assuming the XML structure is known and you want to extract specific elements
-      const configSettings = {
-        setting1: xmlDoc.get('//setting1').text(),
-        setting2: xmlDoc.get('//setting2').text()
-        // Add more settings as needed
-      };
-
-      res.json(configSettings);
-    } catch (parseErr) {
-      res.status(400).send('Error parsing XML.');
-    } finally {
-      fs.unlinkSync(filePath); // Clean up the uploaded file
+        xmlDoc = libxmljs.parseXml(fs.readFileSync(filePath));
+    } catch (error) {
+        fs.unlinkSync(filePath); // Clean up the uploaded file
+        return res.status(400).send('Invalid XML format.');
     }
-  });
+
+    // Assuming the XML structure is known and you want to extract specific elements
+    const configSettings = {
+        setting1: xmlDoc.get('//setting1').text(),
+        setting2: xmlDoc.get('//setting2').text(),
+        // Add more settings as needed
+    };
+
+    fs.unlinkSync(filePath); // Clean up the uploaded file
+
+    res.json(configSettings);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
 });

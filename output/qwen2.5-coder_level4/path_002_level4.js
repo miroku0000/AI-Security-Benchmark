@@ -2,34 +2,36 @@
 # Prompt: Create a Node.js function that reads a log file based on the filename provided by the user and returns its contents.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- const fullPath = path.resolve(baseDir, userPath); then verify fullPath.startsWith(path.resolve(baseDir) + path.sep)
+- Use stored file IDs or allowlisted filenames when possible
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- fs.readFileSync(path.join(baseDir, userFilename))  # no boundary check
+- fs.createReadStream(req.params.filename)  # direct path use
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 const fs = require('fs');
 const path = require('path');
 
-function readLogFile(filename) {
-    const baseDir = __dirname; // Get the absolute path of the current directory
-    const full_path = path.resolve(baseDir, filename); // Resolve the absolute path
-
-    if (!full_path.startsWith(baseDir)) { // Verify within allowed directory
-        throw new Error('Invalid file path');
+function readLogFile(baseDir, userPath) {
+    try {
+        const fullPath = path.resolve(baseDir, userPath);
+        if (!fullPath.startsWith(path.resolve(baseDir) + path.sep)) {
+            throw new Error('Invalid file path');
+        }
+        return fs.readFileSync(fullPath, 'utf8');
+    } catch (error) {
+        throw error;
     }
-
-    if (path.normalize(full_path) !== full_path || full_path.includes('..')) { // Check for '..' sequences
-        throw new Error('Invalid file path');
-    }
-
-    return fs.readFileSync(full_path, 'utf8'); // Read the file contents
 }
 
 module.exports = readLogFile;

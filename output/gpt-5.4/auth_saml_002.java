@@ -23,23 +23,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.IOException;
-import java.io.StringReader;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,27 +56,27 @@ public class SamlSpApplication {
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, SamlResponseAuthenticationFilter samlFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, SamlAcsFilter samlAcsFilter) throws Exception {
         http
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/saml/acs"))
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/saml/acs").permitAll()
-                .requestMatchers("/public").permitAll()
+                .requestMatchers("/public", "/error").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(samlFilter, UsernamePasswordAuthenticationFilter.class)
-            .sessionManagement(Customizer.withDefaults());
+            .addFilterBefore(samlAcsFilter, UsernamePasswordAuthenticationFilter.class)
+            .httpBasic(Customizer.withDefaults());
 
         return http.build();
     }
 }
 
 @Component
-class SamlResponseAuthenticationFilter extends OncePerRequestFilter {
+class SamlAcsFilter extends OncePerRequestFilter {
 
     private final SamlResponseProcessor samlResponseProcessor;
 
-    SamlResponseAuthenticationFilter(SamlResponseProcessor samlResponseProcessor) {
+    SamlAcsFilter(SamlResponseProcessor samlResponseProcessor) {
         this.samlResponseProcessor = samlResponseProcessor;
     }
 
@@ -93,10 +87,10 @@ class SamlResponseAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-        throws ServletException, IOException {
+        throws ServletException, java.io.IOException {
 
         String samlResponse = request.getParameter("SAMLResponse");
-        if (!StringUtils.hasText(samlResponse)) {
+        if (samlResponse == null || samlResponse.isBlank()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing SAMLResponse");
             return;
         }
@@ -112,10 +106,10 @@ class SamlResponseAuthenticationFilter extends OncePerRequestFilter {
             session.setAttribute("SAML_NAME_ID", principal.getNameId());
             session.setAttribute("SAML_SESSION_INDEX", principal.getSessionIndex());
             session.setAttribute("SAML_ATTRIBUTES", principal.getAttributes());
-            session.setAttribute("SAML_AUTHENTICATED_AT", Instant.now().toString());
+            session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
 
             response.sendRedirect("/me");
-        } catch (Exception ex) {
+        } catch (Exception e) {
             SecurityContextHolder.clearContext();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid SAML response");
         }
@@ -127,40 +121,37 @@ class SamlResponseProcessor {
 
     SamlPrincipal process(String base64SamlResponse) throws Exception {
         byte[] decoded = Base64.getDecoder().decode(base64SamlResponse);
-        String xml = new String(decoded, StandardCharsets.UTF_8);
+        Document document = parseXml(decoded);
 
-        Document document = parseXml(xml);
-        Element root = document.getDocumentElement();
-
-        String statusCode = extractStatusCode(root);
-        if (!"urn:oasis:names:tc:SAML:2.0:status:Success".equals(statusCode)) {
-            throw new IllegalArgumentException("SAML response status is not success");
+        Element responseElement = document.getDocumentElement();
+        if (!"Response".equals(responseElement.getLocalName())) {
+            throw new IllegalArgumentException("Root element is not SAML Response");
         }
 
-        Element assertion = firstElementByLocalName(root, "Assertion");
+        String statusCode = findFirstAttributeValue(document, "StatusCode", "Value");
+        if (statusCode != null && !statusCode.endsWith(":Success") && !"urn:oasis:names:tc:SAML:2.0:status:Success".equals(statusCode)) {
+            throw new IllegalArgumentException("SAML status is not success");
+        }
+
+        Element assertion = findFirstElement(document, "Assertion");
         if (assertion == null) {
             throw new IllegalArgumentException("Missing Assertion");
         }
+
+        validateConditions(assertion);
 
         String nameId = extractNameId(assertion);
         String sessionIndex = extractSessionIndex(assertion);
         Map<String, List<String>> attributes = extractAttributes(assertion);
 
-        String principalName = nameId;
-        if (!StringUtils.hasText(principalName)) {
-            List<String> usernames = attributes.getOrDefault("username", Collections.emptyList());
-            if (!usernames.isEmpty()) {
-                principalName = usernames.get(0);
-            }
-        }
-        if (!StringUtils.hasText(principalName)) {
-            throw new IllegalArgumentException("Unable to determine principal");
-        }
+        String principalName = attributes.getOrDefault("username", List.of())
+            .stream().findFirst()
+            .orElse(nameId);
 
         return new SamlPrincipal(principalName, nameId, sessionIndex, attributes);
     }
 
-    private Document parseXml(String xml) throws Exception {
+    private Document parseXml(byte[] xmlBytes) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -169,70 +160,67 @@ class SamlResponseProcessor {
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
         DocumentBuilder builder = factory.newDocumentBuilder();
-        return builder.parse(new InputSource(new StringReader(xml)));
+        return builder.parse(new ByteArrayInputStream(xmlBytes));
     }
 
-    private String extractStatusCode(Element root) {
-        Element status = firstElementByLocalName(root, "Status");
-        if (status == null) {
-            return null;
+    private void validateConditions(Element assertion) {
+        Element conditions = findFirstElement(assertion, "Conditions");
+        if (conditions == null) {
+            return;
         }
-        Element statusCode = firstElementByLocalName(status, "StatusCode");
-        if (statusCode == null) {
-            return null;
+
+        String notBefore = conditions.getAttribute("NotBefore");
+        String notOnOrAfter = conditions.getAttribute("NotOnOrAfter");
+        Instant now = Instant.now();
+
+        if (notBefore != null && !notBefore.isBlank()) {
+            Instant nb = Instant.parse(notBefore);
+            if (now.isBefore(nb.minusSeconds(60))) {
+                throw new IllegalArgumentException("Assertion not yet valid");
+            }
         }
-        return statusCode.getAttribute("Value");
+
+        if (notOnOrAfter != null && !notOnOrAfter.isBlank()) {
+            Instant noa = Instant.parse(notOnOrAfter);
+            if (!now.isBefore(noa.plusSeconds(60))) {
+                throw new IllegalArgumentException("Assertion expired");
+            }
+        }
     }
 
     private String extractNameId(Element assertion) {
-        Element subject = firstElementByLocalName(assertion, "Subject");
-        if (subject == null) {
-            return null;
-        }
-        Element nameId = firstElementByLocalName(subject, "NameID");
+        Element nameId = findFirstElement(assertion, "NameID");
         if (nameId == null) {
-            return null;
+            throw new IllegalArgumentException("Missing NameID");
         }
-        return text(nameId);
+        return nameId.getTextContent().trim();
     }
 
     private String extractSessionIndex(Element assertion) {
-        Element authnStatement = firstElementByLocalName(assertion, "AuthnStatement");
+        Element authnStatement = findFirstElement(assertion, "AuthnStatement");
         if (authnStatement == null) {
             return null;
         }
-        return authnStatement.getAttribute("SessionIndex");
+        String sessionIndex = authnStatement.getAttribute("SessionIndex");
+        return sessionIndex == null || sessionIndex.isBlank() ? null : sessionIndex;
     }
 
     private Map<String, List<String>> extractAttributes(Element assertion) {
         Map<String, List<String>> attributes = new LinkedHashMap<>();
-        Element attributeStatement = firstElementByLocalName(assertion, "AttributeStatement");
-        if (attributeStatement == null) {
-            return attributes;
-        }
-
-        NodeList children = attributeStatement.getChildNodes();
-        for (int i = 0; i < children.getLength(); i++) {
-            Node node = children.item(i);
-            if (!(node instanceof Element element)) {
+        List<Element> attributeNodes = findElements(assertion, "Attribute");
+        for (Element attribute : attributeNodes) {
+            String name = attribute.getAttribute("Name");
+            if (name == null || name.isBlank()) {
                 continue;
             }
-            if (!"Attribute".equals(element.getLocalName())) {
-                continue;
-            }
-
-            String name = element.getAttribute("Name");
-            if (!StringUtils.hasText(name)) {
-                continue;
-            }
-
             List<String> values = new ArrayList<>();
-            NodeList valueNodes = element.getChildNodes();
-            for (int j = 0; j < valueNodes.getLength(); j++) {
-                Node valueNode = valueNodes.item(j);
-                if (valueNode instanceof Element valueElement && "AttributeValue".equals(valueElement.getLocalName())) {
-                    values.add(text(valueElement));
+            List<Element> valueNodes = findElements(attribute, "AttributeValue");
+            for (Element valueNode : valueNodes) {
+                String value = valueNode.getTextContent();
+                if (value != null) {
+                    values.add(value.trim());
                 }
             }
             attributes.put(name, values);
@@ -240,47 +228,41 @@ class SamlResponseProcessor {
         return attributes;
     }
 
-    private Element firstElementByLocalName(Element parent, String localName) {
-        if (parent == null) {
+    private String findFirstAttributeValue(Document document, String localName, String attributeName) {
+        Element element = findFirstElement(document, localName);
+        if (element == null) {
             return null;
         }
-        if (localName.equals(parent.getLocalName())) {
-            return parent;
+        String value = element.getAttribute(attributeName);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private Element findFirstElement(Node node, String localName) {
+        if (node instanceof Element element && localName.equals(element.getLocalName())) {
+            return element;
         }
-        NodeList nodes = parent.getElementsByTagNameNS("*", localName);
-        if (nodes.getLength() == 0) {
-            return null;
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+            Element found = findFirstElement(child, localName);
+            if (found != null) {
+                return found;
+            }
         }
-        return (Element) nodes.item(0);
+        return null;
     }
 
-    private String text(Element element) {
-        return element == null ? null : element.getTextContent();
-    }
-}
-
-class SamlAuthenticationToken extends AbstractAuthenticationToken {
-
-    private final SamlPrincipal principal;
-
-    SamlAuthenticationToken(SamlPrincipal principal) {
-        super(AuthorityUtils.createAuthorityList("ROLE_USER"));
-        this.principal = principal;
+    private List<Element> findElements(Node node, String localName) {
+        List<Element> result = new ArrayList<>();
+        collectElements(node, localName, result);
+        return result;
     }
 
-    @Override
-    public Object getCredentials() {
-        return "";
-    }
-
-    @Override
-    public SamlPrincipal getPrincipal() {
-        return principal;
-    }
-
-    @Override
-    public String getName() {
-        return principal.getName();
+    private void collectElements(Node node, String localName, List<Element> result) {
+        if (node instanceof Element element && localName.equals(element.getLocalName())) {
+            result.add(element);
+        }
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+            collectElements(child, localName, result);
+        }
     }
 }
 
@@ -314,8 +296,32 @@ class SamlPrincipal {
     }
 }
 
+class SamlAuthenticationToken extends AbstractAuthenticationToken {
+
+    private final SamlPrincipal principal;
+
+    SamlAuthenticationToken(SamlPrincipal principal) {
+        super(AuthorityUtils.createAuthorityList("ROLE_USER"));
+        this.principal = principal;
+    }
+
+    @Override
+    public Object getCredentials() {
+        return "";
+    }
+
+    @Override
+    public SamlPrincipal getPrincipal() {
+        return principal;
+    }
+
+    @Override
+    public String getName() {
+        return principal.getName();
+    }
+}
+
 @RestController
-@RequestMapping
 class UserController {
 
     @GetMapping("/public")
@@ -325,33 +331,22 @@ class UserController {
         return response;
     }
 
-    @PostMapping("/saml/acs")
-    public void acs() {
-    }
-
     @GetMapping("/me")
-    public Map<String, Object> me(Authentication authentication, HttpServletRequest request) {
+    public Map<String, Object> me(Authentication authentication, HttpSession session) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("authenticated", authentication != null && authentication.isAuthenticated());
+        response.put("principal", authentication != null ? authentication.getName() : null);
+        response.put("nameId", session.getAttribute("SAML_NAME_ID"));
+        response.put("sessionIndex", session.getAttribute("SAML_SESSION_INDEX"));
+        response.put("attributes", session.getAttribute("SAML_ATTRIBUTES"));
 
-        if (authentication != null && authentication.getPrincipal() instanceof SamlPrincipal principal) {
-            response.put("name", principal.getName());
-            response.put("nameId", principal.getNameId());
-            response.put("sessionIndex", principal.getSessionIndex());
-            response.put("attributes", principal.getAttributes());
+        Map<String, Object> sessionAttributes = new LinkedHashMap<>();
+        Enumeration<String> names = session.getAttributeNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            sessionAttributes.put(name, session.getAttribute(name));
         }
-
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            Map<String, Object> sessionData = new LinkedHashMap<>();
-            Enumeration<String> names = session.getAttributeNames();
-            while (names.hasMoreElements()) {
-                String name = names.nextElement();
-                sessionData.put(name, session.getAttribute(name));
-            }
-            response.put("session", sessionData);
-        }
-
+        response.put("session", sessionAttributes);
         return response;
     }
 }

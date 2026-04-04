@@ -2,89 +2,82 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <mutex>
-#include <atomic>
 
 struct Account {
-    std::string id;
+    int id;
     double balance;
+    std::mutex mtx;
+
+    Account(int id, double balance) : id(id), balance(balance) {}
+
+    void deposit(double amount) {
+        std::lock_guard<std::mutex> lock(mtx);
+        balance += amount;
+    }
+
+    void withdraw(double amount) {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (balance >= amount) {
+            balance -= amount;
+        } else {
+            throw std::runtime_error("Insufficient funds");
+        }
+    }
+
+    double getBalance() const {
+        std::lock_guard<std::mutex> lock(mtx);
+        return balance;
+    }
 };
 
-class BankSystem {
-public:
-    BankSystem(const std::vector<Account>& accounts) : accounts_(accounts), account_mutexes_(accounts.size()) {}
-
-    void deposit(const std::string& id, double amount) {
-        auto index = findAccountIndex(id);
-        if (index != -1) {
-            std::lock_guard<std::mutex> lock(account_mutexes_[index]);
-            accounts_[index].balance += amount;
-        }
-    }
-
-    void withdraw(const std::string& id, double amount) {
-        auto index = findAccountIndex(id);
-        if (index != -1) {
-            std::lock_guard<std::mutex> lock(account_mutexes_[index]);
-            if (accounts_[index].balance >= amount) {
-                accounts_[index].balance -= amount;
-            }
-        }
-    }
-
-    double getBalance(const std::string& id) const {
-        auto index = findAccountIndex(id);
-        if (index != -1) {
-            std::lock_guard<std::mutex> lock(account_mutexes_[index]);
-            return accounts_[index].balance;
-        }
-        return -1.0; // Account not found
-    }
-
-private:
-    int findAccountIndex(const std::string& id) const {
-        for (size_t i = 0; i < accounts_.size(); ++i) {
-            if (accounts_[i].id == id) {
-                return static_cast<int>(i);
-            }
-        }
-        return -1;
-    }
-
-    std::vector<Account> accounts_;
-    mutable std::vector<std::mutex> account_mutexes_;
-};
-
-void processTransactions(BankSystem& bank, const std::string& id, double amount, bool isDeposit) {
+void processTransaction(Account& account, int amount, bool isDeposit) {
     if (isDeposit) {
-        bank.deposit(id, amount);
+        account.deposit(amount);
     } else {
-        bank.withdraw(id, amount);
+        account.withdraw(amount);
     }
 }
 
 int main() {
-    std::vector<Account> accounts = {{"1", 100.0}, {"2", 500.0}};
-    BankSystem bank(accounts);
+    const int numAccounts = 5;
+    const int numTransactions = 100;
+    std::vector<Account> accounts(numAccounts);
+
+    for (int i = 0; i < numAccounts; ++i) {
+        accounts[i] = Account(i, 1000.0);
+    }
 
     std::vector<std::thread> threads;
-    for (int i = 0; i < 10; ++i) {
-        threads.emplace_back(processTransactions, std::ref(bank), "1", 10.0, true);
-        threads.emplace_back(processTransactions, std::ref(bank), "2", 50.0, false);
+
+    for (int i = 0; i < numTransactions; ++i) {
+        int accountId = rand() % numAccounts;
+        bool isDeposit = rand() % 2 == 0;
+        int amount = rand() % 100 + 1;
+        threads.emplace_back(processTransaction, std::ref(accounts[accountId]), amount, isDeposit);
     }
 
     for (auto& thread : threads) {
         thread.join();
     }
 
-    std::cout << "Account 1 balance: " << bank.getBalance("1") << std::endl;
-    std::cout << "Account 2 balance: " << bank.getBalance("2") << std::endl;
+    for (const auto& account : accounts) {
+        std::cout << "Account " << account.id << ": Balance = " << account.getBalance() << std::endl;
+    }
 
     return 0;
 }

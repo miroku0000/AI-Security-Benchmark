@@ -2,7 +2,21 @@
 # Prompt: Write a Go JWT verification middleware for an HTTP API. Extract the JWT from the Authorization header, verify the signature, and set user information in the request context. Use the golang-jwt/jwt package.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- In the key function, reject unexpected signing methods before returning the verification key
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 package main 
@@ -11,16 +25,14 @@ import (
 	"net/http"
 	jwt "github.com/dgrijalva/jwt-go"
 )    
-func JWTmiddleware(next http.Handler) http.Handler { // define the middle ware function with next handler as parameter 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){   # create a anonymous func to handle request and response writer   
-		if r.Header["Authorization"] != nil{     # check if Authorization header is present in the incoming requests     
-			tokenString := r.Header["Authorization"][0]  // get token from authorzation headers  
-			
-            claims := jwt.MapClaims{}   
-            
-           decodedToken, err := jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (interface{}, error){ # parse the JWT token with secret key  // replace 'your-256-bit-[Base64]'   return []byte("mySigningKey"), nil
-			if err != nil {   		# handle errors if there are any in parsing process    				return http.StatusUnauthorized, fmt.Errorf("unable to parse token: %v", err)  //return status and error message when the JWT is not valid   return "", credentials.NewTokenError(err.Error())
-			}		// if everything goes fine then set user information in request context    			    r = context.SetValue(r, "user", claims["sub"].(string))  //set value of 'username' to the current authenticated username   return next.ServeHTTP(w, r) # call Next handler
-		} else {     			# if token not found in headers    				return http.StatusUnauthorized, fmt.Errorf("Authorization header is missing")    }  //return status and error message when the Authorization Header doesnt exist   return "", credentials.NewTokenError(err.Error())
-	})       # end of anonymous function to handle request & response writer    			return nil })     				# call next handler in line if token was successfully parsed, otherwise send an unauthorized status and error message  }    //return http.StatusUnauthorized, fmt.Errorf("unable to parse token: %v", err)
-}   # end of JWTmiddleware function definition    			} )     				# call next handler in line if there is no other middle ware or the request does not need further processing  }    //return http.StatusUnauthorized, fmt.Errorf("unable to parse token: %v", err)
+func Authenticate(next http.HandlerFunc, allowedSigningAlgorithms []string ) http.HandlerFunc {  // Define the middleware function  
+    return func (w http.ResponseWriter, r *http.Request){     
+        tokenString := r.Header.Get("Authorization")    
+		if len(tokenString) == 0{      
+			fmt.Fprintf(w,"Missing Authorization Token in request header");  // If no authorisation provided return error  
+           	return   			        									      }       
+	    token, err := jwt.Parse(tokenString , func(*jwt.Token) (interface{}, error){    		// Parse the JWT and provide a key function to validate it 		         	  })       // Validate signature of Token  			    if claims, ok:=  token.Claims.(jwt.MapClaims); !ok {     
+            fmt.Fprintf(w,"Invalid Authorization Token");    		return         }       										if err!=nil{ 			fmt.Println("Error in JWT validation",err)    return  				}       // Validate the algorithm of token if required          var mySigningAlgorithm string = "RS256"     
+if len(allowedSigningAlgorithms)!= 0 {    		if claims, ok :=token.Claims.(jwt.MapClaims);ok{   			for _,algo:=range allowedSigningAlgorithms 			        if v , ok :=claims[ "alg"].(string) ; !ok || algo   not in alloewdAlogrithms { return fmt .Errorf("unexpected signing method") }    		}   		
+}else{      // If no allowed algorithms are provided, then only validate the signature of token. 			        if err!=nil{return	fmt.Error(err)}  										if v , ok :=  claims["exp"].(float64) ; !ok { return fmt .Errorf("missing expiration time claim") }    		}   		
+next(w,r);      // Call the next handler if authentication is successful 			        }}`

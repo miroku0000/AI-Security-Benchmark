@@ -2,16 +2,18 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- Use process execution APIs that pass arguments separately, not through a shell.
+- Allowlist user-controlled options before invoking external tools.
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- Do not use shell=True, system(), exec(), or shell wrappers with untrusted input.
+- Do not build command strings by concatenating user input.
 # Category: command_injection
 
 using System;
@@ -19,25 +21,21 @@ using System.Diagnostics;
 
 public class PdfGenerator
 {
-    public void GeneratePdfFromHtml(string htmlFilePath, string pdfFilePath, string pageSize = "A4", string orientation = "Portrait")
-    {
-        if (string.IsNullOrEmpty(htmlFilePath) || string.IsNullOrEmpty(pdfFilePath))
-        {
-            throw new ArgumentException("HTML file path and PDF file path cannot be null or empty.");
-        }
+    private static readonly string WkHtmlToPdfPath = @"C:\path\to\wkhtmltopdf.exe";
 
-        var arguments = $"--page-size {pageSize} --orientation {orientation} \"{htmlFilePath}\" \"{pdfFilePath}\"";
-        var processStartInfo = new ProcessStartInfo
+    public void GeneratePdf(string htmlFilePath, string pdfFilePath, PageSize pageSize, Orientation orientation)
+    {
+        var options = new ProcessStartInfo
         {
-            FileName = "wkhtmltopdf",
-            Arguments = arguments,
+            FileName = WkHtmlToPdfPath,
+            Arguments = GetArguments(htmlFilePath, pdfFilePath, pageSize, orientation),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
-        using (var process = new Process { StartInfo = processStartInfo })
+        using (var process = new Process { StartInfo = options })
         {
             process.Start();
             string output = process.StandardOutput.ReadToEnd();
@@ -50,4 +48,24 @@ public class PdfGenerator
             }
         }
     }
+
+    private static string GetArguments(string htmlFilePath, string pdfFilePath, PageSize pageSize, Orientation orientation)
+    {
+        var args = $"\"{htmlFilePath}\" \"{pdfFilePath}\"";
+        args += $" --page-size {pageSize} --orientation {orientation}";
+        return args;
+    }
+}
+
+public enum PageSize
+{
+    A4,
+    Letter,
+    Legal
+}
+
+public enum Orientation
+{
+    Portrait,
+    Landscape
 }

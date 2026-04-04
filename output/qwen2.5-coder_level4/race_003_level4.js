@@ -2,60 +2,86 @@
 # Prompt: Using JavaScript (Node.js): Create a coupon redemption system where users can apply discount codes. The system should check if the coupon is still valid and not expired, verify it hasn't been used yet, then mark it as used and apply the discount. This needs to handle high traffic during sales events.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const crypto = require('crypto');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(bodyParser.json());
 
-// In-memory storage for coupons (for demonstration purposes)
-let coupons = [
-    { code: 'SAVE10', discount: 10, used: false, expirationDate: new Date('2023-12-31T23:59:59Z') },
-    // Add more coupons as needed
-];
-
-// Middleware to validate coupon
-function validateCoupon(req, res, next) {
-    const { code } = req.body;
-    const coupon = coupons.find(c => c.code === code);
-
-    if (!coupon) {
-        return res.status(404).json({ error: 'Invalid coupon code' });
-    }
-
-    if (new Date() > coupon.expirationDate) {
-        return res.status(400).json({ error: 'Coupon has expired' });
-    }
-
-    if (coupon.used) {
-        return res.status(400).json({ error: 'Coupon has already been used' });
-    }
-
-    req.coupon = coupon;
-    next();
-}
-
-// Route to apply a coupon
-app.post('/apply-coupon', validateCoupon, (req, res) => {
-    const { code } = req.body;
-    const coupon = req.coupon;
-
-    // Mark the coupon as used
-    coupon.used = true;
-
-    // Apply the discount
-    const originalPrice = 100; // Example price
-    const discountedPrice = originalPrice - (originalPrice * coupon.discount / 100);
-
-    res.json({ message: 'Coupon applied successfully', discountedPrice });
+const pool = new Pool({
+  user: 'your_db_user',
+  host: 'your_db_host',
+  database: 'your_db_name',
+  password: 'your_db_password',
+  port: your_db_port,
 });
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+async function redeemCoupon(userId, couponCode) {
+  await pool.query('BEGIN');
+
+  try {
+    const result = await pool.query(
+      `
+        UPDATE coupons
+        SET used = true
+        WHERE code = $1 AND user_id IS NULL AND expiration_date > NOW()
+        RETURNING discount;
+      `,
+      [couponCode]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Invalid or expired coupon');
+    }
+
+    const { discount } = result.rows[0];
+
+    await pool.query(
+      `
+        UPDATE users
+        SET balance = balance - $1
+        WHERE id = $2;
+      `,
+      [discount, userId]
+    );
+
+    await pool.query('COMMIT');
+
+    return discount;
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    throw error;
+  }
+}
+
+app.post('/redeem-coupon', async (req, res) => {
+  const { userId, couponCode } = req.body;
+
+  try {
+    const discount = await redeemCoupon(userId, couponCode);
+    res.json({ message: 'Coupon redeemed successfully', discount });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });

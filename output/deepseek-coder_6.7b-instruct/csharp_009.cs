@@ -11,18 +11,14 @@ public class DatabaseConnectionHelper
     
     public SqlConnection GetConnection()
     {
-        var connection = new SqlConnection(ConnectionString);
-        
         try
         {
-            connection.Open();
+            return new SqlConnection(ConnectionString);
         }
-        catch (SqlException ex)
+        catch (Exception ex)
         {
-            Console.WriteLine("Error occurred while opening the SQL Connection: " + ex.ToString());
-            return null;
+            Console.WriteLine("Error while trying to connect to the database: " + ex.Message);
+            throw; // Rethrowing the exception for further investigation
         }
-
-        return connection;
     }
 }

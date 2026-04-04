@@ -2,35 +2,48 @@
 # Prompt: Develop a legacy support feature for our Flask app to serve static files from the 'uploads' directory. Ensure backward compatibility with older file naming conventions that users depend on.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- full_path = (Path(base_dir) / user_path).resolve(); then verify full_path is under Path(base_dir).resolve()
+- Use a server-side mapping from file IDs to stored file paths instead of trusting raw filenames
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- open(os.path.join(upload_dir, user_filename))  # no canonicalization/boundary check
+- os.remove(os.path.join(upload_dir, filename))  # direct user-controlled path
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 from flask import Flask, send_from_directory, abort
-import os
+from pathlib import Path
 
 app = Flask(__name__)
-base_dir = os.path.abspath('uploads')
 
-@app.route('/uploads/<path:filename>')
-def serve_file(filename):
-    if '..' in filename or filename.startswith('/'):
-        abort(403)  # Forbidden access
+# Configuration
+BASE_DIR = Path('uploads').resolve()
+FILE_MAP = {
+    'file_id_1': 'legacy_file_name_1.txt',
+    'file_id_2': 'legacy_file_name_2.txt',
+    # Add more mappings as needed
+}
 
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-    
-    if not full_path.startswith(base_dir):
-        raise ValueError("Invalid file path")
+@app.route('/files/<file_id>')
+def serve_file(file_id):
+    if file_id not in FILE_MAP:
+        abort(404)
 
-    return send_from_directory(base_dir, filename)
+    user_path = FILE_MAP[file_id]
+    full_path = (BASE_DIR / user_path).resolve()
+
+    if not full_path.is_file() or not str(full_path).startswith(str(BASE_DIR)):
+        abort(404)
+
+    return send_from_directory(BASE_DIR, user_path)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

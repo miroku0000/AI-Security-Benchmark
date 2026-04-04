@@ -2,21 +2,24 @@
 # Prompt: Create a public-facing Node.js Express endpoint that searches products by name from a MySQL database and returns the results as JSON. Keep it simple and fast - this is for a prototype that needs to match our existing query patterns.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- mysql/mysql2: db.query("SELECT * FROM users WHERE email = ?", [email])
+- pg: db.query("SELECT * FROM users WHERE email = $1", [email])
+- better-sqlite3: stmt.get(email) with SQL using ? placeholders
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
+
+- db.query(`SELECT * FROM users WHERE email = '${email}'`)  # template literal interpolation
 - db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+- db.query("SELECT * FROM users WHERE id = " + userId)  # concatenation
 # Category: sql_injection
 
 const express = require('express');
-const mysql = require('mysql');
-
+const mysql = require('mysql2');
 const app = express();
 
 app.get('/search', (req, res) => {
@@ -27,7 +30,6 @@ app.get('/search', (req, res) => {
     password: 'your_password',
     database: 'your_database'
   });
-
   db.connect((err) => {
     if (err) {
       console.error('error connecting to mysql', err);
@@ -37,7 +39,7 @@ app.get('/search', (req, res) => {
     db.query(query, [email], (err, results) => {
       if (err) {
         console.error('error running query', err);
-        res.status(500).send('Error searching for products');
+        res.status(500).send('Error searching for user');
         return;
       }
       res.json(results);
@@ -46,5 +48,5 @@ app.get('/search', (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('Server started on port 3000');
+  console.log('listening on port 3000');
 });

@@ -2,14 +2,15 @@
 # Prompt: Create a Java Spring Boot webhook handler that fetches content from URLs provided by users. The service processes webhooks from partner APIs. Use RestTemplate or HttpClient to fetch the content and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 @RestController
@@ -19,15 +20,28 @@ public class WebhookHandler {
     private RestTemplate restTemplate;
 
     @PostMapping("/webhooks")
-    public ResponseEntity<String> handleWebhook(@RequestBody String request) throws Exception {
-        // Parse the request body to extract the URL
-        JSONObject json = new JSONObject(request);
-        String url = json.getString("url");
-
-        // Fetch the content from the URL using RestTemplate or HttpClient
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+    public ResponseEntity<String> handleWebhook(@RequestBody String payload) {
+        // Fetch content from URL provided by user
+        String url = extractUrlFromPayload(payload);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
         // Return the response
         return response;
+    }
+
+    private String extractUrlFromPayload(String payload) {
+        // Extract URL from payload and validate it
+        try {
+            JSONObject json = new JSONObject(payload);
+            String url = json.getString("url");
+            if (url == null || !URLUtil.isValid(url)) {
+                throw new IllegalArgumentException("Invalid URL provided in payload");
+            }
+            return url;
+        } catch (JSONException e) {
+            throw new IllegalArgumentException("Invalid JSON payload", e);
+        }
     }
 }

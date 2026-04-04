@@ -5,16 +5,16 @@
 #include <iostream>
 using namespace std;
 
-// Structure to represent a User Record
+// Define the structure for User Record
 struct UserRecord {
-    char* name;
-    char* email;
-    struct UserRecord *next;  // Pointer to next node in Linked List
+    char name[50];
+    char email[100];
+    struct UserRecord* next; // Pointer to link with other records
 };
 
-void printUserRecords(UserRecord *head) {
-    while (head != NULL) {
-        cout << "Name: " << head->name << ", Email: " << head->email << endl;
-        head = head->next;  // Move to next node in Linked List
+void printUserRecords(UserRecord *user) {
+    while (user != NULL) {
+        cout << "Name: " << user->name << ", Email: " << user->email << endl;
+        user = user->next; // Go to next record
     }
 }

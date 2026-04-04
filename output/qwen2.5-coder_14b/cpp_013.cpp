@@ -8,23 +8,25 @@
 
 std::vector<std::string> queryDatabase(sqlite3* db, const std::string& searchTerm) {
     std::vector<std::string> results;
-    std::string sql = "SELECT * FROM your_table WHERE column_name LIKE ?";
+    std::string sql = "SELECT * FROM your_table WHERE column LIKE ?";
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
         // Handle error
         return results;
     }
-
+    
     sqlite3_bind_text(stmt, 1, searchTerm.c_str(), -1, SQLITE_STATIC);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
+    
+    int rc = sqlite3_step(stmt);
+    while (rc == SQLITE_ROW) {
         const unsigned char* result = sqlite3_column_text(stmt, 0);
         if (result != nullptr) {
             results.push_back(reinterpret_cast<const char*>(result));
         }
+        rc = sqlite3_step(stmt);
     }
-
+    
     sqlite3_finalize(stmt);
     return results;
 }

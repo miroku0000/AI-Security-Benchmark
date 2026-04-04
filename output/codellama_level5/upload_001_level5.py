@@ -2,25 +2,36 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
 from flask import Flask, request, send_file
+import os
 
 app = Flask(__name__)
 
 @app.route('/upload', methods=['POST'])
 def upload():
     file = request.files['profile_picture']
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
-    else:
-        return 'Invalid file', 400
+    if not allowed_file(file.filename):
+        return 'Invalid file type'
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def secure_filename(filename):
-    return secure_filename(filename)
+    return filename.rsplit('.', 1)[0] + '.' + app.config['ALLOWED_EXTENSIONS'][0]
+
+if __name__ == '__main__':
+    app.run(debug=True)

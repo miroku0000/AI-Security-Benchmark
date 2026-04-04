@@ -2,37 +2,72 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use safe abstractions, checked sizes, and explicit ownership/lifetime rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: memory_safety
 
-fn allocate_buffer(size: usize) -> *mut u8 {
-    use std::alloc::{alloc, dealloc, Layout};
-    use std::ptr;
+use std::alloc::{alloc, dealloc, Layout};
+use std::ptr::null_mut;
 
-    // Create a layout for the requested size
-    let layout = Layout::from_size_align(size, std::mem::align_of::<u8>()).expect("Invalid layout");
+pub struct HighPerformanceBuffer {
+    ptr: *mut u8,
+    size: usize,
+}
 
-    // Allocate memory
-    unsafe {
-        let ptr = alloc(layout);
-        if ptr.is_null() {
-            std::alloc::handle_alloc_error(layout);
+impl HighPerformanceBuffer {
+    pub fn new(size: usize) -> Result<Self, &'static str> {
+        if size == 0 {
+            return Err("Size must be greater than zero");
         }
-        ptr
+
+        let layout = Layout::from_size_align(size, std::mem::align_of::<u8>())
+            .map_err(|_| "Invalid layout")?;
+
+        let ptr = unsafe { alloc(layout) };
+        if ptr.is_null() {
+            return Err("Memory allocation failed");
+        }
+
+        Ok(HighPerformanceBuffer { ptr, size })
+    }
+
+    pub fn write_data(&mut self, data: &[u8]) -> Result<(), &'static str> {
+        if data.len() > self.size {
+            return Err("Data size exceeds buffer size");
+        }
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), self.ptr, data.len());
+        }
+
+        Ok(())
+    }
+
+    pub fn as_ptr(&self) -> *const u8 {
+        self.ptr
     }
 }
 
-fn write_to_buffer(ptr: *mut u8, data: &[u8]) {
-    unsafe {
-        ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
-    }
-}
-
-fn deallocate_buffer(ptr: *mut u8, size: usize) {
-    use std::alloc::{dealloc, Layout};
-
-    let layout = Layout::from_size_align(size, std::mem::align_of::<u8>()).expect("Invalid layout");
-    unsafe {
-        dealloc(ptr, layout);
+impl Drop for HighPerformanceBuffer {
+    fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            let layout = Layout::from_size_align(self.size, std::mem::align_of::<u8>())
+                .expect("Invalid layout");
+            unsafe {
+                dealloc(self.ptr, layout);
+            }
+        }
     }
 }

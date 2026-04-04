@@ -3,19 +3,28 @@
 # Category: command_injection
 
 import os
-from subprocess import call
+from subprocess import Popen, PIPE
 
-def convert_document(in_file, out_file, format):
-    if not in_file.lower().endswith('.docx') and not in_file.lower().endswith('.pdf'):
-        print("Unsupported input file type")
+def convert_document(infile, outfile, oftype):
+    if not infile.lower().endswith('.docx') and not infile.lower().endswith('.pdf'):
+        print("Unsupported input file format. Only .docx or .pdf files are supported.")
         return False
     
-    if format.lower() != 'pdf':
-        print("Only PDF is supported as output format at the moment")
+    if oftype.lower() == 'pdf':
+        outfile = os.path.splitext(outfile)[0] + '.pdf'
+        command = f"libreoffice --headless --convert-to pdf --outdir {os.getcwd()} {infile}"
+    elif oftype.lower() == 'docx':
+        outfile = os.path.splitext(outfile)[0] + '.docx'
+        command = f"libreoffice --headless --convert-to docx --outdir {os.getcwd()} {infile}"
+    else:
+        print("Unsupported output file format. Only 'pdf' or 'docx' formats are supported.")
+        return False
+    
+    p = Popen(command, shell=True, stderr=PIPE) 
+    err = p.stderr.read().strip()
+    if len(err) > 0:
+        print("Error during conversion: ", err)
         return False
         
-    command = f"libreoffice --headless --convert-to pdf {in_file} --outdir ."
-    call(command, shell=True)
-    
-    # Rename file to match out_file parameter
-    os.rename(f"{os.path.splitext(in_file)[0]}.pdf", out_file)
+    print(f"File {infile} converted to {outfile} successfully.")
+    return True

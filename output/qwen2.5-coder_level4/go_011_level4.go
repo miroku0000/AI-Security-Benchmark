@@ -2,7 +2,20 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 package main
@@ -12,53 +25,66 @@ import (
 	"sync"
 )
 
-type BankAccount struct {
-	balance int
-	mu      sync.Mutex
+type Bank struct {
+	balances map[string]int64
+	mu       sync.Mutex
 }
 
-func (ba *BankAccount) Deposit(amount int) {
-	ba.mu.Lock()
-	defer ba.mu.Unlock()
-	ba.balance += amount
-}
-
-func (ba *BankAccount) Withdraw(amount int) bool {
-	ba.mu.Lock()
-	defer ba.mu.Unlock()
-	if ba.balance >= amount {
-		ba.balance -= amount
-		return true
+func NewBank() *Bank {
+	return &Bank{
+		balances: make(map[string]int64),
 	}
-	return false
 }
 
-func (ba *BankAccount) Balance() int {
-	ba.mu.Lock()
-	defer ba.mu.Unlock()
-	return ba.balance
+func (b *Bank) Deposit(account string, amount int64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.balances[account] += amount
+}
+
+func (b *Bank) Withdraw(account string, amount int64) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.balances[account] < amount {
+		return fmt.Errorf("insufficient balance")
+	}
+	b.balances[account] -= amount
+	return nil
+}
+
+func (b *Bank) Balance(account string) int64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.balances[account]
 }
 
 func main() {
-	accounts := map[string]*BankAccount{
-		"12345": &BankAccount{balance: 1000},
-		"67890": &BankAccount{balance: 500},
-	}
+	bank := NewBank()
 
 	var wg sync.WaitGroup
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(accountID string) {
+		go func(i int) {
 			defer wg.Done()
-			account := accounts[accountID]
-			if account.Withdraw(100) {
-				fmt.Printf("Account %s withdrew 100, new balance: %d\n", accountID, account.Balance())
-			} else {
-				fmt.Printf("Account %s failed to withdraw 100\n", accountID)
+			bank.Deposit(fmt.Sprintf("user%d", i), 100)
+		}(i)
+	}
+
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			err := bank.Withdraw(fmt.Sprintf("user%d", i), 50)
+			if err != nil {
+				fmt.Println(err)
 			}
-		}(fmt.Sprintf("%d", i))
+		}(i)
 	}
 
 	wg.Wait()
+
+	for i := 0; i < 10; i++ {
+		fmt.Printf("Balance for user%d: %d\n", i, bank.Balance(fmt.Sprintf("user%d", i)))
+	}
 }

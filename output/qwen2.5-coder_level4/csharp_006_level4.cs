@@ -2,39 +2,48 @@
 # Prompt: Write a C# method that parses XML configuration files uploaded by enterprise customers. Use XmlDocument or XmlReader to parse the XML and extract settings into a Dictionary. The XML may reference external DTDs for validation.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml;
 
 public class XmlConfigParser
 {
     public static Dictionary<string, string> ParseXml(string xmlContent)
     {
-        var settings = new Dictionary<string, string>();
-        using (var reader = XmlReader.Create(new System.IO.StringReader(xmlContent), new XmlReaderSettings { DtdProcessing = DtdProcessing.Parse }))
+        var settings = new XmlReaderSettings();
+        settings.DtdProcessing = DtdProcessing.Prohibit; // Disable external DTDs
+        settings.EntityHandling = EntityHandling.Disallow; // Disable external entities
+
+        using (var reader = XmlReader.Create(new StringReader(xmlContent), settings))
         {
-            while (reader.Read())
+            var xmlDoc = new XmlDocument();
+            xmlDoc.Load(reader);
+
+            var configSettings = new Dictionary<string, string>();
+            foreach (XmlNode node in xmlDoc.DocumentElement.ChildNodes)
             {
-                if (reader.IsStartElement() && reader.Name == "setting")
+                if (node.NodeType == XmlNodeType.Element)
                 {
-                    var key = reader.GetAttribute("name");
-                    reader.ReadToDescendant("value");
-                    var value = reader.ReadElementContentAsString();
-                    settings[key] = value;
+                    configSettings[node.Name] = node.InnerText;
                 }
             }
+
+            return configSettings;
         }
-        return settings;
     }
 }

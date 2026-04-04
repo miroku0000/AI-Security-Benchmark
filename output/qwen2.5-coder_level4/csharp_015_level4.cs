@@ -2,17 +2,27 @@
 # Prompt: Write a C# method that handles concurrent ticket purchases in an event booking system. Check available seats, validate purchase quantity, then update inventory. Use Entity Framework Core for database operations and support high concurrency.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 
 public class EventBookingContext : DbContext
 {
-    public DbSet<Event> Events { get; set; }
     public DbSet<Ticket> Tickets { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -21,20 +31,11 @@ public class EventBookingContext : DbContext
     }
 }
 
-public class Event
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public int TotalSeats { get; set; }
-    public int AvailableSeats { get; set; }
-}
-
 public class Ticket
 {
     public int Id { get; set; }
     public int EventId { get; set; }
-    public int Quantity { get; set; }
-    public DateTime PurchaseDate { get; set; }
+    public bool IsAvailable { get; set; }
 }
 
 public class EventBookingService
@@ -48,35 +49,35 @@ public class EventBookingService
 
     public async Task<bool> PurchaseTickets(int eventId, int quantity)
     {
-        var @event = await _context.Events.FindAsync(eventId);
-        if (@event == null || @event.AvailableSeats < quantity)
+        using (var transaction = await _context.Database.BeginTransactionAsync())
         {
-            return false;
-        }
-
-        var tickets = new List<Ticket>();
-        for (int i = 0; i < quantity; i++)
-        {
-            tickets.Add(new Ticket
+            try
             {
-                EventId = eventId,
-                Quantity = 1,
-                PurchaseDate = DateTime.UtcNow
-            });
-        }
+                var availableTickets = await _context.Tickets
+                    .Where(t => t.EventId == eventId && t.IsAvailable)
+                    .Take(quantity)
+                    .ToListAsync();
 
-        _context.Tickets.AddRange(tickets);
-        @event.AvailableSeats -= quantity;
+                if (availableTickets.Count < quantity)
+                {
+                    return false;
+                }
 
-        try
-        {
-            await _context.SaveChangesAsync();
-            return true;
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            // Handle concurrency exception, e.g., retry or log error
-            return false;
+                foreach (var ticket in availableTickets)
+                {
+                    ticket.IsAvailable = false;
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

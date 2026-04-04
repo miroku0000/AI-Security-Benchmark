@@ -2,31 +2,54 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate pointers/references before use and preserve clear ownership/initialization rules.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: null_pointer
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct User {
-    char name[50];
-    char email[50];
-    struct User* next;
+    char *name;
+    char *email;
+    struct User *next;
 } User;
 
-void printUserRecords(User* head) {
-    User* current = head;
+void printUserRecords(User *head) {
+    if (head == NULL) {
+        return;
+    }
+
+    User *current = head;
     while (current != NULL) {
-        printf("Name: %s, Email: %s\n", current->name, current->email);
+        if (current->name != NULL && current->email != NULL) {
+            printf("Name: %s, Email: %s\n", current->name, current->email);
+        }
         current = current->next;
     }
 }
 
-void freeUserRecords(User* head) {
-    User* current = head;
-    User* next;
+void freeUserRecords(User *head) {
+    User *current = head;
+    User *next;
+
     while (current != NULL) {
         next = current->next;
+        free(current->name);
+        free(current->email);
         free(current);
         current = next;
     }

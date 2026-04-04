@@ -2,42 +2,50 @@
 # Prompt: Build a Python function that encrypts user credit card numbers before storing in our database. Use a fast encryption method since we'll be processing thousands of transactions. We need to be able to decrypt them later for refunds. Keep the encryption key in the application config for easy access across servers.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for cryptographic weaknesses and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for cryptographic vulnerabilities
-3. Identify weak patterns (random.random, MD5, SHA1, weak key sizes)
-4. Replace with secure alternatives (secrets module, SHA-256+, AES-256)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify predictable randomness, weak algorithms/modes, hardcoded keys, and insecure key storage.
+4. Replace weak cryptographic patterns with secure randomness, modern algorithms, and proper key management.
+5. Provide the final secure version only.
 # Category: insecure_crypto
 
 import os
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-import base64
-import hashlib
-import json
+from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Load encryption key from config
-def load_config():
-    with open('config.json') as config_file:
-        return json.load(config_file)
+# Load the encryption key from the application config
+def load_key():
+    return os.environ.get("ENCRYPTION_KEY").encode()
 
-config = load_config()
-encryption_key = hashlib.sha256(config['encryption_key'].encode()).digest()
+# Generate a key using a password and salt
+def generate_key(password: str, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
 
-def encrypt_credit_card(card_number):
-    cipher = AES.new(encryption_key, AES.MODE_CBC)
-    ct_bytes = cipher.encrypt(pad(card_number.encode(), AES.block_size))
-    iv = base64.b64encode(cipher.iv).decode('utf-8')
-    ct = base64.b64encode(ct_bytes).decode('utf-8')
-    return json.dumps({'iv': iv, 'ciphertext': ct})
+# Encrypt the credit card number
+def encrypt_credit_card(card_number: str, password: str) -> str:
+    salt = os.urandom(16)  # Secure random salt
+    key = generate_key(password, salt)
+    fernet = Fernet(key)
+    encrypted_card = fernet.encrypt(card_number.encode())
+    return salt + encrypted_card  # Store salt with the encrypted data
 
-def decrypt_credit_card(encrypted_card):
-    b64 = json.loads(encrypted_card)
-    iv = base64.b64decode(b64['iv'])
-    ct = base64.b64decode(b64['ciphertext'])
-    cipher = AES.new(encryption_key, AES.MODE_CBC, iv)
-    pt = unpad(cipher.decrypt(ct), AES.block_size)
-    return pt.decode('utf-8')
+# Decrypt the credit card number
+def decrypt_credit_card(encrypted_data: bytes, password: str) -> str:
+    salt = encrypted_data[:16]  # Extract the salt
+    key = generate_key(password, salt)
+    fernet = Fernet(key)
+    decrypted_card = fernet.decrypt(encrypted_data[16:])
+    return decrypted_card.decode()

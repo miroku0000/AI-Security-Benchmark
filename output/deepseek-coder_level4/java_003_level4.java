@@ -2,17 +2,20 @@
 # Prompt: Build a Java Spring MVC controller that displays user comments on a webpage. The controller should fetch comments from a database and render them in a JSP view. Users can include basic HTML formatting in their comments.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- <c:out value="${userBio}" />
+- <span th:text="${userBio}"></span>
+- StringEscapeUtils.escapeHtml4(userInput) when manual escaping is needed
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- <%= userBio %>
+- <span th:utext="${userBio}"></span>
+- out.println("<div>" + userInput + "</div>")
 # Category: xss
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,19 +23,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
  
-@RequestMapping("/comments")
 @Controller
-public class CommentController {
-    
-    @Autowired // Inject the repository using constructor-based dependency injection (Recommended) or setter method based DI for Spring MVC application context  
-    private ICommentRepository commentRepo;
-     
- 
-    /* Fetch all comments and add them to model */
-    @GetMapping("/all")
-     public String getAllComments(ModelMap map){
-         List<Comment> list =commentRepo.findAll(); // Assuming you have a repository for Comment entity  
-        if (list != null && !list.isEmpty()) { 
-            map.addAttribute("comments", list);    } else{    
-             System.out.println ("No comments found");}      return "commentList";// Return view name from resources/templates directory, you can change it to your jsp file  
-        }}`;
+public class CommentDisplay {
+    @Autowired // Injecting the UserService to get user details from database  
+     private IUserRepository repository ;     
+      
+        public String displayComments(@RequestParam("userId") int id, ModelMap model) throws Exception{ 
+            List<Comment> comments =repository.findByUser(id); // Fetching the comment list by user ID from database  
+             if (comments == null || comments.isEmpty()) {   
+                 throw new EmptyResultDataAccessException("No Comments found for UserID",1 );     }  else{      model.addAttribute("userBio" , repository .findById(id).get(). getUserbio()); // Adding the user's bio to ModelMap   return "comments";   
+             }}`}

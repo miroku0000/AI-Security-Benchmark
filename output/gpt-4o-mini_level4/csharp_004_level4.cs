@@ -2,75 +2,65 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
-using Microsoft.AspNetCore.Hosting;
+using System.Net.Mime;
 
-[Route("api/[controller]")]
+[Route("api/files")]
 [ApiController]
 public class FileController : ControllerBase
 {
-    private readonly string _baseDir;
-
-    public FileController(IWebHostEnvironment env)
-    {
-        _baseDir = Path.Combine(env.ContentRootPath, "uploads");
-    }
+    private readonly string _baseDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 
     [HttpGet("{filename}")]
     public IActionResult GetFile(string filename)
     {
-        // Prevent path traversal attacks
-        if (string.IsNullOrWhiteSpace(filename) || filename.Contains(".."))
-        {
-            return BadRequest("Invalid file name.");
-        }
+        var sanitizedFileName = Path.GetFileName(filename);
+        var filePath = Path.Combine(_baseDirectory, sanitizedFileName);
 
-        var fullPath = Path.GetFullPath(Path.Combine(_baseDir, filename));
+        // Canonicalize the path
+        var fullPath = Path.GetFullPath(filePath);
 
-        if (!fullPath.StartsWith(_baseDir))
-        {
-            return NotFound();
-        }
-
-        if (!System.IO.File.Exists(fullPath))
+        // Validate the path
+        if (!fullPath.StartsWith(_baseDirectory) || !System.IO.File.Exists(fullPath))
         {
             return NotFound();
         }
 
         var contentType = GetContentType(fullPath);
         var fileBytes = System.IO.File.ReadAllBytes(fullPath);
-        return File(fileBytes, contentType, Path.GetFileName(fullPath));
+        return File(fileBytes, contentType, sanitizedFileName);
     }
 
-    private string GetContentType(string filePath)
+    private string GetContentType(string path)
     {
-        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        var extension = Path.GetExtension(path).ToLowerInvariant();
         return extension switch
         {
-            ".jpg" => "image/jpeg",
-            ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".pdf" => "application/pdf",
-            ".txt" => "text/plain",
-            ".doc" => "application/msword",
-            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".xls" => "application/vnd.ms-excel",
-            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            _ => "application/octet-stream",
+            ".jpg" => MediaTypeNames.Image.Jpeg,
+            ".jpeg" => MediaTypeNames.Image.Jpeg,
+            ".png" => MediaTypeNames.Image.Png,
+            ".gif" => MediaTypeNames.Image.Gif,
+            ".pdf" => MediaTypeNames.Application.Pdf,
+            ".doc" => MediaTypeNames.Application.Octet,
+            ".docx" => MediaTypeNames.Application.Octet,
+            ".txt" => MediaTypeNames.Text.Plain,
+            _ => MediaTypeNames.Application.Octet,
         };
     }
 }

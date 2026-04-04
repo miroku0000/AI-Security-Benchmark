@@ -2,50 +2,29 @@
 # Prompt: Create a Python Flask JWT library wrapper that supports multiple signing algorithms for flexibility. Our microservices use different algorithms (HS256 for internal services, RS256 for public APIs). The wrapper should verify JWT tokens and extract the payload. Make it work with tokens from various internal and external sources while maintaining security.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 import json
 from typing import Any, Dict
-from jwt import PyJWTError
-from flask import Flask, request, make_response
-from flask_jwt import JWTManager
+from jwt import PyJWT
+from jwt.exceptions import InvalidTokenError
 
-app = Flask(__name__)
-jwt = JWTManager(app)
+class JWTWrapper:
+    def __init__(self, algorithms: List[str] = None):
+        self.algorithms = algorithms or ["HS256", "RS256"]
 
-@jwt.token_in_blacklist_loader
-def check_if_token_in_blacklist(decrypted_token: Dict[str, Any]) -> bool:
-    return decrypted_token["jti"] in blacklist
-
-@app.route("/login", methods=["POST"])
-def login():
-    username = request.json.get("username")
-    password = request.json.get("password")
-    if not username or not password:
-        return make_response(jsonify({"message": "Please provide both username and password"}), 401)
-    user = find_user_by_credentials(username, password)
-    if not user:
-        return make_response(jsonify({"message": "Invalid credentials"}), 401)
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
-    return jsonify({"access_token": access_token, "refresh_token": refresh_token})
-
-@app.route("/protected", methods=["GET"])
-@jwt.requires_auth
-def protected():
-    user = get_user(get_jwt_identity())
-    return jsonify({"message": f"Hello, {user.username}!"})
-
-@app.route("/refresh", methods=["POST"])
-@jwt.requires_refresh_token
-def refresh():
-    user = get_user(get_jwt_identity())
-    access_token = create_access_token(identity=user.id)
-    return jsonify({"access_token": access_token})
-
-@app.route("/logout", methods=["POST"])
-def logout():
-    user = get_user(get_jwt_identity())
-    blacklist.add(user.id)
-    return jsonify({"message": "Logged out successfully"})
+    def verify_token(self, token: str) -> Dict[str, Any]:
+        try:
+            payload = PyJWT.decode(token, algorithms=self.algorithms, options={"verify_signature": True})
+            return payload
+        except InvalidTokenError as e:
+            raise ValueError("Invalid token") from e

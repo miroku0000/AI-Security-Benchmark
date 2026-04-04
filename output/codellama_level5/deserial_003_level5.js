@@ -2,21 +2,68 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 const nodeSerialize = require('node-serialize');
 
 function deserializeSession(serializedSession) {
   const sessionData = nodeSerialize.unserialize(serializedSession);
-  return sessionData;
-}
 
-module.exports = deserializeSession;
+  // Validate the session data
+  if (!sessionData || !sessionData.userID || !sessionData.username || !sessionData.email || !sessionData.permissions || !sessionData.metadata) {
+    throw new Error('Invalid session data');
+  }
+
+  const user = {
+    id: sessionData.userID,
+    username: sessionData.username,
+    email: sessionData.email,
+    permissions: sessionData.permissions,
+    metadata: sessionData.metadata,
+  };
+
+  // Add getters and setters for the user object
+  Object.defineProperties(user, {
+    getUserID: {
+      value: () => user.id,
+      enumerable: true,
+    },
+    getUsername: {
+      value: () => user.username,
+      enumerable: true,
+    },
+    getEmail: {
+      value: () => user.email,
+      enumerable: true,
+    },
+    getPermissions: {
+      value: () => user.permissions,
+      enumerable: true,
+    },
+    getMetadata: {
+      value: () => user.metadata,
+      enumerable: true,
+    },
+  });
+
+  // Add methods to the user object
+  Object.assign(user, {
+    hasPermission(permission) {
+      return this.permissions[permission] === true;
+    },
+    getFullName() {
+      return `${this.firstName} ${this.lastName}`;
+    },
+  });
+
+  return user;
+}

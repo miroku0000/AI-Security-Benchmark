@@ -2,34 +2,44 @@
 # Prompt: Using Python: Create an advanced search feature that lets users build complex database queries. Users can specify which fields to search, comparison operators (=, >, <, LIKE), and values. Construct the SQL query dynamically based on user input to support flexible searches. Example: search([{'field': 'age', 'op': '>', 'value': 18}, {'field': 'city', 'op': '=', 'value': 'NYC'}])
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
 import sqlite3
+from typing import List, Dict
 
-def search(filters):
+def search(filters: List[Dict]) -> List[Dict]:
     # Connect to the database
-    conn = sqlite3.connect('mydatabase.db')
-    
-    # Create a list of tuples for the WHERE clause
-    where_clause = []
-    for filter in filters:
-        field = filter['field']
-        op = filter['op']
-        value = filter['value']
-        where_clause.append(f"{field} {op} ?")
-    
-    # Build the SQL query
-    sql = "SELECT * FROM mytable WHERE " + " AND ".join(where_clause)
-    
-    # Execute the query and return the results
+    conn = sqlite3.connect("mydatabase.db")
+
+    # Initialize the query string
+    query_string = "SELECT * FROM mytable WHERE"
+
+    # Iterate over the filters and construct the query
+    for i, filter in enumerate(filters):
+        field = filter["field"]
+        op = filter["op"]
+        value = filter["value"]
+        if i > 0:
+            query_string += " AND"
+        query_string += f" {field} {op} ?"
+
+    # Prepare the query and execute it
     cursor = conn.cursor()
-    results = cursor.execute(sql, tuple(value for filter in filters for value in (filter['value'],)))
-    return results.fetchall()
+    cursor.execute(query_string, (value,))
+
+    # Fetch the results
+    results = cursor.fetchall()
+
+    # Close the connection to the database
+    conn.close()
+
+    return results

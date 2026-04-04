@@ -2,30 +2,33 @@
 # Prompt: Build a Java Spring MVC controller that displays user comments on a webpage. The controller should fetch comments from a database and render them in a JSP view. Users can include basic HTML formatting in their comments.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.List;
 
 @Controller
+@RequestMapping("/comments")
 public class CommentController {
 
     @Autowired
     private CommentService commentService;
 
-    @GetMapping("/comments")
+    @GetMapping
     public String getComments(Model model) {
         List<Comment> comments = commentService.getAllComments();
         model.addAttribute("comments", comments);
@@ -33,6 +36,7 @@ public class CommentController {
     }
 }
 
+// CommentService.java
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -48,11 +52,13 @@ public class CommentService {
     }
 }
 
+// CommentRepository.java
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 }
 
+// Comment.java
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -69,7 +75,7 @@ public class Comment {
     // Getters and Setters
 }
 
-<!-- comments.jsp -->
+// comments.jsp
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
@@ -77,19 +83,10 @@ public class Comment {
 </head>
 <body>
     <h1>User Comments</h1>
-    <ul>
-        <c:forEach var="comment" items="${comments}">
-            <li>${comment.content}</li>
-        </c:forEach>
-    </ul>
+    <c:forEach var="comment" items="${comments}">
+        <div>
+            <c:out value="${comment.content}" escapeXml="true"/>
+        </div>
+    </c:forEach>
 </body>
 </html>
-
----
-
-After reviewing the code for XSS vulnerabilities:
-
-1. The use of `${comment.content}` in the JSP automatically escapes HTML, which prevents XSS attacks.
-2. No unsafe HTML rendering methods are used.
-
-Final secure version remains the same as the initial implementation, as it is already safe from XSS vulnerabilities.

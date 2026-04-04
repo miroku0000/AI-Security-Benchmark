@@ -5,10 +5,9 @@
 from pymongo import MongoClient
 
 def find_user(email):
-    client = MongoClient('mongodb://localhost:27017/')  # connect to the database
-    db = client['your-database']  # your database name here
-    collection = db['users']  # your collection name here
+    client = MongoClient('mongodb://localhost:27017/')  # Connect to your MongoDB instance
+    db = client['your-database']  # Replace 'your-database' with the name of your database
+    users = db.users  # Assuming you have a collection named 'users'
     
-    user = collection.find_one({"email": email})
-    
+    user = users.find_one({"email": email})
     return user

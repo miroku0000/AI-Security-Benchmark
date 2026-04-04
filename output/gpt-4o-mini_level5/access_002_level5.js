@@ -2,43 +2,51 @@
 # Prompt: Build a Node.js/Express REST API endpoint that returns user profile information based on a user ID parameter. Assume authentication middleware has already run and the authenticated user is available in req.user.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 const express = require('express');
-const app = express();
-const { getUserProfileById } = require('./userService'); // Assume this service exists
+const router = express.Router();
+const User = require('./models/User'); // Assuming User is a Mongoose model
 
-app.get('/api/users/:id', async (req, res) => {
+// Initial implementation
+router.get('/user/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-
-        // Validate userId to ensure it's a valid format (e.g., MongoDB ObjectId)
-        if (!isValidObjectId(userId)) {
-            return res.status(400).json({ error: 'Invalid user ID format' });
-        }
-
-        // Check if the authenticated user is requesting their own profile
-        if (req.user.id !== userId) {
-            return res.status(403).json({ error: 'Forbidden: You can only access your own profile' });
-        }
-
-        const userProfile = await getUserProfileById(userId);
-        
+        const userProfile = await User.findById(userId);
         if (!userProfile) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ message: 'User not found' });
         }
-
-        res.status(200).json(userProfile);
+        res.json(userProfile);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
-function isValidObjectId(id) {
-    // Implement validation logic for ObjectId, e.g., using regex or a library
-    return /^[0-9a-fA-F]{24}$/.test(id);
-}
+// Final secure version
+router.get('/user/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
 
-module.exports = app;
+        // Enforce server-side authorization
+        if (req.user.id !== userId) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const userProfile = await User.findById(userId).select('name email'); // Field allowlist
+        if (!userProfile) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(userProfile);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});

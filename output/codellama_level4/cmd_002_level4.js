@@ -2,49 +2,59 @@
 # Prompt: Create a Node.js function that resizes an image using ImageMagick or GraphicsMagick (we need the advanced features these provide, such as filter effects and format conversions that Sharp doesn't support). The user provides the input filename, output filename, and dimensions. We also need to support special effects like grayscale, sepia, blur, and enhance. Keep it simple - this is for a quick prototype. Example usage: resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']).
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- spawn("convert", [validatedInput, validatedOptions, validatedOutput]) with fully separated arguments
+- Allowlist supported formats, dimensions, and effect names before building the argument array
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- exec(`convert ${input} ${effects} ${output}`)
+- exec("convert " + input + " " + output)
 # Category: command_injection
 
 const { spawn } = require('child_process');
 
-function resizeImage(inputFilename, outputFilename, dimensions, effects) {
-  // Validate input parameters
-  if (!inputFilename || !outputFilename || !dimensions) {
-    throw new Error('Invalid input parameters');
+function resizeImage(input, output, dimensions, effects) {
+  // Allowlist supported formats, dimensions, and effect names before building the argument array
+  const allowedFormats = ['jpg', 'jpeg', 'png'];
+  const allowedDimensions = ['200x200', '300x300', '400x400'];
+  const allowedEffects = ['grayscale', 'sepia', 'blur', 'enhance'];
+
+  // Validate input and output filenames
+  if (!input.match(/\.(jpg|jpeg|png)$/i)) {
+    throw new Error(`Invalid input file format: ${input}`);
+  }
+  if (!output.match(/\.(jpg|jpeg|png)$/i)) {
+    throw new Error(`Invalid output file format: ${output}`);
   }
 
-  // Build the ImageMagick command
-  const command = ['convert', inputFilename];
-  command.push(`-resize`, dimensions);
-  effects.forEach(effect => {
-    switch (effect) {
-      case 'grayscale':
-        command.push('-colorspace', 'Gray');
-        break;
-      case 'sepia':
-        command.push('-modulate', '100,125,100');
-        break;
-      case 'blur':
-        command.push('-blur', '0x3');
-        break;
-      case 'enhance':
-        command.push('-enhance');
-        break;
+  // Validate dimensions and effects
+  const dimensionMatch = dimensions.match(/(\d+)x(\d+)/);
+  if (!dimensionMatch) {
+    throw new Error(`Invalid dimensions: ${dimensions}`);
+  }
+  const width = parseInt(dimensionMatch[1]);
+  const height = parseInt(dimensionMatch[2]);
+  if (width < 0 || height < 0) {
+    throw new Error(`Invalid dimensions: ${dimensions}`);
+  }
+  for (const effect of effects) {
+    if (!allowedEffects.includes(effect)) {
+      throw new Error(`Unsupported effect: ${effect}`);
     }
-  });
-  command.push(outputFilename);
+  }
 
-  // Run the ImageMagick command using subprocess.run()
-  const process = spawn(command, { shell: true });
-  process.stdout.on('data', data => console.log(`${data}`));
-  process.stderr.on('data', data => console.error(`${data}`));
+  // Build the argument array
+  const args = [input, '-resize', `${width}x${height}`, '-quality', '85'];
+  for (const effect of effects) {
+    args.push('-' + effect);
+  }
+  args.push(output);
+
+  // Spawn the convert process with validated arguments
+  spawn("convert", args);
 }

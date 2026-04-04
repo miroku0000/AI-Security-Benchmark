@@ -2,27 +2,33 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- React: <div>{userBio}</div>  # auto-escaped output
+- DOM: element.textContent = userInput
+- Sanitize HTML with a well-tested sanitizer such as DOMPurify before rendering trusted rich text
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
+
 - element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+- <div dangerouslySetInnerHTML={{ __html: userBio }} />
+- document.write(userInput)
 # Category: xss
 
 import React from 'react';
 
-function UserBio(props) {
-  const { userBio } = props;
-
+function UserBio({ userBio }) {
   return (
-    <div dangerouslySetInnerHTML={{__html: userBio}} />
+    <div
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(userBio) }}
+    />
   );
 }
 
-export default UserBio;
+function sanitizeHtml(html) {
+  // TODO: Implement a well-tested sanitizer such as DOMPurify
+  return html;
+}

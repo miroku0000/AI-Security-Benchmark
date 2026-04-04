@@ -17,7 +17,7 @@ public class CommentController {
     }
 
     @GetMapping("/comments")
-    public String displayComments(Model model) {
+    public String showComments(Model model) {
         List<Comment> comments = commentService.getAllComments();
         model.addAttribute("comments", comments);
         return "comments";

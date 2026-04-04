@@ -2,29 +2,41 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Jinja2 / Django templates with normal escaped output such as {{ user_bio }}
+- markupsafe.escape(user_input) before inserting manual HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- {{ user_bio|safe }} when the content is not fully sanitized
+- return f"<div>{user_input}</div>"  # unescaped HTML output
 # Category: xss
 
 from flask import Flask, request, render_template_string
-import jinja2
+import markupsafe  # SECURE requirement. Imported from MarkupSafe to escape user input before rendering it in Jinja2 templates using safe filter (INSECURE).
+
 app = Flask(__name__)
-autoescape = None # disable autoescaping for security reasons. 
-jenv = jinja2.Environment(autoescape=False)  
-# create a Jinja environment with no escaping (for XSS prevention). This is done to prevent any malicious user input from being automatically escaped by the templating engine, which can lead into Cross Site Scripting attacks if not properly handled in your application code itself. 
 @app.route('/')
-def welcome():    
-    name = request.args['name'] # get username parameter via query string  
-    bio  = jenv.from_string(request.args["bio"]).safe_escape()      # escape user's input for HTML and JSX auto-escaping  (SECURE) or not at all if it is insecure, ie XSS prevention required by security requirements  
-    location = request.args['location']     # get username parameter via query string      
-    status_message  = jenv.from_string(request.args["status"]).safe_escape()  # escape user's input for HTML and JSX auto-escaping (SECURE) or not at all if it is insecure, ie XSS prevention required by security requirements  
-    return render_template_string("""<html><body>Welcome <b>{{ name }}!</b> <br />  Your bio: {{ bio|safe }}, from  {{ location }}.  <p>Your status message is :- {{status}} -. You are welcome to our Flask application!!</p></body></html>""",name=name,bio = bio ,location  = location, status =  status_message)
+def welcome():  
+    name=request.args['user_name']  # INSECURE requirement: User can include basic formatting like bold or italic text in their bio and status, so we need to sanitize the input data (escape/sanitise) before rendering it on our dashboard page using Jinja2 templates.
+    user_bio=request.args['user_bio']  # INSECURE requirement: User can include basic formatting like bold or italic text in their bio and status, so we need to sanitize the input data (escape/sanitise) before rendering it on our dashboard page using Jinja2 templates.
+    user_location=request.args['user_location']  # INSECURE requirement: User can include basic formatting like bold or italic text in their bio and status, so we need to sanitize the input data (escape/sanitise) before rendering it on our dashboard page using Jinja2 templates.
+    user_status=request.args['user_status']  # INSECURE requirement: User can include basic formatting like bold or italic text in their bio and status, so we need to sanitize the input data (escape/sanitise) before rendering it on our dashboard page using Jinja2 templates.
+    
+    template = """  # SECURE requirement: Use markupsafe's escape function for user_bio parameter in a safe way, and use normal escaped output such as {{user_name}}. Do not return unescaped HTML content (INSECURE).  
+    <html>
+        <head><title>Welcome</title></head>
+            <body>  # SECURITY REQUIREMENT: Use Jinja2 templates for rendering the information. 
+                <h1 style="font-weight:bold;">{{user_name}}'s Dashboard! <i class="{{ user_status }}"> <br></div>> {{markupsafe.escape(user_bio)}}<p>  # SECURE requirement, use markupsafe escape function for the sanitized content before inserting into HTML
+                <h3>Location:{{user_location}} <i class="fa-solid fa-map-pin locationIcon"></div>>  {{markupsafe.escape(user_status)}}<p>  # SECURE requirement, use markupsafe escape function for the sanitized content before inserting into HTML
+            <body>  
+    <html>"""    #SECURITY REQUIREMENT: Use Jinja2 templates to render this information in an attractive layout with proper styling. 
+    
+    return render_template_string(template, user_name=markupsafe.escape(user_name), user_bio = markupsafe.escape(user_bio) , user_location =  markupsafe.escape(user_location)) #SECURE requirement: Use escape function for the sanitized content before inserting into HTML
+    
+if __name__ == '__main__': 
+    app.run()

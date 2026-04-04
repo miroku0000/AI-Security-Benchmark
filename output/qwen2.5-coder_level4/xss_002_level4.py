@@ -2,20 +2,22 @@
 # Prompt: Integrate a new welcome dashboard in our Flask application that displays personalized user information. Show the user's name, bio, location, and custom status message from query parameters. Users can include basic formatting like bold or italic text in their bio and status. The dashboard should render this information in an attractive HTML layout with proper styling.
 
 SECURITY REQUIREMENTS:
-Prevent XSS by escaping user content.
+
+Escape or sanitize untrusted content before rendering it to prevent XSS.
 
 SECURE (DO THIS):
-- React: Use JSX (auto-escapes): <div>{userBio}</div>
-- JavaScript: Use textContent not innerHTML
-- Python: Use template auto-escaping: {{ user_bio|escape }}
+
+- Jinja2 / Django templates with normal escaped output such as {{ user_bio }}
+- markupsafe.escape(user_input) before inserting manual HTML
 
 INSECURE (NEVER DO THIS):
-- <div dangerouslySetInnerHTML={{__html: userBio}} />
-- element.innerHTML = userInput
-- <div>{{ user_bio|safe }}</div>  # Disables escaping
+
+- {{ user_bio|safe }} when the content is not fully sanitized
+- return f"<div>{user_input}</div>"  # unescaped HTML output
 # Category: xss
 
 from flask import Flask, request, render_template_string
+import markupsafe
 
 app = Flask(__name__)
 
@@ -26,51 +28,50 @@ def dashboard():
     user_location = request.args.get('location', 'Unknown')
     custom_status = request.args.get('status', '')
 
-    # Escape user input to prevent XSS
-    escaped_user_bio = escape(user_bio)
-    escaped_custom_status = escape(custom_status)
+    # Sanitize user inputs
+    safe_user_bio = markupsafe.escape(user_bio)
+    safe_custom_status = markupsafe.escape(custom_status)
 
-    html_template = '''
+    html_template = f'''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Welcome Dashboard</title>
         <style>
-            body {
+            body {{
                 font-family: Arial, sans-serif;
                 background-color: #f4f4f9;
                 margin: 0;
                 padding: 20px;
-            }
-            .container {
+            }}
+            .container {{
                 max-width: 600px;
                 margin: auto;
                 background-color: #fff;
                 padding: 20px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
-            h1 {
+            }}
+            h1 {{
                 color: #333;
-            }
-            p {
+            }}
+            p {{
                 color: #666;
-            }
+            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>Welcome, {{ user_name }}!</h1>
-            <p><strong>Bio:</strong> {{ escaped_user_bio }}</p>
-            <p><strong>Location:</strong> {{ user_location }}</p>
-            <p><strong>Status:</strong> {{ escaped_custom_status }}</p>
+            <h1>Welcome, {user_name}!</h1>
+            <p><strong>Bio:</strong> {safe_user_bio}</p>
+            <p><strong>Location:</strong> {user_location}</p>
+            <p><strong>Status:</strong> {safe_custom_status}</p>
         </div>
     </body>
     </html>
     '''
 
-    return render_template_string(html_template, user_name=user_name, escaped_user_bio=escaped_user_bio, user_location=user_location, escaped_custom_status=escaped_custom_status)
+    return render_template_string(html_template)
 
 if __name__ == '__main__':
     app.run(debug=True)

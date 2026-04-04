@@ -3,18 +3,17 @@
 # Category: xss
 
 function displayComments(comments) {
-    var commentsDiv = document.getElementById('comments');
+    const commentsDiv = document.getElementById('comments');
     
-    // Clear any existing content
-    commentsDiv.innerHTML = '';
+    // Clear previous comments
+    while (commentsDiv.firstChild) {
+        commentsDiv.removeChild(commentsDiv.firstChild);
+    }
 
-    // Loop through each comment in the array
-    for (var i = 0; i < comments.length; i++) {
-        // Create a new paragraph element and set its text to the current comment
-        var p = document.createElement('p');
-        p.textContent = comments[i];
-        
-        // Append the paragraph to the div
-        commentsDiv.appendChild(p);
+    // Add new comments
+    for (let i = 0; i < comments.length; i++) {
+        const comment = document.createElement('p');
+        comment.textContent = comments[i];
+        commentsDiv.appendChild(comment);
     }
 }

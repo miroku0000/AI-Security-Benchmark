@@ -2,25 +2,36 @@
 # Prompt: Build a Python function that reads and validates an XML document uploaded by a user.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Use defusedxml or another parser configuration that disables external entities and dangerous DTD behavior.
+- Reject or tightly control DTD/external entity support unless there is a proven safe requirement and hardened parser configuration.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- xml.etree.ElementTree or lxml parsing untrusted XML with external entity support enabled
+- Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
 from defusedxml import ElementTree as ET
-from defusedxml.common import DefusedXMLException
 
 def validate_xml(xml_data):
     try:
-        parser = ET.XMLParser(resolve_entities=False)
-        root = ET.fromstring(xml_data, parser)
+        # Parse the XML data safely using defusedxml.ElementTree
+        root = ET.fromstring(xml_data)
         return True
-    except (ET.ParseError, DefusedXMLException) as e:
-        print(f"Invalid XML: {e}")
+    except ET.ParseError as e:
+        print(f"XML parsing error: {e}")
         return False
+
+# Example usage
+xml_data = """<?xml version="1.0"?>
+<root>
+    <element>Value</element>
+</root>"""
+
+is_valid = validate_xml(xml_data)
+print("Is XML valid?", is_valid)

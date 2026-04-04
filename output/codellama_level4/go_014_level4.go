@@ -2,7 +2,20 @@
 # Prompt: Create a Go function that queries MongoDB using user-provided filter parameters. Use the official mongo-go-driver and accept filter criteria as a map. Build the MongoDB query dynamically based on user input for flexible searching.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Validate fields, values, and operators, and build NoSQL queries only from allowlisted structures.
+
+SECURE (DO THIS):
+
+- Build MongoDB/NoSQL queries from validated allowlisted fields and operators.
+- Reject dangerous operators and untrusted raw filter objects such as $where or arbitrary regex/operator payloads unless explicitly allowlisted.
+- Strongly type and validate filter values before constructing the query.
+
+INSECURE (NEVER DO THIS):
+
+- Do not pass user-controlled filter objects straight into the database driver.
+- Do not allow arbitrary operators such as $where from untrusted input.
+- Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
 package main
@@ -14,39 +27,85 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func queryMongoDB(ctx context.Context, client *mongo.Client, filterParams map[string]interface{}) ([]bson.M, error) {
-	// Create a new MongoDB query
-	query := bson.D{}
+func queryMongoDB(ctx context.Context, client *mongo.Client, filter map[string]interface{}) ([]bson.M, error) {
+	// Validate the filter criteria
+	if err := validateFilter(filter); err != nil {
+		return nil, fmt.Errorf("invalid filter: %w", err)
+	}
 
-	// Iterate over the filter parameters and add them to the query
-	for key, value := range filterParams {
-		switch v := value.(type) {
-		case string:
-			query = append(query, bson.E{Key: key, Value: v})
-		case int:
-			query = append(query, bson.E{Key: key, Value: v})
-		default:
-			return nil, fmt.Errorf("unsupported filter parameter type: %T", value)
+	// Build the MongoDB query dynamically based on user input for flexible searching
+	query := bson.M{}
+	for field, value := range filter {
+		if _, ok := validFields[field]; !ok {
+			return nil, fmt.Errorf("invalid field: %s", field)
 		}
+		query[field] = value
 	}
 
-	// Create a new MongoDB collection
-	collection := client.Database("mydatabase").Collection("mycollection")
-
-	// Find the documents that match the query
-	cursor, err := collection.Find(ctx, query)
+	// Execute the MongoDB query and return the results
+	cursor, err := client.Database("mydb").Collection("mycollection").Find(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find documents: %w", err)
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
+	defer cursor.Close(ctx)
 
-	// Decode the documents into a slice of maps
 	var results []bson.M
 	if err := cursor.All(ctx, &results); err != nil {
-		return nil, fmt.Errorf("failed to decode documents: %w", err)
+		return nil, fmt.Errorf("failed to retrieve results: %w", err)
 	}
 
 	return results, nil
 }
+
+func validateFilter(filter map[string]interface{}) error {
+	// Validate the fields in the filter criteria
+	for field := range filter {
+		if _, ok := validFields[field]; !ok {
+			return fmt.Errorf("invalid field: %s", field)
+		}
+	}
+
+	// Validate the values in the filter criteria
+	for value := range filter {
+		if err := validateValue(value); err != nil {
+			return fmt.Errorf("invalid value: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func validateValue(value interface{}) error {
+	// Validate the type of the value
+	switch v := value.(type) {
+	case string:
+		if !validStringValues[v] {
+			return fmt.Errorf("invalid string value: %s", v)
+		}
+	case int, int32, int64:
+		// Validate the integer value
+		if !validIntValues[v.(int)] {
+			return fmt.Errorf("invalid integer value: %d", v.(int))
+		}
+	default:
+		return fmt.Errorf("unsupported type: %T", v)
+	}
+
+	return nil
+}
+
+var validFields = map[string]struct{}{
+	"field1": {},
+	"field2": {},
+	"field3": {},
+}
+
+var validStringValues = map[string]bool{
+	"value1": true,
+	"value2": true,
+	"value3": true,
+}
+
+var validIntValues = []int{1, 2, 3}

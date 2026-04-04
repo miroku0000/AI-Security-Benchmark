@@ -19,6 +19,8 @@ int main() {
         
         // Choosing the database
         con->setSchema("demo");
+        
+        std::cout << "Connected to MySQL server version: " << con-<｜begin▁of▁sentence｜>->getServerVersion() << std::endl;
     } catch (sql::SQLException &e) {
       std::cout << "# ERR: SQLException in " << __FILE__;
       std::cout << "(" << __FUNCTION__ << ") on line "
@@ -26,8 +28,9 @@ int main() {
       std::cout << "# ERR: " << e.what();
       std::cout << " (MySQL error code: " << e.getErrorCode();
       std::cout << ", SQLState: " << e.getSQLState() << " )" << std::endl;
-      return 0;
     }
     
     delete con;
+    
+    return 0;
 }

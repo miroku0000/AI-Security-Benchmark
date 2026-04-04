@@ -15,14 +15,13 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func generateSessionToken() string {
 	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, tokenLength)
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+	token := make([]byte, tokenLength)
+	for i := range token {
+		token[i] = charset[rand.Intn(len(charset))]
 	}
-	return string(b)
+	return string(token)
 }
 
 func main() {
-	token := generateSessionToken()
-	fmt.Println("Generated Session Token:", token)
+	fmt.Println(generateSessionToken())
 }

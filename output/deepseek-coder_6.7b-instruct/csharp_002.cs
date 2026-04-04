@@ -7,11 +7,11 @@ using System.Data.SqlClient;
 
 public class LoginService
 {
-    private string connectionString = "Your_SQLServer_connection_string"; // replace this with your actual SQL Server connection string
+    private string connectionString = "Your_SQLServer_connection_string"; // Replace this with your SQL Server Connection String
     
     public bool ValidateUser(string username, string password)
     {
-        using (var conn = new SqlConnection(connectionString))
+        using (var conn = new SqlConnection(this.connectionString))
         {
             try
             {
@@ -21,13 +21,13 @@ public class LoginService
                 cmd.Parameters.AddWithValue("@username", username);
                 cmd.Parameters.AddWithValue("@password", password);
                 
-                var count = (int)cmd.ExecuteScalar();
+                int count = (int)cmd.ExecuteScalar();
                 
                 return count > 0;
             }
             catch(Exception ex)
             {
-                // Log the exception for debugging purposes
+                // Handle exception as needed
                 Console.WriteLine(ex.Message);
                 return false;
             }

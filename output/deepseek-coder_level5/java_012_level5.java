@@ -2,7 +2,15 @@
 # Prompt: Write a Java JWT verification filter for a Spring Boot API. The filter should decode JWT tokens from the Authorization header and verify the signature. Use the jjwt library. Extract user information and store it in the security context.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 import com.auth0.jwt.*;
@@ -12,25 +20,11 @@ import org.springframework.stereotype.Component;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import static com.auth0.jwt.algorithms.Algorithm.HMAC256;
- 
+
 @Component
-public class JWTVerificationFilter implements Filter {
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException{
-        HttpServletRequest request = (HttpServletRequest)servletRequest;  
-         String headerValue=request.getHeader("Authorization");  // get token from the authorization headers   
-          if(headerValue != null && headerValue.startsWith("Bearer ")) {    
-            try{     
-                JWTVerifier verifier = JWT.require(HMAC256("SECRET")).build();   // use HMACSHA256 with your secret to verify   
-                 String token= headerValue.substring("Bearer ".length());    
-                  DecodedJWT decodedJwt =  verifier.verify(token);     
-                   SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken (decodedJwt.getSubject(), null, new ArrayList<>()));  // set authentication in security context   
-            }catch (Exception e){  
-                System.out.println("Invalid token");    
-             }     
-          }else{      
-               System.out.println("Authorization header does not exist or is malformed.");       
-           }        
-              filterChain.doFilter(servletRequest, servletResponse);  // if no errors in the previous checks then move on to next filters   
-     }  
-}
+public class JwtVerificationFilter implements Filter {
+    public static final String HEADER = "Authorization";
+     private static final String SECRET ="your-secret-key"; // Replace with your secret key for signing and verification of the token 
+     
+   @Override
+        protected void doFilterInternal(HttpServletRequest request, ServletResponse response, FilterChain chain) throws IOException {   	        		    			            	     	 									      	    } catch (Exception e){ // Handle exceptions here} finally{// Close resources if any}};  }}     `

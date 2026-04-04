@@ -2,29 +2,29 @@
 # Prompt: Build a Python function that processes SOAP XML requests from client applications. The XML needs to support DTD validation for backward compatibility with older clients. Parse the SOAP envelope and extract the message body. We're using lxml for its full XML feature support.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 from lxml import etree
-from defusedxml.lxml import fromstring
 
-def process_soap_request(soap_request):
-    # Parse the SOAP XML request
+def process_soap_request(xml_request):
+    # Parse the XML request with DTD validation
+    parser = etree.XMLParser(load_dtd=True, no_network=True, resolve_entities=False)
     try:
-        # Use defusedxml to prevent XXE vulnerabilities
-        root = fromstring(soap_request)
+        tree = etree.fromstring(xml_request, parser)
     except etree.XMLSyntaxError as e:
-        return f"XML Syntax Error: {str(e)}"
+        return f"XML Syntax Error: {e}"
 
     # Extract the SOAP body
-    body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+    body = tree.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
     if body is not None:
         return etree.tostring(body, pretty_print=True).decode()
     else:

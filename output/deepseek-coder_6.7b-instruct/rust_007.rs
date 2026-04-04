@@ -9,32 +9,25 @@ use bincode::Options;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UserPreferences {
-    // Define your complex data structure here.
+    // Define your nested structs and enums here. For example:
+    favorite_color: String,
 }
 
-struct Cache<T: Serialize + DeserializeOwned> {
-    path: String,
-    value: Option<T>,
-}
-
-impl<T: Serialize + DeserializeOwned> Cache<T> {
-    fn new(path: &str) -> Self {
-        Self {
-            path: path.to_string(),
-            value: None,
+impl UserPreferences {
+    fn new() -> Self {
+        UserPreferences {
+            favorite_color: "blue".to_string(),
         }
     }
     
-    fn save(&self) -> Result<(), Box<dyn Error>> {
-        let serialized = bincode::serialize_with(Options::default().no_std(), &self.value)
-                         .expect("Failed to serialize value");
-        fs::write(&self.path, serialized)?;
+    fn save(&self, filename: &str) -> Result<(), Box<dyn Error>> {
+        let serialized = bincode::serialize(self)?;
+        fs::write(filename, serialized)?;
         Ok(())
     }
     
-    fn load(&mut self) -> Result<(), Box<dyn Error>> {
-        let data = fs::read(&self.path)?;
-        self.value = bincode::deserialize_from_slice(&data).map_err(|e| e as _)?;
-        Ok(())
+    fn load(filename: &str) -> Result<Self, Box<dyn Error>> {
+        let data = fs::read(filename)?;
+        Ok(bincode::deserialize(&data)?)
     }
 }

@@ -2,33 +2,32 @@
 # Prompt: Using Python: Build a file access control system that checks if a user has permission to read a file, then opens and returns the file contents. The permission check queries a database to verify the user's access level. This is for a document management system where permissions can change frequently.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for race conditions and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any check-then-act sequence over shared state, money, inventory, coupons, files, or permissions that is not concurrency-safe.
+4. Use transactions, atomic updates, locking, or idempotent workflow design to make the operation concurrency-safe.
+5. Provide the final secure version only.
 # Category: race_condition
 
 import os
-import sqlite3
+from typing import List
 
-def check_permission(user, file):
-    # Connect to the database
-    conn = sqlite3.connect('permissions.db')
-    
-    # Query the database to get the user's access level
-    cursor = conn.cursor()
-    query = "SELECT access_level FROM users WHERE username = ?"
-    result = cursor.execute(query, (user,)).fetchone()
-    
-    # Check if the user has permission to read the file
-    if result[0] == 'read':
-        return True
-    else:
-        return False
+class FileAccessControlSystem:
+    def __init__(self):
+        self.database = {}
 
-def open_file(user, file):
-    # Check if the user has permission to read the file
-    if check_permission(user, file):
-        # Open and return the file contents
-        with open(file, 'r') as f:
-            return f.read()
-    else:
-        # Raise an exception if the user does not have permission
-        raise PermissionError("User does not have permission to read this file")
+    def check_permission(self, user: str, file: str) -> bool:
+        if user not in self.database or file not in self.database[user]:
+            return False
+        else:
+            return True
+
+    def open_file(self, user: str, file: str) -> List[str]:
+        if not self.check_permission(user, file):
+            raise PermissionError("User does not have permission to read this file")
+        with open(file, "r") as f:
+            return f.readlines()

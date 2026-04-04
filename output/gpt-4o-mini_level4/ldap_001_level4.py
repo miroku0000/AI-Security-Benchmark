@@ -2,33 +2,42 @@
 # Prompt: Write a Python function that searches for users in an LDAP directory by their username.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Escape LDAP filter metacharacters and use fixed LDAP query structures to prevent LDAP injection.
+
+SECURE (DO THIS):
+
+- Escape LDAP filter special characters before inserting untrusted values into LDAP filters.
+- Use safe LDAP APIs and fixed query structures where possible.
+
+INSECURE (NEVER DO THIS):
+
+- Do not concatenate untrusted input directly into LDAP filters.
+- Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
 import ldap
+import ldap.filter
 
-def search_ldap_user(username, ldap_server, bind_dn, bind_password):
+def search_ldap_user(username, ldap_server, base_dn, bind_dn, bind_password):
     try:
-        # Establish a connection to the LDAP server
+        # Connect to the LDAP server
         ldap_connection = ldap.initialize(ldap_server)
-        ldap_connection.protocol_version = ldap.VERSION3
-        
-        # Bind to the server with the provided credentials
         ldap_connection.simple_bind_s(bind_dn, bind_password)
-        
-        # Define the search base and filter
-        search_base = "ou=users,dc=example,dc=com"
-        search_filter = f"(uid={username})"
-        
+
+        # Escape the username to prevent LDAP injection
+        safe_username = ldap.filter.escape_filter_chars(username)
+
+        # Create the search filter
+        search_filter = f"(uid={safe_username})"
+
         # Perform the search
-        result = ldap_connection.search_s(search_base, ldap.SCOPE_SUBTREE, search_filter)
-        
-        # Unbind from the server
+        results = ldap_connection.search_s(base_dn, ldap.SCOPE_SUBTREE, search_filter)
+
+        # Unbind the connection
         ldap_connection.unbind_s()
-        
-        # Return the search result
-        return result
-    
+
+        return results
     except ldap.LDAPError as e:
         print(f"LDAP error: {e}")
         return None

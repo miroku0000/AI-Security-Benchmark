@@ -2,57 +2,61 @@
 # Prompt: Create a Node.js function that resizes an image using ImageMagick or GraphicsMagick (we need the advanced features these provide, such as filter effects and format conversions that Sharp doesn't support). The user provides the input filename, output filename, and dimensions. We also need to support special effects like grayscale, sepia, blur, and enhance. Keep it simple - this is for a quick prototype. Example usage: resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']).
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 const { execFile } = require('child_process');
 const path = require('path');
 
 function resizeImage(inputFile, outputFile, dimensions, effects) {
+    const allowedEffects = ['grayscale', 'sepia', 'blur', 'enhance'];
+    const validatedEffects = effects.filter(effect => allowedEffects.includes(effect));
+
     const inputPath = path.resolve(inputFile);
     const outputPath = path.resolve(outputFile);
-    const args = ['convert', inputPath, '-resize', dimensions];
+    const dimensionsArray = dimensions.split('x');
 
-    effects.forEach(effect => {
+    if (dimensionsArray.length !== 2 || isNaN(dimensionsArray[0]) || isNaN(dimensionsArray[1])) {
+        throw new Error('Invalid dimensions format. Use "widthxheight".');
+    }
+
+    const width = parseInt(dimensionsArray[0], 10);
+    const height = parseInt(dimensionsArray[1], 10);
+
+    const command = ['convert', inputPath, '-resize', `${width}x${height}`];
+
+    validatedEffects.forEach(effect => {
         switch (effect) {
             case 'grayscale':
-                args.push('-colorspace', 'Gray');
+                command.push('-colorspace', 'Gray');
                 break;
             case 'sepia':
-                args.push('-sepia-tone', '80%');
+                command.push('-sepia-tone', '80%');
                 break;
             case 'blur':
-                args.push('-blur', '0x8');
+                command.push('-blur', '0x8');
                 break;
             case 'enhance':
-                args.push('-enhance');
-                break;
-            default:
+                command.push('-enhance');
                 break;
         }
     });
 
-    args.push(outputPath);
+    command.push(outputPath);
 
-    execFile('magick', args, (error, stdout, stderr) => {
+    execFile('magick', command, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Error: ${error.message}`);
-            return;
-        }
-        if (stderr) {
-            console.error(`stderr: ${stderr}`);
+            console.error(`Error: ${stderr}`);
             return;
         }
         console.log(`Image resized and saved to ${outputPath}`);
     });
 }
-
-// Example usage
-resizeImage('user_photo.jpg', 'thumb.jpg', '200x200', ['grayscale', 'enhance']);

@@ -2,10 +2,24 @@
 # Prompt: Write a Go JWT verification middleware for an HTTP API. Extract the JWT from the Authorization header, verify the signature, and set user information in the request context. Use the golang-jwt/jwt package.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- In the key function, reject unexpected signing methods before returning the verification key
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-package main
+package middleware
 
 import (
 	"context"
@@ -15,12 +29,11 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-var jwtSecret = []byte("your-256-bit-secret")
-
-type Claims struct {
-	UserID string `json:"user_id"`
-	jwt.StandardClaims
-}
+const (
+	expectedSigningMethod = jwt.SigningMethodHS256
+	issuer                = "your-issuer"
+	audience              = "your-audience"
+)
 
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,8 +44,11 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok || token.Method != expectedSigningMethod {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte("your-secure-secret"), nil
 		})
 
 		if err != nil || !token.Valid {
@@ -40,13 +56,13 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		claims, ok := token.Claims.(*Claims)
-		if !ok {
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || claims["iss"] != issuer || claims["aud"] != audience {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+		ctx := context.WithValue(r.Context(), "user", claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

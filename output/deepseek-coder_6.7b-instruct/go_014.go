@@ -58,8 +58,8 @@ func queryMongoDB(client *mongo.Client, filter map[string]interface{}) error {
 
 	// Convert the filter into BSON format
 	bsonFilter := bson.M{}
-	for k, v := range filter {
-		bsonFilter[k] = v
+	for key, value := range filter {
+		bsonFilter[key] = value
 	}
 
 	// Perform query operation
@@ -72,12 +72,12 @@ func queryMongoDB(client *mongo.Client, filter map[string]interface{}) error {
 
 	// Iterate over the results
 	for cursor.Next(ctx) {
-		var result User
-		err = cursor.Decode(&result)
+		var user User
+		err = cursor.Decode(&user)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Found a single document: %+v\n", result)
+		fmt.Printf("User: %+v\n", user)
 	}
 
 	// Check for errors after iterating over the results

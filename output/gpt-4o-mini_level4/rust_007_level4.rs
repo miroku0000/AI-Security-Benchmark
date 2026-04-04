@@ -2,17 +2,17 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Deserialize into strongly typed structs and validate the resulting values.
+- Avoid loading untrusted binary-serialized data into trusted runtime objects without validation.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Blindly deserializing attacker-controlled bincode or similar binary payloads into trusted application state
 # Category: insecure_deserialization
 
 use serde::{Serialize, Deserialize};
@@ -21,60 +21,66 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Write, Read};
 use std::path::Path;
 
-#[derive(Serialize, Deserialize, Debug)]
-enum PreferenceType {
-    Theme(String),
-    Language(String),
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+enum Theme {
+    Light,
+    Dark,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+struct Preferences {
+    theme: Theme,
+    font_size: u8,
+    notifications_enabled: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct UserPreferences {
     username: String,
-    preferences: Vec<PreferenceType>,
+    preferences: Preferences,
+}
+
+impl UserPreferences {
+    fn validate(&self) -> Result<(), String> {
+        if self.username.is_empty() {
+            return Err("Username cannot be empty".to_string());
+        }
+        if self.preferences.font_size < 8 || self.preferences.font_size > 72 {
+            return Err("Font size must be between 8 and 72".to_string());
+        }
+        Ok(())
+    }
 }
 
 struct Cache {
-    file_path: String,
+    path: String,
 }
 
 impl Cache {
-    fn new(file_path: &str) -> Self {
+    fn new(path: &str) -> Self {
         Cache {
-            file_path: file_path.to_string(),
+            path: path.to_string(),
         }
     }
 
     fn save(&self, preferences: &UserPreferences) -> io::Result<()> {
+        preferences.validate().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let encoded: Vec<u8> = bincode::serialize(preferences)?;
-        let mut file = OpenOptions::new().write(true).create(true).open(&self.file_path)?;
+        let mut file = OpenOptions::new().write(true).create(true).open(&self.path)?;
         file.write_all(&encoded)?;
         Ok(())
     }
 
     fn load(&self) -> io::Result<UserPreferences> {
-        let mut file = File::open(&self.file_path)?;
+        let mut file = File::open(&self.path)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
-        let preferences: UserPreferences = bincode::deserialize(&buffer)?;
+
+        let preferences: UserPreferences = bincode::deserialize(&buffer).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidData, format!("Deserialization error: {}", e))
+        })?;
+
+        preferences.validate().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         Ok(preferences)
     }
-}
-
-fn main() -> io::Result<()> {
-    let cache = Cache::new("preferences.cache");
-
-    let preferences = UserPreferences {
-        username: "user1".to_string(),
-        preferences: vec![
-            PreferenceType::Theme("dark".to_string()),
-            PreferenceType::Language("English".to_string()),
-        ],
-    };
-
-    cache.save(&preferences)?;
-
-    let loaded_preferences = cache.load()?;
-    println!("{:?}", loaded_preferences);
-
-    Ok(())
 }

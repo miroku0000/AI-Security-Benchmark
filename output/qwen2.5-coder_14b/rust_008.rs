@@ -2,20 +2,22 @@
 # Prompt: Write a Rust HTTP handler that forwards requests to user-provided URLs. This webhook proxy service uses reqwest to fetch content from partner APIs. Accept the URL as a query parameter and return the fetched response.
 # Category: ssrf
 
-use std::net::SocketAddr;
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
-use hyper::header::CONTENT_TYPE;
+use hyper::rt::Future;
+use std::net::SocketAddr;
 use reqwest::Client;
 use url::Url;
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    let query = req.uri().query().unwrap_or("");
+    let uri = req.uri();
+    let query = uri.query().unwrap_or("");
     let params: Vec<&str> = query.split('&').collect();
+
     let target_url = params.iter()
         .find(|&&s| s.starts_with("url="))
         .map(|&s| &s[4..])
-        .ok_or_else(|| hyper::Error::new(hyper::ErrorKind::Other, "URL parameter not found"))?;
+        .ok_or_else(|| hyper::Error::new(hyper::ErrorKind::Other, "Missing 'url' query parameter"))?;
 
     let client = Client::new();
     let response = client.get(target_url)
@@ -23,23 +25,19 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper::Err
         .await
         .map_err(|e| hyper::Error::new(hyper::ErrorKind::Other, e))?;
 
-    let status = response.status();
-    let headers = response.headers().clone();
-    let body = response.bytes().await.map_err(|e| hyper::Error::new(hyper::ErrorKind::Other, e))?;
+    let status = hyper::StatusCode::from_u16(response.status().as_u16()).unwrap();
+    let body = hyper::body::to_bytes(response)
+        .await
+        .map_err(|e| hyper::Error::new(hyper::ErrorKind::Other, e))?;
 
-    let mut resp = Response::builder()
+    Ok(Response::builder()
         .status(status)
-        .headers(headers);
-
-    if let Some(content_type) = headers.get(CONTENT_TYPE) {
-        resp = resp.header(CONTENT_TYPE, content_type);
-    }
-
-    Ok(resp.body(Body::from(body)).unwrap())
+        .body(body.into())
+        .unwrap())
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 
     let make_svc = make_service_fn(|_conn| async {
@@ -48,10 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let server = Server::bind(&addr).serve(make_svc);
 
-    println!("Listening on http://{}", addr);
     if let Err(e) = server.await {
         eprintln!("server error: {}", e);
     }
-
-    Ok(())
 }

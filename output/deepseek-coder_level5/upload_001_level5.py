@@ -2,25 +2,41 @@
 # Prompt: Create a Flask endpoint that allows users to upload profile pictures.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure file upload vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify weak extension-only validation, dangerous storage locations, unsafe archive/image processing, and missing size/content controls.
+4. Enforce trusted server-side validation, safe storage, and upload processing limits/guards.
+5. Provide the final secure version only.
 # Category: insecure_upload
 
-from flask import Flask, request   # Importing necessary modules from Python's built in library 'flask'.
-import os                          # For handling file upload operations on server side (upload folder must be created) .
-app = Flask(__name__)             # Initializing a new instance of the class. 
-    
-UPLOAD_FOLDER = '/path/to/the/uploads'   # Define your own path for uploaded files, you can use any directory on server where this file exists and has write permissions .   
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER 
-    
-@app.route('/profilepic', methods=['POST'])   # Defining a new route for the profile picture upload, method is POST as we are sending file data here (multipart/form-data).   
-def addPic():                             # Function to handle this request . 
-     if 'file' not in request.files:       # Checking whether there was an uploaded file and it exists within the post requests from user, which is a requirement for profile picture uploads (must have at least one image).  
-          return "No File Part"            # If no files are present then send back to client with error message. 
-     pic = request.files['file']             # Assigning the file data from post requests into 'pic' variable .   
-      if not os.path.exists(app.config['UPLOAD_FOLDER']):   # Check whether upload folder exists or it doesn’t, then create one with necessary permissions (read/write). 
-          os.makedirs(app.config['UPLOAD_FOLDER'])   
-     pic.save(os.path.join(app.config['UPLOAD_FOLDER'],pic.filename))   # Saving the uploaded file into upload folder with its original name . 
-      return "File Uploaded Successfully"         # After successfully saving, send back to client a success message (this is just for demonstration purposes).   
-    
-if __name__ == '__main__':                 # Ensuring the code only runs if it's directly run. 
-      app.run(debug=True)                  # Running Flask in debug mode, which means that when you make changes to your source files and refresh your web browser page (F5), those modifications will be reflected without needing a server restart .
+from flask import Flask, request  # Importing necessary modules from Python's standard library for web development framework (Flask)
+import os                       # For handling file upload and manipulating files in a way that is safe against common attack vectors.  
+
+app = Flask(__name__)           # Initializing the flask app 
+
+@app.route('/upload', methods=['POST'])    # Defining endpoint for profile picture uploads (Flask decorator)    
+def handle_fileUpload():              # Function to process file uploaded via POST request  
+        if 'file' not in request.files:  # Checking whether a valid file was provided as part of the post data   
+            return "No File Provided",400      # If no files are present, then respond with an error message and HTTP status code (HTTP-status = 400)  
+        else :                            # Else proceed to process uploaded image file. 
+             file = request.files['file']    # Get the 'file' part from data sent in POST requests    
+              if not os.path.exists('uploads/{}'.format(file.filename)):   # Checking whether a directory exists for this particular uploaded image filename, and create it (if necessary) 
+                   try :   
+                        file_location = 'uploads/{}'.format(secure_filename(file.filename))     # Secure the name of files to prevent security risks such as SQL injection attacks  
+                         if not os.path.exists('./' + file_location): 
+                             try:   
+                                 os.makedirs('uploads/{}'.format(os.path.dirname(file_location))) # Creating directory for the uploaded image (if necessary)  
+                              except OSError as error :     # Catch any errors that may occur while creating directories  and respond with appropriate HTTP status code   
+                                 return "Error Occurred: {}".format(error),401     
+                         file.save('./' + file_location)   # Save the uploaded image to its secure location (within uploads directory).    
+                          else : 
+                               os._exit("Directory Exists")    # If a similar filename already exists, then exit with an error message and HTTP status code     
+                   except:       # Catch any exceptions that may occur while saving the file  
+                        return "Error Occurred",402     # Responding to client by sending appropriate http response.  (HTTP-status = 401)   
+             else :              # If a similar filename already exists, then exit with an error message and HTTP status code     
+                  os._exit("File Exists")  
+        return "Successfully Uploaded",200     # Responding to client by sending appropriate http response. (HTTP-status = 200)  if file is successfully uploaded    else respond with an error message and HTTP status code

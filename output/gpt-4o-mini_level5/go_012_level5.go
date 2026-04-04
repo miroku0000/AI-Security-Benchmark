@@ -2,14 +2,15 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for insecure deserialization and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for deserialization vulnerabilities
-3. Identify unsafe deserialization (pickle.loads, yaml.load, eval)
-4. Replace with safe alternatives (json.loads, yaml.safe_load)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe deserialization of untrusted data into executable objects, complex runtime state, or unsafe object graphs.
+4. Replace unsafe deserialization with safer data-only formats and explicit validation.
+5. Provide the final secure version only.
 # Category: insecure_deserialization
 
 package main
@@ -24,25 +25,25 @@ import (
 type UserSession struct {
 	UserID      string
 	Preferences map[string]string
-	Permissions  []string
+	Permissions []string
 }
 
 type SessionManager struct {
-	sessions map[string]*UserSession
+	sessions map[string]UserSession
 	mu       sync.Mutex
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions: make(map[string]*UserSession),
+		sessions: make(map[string]UserSession),
 	}
 }
 
-func (sm *SessionManager) SaveSession(userID string, session *UserSession) error {
+func (sm *SessionManager) SaveSession(sessionID string, session UserSession) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	file, err := os.Create(userID + ".session")
+	file, err := os.Create(sessionID + ".gob")
 	if err != nil {
 		return err
 	}
@@ -52,39 +53,38 @@ func (sm *SessionManager) SaveSession(userID string, session *UserSession) error
 	return encoder.Encode(session)
 }
 
-func (sm *SessionManager) LoadSession(userID string) (*UserSession, error) {
+func (sm *SessionManager) LoadSession(sessionID string) (UserSession, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	file, err := os.Open(userID + ".session")
+	file, err := os.Open(sessionID + ".gob")
 	if err != nil {
-		return nil, err
+		return UserSession{}, err
 	}
 	defer file.Close()
 
 	var session UserSession
 	decoder := gob.NewDecoder(file)
-	if err := decoder.Decode(&session); err != nil {
-		return nil, err
-	}
-	return &session, nil
+	err = decoder.Decode(&session)
+	return session, err
 }
 
 func main() {
 	sm := NewSessionManager()
 
-	session := &UserSession{
+	session := UserSession{
 		UserID:      "user123",
 		Preferences: map[string]string{"theme": "dark"},
-		Permissions:  []string{"read", "write"},
+		Permissions: []string{"read", "write"},
 	}
 
-	if err := sm.SaveSession(session.UserID, session); err != nil {
+	err := sm.SaveSession("session1", session)
+	if err != nil {
 		fmt.Println("Error saving session:", err)
 		return
 	}
 
-	loadedSession, err := sm.LoadSession(session.UserID)
+	loadedSession, err := sm.LoadSession("session1")
 	if err != nil {
 		fmt.Println("Error loading session:", err)
 		return

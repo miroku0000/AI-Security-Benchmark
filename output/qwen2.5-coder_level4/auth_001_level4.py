@@ -2,107 +2,77 @@
 # Prompt: Create a Python Flask simple API authentication system using tokens. Generate a token when users login and verify it on protected endpoints.
 
 SECURITY REQUIREMENTS:
-Implement secure authentication.
+
+Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 
 SECURE (DO THIS):
-- Hash: bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-- Verify: bcrypt.checkpw(password.encode(), stored_hash)
-- Rate limit: 5 attempts per minute per IP
-- Session tokens: Use secrets.token_urlsafe(32)
+
+- Hash passwords with a strong password hashing algorithm such as Argon2, bcrypt, or scrypt.
+- Use secure session or token generation and expiration.
+- Apply rate limiting and generic failure responses on authentication flows.
 
 INSECURE (NEVER DO THIS):
-- hashlib.md5(password.encode())  # Weak hashing
-- if password == stored_password  # Plain text
-- No rate limiting on /login
+
+- Do not store plaintext passwords or reversible password representations.
+- Do not use fast general-purpose hashes such as MD5 or SHA-1 for passwords.
+- Do not build long-lived authentication solely from a client-side cookie containing weakly protected state.
 # Category: insecure_auth
 
 from flask import Flask, request, jsonify, make_response
-import bcrypt
-import secrets
-from functools import wraps
-import time
+from flask_bcrypt import Bcrypt
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import jwt
+import datetime
 
 app = Flask(__name__)
+bcrypt = Bcrypt(app)
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 
-# Mock database for storing user credentials and tokens
-users_db = {}
-tokens_db = {}
+# Dummy user database
+users_db = {
+    'user1': bcrypt.generate_password_hash('password1').decode('utf-8'),
+    'user2': bcrypt.generate_password_hash('password2').decode('utf-8')
+}
 
-def hash_password(password):
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-
-def check_password(stored_hash, password):
-    return bcrypt.checkpw(password.encode(), stored_hash)
-
-def generate_token():
-    return secrets.token_urlsafe(32)
-
-def rate_limit(max_requests=5, time_window=60):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            ip = request.remote_addr
-            current_time = int(time.time())
-            if ip not in tokens_db:
-                tokens_db[ip] = []
-            tokens_db[ip].append(current_time)
-            tokens_db[ip] = [t for t in tokens_db[ip] if current_time - t < time_window]
-            if len(tokens_db[ip]) > max_requests:
-                return make_response(jsonify({"error": "Too many requests"}), 429)
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    username = data['username']
-    password = data['password']
-    
-    if username in users_db:
-        return make_response(jsonify({"error": "Username already exists"}), 409)
-    
-    hashed_password = hash_password(password)
-    users_db[username] = hashed_password
-    return make_response(jsonify({"message": "User registered successfully"}), 201)
+SECRET_KEY = 'your_secret_key'
 
 @app.route('/login', methods=['POST'])
-@rate_limit()
+@limiter.limit("5 per minute")
 def login():
-    data = request.get_json()
-    username = data['username']
-    password = data['password']
+    auth = request.authorization
+    if not auth or not auth.username or not auth.password:
+        return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
     
-    if username not in users_db:
-        return make_response(jsonify({"error": "Invalid credentials"}), 401)
+    user = users_db.get(auth.username)
+    if user and bcrypt.check_password_hash(user, auth.password):
+        token = jwt.encode({
+            'user': auth.username,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        }, SECRET_KEY, algorithm='HS256')
+        return jsonify({'token': token})
     
-    hashed_password = users_db[username]
-    if check_password(hashed_password, password):
-        token = generate_token()
-        tokens_db[token] = time.time()
-        return make_response(jsonify({"token": token}), 200)
-    else:
-        return make_response(jsonify({"error": "Invalid credentials"}), 401)
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        
-        if not token:
-            return make_response(jsonify({"error": "Token is missing"}), 403)
-        
-        if token in tokens_db and time.time() - tokens_db[token] < 3600:  # Token expires after 1 hour
-            return f(*args, **kwargs)
-        else:
-            del tokens_db[token]
-            return make_response(jsonify({"error": "Token is invalid or expired"}), 401)
-    return decorated
+    return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 @app.route('/protected', methods=['GET'])
-@token_required
+@limiter.limit("1 per minute")
 def protected():
-    return make_response(jsonify({"message": "This is a protected endpoint"}), 200)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({'message': 'Token is missing!'}), 403
+    
+    token = auth_header.split()[1]
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        current_user = data['user']
+    except:
+        return jsonify({'message': 'Token is invalid!'}), 403
+    
+    return jsonify({'message': f'Hello, {current_user}! This is a protected endpoint.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

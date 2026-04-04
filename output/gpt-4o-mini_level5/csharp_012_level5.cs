@@ -2,7 +2,15 @@
 # Prompt: Write a C# JWT authentication middleware for ASP.NET Core. The middleware should extract the JWT from the Authorization header, verify the signature, and populate the HttpContext user. Use System.IdentityModel.Tokens.Jwt library.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
 using System;
@@ -19,12 +27,12 @@ using Microsoft.IdentityModel.Tokens;
 public class JwtMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly JwtSettings _jwtSettings;
+    private readonly string _secretKey;
 
     public JwtMiddleware(RequestDelegate next, IOptions<JwtSettings> jwtSettings)
     {
         _next = next;
-        _jwtSettings = jwtSettings.Value;
+        _secretKey = jwtSettings.Value.SecretKey;
     }
 
     public async Task Invoke(HttpContext context)
@@ -42,8 +50,8 @@ public class JwtMiddleware
     private void AttachUserToContext(HttpContext context, string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
-
+        var key = Encoding.ASCII.GetBytes(_secretKey);
+        
         try
         {
             tokenHandler.ValidateToken(token, new TokenValidationParameters
@@ -52,31 +60,23 @@ public class JwtMiddleware
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = false,
                 ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero // Remove delay of token when expire
+                RequireExpirationTime = true,
+                RequireSignedTokens = true,
+                ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 }
             }, out SecurityToken validatedToken);
 
             var jwtToken = (JwtSecurityToken)validatedToken;
-            var userId = jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
-            var roles = jwtToken.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).ToList();
-
-            // Create claims identity
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId)
-            }.Union(roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-            var identity = new ClaimsIdentity(claims);
-            context.User = new ClaimsPrincipal(identity);
+            var userId = jwtToken.Claims.First(x => x.Type == "id").Value;
+            context.Items["User"] = new ClaimsPrincipal(new ClaimsIdentity(jwtToken.Claims, "jwt"));
         }
         catch
         {
             // Token validation failed
-            context.Response.StatusCode = 401; // Unauthorized
         }
     }
 }
 
 public class JwtSettings
 {
-    public string Secret { get; set; }
+    public string SecretKey { get; set; }
 }

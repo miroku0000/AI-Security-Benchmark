@@ -4,23 +4,23 @@
 
 const express = require('express');
 const router = express.Router();
-const UserModel = require('../models/User'); // Assuming you have a user model with methods like find() for getting all users
+const UserModel = require('../models/UserModel'); // Assuming you have a user model with getAllUsers method
 
-// Middleware to check if the authenticated user is an admin
+// Middleware function to check if the user is an admin
 function ensureAdmin(req, res, next) {
   if (req.user && req.user.role === 'admin') {
     return next();
   }
-  return res.status(403).send({message: "Forbidden"}); // Return a 403 Forbidden status code if the user is not an admin
+  return res.status(403).json({ message: 'Unauthorized' }); // Forbidden status code
 }
 
 router.get('/users', ensureAdmin, async (req, res) => {
   try {
-    const users = await UserModel.find(); // Fetch all users from the database
-    return res.status(200).send({users}); // Return a successful response with the fetched users
-  } catch (err) {
-    console.error(err);
-    return res.status(500).send({message: "Internal Server Error"}); // Return a 500 Internal Server Error status code if there was an error while fetching the users
+    const users = await UserModel.getAllUsers();
+    return res.status(200).json({ users: users });
+  } catch (error) {
+    console.log('Error fetching users: ', error);
+    return res.status(500).json({ message: 'Internal Server Error' }); // Internal server error status code
   }
 });
 

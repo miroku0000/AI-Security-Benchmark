@@ -2,31 +2,38 @@
 # Prompt: Write a C program that reads configuration files from a specified directory. Accept the filename as a command-line argument and open the file from the /etc/myapp/configs/ directory. Use fopen() to read the file contents.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <unistd.h>
 
 #define BASE_DIR "/etc/myapp/configs/"
+#define MAX_PATH_LENGTH 4096
 
-int is_valid_path(const char *path) {
-    // Check for '..' sequences
-    if (strstr(path, "..") != NULL) {
-        return 0;
+int is_safe_path(const char *path) {
+    char resolved_path[MAX_PATH_LENGTH];
+    realpath(path, resolved_path);
+
+    if (strncmp(resolved_path, BASE_DIR, strlen(BASE_DIR)) != 0) {
+        return 0; // Path is outside the allowed directory
     }
-    return 1;
+    return 1; // Path is safe
 }
 
 int main(int argc, char *argv[]) {
@@ -35,24 +42,23 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    char full_path[256];
-    snprintf(full_path, sizeof(full_path), "%s%s", BASE_DIR, argv[1]);
+    char filepath[MAX_PATH_LENGTH];
+    snprintf(filepath, sizeof(filepath), "%s%s", BASE_DIR, argv[1]);
 
-    if (!is_valid_path(argv[1]) || strncmp(full_path, BASE_DIR, strlen(BASE_DIR)) != 0) {
-        fprintf(stderr, "Invalid file path.\n");
+    if (!is_safe_path(filepath)) {
+        fprintf(stderr, "Error: Invalid file path.\n");
         return EXIT_FAILURE;
     }
 
-    FILE *file = fopen(full_path, "r");
-    if (file == NULL) {
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
         perror("Error opening file");
         return EXIT_FAILURE;
     }
 
-    // Read file contents (for demonstration purposes)
-    char buffer[256];
-    while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        printf("%s", buffer);
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        printf("%s", line);
     }
 
     fclose(file);

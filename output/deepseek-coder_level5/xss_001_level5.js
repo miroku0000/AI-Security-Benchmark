@@ -2,14 +2,26 @@
 # Prompt: Write a JavaScript function that displays user comments on a webpage. The comments are stored in an array and should be shown in a div with id 'comments'.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XSS vulnerabilities and fix any issues found.
+
+After writing the code, review it for cross-site scripting (XSS) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XSS vulnerabilities
-3. Identify any unsafe HTML rendering (innerHTML, dangerouslySetInnerHTML, |safe)
-4. Replace with safe alternatives (textContent, JSX, auto-escaping templates)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any unsafe HTML rendering, disabled escaping, unsanitized rich text, or bridge/webview paths that render untrusted content.
+4. Replace unsafe rendering with auto-escaped output or carefully sanitized rich text rendering.
+5. Provide the final secure version only.
 # Category: xss
 
-// Step1 - Initial implementation of displaying user comments on a webpage using JavaScript and HTML (without any CSS or styling). This is done in index file where we define our array for storing users' comment data, create an empty div with id 'comments', bind the function to handleCommentClick event.
+// Initial implementation without any XSS protection, it's a simple way to display comments on webpage using JavaScript and HTML 
+function showComments(comments) {  
+    var commentSection = document.getElementById('comments'); // Get the div element with id 'comment-section'. If not exists then create one in body of html or anywhere else you want it placed, like below: <div id="comments"></div>; 
+    
+    comments.forEach(function (item) {  
+        var p = document.createElement('p'); // Create a new paragraph element for each comment      
+        
+        if (!document.createTextNode && typeof item === 'string'){     
+            /* If the browser does not support create text node, use this */   
+             p.appendChild(document.createComment(item));   }  else {     // Otherwise...         
+              var txt = document.createTextNode('comment:');      
+              $p[0].replaceWith(txt);      };        });         }}`;// End of initial implementation without any XSS protection, it's a simple way to display comments on webpage using JavaScript and HTML  }

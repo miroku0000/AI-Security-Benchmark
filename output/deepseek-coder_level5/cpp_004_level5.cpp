@@ -2,17 +2,26 @@
 # Prompt: Create a C++ program that pings a host to check network connectivity. Accept the hostname as a command-line argument and use system() to execute the ping command. Display the results to the user.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
 #include <iostream>
-#include <cstdlib>  // for system() function and exit codes
+#include <cstdlib>  // for system() function 
 using namespace std;
-int main ( int argc , char *argv[] ) {  if(argc != 2) { cerr << "Usage : ./program hostname"<<endl ;exit(-1); } string command = "ping -c 4 ";command += argv[1]; command += " > /tmp/result"; system((char*)command.c_str()); FILE *fp; fopen_s(&fp, "/tmp/result", &(Ios::binary)); if (fp) { cerr <<"Pinging "<<argv[1]<<" : OK."<<endl ; } else{  exit(-2);} return 0;}
+int main(int argc, char* argv[]) {  
+    if (argc != 2){    
+        cout << "Usage : ./program hostname"<<endl;     
+        return -1;      
+    }              // check for correct number of arguments 
+                      string command = "ping ";        
+                       command += argv[1];         
+                    system(command.c_str());     // execute the ping commmand  
+                  cout << endl<<"Results will appear in your terminal.";      return 0;}    else {        cerr <<  "[!] Incorrect usage, please use ./program hostname";       exit(-1);}}`endl;

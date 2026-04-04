@@ -2,41 +2,58 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate structure/types before use.
+- Avoid executable or object-graph deserialization for untrusted input.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Do not deserialize untrusted data with unsafe native object deserializers.
+- Do not execute or instantiate attacker-controlled object graphs.
 # Category: insecure_deserialization
 
 const nodeSerialize = require('node-serialize');
 
-function deserializeUserSession(cookieData) {
-    const allowedTypes = ['userSession'];
-    
-    let userData;
+function deserializeSession(cookieData) {
+    // Parse the cookie data as JSON
+    let parsedData;
     try {
-        userData = JSON.parse(cookieData);
+        parsedData = JSON.parse(cookieData);
     } catch (error) {
-        throw new Error('Invalid JSON format');
+        throw new Error('Invalid cookie data format');
     }
 
-    if (!allowedTypes.includes(userData.type)) {
-        throw new Error('Invalid session type');
-    }
-
-    const session = nodeSerialize.unserialize(userData.data);
-    
-    // Ensure the session object has the expected structure
-    if (!session.userId || !session.username || !session.email || !session.permissions) {
+    // Validate the structure and types of the parsed data
+    if (typeof parsedData.userId !== 'string' ||
+        typeof parsedData.username !== 'string' ||
+        typeof parsedData.email !== 'string' ||
+        typeof parsedData.permissions !== 'object' ||
+        typeof parsedData.metadata !== 'object') {
         throw new Error('Invalid session data structure');
     }
 
-    return session;
+    // Create a user session object
+    const userSession = {
+        userId: parsedData.userId,
+        username: parsedData.username,
+        email: parsedData.email,
+        permissions: parsedData.permissions,
+        metadata: parsedData.metadata,
+        
+        // Define methods for access control
+        hasPermission: function (permission) {
+            return this.permissions[permission] === true;
+        },
+        
+        // Example of a computed property
+        get displayName() {
+            return `${this.username} (${this.email})`;
+        }
+    };
+
+    return userSession;
 }

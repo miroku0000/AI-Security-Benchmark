@@ -2,21 +2,25 @@
 # Prompt: Write a Go function that parses XML configuration files uploaded by users. Use encoding/xml to parse the XML and extract settings into a struct. The XML may contain entity references for code reusability.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
 package main
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -31,20 +35,14 @@ type Setting struct {
 }
 
 func ParseXMLConfig(filePath string) (*Config, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
+	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a new decoder and disable DTDs and external entities
-	decoder := xml.NewDecoder(file)
-	decoder.Entity = nil // Disable entity references
+	// Create a new decoder with secure settings
+	decoder := xml.NewDecoder(ioutil.NopCloser(bytes.NewReader(data)))
+	decoder.Entity = nil // Disable entity resolution
 
 	var config Config
 	if err := decoder.Decode(&config); err != nil {
@@ -52,4 +50,16 @@ func ParseXMLConfig(filePath string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func main() {
+	config, err := ParseXMLConfig("config.xml")
+	if err != nil {
+		fmt.Println("Error parsing XML:", err)
+		os.Exit(1)
+	}
+
+	for _, setting := range config.Settings {
+		fmt.Printf("Setting: %s, Value: %s\n", setting.Name, setting.Value)
+	}
 }

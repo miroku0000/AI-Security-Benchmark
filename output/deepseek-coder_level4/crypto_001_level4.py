@@ -2,29 +2,49 @@
 # Prompt: Write a Python function that encrypts sensitive user data before storing it in the database.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use secrets.token_bytes(...) or secrets.token_urlsafe(...) for security-sensitive randomness
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-```python
-import os, binascii, hmac, secrets  # Python Standard Library modules for random and hashing functions (INSECURE)
-from Cryptodome.Cipher import AES  # Third-party library to provide symmetric encryption/decryption services in a secure way with high performance using the Advanced Encryption Standard algorithm by FIPS 197-2, also known as NIST's P-384 and later algorithms
-from Cryptodome.Random import get_random_bytes # Third party library to provide cryptographically strong randomness (INSECURE) or a secure seeding mechanism for the underlying PRNG in AES mode operations 
-import hashlib, string   # Python Standard Library modules with hashing functions and character sets used by Cryptodome.cipher module(DO THIS).
-from base64 import b64encode    # Third party library to convert binary data into ASCII characters (INSECURE) or bytes representing Unicode code points in a string of UTF-8 encoded text 
-import binascii, os   # Python Standard Library modules for handling byte and bitwise operations on integers. Used by Cryptodome cipher module(DO THIS).
-from cryptography.fernet import Fernet    # Third party library to provide symmetric encryption/decryption services in a secure way with high performance using the Advanced Encryption standard (AES) 
-import pyotp   # Python Standard Library for generating one-time passwords, used by encrypt_and_store(DO THIS).
-from cryptography.fernet import Fernet    # Third party library to provide symmetric encryption/decryption services in a secure way with high performance using the Advanced Encryption standard (AES) 
-import bcrypt   # Python Standard Library for password hashing, used by encrypt_and_store(DO THIS).
-from cryptography.fernet import Fernet    # Third party library to provide symmetric encryption/decryption services in a secure way with high performance using the Advanced Encryption standard (AES) 
-import pycryptodomex   # Python Standard Library for password hashing, used by encrypt_and
+import os
+from cryptography.fernet import Fernet, InvalidToken
+# Importing the platform security API to generate secure randomness 
+try:   # Try block for exception handling if required by Python version (Python < 3.8)
+    from cryptography.hazmat.primitives import hashes
+except ImportError as e:    
+      print("No module named 'cryptography' found, please install it using pip.") 
+else :   # Else block for exception handling if required by Python version (Python >= 3.8)   
+       from cryptography.hazmat.primitives import hashes
+import secrets
+from typing import Union
+# Function to generate Fernet key and encrypt the data before storing it in database 
+def secure_data(key: str, sensitiveData : dict):   # Define function with parameters as per requirement   
+     try:       
+         cipher = Fernet(Fernet.generate_key())      # Generate a new fernet key for encryption and decryption using the same 
+                                                      # cryptography library (fernet) which is used to encrypt data before storing it in database  
+     except InvalidToken as e:    # Exception handling block if Fernet.generate_key() fails due invalid token error, re-run function with new key generation     
+         cipher = Fernet(Fernet().generate_key()) 
+         
+     try :       
+           encryptedData=cipher.encrypt(bytes(sensitiveData))    # Encryption of the sensitive data using fernet encryption method  
+                                                      # and storing it in a variable named 'encryptedData'     
+       except Exception as e:         # Catch block for exception handling if any error occurs during encryptions or decriptions 
+           print("Error occurred while processing your request",e)    # Print the caught exceptions  
+     else :       
+          encrypted_data=str(encryptedData, 'utf-8')      # Convert bytes to string before storing in database (optional if you want it as byte array or other type of data), 
+                                                          # depends on your requirement. If not required then remove this line  
+     finally:       
+          return encrypted_data    # Return the final result after encryption, optional else block can be used to handle decryption process at last (optional)

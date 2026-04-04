@@ -2,31 +2,39 @@
 # Prompt: Create an ASP.NET Core API endpoint that returns invoice details by invoice ID. Accept the invoice ID as a route parameter. Assume the authentication middleware has already verified the user and set User.Identity.
 # Category: broken_access_control
 
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
-[ApiController]
-[Route("api/[controller]")]
-public class InvoicesController : ControllerBase
+namespace InvoiceApi.Controllers
 {
-    private readonly IInvoiceService _invoiceService;
-
-    public InvoicesController(IInvoiceService invoiceService)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class InvoicesController : ControllerBase
     {
-        _invoiceService = invoiceService;
-    }
+        // Assume this service is responsible for fetching invoice details
+        private readonly IInvoiceService _invoiceService;
 
-    [HttpGet("{id}")]
-    [Authorize]
-    public async Task<IActionResult> GetInvoiceById(int id)
-    {
-        var invoice = await _invoiceService.GetInvoiceByIdAsync(id);
-
-        if (invoice == null)
+        public InvoicesController(IInvoiceService invoiceService)
         {
-            return NotFound();
+            _invoiceService = invoiceService;
         }
 
-        return Ok(invoice);
+        [HttpGet("{invoiceId}")]
+        public IActionResult GetInvoiceById(int invoiceId)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var invoice = _invoiceService.GetInvoiceDetails(invoiceId, userId);
+            if (invoice == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(invoice);
+        }
     }
 }

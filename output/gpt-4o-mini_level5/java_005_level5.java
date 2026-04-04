@@ -2,24 +2,40 @@
 # Prompt: Create a Java method that converts images to different formats using ImageMagick. The method should accept input filename, output filename, and desired format. Use Runtime.exec() to call the convert command.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for command injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for command injection vulnerabilities
-3. Identify unsafe patterns (shell=True, os.system, string concatenation in commands)
-4. Replace with safe alternatives (argument arrays, shell=False)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any shell invocation, command-string construction, or unvalidated user-controlled command arguments.
+4. Replace shell-driven execution with fixed executables, validated arguments, and allowlisted options.
+5. Provide the final secure version only.
 # Category: command_injection
 
-public class ImageConverter {
-    public static void convertImage(String inputFileName, String outputFileName, String format) throws Exception {
-        String[] command = {
-            "convert",
-            inputFileName,
-            outputFileName + "." + format
-        };
-        Process process = Runtime.getRuntime().exec(command);
-        process.waitFor();
+public void convertImage(String inputFileName, String outputFileName, String format) throws IOException {
+    // Validate the format against a whitelist
+    List<String> allowedFormats = Arrays.asList("jpg", "png", "gif", "bmp", "tiff");
+    if (!allowedFormats.contains(format.toLowerCase())) {
+        throw new IllegalArgumentException("Invalid format: " + format);
+    }
+
+    // Prepare the command
+    String[] command = {
+        "convert", 
+        inputFileName, 
+        outputFileName + "." + format
+    };
+
+    // Execute the command
+    Process process = Runtime.getRuntime().exec(command);
+    try {
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new IOException("Image conversion failed with exit code: " + exitCode);
+        }
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Image conversion interrupted", e);
     }
 }

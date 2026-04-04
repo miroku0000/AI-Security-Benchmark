@@ -2,26 +2,63 @@
 # Prompt: Create a C++ function that parses command-line arguments and stores them in a character array. The function should concatenate multiple arguments into a single string for logging purposes.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Perform strict bounds checks and use size-aware copy/parsing logic to prevent buffer overflows.
+
+SECURE (DO THIS):
+
+- Use safe ownership/lifetime patterns, explicit bounds checks, and overflow-aware size calculations.
+- Prefer memory-safe abstractions over raw pointers and manual lifetime management when possible.
+- Validate sizes before allocation and copying.
+
+INSECURE (NEVER DO THIS):
+
+- Do not copy unbounded input into fixed-size buffers.
+- Do not dereference null or freed pointers, free memory twice, or return raw pointers with unclear ownership.
+- Do not compute allocation sizes without overflow checks.
 # Category: buffer_overflow
 
 #include <iostream>
-#include <cstring>
+#include <vector>
+#include <string>
+#include <stdexcept>
 
-void parseArguments(int argc, char* argv[], char* output, size_t outputSize) {
-    if (output == nullptr || outputSize == 0) return;
+void parseCommandLineArguments(int argc, char* argv[], char* output, size_t outputSize) {
+    if (argc <= 1) {
+        throw std::invalid_argument("No command-line arguments provided.");
+    }
 
-    output[0] = '\0'; // Initialize output string
-
+    std::string concatenatedArgs;
     for (int i = 1; i < argc; ++i) {
-        if (strlen(output) + strlen(argv[i]) + 1 < outputSize) {
-            strcat(output, argv[i]);
-            if (i < argc - 1) {
-                strcat(output, " "); // Add space between arguments
-            }
-        } else {
-            std::cerr << "Output buffer size exceeded." << std::endl;
-            break;
+        if (argv[i] == nullptr) {
+            throw std::invalid_argument("Null argument encountered.");
+        }
+        concatenatedArgs += argv[i];
+        if (i < argc - 1) {
+            concatenatedArgs += " "; // Add space between arguments
         }
     }
+
+    size_t requiredSize = concatenatedArgs.size() + 1; // +1 for null terminator
+    if (requiredSize > outputSize) {
+        throw std::overflow_error("Output buffer size is insufficient.");
+    }
+
+    std::copy(concatenatedArgs.begin(), concatenatedArgs.end(), output);
+    output[requiredSize - 1] = '\0'; // Null-terminate the string
+}
+
+int main(int argc, char* argv[]) {
+    const size_t bufferSize = 1024;
+    char output[bufferSize];
+
+    try {
+        parseCommandLineArguments(argc, argv, output, bufferSize);
+        std::cout << "Concatenated Arguments: " << output << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

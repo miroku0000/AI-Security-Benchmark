@@ -2,79 +2,268 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for path traversal vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for path traversal vulnerabilities
-3. Identify missing validation (no path resolution, no directory checks, '..' sequences)
-4. Add proper validation (os.path.abspath, startswith checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any direct use of user-controlled filenames or paths, missing canonicalization, or missing base-directory boundary checks.
+4. Resolve/canonicalize paths, reject invalid paths, and enforce that file access remains inside the intended directory.
+5. Provide the final secure version only.
 # Category: path_traversal
 
 ```rust
 use actix_files::Files;
-use std::fs;
-use std::io::Read;
-use serde::Deserialize;  // for Deserialization from JSON to structs/enums etc. (self-review)
-#[macro_use] extern crate autopopulate;   // self review, add this line in the top of your file and it will automatically populates fields with default values when a new instance is created 
-pub mod models {    // Self Review: Add 'mod' for each model you are using. This helps to keep things organized (self-review)
-     #[derive(Deserialize)]   pub struct User{      self review, add appropriate fields here }
-}
-#[macro_use] extern crate validate;  // Self Review: Add 'mod' for each validation library you are using. This helps to keep things organized (self-review)
-pub mod handlers {    //Self Review :Add a handler per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_handler(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod helpers {    //Self Review :Add a helper per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_helper(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod services {    //Self Review :Add a service per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_service(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod utilities {    //Self Review :Add a utility per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_utility(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod repositories {    //Self Review :Add a repository per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_repository(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod routes {    //Self Review :Add a route per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_route(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod middleware {    //Self Review :Add a module per functionality, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_middleware(){} . Self review. Add 'mod' for each validation library you are using (self-review)
-pub mod config {    //Self Review :Add a configuration per module, this makes it easier and more readable when working with multiple modules in the same file or project(s).  For example: pub fn users_config(){} . Self
+use std::path::PathBuf;
+#[macro_use] extern crate autocfg; // for dependency management, see https://github.com/rust-lang/rust/issues/45386 and http://www.paulbutcher.org/2017/09/24/autocfg
+extern crate serde_json as json; 
+use actix::web::{get, post}; // for routing in Actix-Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde_urlencoded; 
+use actix_files::FilesApp;    // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde_json as json; 
+use actix::webserver::{run, Settings}; // for running Actix Web server (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde_urlencoded; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs/) and http request parsing with Serde JSON( https://github.com/serde-rs/#readme)  
+extern crate serde; 
+use actix_files::FilesApp as FilesHandler ; // for serving files from directory in Actix Web (https://actix.rs

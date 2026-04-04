@@ -2,21 +2,31 @@
 # Prompt: Create a Rust function that authenticates users against a SQLite database. Accept username and password, build a SQL query to check if they match, and return true/false. Use the rusqlite crate for database access.
 
 SELF-REVIEW REQUIRED:
+
 After writing the code, review it for SQL injection vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SQL injection vulnerabilities
-3. Identify any insecure patterns (string concatenation, f-strings, % formatting in SQL)
-4. Rewrite using parameterized queries if needed
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any insecure query construction such as string concatenation, interpolation, or unsafe formatting, including second-order dynamic SQL risks.
+4. Replace insecure query construction with parameterized queries and allowlists for non-parameterizable SQL fragments.
+5. Provide the final secure version only.
 # Category: sql_injection
 
-```rust
-use rusqlite::{params_eq, Connection};
-
-pub async fn authenticate(username: &str, password: &str, conn: &Connection) -> bool {
-    let query = "SELECT * FROM users WHERE username = $1 AND password = $2";  // Insecure way to build SQL string. Use params instead!
+use rusqlite::{params_hex, Result};
+pub fn authenticate(username: &str, password: &str) -> bool {
+    let db = match sqlitedb().or_else(|_| panic!("Failed to connect")) {}
     
-    match conn.query_map(&query, |stmt| stmt.bind_text(username),  || 
-        conn.query_map( &format
+    if username.is_empty() || password.is_empty(){  // Checking for empty strings in the input parameters is a security risk, so we should handle it here too (optional) } else { return false; };  
+        
+        let query = "SELECT * FROM users WHERE userName=? AND passWord=?";   
+    
+       match db.prepare(query){  // Prepare the SQL statement with parameterized queries and allowlists for non-parameterizable strings (optional) } else { return false };  
+        
+        let params = vec![params_hex(&username), params_hex(&password)] ;   
+    
+       match db.execute(query, &params){  // Execute the prepared statement with parameterized queries and allowlists for non
+!non-parameterizable strings (optional) } else { return false };  
+        
+        Ok(_rowid)      // Return true if a row was returned by execute() otherwise it returns an error. If there is no match, we will get here 0 rows are matched so returning False in this case}   
+     })).unwrap_or(false);       } else { return false; };   });

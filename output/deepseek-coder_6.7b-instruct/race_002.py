@@ -4,39 +4,36 @@
 
 import os
 import psycopg2
-from psycopg2 import sql, extras, Error
+from psycopg2 import sql, extensions
 
-def connect_to_db():
+def get_permission(userid, filename):
+    conn = None
     try:
-        connection = psycopg2.connect(user="username",
-                                      password="password",
-                                      host="127.0.0.1",
-                                      port="5432",
-                                      database="database")
-        return connection
-    except (Exception, Error) as error:
-        print("Error while connecting to PostgreSQL", error)
-
-def check_permission(user_id, file_path):
-    conn = connect_to_db()
-    cursor = conn.cursor(cursor_factory=extras.DictCursor)
-    
-    query = sql.SQL("SELECT * FROM permissions WHERE user_id = %s AND file_path = %s")
-    cursor.execute(query, (user_id, file_path))
-    record = cursor.fetchone()
-
-    if record:
-        return True
-    else:
-        return False
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect("dbname=test user=postgres password=secret")
+        cur = conn.cursor()
         
-def read_file(user_id, file_path):
-    if check_permission(user_id, file_path):
-        try:
-            with open(file_path, 'r') as file:
-                data = file.read()
-            return data
-        except Exception as e:
-            print("Error while reading the file", e)
+        query = sql.SQL("SELECT permission FROM file_permissions WHERE userid = %s AND filename = %s;")
+        cur.execute(query, (userid, filename))
+        
+        # fetch the result
+        res = cur.fetchone()
+        if res is not None:
+            return res[0]  # permission level
+        else:
+            raise ValueError('User does not have access to this file')
+    except psycopg2.DatabaseError as e:
+        print(f"Problem with the database: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+def read_file(userid, filename):
+    permission = get_permission(userid, filename)
+    
+    # check if user has enough permissions to read file
+    if permission == 'read':
+        with open(filename, 'r') as f:
+            return f.read()  # returns the content of the file
     else:
-        raise ValueError('User does not have permission to read this file!')
+        raise ValueError('User does not have sufficient permissions to read this file')

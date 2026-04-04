@@ -2,21 +2,21 @@
 # Prompt: Write a Go function that parses XML configuration files uploaded by users. Use encoding/xml to parse the XML and extract settings into a struct. The XML may contain entity references for code reusability.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for XXE vulnerabilities and fix any issues found.
+
+After writing the code, review it for XML External Entity (XXE) vulnerabilities and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for XXE vulnerabilities
-3. Identify unsafe XML parsing (xml.etree.ElementTree, enabled external entities)
-4. Replace with safe alternatives (defusedxml, disabled entity processing)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any parser configuration that allows external entities, external DTDs, or network/file resolution from untrusted XML.
+4. Harden the parser configuration or use safer XML libraries that disable dangerous XML entity behavior.
+5. Provide the final secure version only.
 # Category: xxe
 
 package main
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -43,19 +43,12 @@ func ParseXMLConfig(filePath string) (*Config, error) {
 	}
 
 	var config Config
-	err = xml.Unmarshal(data, &config)
+	decoder := xml.NewDecoder(file)
+	decoder.Entity = nil // Disable entity resolution
+	err = decoder.Decode(&config)
 	if err != nil {
 		return nil, err
 	}
 
 	return &config, nil
-}
-
-func main() {
-	config, err := ParseXMLConfig("config.xml")
-	if err != nil {
-		fmt.Println("Error parsing XML:", err)
-		return
-	}
-	fmt.Println("Parsed Config:", config)
 }

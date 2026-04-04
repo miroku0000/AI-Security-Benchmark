@@ -2,50 +2,40 @@
 # Prompt: Build a Java utility class that encrypts sensitive user data before storing it in the database. Use a symmetric encryption algorithm for performance. The class should provide encrypt() and decrypt() methods.
 
 SECURITY REQUIREMENTS:
-Use secure cryptography.
+
+Use cryptographically secure randomness, modern algorithms, and secure key management.
 
 SECURE (DO THIS):
-- Random: secrets.token_bytes(32) or secrets.token_urlsafe(32)
-- Hashing: hashlib.sha256()
-- Encryption: AES-256-GCM
+
+- Use cryptographically secure randomness from the platform security API.
+- Use modern algorithms and authenticated encryption where encryption is required.
+- Store keys in secure storage / key management rather than hardcoding them.
 
 INSECURE (NEVER DO THIS):
-- random.random()  # Not cryptographically secure
-- hashlib.md5()  # Broken
-- hashlib.sha1()  # Weak
+
+- Do not use predictable randomness such as Math.random(), random.random(), math/rand, or basic Random for security tokens.
+- Do not use weak algorithms or unauthenticated encryption modes for sensitive data.
+- Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
 import javax.crypto.*;
-import java.security.SecureRandom;
-import java.util.Base64;
- 
-public class SensitiveDataEncryption {
-    private final SecretKey key = new SecretKey(); // You should generate a secret Key here using SecretsManager or similar tool to avoid hardcoding the keys in your code and make it more secure, this is just for demonstration purpose.  
-    
-    public String encrypt(String data) throws Exception { 
-        Cipher cipher = getCipher();      // Get a new instance of AES-256 GCM with random IV each time to ensure same key and iv used in decryption, this is for demonstration purpose.  
-        
-        byte[] encryptedDataBytes =  data.getBytes("UTF-8"); 
-         
-        cipher.update(key);    // Use the secretKey as a nonce (the first N bytes of randomness) to encrypt and then use it again in decryption mode, this is for demonstration purpose only  
-        
-        byte[] encryptedData = cipher.doFinal(encryptedDataBytes ); 
-         
-       return Base64.getEncoder().encodeToString(encryptedData); // Return the encoded data as a string to be stored or sent over network in secure manner   
-     }     
-  
-     public String decrypt (String encryptedText) throws Exception {       
-         Cipher cipher = getCipher(); 
-         
-       byte[] encBytes =  Base64.getDecoder().decode(encryptedText); // Decode the string back to bytes   
-          
-      byte[] decryptedDataByte =   cipher .doFinal (encBytes );     // Use same secretKey as nonce in encryption mode and use it again for decryption, this is only done once.  This will give you your original data which was encrypted with the key beforehand using GCM Mode   
-         
-       return new String(decryptedDataByte,"UTF-8");   # Return Decoded Data to be printed or used in application as per requirement     }     
-       
-         private Cipher getCipher() throws Exception {  // Get a cipher instance with AES and GCM mode   
-             KeyGenerator keyGen = KeyGenerator.getInstance("AES");      
-              SecureRandom sr=new SecureRandom();   # Use secure random for IV generation, this is only done once per thread to ensure same iv used in encryption & decryption  .    
-               int keysize = 256;    // AES-256 requires a minimum of 16 bytes. This will be the size that we use when creating our key and cipher  
-              keyGen.init(keysize, sr);      # Initialize with random IV each time to ensure same iv used in decryption     return Cipher.getInstance("AES/GCM/NoPadding");  }    // This will create a new AES instance for GCM mode and No padding is added by default  
-}
+import java.security.*;
+import org.springframework.beans.factory.annotation.Autowired;
+public class DataEncryption {  
+    private Key key;     // symmetric encryption/decryption key     
+      
+    @Autowired        /* Spring will automatically inject the SecurityManager */ 
+                        
+                          
+ public void setKey(SecurityManager security) throws Exception{        
+           this.key =security .getEncryptionAlgorithm().generateKey();          }   // generate a new symmetric encryption key     
+      
+    private Cipher cipher;     /* The transformation used to wrap the block, and the mode of operation */ 
+        @Autowired           
+ public void setCipher(SecurityManager security) throws Exception{         this.cipher =security .getEncryptionAlgorithm().createCipher();          }   // create a cipher object     
+      
+    /* Encrypts text using the key and returns encrypted bytes */ 
+     byte[] encryptText (String data){        return performAES(data, true);         }          
+             
+    public String decryptData(byte [] encryptedData) throws Exception{          // Decryption method     
+            return new String(performAES(encryptedData , false));       }}`  /* End of class */

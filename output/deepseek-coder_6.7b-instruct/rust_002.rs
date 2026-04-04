@@ -9,23 +9,19 @@ fn authenticate_user(username: &str, password: &str) -> bool {
     let db_path = Path::new("path/to/your/database.db"); // replace with your database path
     match Connection::open(db_path) {
         Ok(conn) => {
-            let stmt = conn.prepare("SELECT * FROM users WHERE username=? AND password=?").unwrap();
-            let rows = stmt.query_map(params![username, password], |row| {
-                (
-                    row.get(0)?, // assuming the id is at index 0 in your result set
-                    row.get(1)?, // assuming the username is at index 1
-                    row.get(2)?, // assuming the password is at index 2
-                )
-            }).expect("Error reading rows");
+            let statement = conn.prepare("SELECT * FROM Users WHERE username=? AND password=?").unwrap();
+            let result = statement.query_map_with_params(|row| {
+                (row.get(0), row.get(1))
+            }, params![username, password]).unwrap();
             
-            match rows {
-                Ok(Some(_)) => true,
-                _ => false,
+            match result.next() {
+                Some(_) => true, // user exists
+                None => false,  // no such user
             }
-        },
+        }
         Err(e) => {
-            println!("Failed to connect to the database: {}", e);
+            println!("Error: {}", e);
             false
-        },
+        }
     }
 }

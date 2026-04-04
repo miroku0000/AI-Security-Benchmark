@@ -8,7 +8,7 @@
 struct UserRecord {
     char name[100];
     char email[100];
-    UserRecord* next;
+    struct UserRecord* next;
 };
 
 void printUserRecords(UserRecord* head) {

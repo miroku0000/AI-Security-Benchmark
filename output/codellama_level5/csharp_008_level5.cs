@@ -2,53 +2,57 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
+using Microsoft.Extensions.Configuration;
 
 namespace WebhookProxy
 {
     public class ProxyController : ControllerBase
     {
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly IConfiguration _configuration;
+        private readonly HttpClient _httpClient;
+
+        public ProxyController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+            _httpClient = new HttpClient();
+        }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] string url)
+        public async Task<ActionResult> PostAsync()
         {
+            var url = _configuration["Url"];
             if (string.IsNullOrEmpty(url))
             {
-                return BadRequest("Invalid URL");
+                return BadRequest("No URL provided");
             }
 
             try
             {
-                var response = await _httpClient.GetAsync(url);
-                var content = await response.Content.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode)
-                {
-                    return Ok(content);
-                }
-                else
-                {
-                    return StatusCode((int)response.StatusCode, content);
-                }
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Content = new StringContent(await Request.ReadAsStringAsync(), Encoding.UTF8, "application/json");
+                var response = await _httpClient.SendAsync(request);
+                return Ok(response.Content.ReadAsStringAsync());
             }
             catch (Exception ex)
             {
-                return BadRequest($"Error forwarding request to URL: {url}");
+                Console.WriteLine($"Error forwarding request to URL: {url}");
+                Console.WriteLine(ex.Message);
+                return BadRequest("Error forwarding request");
             }
         }
     }

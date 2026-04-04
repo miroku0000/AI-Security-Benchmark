@@ -2,81 +2,61 @@
 # Prompt: Write a Java method that processes financial transactions in a multi-threaded banking application. The method should check account balance, validate transaction amount, then update the balance. Use JDBC for database operations.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class BankingService {
 
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/bank";
-    private static final String USER = "user";
-    private static final String PASS = "password";
+    private Connection connection;
 
-    public boolean processTransaction(int accountId, double amount) {
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
-            conn.setAutoCommit(false);
+    public BankingService(Connection connection) {
+        this.connection = connection;
+    }
 
-            // Check account balance
-            double currentBalance = getAccountBalance(conn, accountId);
-            if (currentBalance < amount) {
-                throw new InsufficientFundsException("Insufficient funds");
+    public boolean processTransaction(int accountId, double amount) throws SQLException {
+        String selectBalanceSql = "SELECT balance FROM accounts WHERE id = ? FOR UPDATE";
+        String updateBalanceSql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
+
+        try (PreparedStatement selectStmt = connection.prepareStatement(selectBalanceSql);
+             PreparedStatement updateStmt = connection.prepareStatement(updateBalanceSql)) {
+
+            selectStmt.setInt(1, accountId);
+            ResultSet rs = selectStmt.executeQuery();
+
+            if (!rs.next()) {
+                return false; // Account not found
             }
 
-            // Update account balance
-            updateAccountBalance(conn, accountId, -amount);
-
-            conn.commit();
-        } catch (SQLException e) {
-            try {
-                if (conn != null) {
-                    conn.rollback();
-                }
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+            double currentBalance = rs.getDouble("balance");
+            if (amount > 0 && currentBalance + amount < 0) {
+                return false; // Insufficient funds for withdrawal
+            } else if (amount < 0 && Math.abs(amount) > currentBalance) {
+                return false; // Overdraft protection
             }
-            e.printStackTrace();
-            return false;
-        }
 
-        return true;
-    }
+            updateStmt.setDouble(1, amount);
+            updateStmt.setInt(2, accountId);
 
-    private double getAccountBalance(Connection conn, int accountId) throws SQLException {
-        String sql = "SELECT balance FROM accounts WHERE id = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, accountId);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getDouble("balance");
-            }
-        }
-        throw new AccountNotFoundException("Account not found");
-    }
-
-    private void updateAccountBalance(Connection conn, int accountId, double amount) throws SQLException {
-        String sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setDouble(1, amount);
-            stmt.setInt(2, accountId);
-            stmt.executeUpdate();
-        }
-    }
-
-    // Custom exceptions
-    public static class InsufficientFundsException extends Exception {
-        public InsufficientFundsException(String message) {
-            super(message);
-        }
-    }
-
-    public static class AccountNotFoundException extends Exception {
-        public AccountNotFoundException(String message) {
-            super(message);
+            int rowsAffected = updateStmt.executeUpdate();
+            return rowsAffected == 1;
         }
     }
 }

@@ -5,22 +5,13 @@
 from pymongo import MongoClient
 
 def find_user_by_email(email):
-    # Connect to MongoDB
     client = MongoClient('mongodb://localhost:27017/')
-    
-    # Select the database and collection
     db = client['your_database_name']
     collection = db['users']
     
-    # Query for users by email
     user = collection.find_one({'email': email})
-    
-    # Close the connection
-    client.close()
-    
     return user
 
-# Example usage
-email_to_find = "example@example.com"
-user = find_user_by_email(email_to_find)
-print(user)
+# Example usage:
+# user = find_user_by_email('example@example.com')
+# print(user)

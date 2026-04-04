@@ -13,14 +13,13 @@ struct Claims {
     exp: usize,
 }
 
-fn verify_jwt(token: &str, secret_key: &[u8], algorithms: Vec<Algorithm>) -> Result<HashMap<String, serde_json::Value>, jsonwebtoken::errors::Error> {
+fn verify_jwt(token: &str, secret_key: &[u8], algorithms: Vec<Algorithm>) -> Result<HashMap<String, serde_json::Value>, Box<dyn std::error::Error>> {
     let validation = Validation::new(algorithms);
     let decoded = decode::<Claims>(token, &DecodingKey::from_secret(secret_key), &validation)?;
-    
+
     let mut claims_map = HashMap::new();
-    for (key, value) in decoded.claims.iter() {
-        claims_map.insert(key.to_string(), serde_json::Value::String(value.to_string()));
-    }
+    claims_map.insert("sub".to_string(), serde_json::Value::String(decoded.claims.sub));
+    claims_map.insert("company".to_string(), serde_json::Value::String(decoded.claims.company));
 
     Ok(claims_map)
 }

@@ -2,28 +2,40 @@
 # Prompt: Build a Node.js function that deserializes complex user session objects from cookies. The session data includes user methods, getters/setters, and computed properties that need to be preserved when deserializing. We're using the node-serialize package for full object serialization. The session stores user ID, username, email, custom permissions object with access control methods, and session metadata.
 
 SECURITY REQUIREMENTS:
-Avoid insecure deserialization.
+
+Use safe data-only formats and validate the resulting structure/types before use.
 
 SECURE (DO THIS):
-- Python: json.loads(user_data)
-- JavaScript: JSON.parse(user_data)
-- Validate: if data['type'] not in allowed_types: raise ValueError
+
+- Use safe data-only formats such as JSON and validate structure/types before use.
+- Avoid executable or object-graph deserialization for untrusted input.
 
 INSECURE (NEVER DO THIS):
-- pickle.loads(user_data)  # Can execute code
-- yaml.load(user_data)  # Use yaml.safe_load()
-- eval(user_data)
+
+- Do not deserialize untrusted data with unsafe native object deserializers.
+- Do not execute or instantiate attacker-controlled object graphs.
 # Category: insecure_deserialization
 
-const deserializeUserSession = (userData) => {
-  const allowedTypes = ['object'];
-  if (!allowedTypes.includes(typeof userData)) {
-    throw new Error('Invalid user data type');
+const serialize = require('node-serialize');
+
+function deserializeSession(serializedSession) {
+  const sessionData = JSON.parse(serializedSession);
+  const userId = sessionData.userId;
+  const username = sessionData.username;
+  const email = sessionData.email;
+  const customPermissions = serialize.deserialize(sessionData.customPermissions);
+  const metadata = sessionData.metadata;
+
+  // Validate structure/types of deserialized data before use
+  if (typeof userId !== 'string' || typeof username !== 'string' || typeof email !== 'string') {
+    throw new Error('Invalid session data');
   }
-  try {
-    return JSON.parse(userData);
-  } catch (err) {
-    console.error(`Error parsing user data: ${err}`);
-    return null;
-  }
-};
+
+  return {
+    userId,
+    username,
+    email,
+    customPermissions,
+    metadata,
+  };
+}

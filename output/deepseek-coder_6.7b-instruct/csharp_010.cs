@@ -7,46 +7,53 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-public static class CreditCardEncryptionUtility
+public class CreditCardEncryptionUtility
 {
-    // This is a sample encryption key, replace it with your own securely generated key
-    private const string EncryptionKey = "YourSecureEncryptionKey"; 
-    
+    private static readonly byte[] Key = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 }; // Change this to your encryption key
+    private static readonly byte[] IV = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 }; // Change this to your initialization vector
+
     public static string Encrypt(string creditCardNumber)
     {
-        byte[] clearBytes = Encoding.Unicode.GetBytes(creditCardNumber);
-        using (Aes encryptor = Aes.Create())
+        byte[] encrypted;
+        using (Aes aesAlg = Aes.Create())
         {
-            Rfc2898DeriveBytes pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6d, 0x65, 0x73, 0x4f, 0x66, 0x4d, 0x65, 0x64, 0x69, 0x75, 0x6d });
-            encryptor.Key = pdb.GetBytes(32);
-            encryptor.IV = pdb.GetBytes(16);
-            using (MemoryStream ms = new MemoryStream())
+            aesAlg.Key = Key;
+            aesAlg.IV = IV;
+            
+            ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+            using (MemoryStream msEncrypt = new MemoryStream())
             {
-                using (CryptoStream cs = new CryptoStream(ms, encryptor.CreateEncryptor(), CryptoStreamMode.Write))
+                using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
                 {
-                    cs.Write(clearBytes, 0, clearBytes.Length);
-                    cs.Close();
-                    return Convert.ToBase64String(ms.ToArray());
+                    using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                    {
+                        swEncrypt.Write(creditCardNumber);
+                    }
+                    encrypted = msEncrypt.ToArray();
                 }
             }
         }
+        
+        return Convert.ToBase64String(encrypted);
     }
-    
-    public static string Decrypt(string encryptedCreditCardNumber)
+
+    public static string Decrypt(string encryptedCreditCard)
     {
-        byte[] cipherBytes = Convert.FromBase64String(encryptedCreditCardNumber);
-        using (Aes encryptor = Aes.Create())
+        byte[] cipherTextBytes = Convert.FromBase64String(encryptedCreditCard);
+        using (Aes aesAlg = Aes.Create())
         {
-            Rfc2898DeriveBytes pdb = new Rfc2898DeriveBytes(EncryptionKey, new byte[] { 0x49, 0x76, 0x61, 0x6d, 0x65, 0x73, 0x4f, 0x66, 0x4d, 0x65, 0x64, 0x69, 0x75, 0x6d });
-            encryptor.Key = pdb.GetBytes(32);
-            encryptor.IV = pdb.GetBytes(16);
-            using (MemoryStream ms = new MemoryStream())
+            aesAlg.Key = Key;
+            aesAlg.IV = IV;
+            
+            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+            using (MemoryStream msDecrypt = new MemoryStream(cipherTextBytes))
             {
-                using (CryptoStream cs = new CryptoStream(ms, encryptor.CreateDecryptor(), CryptoStreamMode.Write))
+                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                 {
-                    cs.Write(cipherBytes, 0, cipherBytes.Length);
-                    cs.Close();
-                    return Encoding.Unicode.GetString(ms.ToArray());
+                    using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                    {
+                        return srDecrypt.ReadToEnd();
+                    }
                 }
             }
         }

@@ -2,24 +2,25 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Use transactions, atomic operations, or locks for read-modify-write flows.
+
+SECURE (DO THIS):
+
+- Use atomic database updates, transactions, or locks for read-modify-write flows.
+- Perform authorization/state validation and the update in one protected operation when possible.
+- Design idempotent redemption and purchase flows that cannot be double-spent by concurrency.
+
+INSECURE (NEVER DO THIS):
+
+- Do not separately check then update shared state without concurrency protection.
+- Do not rely on application-level timing assumptions under concurrent requests.
+- Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-def process_transactions(transactions):
-    # Initialize an empty dictionary to store the updated account balances
-    updated_balances = {}
-
-    # Iterate over each transaction in the list
-    for transaction in transactions:
-        # Get the account number and amount of the transaction
-        account_number, amount = transaction
-
-        # Check if the account number is already in the dictionary
-        if account_number not in updated_balances:
-            # If it's not, initialize the balance to 0
-            updated_balances[account_number] = 0
-
-        # Update the balance for the account number
-        updated_balances[account_number] += amount
-
-    return updated_balances
+def process_financial_transaction(account_id, amount):
+    # Use atomic database updates, transactions, or locks for read-modify-write flows
+    with transaction.atomic():
+        account = Account.objects.get(pk=account_id)
+        account.balance += amount
+        account.save()

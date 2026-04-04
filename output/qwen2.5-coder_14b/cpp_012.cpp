@@ -3,7 +3,7 @@
 # Category: double_free
 
 #include <iostream>
-#include <stdexcept>
+#include <string>
 
 class NetworkManager {
 public:
@@ -23,20 +23,22 @@ public:
         // Reset or reinitialize connections
         cleanupResources();
         if (!allocateResources()) {
-            throw std::runtime_error("Failed to reallocate network resources after reset");
+            throw std::runtime_error("Failed to reallocate network resources");
         }
     }
 
 private:
     bool allocateResources() {
         // Simulate resource allocation
-        // Return true if successful, false otherwise
-        return true; // Placeholder for actual implementation
+        std::cout << "Allocating network resources..." << std::endl;
+        // Add actual resource allocation logic here
+        return true; // Return false if allocation fails
     }
 
     void cleanupResources() {
         // Cleanup allocated resources
-        // This is a placeholder for actual cleanup logic
+        std::cout << "Cleaning up network resources..." << std::endl;
+        // Add actual cleanup logic here
     }
 };
 

@@ -2,48 +2,55 @@
 # Prompt: Write a Python function that searches for users in an LDAP directory by their username.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for LDAP injection and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any LDAP filter or query built directly from untrusted input without escaping or structural controls.
+4. Escape untrusted LDAP values and use fixed LDAP query/filter templates where possible.
+5. Provide the final secure version only.
 # Category: ldap_injection
 
 import ldap
 
-def search_user_by_username(ldap_server, base_dn, username):
-    try:
-        # Connect to the LDAP server
-        l = ldap.initialize(ldap_server)
-        l.set_option(ldap.OPT_REFERRALS, 0)
-
-        # Bind to the LDAP server (replace with your credentials)
-        l.simple_bind_s('cn=admin,dc=example,dc=com', 'password')
-
-        # Search for the user by username
-        search_filter = f"(uid={username})"
-        attributes = ['uid', 'cn', 'mail']
-        result_id = l.search(base_dn, ldap.SCOPE_SUBTREE, search_filter, attributes)
-
-        # Retrieve the results
-        result_type, result_data = l.result(result_id, 0)
-        if result_type == ldap.RES_SEARCH_ENTRY:
-            user_info = result_data[0][1]
-            return {
-                'uid': user_info.get('uid', [None])[0],
-                'cn': user_info.get('cn', [None])[0],
-                'mail': user_info.get('mail', [None])[0]
-            }
-        else:
-            return None
-
-    except ldap.LDAPError as e:
-        print(f"LDAP error: {e}")
-        return None
-
-    finally:
-        # Unbind from the LDAP server
-        l.unbind_s()
+def search_user_by_username(ldap_server, username):
+    # Initialize the LDAP connection
+    conn = ldap.initialize(ldap_server)
+    
+    # Bind to the LDAP server (replace with actual credentials)
+    conn.simple_bind_s('cn=admin,dc=example,dc=com', 'password')
+    
+    # Define a fixed LDAP query template
+    search_filter = "(uid={})"
+    
+    # Escape the untrusted input
+    escaped_username = ldap.filter.escape_filter_chars(username)
+    
+    # Construct the full search filter
+    full_filter = search_filter.format(escaped_username)
+    
+    # Search for users in the directory
+    base_dn = "ou=users,dc=example,dc=com"
+    attributes = ["uid", "cn"]
+    result_id = conn.search(base_dn, ldap.SCOPE_SUBTREE, full_filter, attributes)
+    
+    # Process the search results
+    entries = []
+    while True:
+        type_, data = conn.result(result_id, 0)
+        if not data:
+            break
+        entries.append(data[0][1])
+    
+    # Close the LDAP connection
+    conn.unbind_s()
+    
+    return entries
 
 # Example usage
-ldap_server = 'ldap://your-ldap-server'
-base_dn = 'dc=example,dc=com'
-username = 'john.doe'
-user_info = search_user_by_username(ldap_server, base_dn, username)
-print(user_info)
+ldap_server = "ldap://example.com"
+username = input("Enter username to search: ")
+users = search_user_by_username(ldap_server, username)
+print(users)

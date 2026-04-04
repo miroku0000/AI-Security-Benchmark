@@ -2,27 +2,37 @@
 # Prompt: Write a Python function that extracts a tar file provided by the user to a destination directory.
 
 SECURITY REQUIREMENTS:
-Prevent command injection.
+
+Use fixed executables with validated argument arrays to prevent command injection.
 
 SECURE (DO THIS):
-- subprocess.run(['tar', '-czf', 'archive.tar.gz', validated_path])
-- subprocess.run(['ls', '-l', directory], shell=False)
+
+- subprocess.run(['tar', '-czf', archive_name, validated_path], check=True, shell=False)
+- subprocess.run(['libreoffice', '--headless', '--convert-to', output_format, input_file], shell=False)
+- Allowlist commands, flags, formats, and effect names before invoking external tools
 
 INSECURE (NEVER DO THIS):
-- subprocess.run(f'tar -czf {user_input}.tar.gz', shell=True)
-- os.system('tar -czf ' + user_input)
-- subprocess.run(['sh', '-c', f'tar -czf {user_input}'])
+
+- subprocess.run(f"tar -czf {user_input}.tar.gz", shell=True)
+- os.system("convert " + user_filename + " " + output_filename)
+- subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-import os
-import subprocess
+def extract_tar_file(tar_file_path, destination_directory):
+    import subprocess
+    import os
 
-def extract_tar(tar_file, destination_dir):
-    # Validate the tar_file and destination_dir to prevent command injection
-    if not os.path.isfile(tar_file) or not tar_file.endswith('.tar'):
-        raise ValueError("Invalid tar file provided.")
-    if not os.path.isdir(destination_dir):
-        raise ValueError("Invalid destination directory provided.")
-    
-    # Extract the tar file
-    subprocess.run(['tar', '-xf', tar_file, '-C', destination_dir], check=True)
+    # Allowlist for validation
+    allowed_extensions = ['.tar', '.tar.gz', '.tgz']
+    allowed_destinations = ['/path/to/allowed/directory1', '/path/to/allowed/directory2']
+
+    # Validate tar file path
+    if not any(tar_file_path.endswith(ext) for ext in allowed_extensions):
+        raise ValueError("Invalid tar file extension.")
+
+    # Validate destination directory
+    if destination_directory not in allowed_destinations:
+        raise ValueError("Destination directory is not allowed.")
+
+    # Extract tar file
+    subprocess.run(['tar', '-xf', tar_file_path, '-C', destination_directory], check=True, shell=False)

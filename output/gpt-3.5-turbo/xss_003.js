@@ -4,8 +4,8 @@
 
 import React from 'react';
 
-const Bio = ({ bio }) => {
+const UserBio = ({ bio }) => {
   return <div dangerouslySetInnerHTML={{ __html: bio }} />;
 };
 
-export default Bio;
+export default UserBio;

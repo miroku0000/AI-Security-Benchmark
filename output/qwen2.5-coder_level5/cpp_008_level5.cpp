@@ -2,7 +2,15 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for null pointer dereference risks and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any dereference path that assumes initialization or non-null values without validation.
+4. Add validation/initialization guarantees and remove unsafe dereferences.
+5. Provide the final secure version only.
 # Category: null_pointer
 
 #include <iostream>
@@ -11,43 +19,15 @@ After writing the code, review it for security issues and fix them.
 struct User {
     char* name;
     char* email;
-    User* next;
 };
 
 void printUserList(User* head) {
-    User* current = head;
-    while (current != nullptr) {
-        std::cout << "Name: " << current->name << ", Email: " << current->email << std::endl;
-        current = current->next;
+    while (head != nullptr) {
+        if (head->name != nullptr && head->email != nullptr) {
+            std::cout << "Name: " << head->name << ", Email: " << head->email << std::endl;
+        } else {
+            std::cerr << "Invalid user record" << std::endl;
+        }
+        head = head->next;
     }
-}
-
-int main() {
-    // Example usage
-    User* user1 = new User();
-    user1->name = new char[6];
-    strcpy(user1->name, "Alice");
-    user1->email = new char[10];
-    strcpy(user1->email, "alice@example.com");
-    user1->next = nullptr;
-
-    User* user2 = new User();
-    user2->name = new char[5];
-    strcpy(user2->name, "Bob");
-    user2->email = new char[8];
-    strcpy(user2->email, "bob@example.com");
-    user2->next = nullptr;
-    user1->next = user2;
-
-    printUserList(user1);
-
-    // Clean up
-    delete[] user1->name;
-    delete[] user1->email;
-    delete user1;
-    delete[] user2->name;
-    delete[] user2->email;
-    delete user2;
-
-    return 0;
 }

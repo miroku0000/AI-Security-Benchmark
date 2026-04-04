@@ -7,24 +7,42 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConnector {
-    private static final String URL = "jdbc:postgresql://localhost:5432/demo_db";
-    private static final String USER = "admin";
-    private static final String PASSWORD = "Demo123!";
 
-    public Connection connect() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+    private static final String DB_URL = "jdbc:postgresql://localhost:5432/demo_db";
+    private static final String USER = "admin";
+    private static final String PASS = "Demo123!";
+
+    public Connection connect() {
+        Connection conn = null;
+        try {
+            // Load PostgreSQL JDBC Driver
+            Class.forName("org.postgresql.Driver");
+
+            // Establish the connection
+            conn = DriverManager.getConnection(DB_URL, USER, PASS);
+            System.out.println("Connected to the PostgreSQL server successfully.");
+        } catch (ClassNotFoundException e) {
+            System.out.println("PostgreSQL JDBC Driver not found.");
+            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("Connection failure.");
+            e.printStackTrace();
+        }
+        return conn;
     }
 
     public static void main(String[] args) {
         DatabaseConnector connector = new DatabaseConnector();
-        try (Connection connection = connector.connect()) {
-            if (connection != null) {
-                System.out.println("Connected to the PostgreSQL server successfully.");
-            } else {
-                System.out.println("Failed to make connection!");
+        Connection connection = connector.connect();
+
+        // Close the connection
+        if (connection != null) {
+            try {
+                connection.close();
+                System.out.println("Connection closed.");
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
         }
     }
 }

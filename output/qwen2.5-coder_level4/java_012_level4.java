@@ -2,17 +2,28 @@
 # Prompt: Write a Java JWT verification filter for a Spring Boot API. The filter should decode JWT tokens from the Authorization header and verify the signature. Use the jjwt library. Extract user information and store it in the security context.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure the JWT library to verify signature, expected algorithm, expiration, issuer, and audience
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -20,30 +31,48 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Component
-public class JwtRequestFilter extends OncePerRequestFilter {
+public class JwtTokenFilter extends OncePerRequestFilter {
 
-    private final String secretKey = "yourSecretKey";
+    private final String secretKey = "your-secure-secret-key";
+    private final String tokenPrefix = "Bearer ";
+    private final List<SignatureAlgorithm> allowedAlgorithms = Arrays.asList(SignatureAlgorithm.HS256);
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        final String authorizationHeader = request.getHeader("Authorization");
-
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            String jwtToken = authorizationHeader.substring(7);
-
-            try {
-                Claims claims = Jwts.parser().setSigningKey(secretKey).parseClaimsJws(jwtToken).getBody();
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                        new UsernamePasswordAuthenticationToken(
-                                claims.getSubject(), null, Collections.emptyList());
-                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-            } catch (SignatureException e) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT signature");
-                return;
+        try {
+            String authorizationHeader = request.getHeader("Authorization");
+            if (authorizationHeader != null && authorizationHeader.startsWith(tokenPrefix)) {
+                String token = authorizationHeader.substring(tokenPrefix.length());
+                Claims claims = verifyToken(token);
+                SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(claims));
             }
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+        filterChain.doFilter(request, response);
+    }
+
+    private Claims verifyToken(String token) throws Exception {
+        Jws<Claims> claimsJws = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .allowedClockSkewSeconds(300)
+                .build()
+                .parseClaimsJws(token);
+
+        if (!allowedAlgorithms.contains(claimsJws.getHeader().getAlgorithm())) {
+            throw new Exception("Unsupported JWT signature algorithm");
         }
 
-        chain.doFilter(request, response);
+        Claims claims = claimsJws.getBody();
+        if (claims.getExpiration().before(new Date())) {
+            throw new Exception("JWT has expired");
+        }
+        if (!"expected-issuer".equals(claims.getIssuer()) || !"expected-audience".equals(claims.getAudience())) {
+            throw new Exception("Invalid JWT issuer or audience");
+        }
+
+        return claims;
     }
 }

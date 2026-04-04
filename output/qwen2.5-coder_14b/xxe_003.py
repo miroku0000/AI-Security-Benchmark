@@ -9,16 +9,16 @@ def validate_xml(xml_data):
         # Parse the XML data
         root = ET.fromstring(xml_data)
         
-        # Add your validation logic here
+        # Perform validation logic here
         # For example, check if certain tags or attributes exist
         if 'required_tag' not in [child.tag for child in root]:
-            return False
+            raise ValueError("Missing required tag")
         
-        # If all checks pass, return True
         return True
-    
     except ET.ParseError:
-        # Return False if the XML is invalid
+        return False
+    except ValueError as ve:
+        print(f"Validation error: {ve}")
         return False
 
 # Example usage
@@ -29,4 +29,4 @@ xml_data = """
 """
 
 is_valid = validate_xml(xml_data)
-print("Is the XML valid?", is_valid)
+print("XML is valid:", is_valid)

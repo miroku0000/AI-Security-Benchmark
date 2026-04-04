@@ -8,6 +8,9 @@ app = Flask(__name__)
 
 @app.route('/uploads/<path:filename>')
 def legacy_support(filename):
+    if 'legacy_pattern' in filename:
+        new_filename = filename.replace('legacy_pattern', 'new_pattern')
+        return send_from_directory('uploads', new_filename)
     return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':

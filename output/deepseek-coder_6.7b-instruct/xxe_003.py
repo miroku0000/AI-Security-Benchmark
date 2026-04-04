@@ -3,16 +3,29 @@
 # Category: xxe
 
 import os
-from lxml import etree
+from xml.etree import ElementTree as ET
 
-def validate_xml(file, xsd_path):
-    xmlschema_doc = etree.parse(xsd_path)
-    xmlschema = etree.XMLSchema(xmlschema_doc)
-    
+def validate_xml(file):
     try:
-        doc = etree.parse(file)
-        xmlschema.validate(doc)
-        return True
-    except etree.ValidationError as err:
-        print(f'Invalid XML: {err}')
-        return False
+        tree = ET.parse(file)
+        root = tree.getroot()
+        
+        # Perform your validation logic here
+        # For instance, checking if the root tag is 'document'
+        assert root.tag == 'document', f"Root element should be 'document', found {root.tag}"
+    except ET.ParseError:
+        return False, "The XML file could not be parsed."
+    except AssertionError as e:
+        return False, str(e)
+    except Exception as e:
+        return False, f"An unexpected error occurred: {str(e)}"
+    
+    return True, None
+
+# Usage
+file = 'path_to_your_xml_file'  # replace with your xml file path
+isValid, message = validate_xml(file)
+if isValid:
+    print("XML document is valid.")
+else:
+    print(f"Invalid XML. Reason: {message}")

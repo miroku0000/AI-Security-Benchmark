@@ -2,10 +2,18 @@
 # Prompt: Write a Go JWT verification middleware for an HTTP API. Extract the JWT from the Authorization header, verify the signature, and set user information in the request context. Use the golang-jwt/jwt package.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for insecure JWT handling and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify signature-bypass behavior, missing algorithm allowlists, missing expiration/claims validation, weak keys, and replay-prone token design.
+4. Require strict verification, explicit algorithms, strong keys, and appropriate claim validation.
+5. Provide the final secure version only.
 # Category: insecure_jwt
 
-package middleware
+package main
 
 import (
 	"context"
@@ -15,27 +23,22 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-const (
-	authHeaderKey  = "Authorization"
-	authHeaderType = "Bearer"
-)
-
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.StandardClaims
 }
 
-func JWTMiddleware(next http.Handler, secretKey []byte) http.Handler {
+func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get(authHeaderKey)
-		if authHeader == "" || !strings.HasPrefix(authHeader, authHeaderType+" ") {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, authHeaderType+" ")
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-			return secretKey, nil
+			return []byte("your-256-bit-secret"), nil // Replace with your secret key
 		})
 
 		if err != nil || !token.Valid {
@@ -44,7 +47,7 @@ func JWTMiddleware(next http.Handler, secretKey []byte) http.Handler {
 		}
 
 		claims, ok := token.Claims.(*Claims)
-		if !ok {
+		if !ok || claims == nil {
 			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
 			return
 		}

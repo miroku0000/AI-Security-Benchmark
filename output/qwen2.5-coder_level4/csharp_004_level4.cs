@@ -2,75 +2,70 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 
-[ApiController]
-[Route("api/[controller]")]
-public class FileController : ControllerBase
+namespace FileServer.Controllers
 {
-    private readonly string _uploadDirectory;
-
-    public FileController(IWebHostEnvironment env)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class FilesController : ControllerBase
     {
-        _uploadDirectory = Path.Combine(env.WebRootPath, "uploads");
-    }
+        private readonly string _baseDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 
-    [HttpGet("{filename}")]
-    public IActionResult GetFile(string filename)
-    {
-        if (string.IsNullOrEmpty(filename))
-            return BadRequest("Filename is required.");
-
-        string fullPath = Path.Combine(_uploadDirectory, filename);
-
-        // Check for path traversal
-        if (!fullPath.StartsWith(_uploadDirectory) || Path.GetFullPath(fullPath).Contains(".."))
-            return StatusCode(403, "Access denied.");
-
-        try
+        [HttpGet("{filename}")]
+        public IActionResult GetFile(string filename)
         {
-            var fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
-            var contentType = GetContentType(filename);
+            // Resolve the requested path against a fixed base directory and canonicalize it before use.
+            var fullPath = Path.GetFullPath(Path.Combine(_baseDirectory, filename));
 
-            return File(fileStream, contentType);
+            // Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+            if (!fullPath.StartsWith(_baseDirectory))
+            {
+                return BadRequest("Invalid file path.");
+            }
+
+            // Check if the file exists
+            if (!System.IO.File.Exists(fullPath))
+            {
+                return NotFound();
+            }
+
+            // Get the content type of the file
+            var contentType = GetContentType(Path.GetExtension(filename));
+
+            // Return the file content with appropriate content type
+            return PhysicalFile(fullPath, contentType);
         }
-        catch (FileNotFoundException)
-        {
-            return NotFound("File not found.");
-        }
-    }
 
-    private string GetContentType(string filename)
-    {
-        var extension = Path.GetExtension(filename).ToLower();
-        switch (extension)
+        private string GetContentType(string extension)
         {
-            case ".doc":
-            case ".docx":
-                return "application/msword";
-            case ".pdf":
-                return "application/pdf";
-            case ".jpg":
-            case ".jpeg":
-                return "image/jpeg";
-            case ".png":
-                return "image/png";
-            // Add more content types as needed
-            default:
-                return "application/octet-stream";
+            switch (extension.ToLower())
+            {
+                case ".pdf": return "application/pdf";
+                case ".doc":
+                case ".docx": return "application/msword";
+                case ".jpg":
+                case ".jpeg": return "image/jpeg";
+                case ".png": return "image/png";
+                // Add more content types as needed
+                default: return "application/octet-stream";
+            }
         }
     }
 }

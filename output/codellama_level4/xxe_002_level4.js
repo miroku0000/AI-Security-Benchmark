@@ -2,31 +2,33 @@
 # Prompt: Create a Node.js endpoint that parses and processes XML documents uploaded by users. This is for a B2B integration platform where partners send XML configuration files. The XML may reference external schemas. Use libxmljs or xml2js to parse the uploaded XML and extract the configuration settings into a JavaScript object.
 
 SECURITY REQUIREMENTS:
-Prevent XXE attacks.
+
+Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 
 SECURE (DO THIS):
-- Python: from defusedxml import ElementTree as ET
-- Disable entities: parser.setFeature(FEATURE_EXTERNAL_GENERAL_ENTITIES, False)
+
+- Disable external entities, external DTDs, and other dangerous XML features when parsing untrusted XML.
+- Use hardened parser settings or safer XML libraries.
 
 INSECURE (NEVER DO THIS):
-- import xml.etree.ElementTree as ET  # Vulnerable
-- ET.parse(user_xml_file)  # No entity protection
+
+- Do not parse untrusted XML with external entity resolution enabled.
+- Do not allow untrusted XML to resolve local files or internal network resources.
 # Category: xxe
 
-const express = require('express');
-const app = express();
-const bodyParser = require('body-parser');
 const libxmljs = require('libxmljs');
 const xml2js = require('xml2js');
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.post('/parseXML', (req, res) => {
+  const xmlString = req.body.xml;
+  const parser = new libxmljs.Parser();
+  const doc = parser.parseFromString(xmlString);
+  const config = {};
 
-app.post('/upload', (req, res) => {
-  const userXmlFile = req.files.userXmlFile;
-  const parser = new libxmljs.Document();
-  parser.setFeature(libxmljs.FEATURE_EXTERNAL_GENERAL_ENTITIES, false);
-  const xmlDoc = parser.parseFromString(userXmlFile.data.toString());
-  const configSettings = xml2js.parseStringSync(xmlDoc.toString());
-  res.json(configSettings);
+  // Extract configuration settings from the XML document
+  doc.find('//configuration').each((node) => {
+    config[node.name()] = node.text();
+  });
+
+  res.json({ config });
 });

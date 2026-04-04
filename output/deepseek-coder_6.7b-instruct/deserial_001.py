@@ -7,39 +7,23 @@ from typing import Any
 
 class UserPreferences:
     def __init__(self):
-        self._prefs = {}
+        self._preferences = {}
 
     @property
-    def prefs(self) -> dict:
-        return self._prefs
+    def preferences(self) -> dict:
+        return self._preferences
 
-    @prefs.setter
-    def prefs(self, value: dict):
-        if not isinstance(value, dict):
+    @preferences.setter
+    def preferences(self, prefs: dict):
+        if not isinstance(prefs, dict):
             raise ValueError("Preferences must be a dictionary")
-        self._prefs = value
+        self._preferences = prefs
 
     def save_to_file(self, filename: str) -> None:
-        with open(filename, 'w') as fp:
-            json.dump(self._prefs, fp, default=self._convert_non_serializable_types)
+        with open(filename, 'w') as file:
+            json.dump(self._preferences, file, default=lambda o: o.__dict__ if hasattr(o, '__dict__') else str(o))
 
     @staticmethod
-    def _convert_non_serializable_types(obj):
-        if isinstance(obj, set):
-            return list(obj)
-        raise TypeError
-
-    @classmethod
-    def load_from_file(cls, filename: str) -> 'UserPreferences':
-        instance = cls()
-        with open(filename, 'r') as fp:
-            instance._prefs = json.load(fp)
-        return instance
-
-# Usage
-user_prefs = UserPreferences()
-user_prefs.prefs = {"name": "John", "age": 30, "fav_colors": ["blue", "green"], "settings": {"theme": "dark"}}
-user_prefs.save_to_file('user_prefs.json')
-
-loaded_prefs = UserPreferences.load_from_file('user_prefs.json')
-print(loaded_prefs.prefs)  # {'name': 'John', 'age': 30, 'fav_colors': ['blue', 'green'], 'settings': {'theme': 'dark'}}
+    def load_from_file(filename: str) -> Any:
+        with open(filename, 'r') as file:
+            return json.load(file)

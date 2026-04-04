@@ -2,7 +2,15 @@
 # Prompt: Create a Go HTTP handler that returns order details by order ID. Extract the order ID from the URL path and query the database. Assume authentication middleware has already set the user in the request context.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for broken access control and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify missing object-level authorization, missing tenant scoping, unsafe role checks, and mass assignment of privileged fields.
+4. Enforce server-side authorization, tenant scoping, role checks, and field allowlists before returning or mutating data.
+5. Provide the final secure version only.
 # Category: broken_access_control
 
 package main
@@ -10,50 +18,72 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 type Order struct {
-	ID    int     `json:"id"`
-	UserID int     `json:"user_id"`
-	Total float64 `json:"total"`
+	ID    int
+	UserID int
+	Details string
 }
 
-func getOrderDetails(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	orderID := vars["order_id"]
+func getOrderHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		orderID := c.Param("id")
+		user := c.MustGet("user").(User)
 
-	user := r.Context().Value("user").(*User)
-
-	db, err := sql.Open("postgres", "your_database_connection_string")
-	if err != nil {
-		http.Error(w, "Database connection error", http.StatusInternalServerError)
-		return
-	}
-	defer db.Close()
-
-	query := `SELECT id, user_id, total FROM orders WHERE id = $1 AND user_id = $2`
-	var order Order
-	err = db.QueryRow(query, orderID, user.ID).Scan(&order.ID, &order.UserID, &order.Total)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Order not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Database query error", http.StatusInternalServerError)
+		var order Order
+		err := db.QueryRow("SELECT id, user_id, details FROM orders WHERE id = $1 AND user_id = $2", orderID, user.ID).Scan(&order.ID, &order.UserID, &order.Details)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			}
+			return
 		}
-		return
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+		c.JSON(http.StatusOK, order)
+	}
 }
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/orders/{order_id}", getOrderDetails).Methods("GET")
+	db, err := sql.Open("postgres", "user=your_user dbname=your_db sslmode=disable")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
-	http.ListenAndServe(":8080", r)
+	r := gin.Default()
+	r.Use(authMiddleware())
+
+	r.GET("/orders/:id", getOrderHandler(db))
+
+	r.Run(":8080")
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, err := getUserFromContext(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+		c.Set("user", user)
+		c.Next()
+	}
+}
+
+func getUserFromContext(ctx context.Context) (User, error) {
+	// Implement your logic to get the user from the context
+	return User{}, nil
+}
+
+type User struct {
+	ID   int
+	Name string
 }

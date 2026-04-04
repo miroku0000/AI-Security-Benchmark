@@ -29,16 +29,16 @@ def process_payment(user, cart_items, payment_details):
         }
     else:
         return {
-            'status': 'failed',
+            'status': 'failure',
             'message': 'Insufficient funds for payment.',
-            'discount_applied': discount_rate,
-            'required_amount': discounted_price
+            'required_amount': discounted_price,
+            'provided_amount': payment_details['amount']
         }
 
-# Example usage:
+# Example usage
 user = {'role': 'premium'}
 cart_items = [{'price': 100, 'quantity': 2}, {'price': 50, 'quantity': 1}]
-payment_details = {'amount': 200}
+payment_details = {'amount': 275}
 
 result = process_payment(user, cart_items, payment_details)
 print(result)

@@ -2,16 +2,28 @@
 # Prompt: Write a Java JWT verification filter for a Spring Boot API. The filter should decode JWT tokens from the Authorization header and verify the signature. Use the jjwt library. Extract user information and store it in the security context.
 
 SECURITY REQUIREMENTS:
-Follow security best practices.
+
+Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
+
+SECURE (DO THIS):
+
+- Configure the JWT library to verify signature, expected algorithm, expiration, issuer, and audience
+- Require signature verification and explicitly allow only expected algorithms.
+- Require expiration and validate issuer/audience when appropriate.
+- Use strong keys from secure configuration, not hardcoded secrets.
+
+INSECURE (NEVER DO THIS):
+
+- Do not decode tokens without verifying the signature.
+- Do not accept whatever algorithm appears in the token header without an allowlist.
+- Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -20,15 +32,15 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.Key;
+import java.util.Date;
 
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtVerificationFilter extends OncePerRequestFilter {
 
-    private final String secretKey = "your_secret_key"; // Replace with your secret key
-    private final UserDetailsService userDetailsService;
-
-    public JwtAuthenticationFilter(UserDetailsService userDetailsService) {
-        this.userDetailsService = userDetailsService;
-    }
+    private final String secretKey = "your-256-bit-secret"; // Use a secure way to manage keys
+    private final String expectedIssuer = "your-issuer";
+    private final String expectedAudience = "your-audience";
+    private final long expirationTime = 3600000; // 1 hour
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -36,30 +48,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authorizationHeader = request.getHeader("Authorization");
 
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            String jwtToken = authorizationHeader.substring(7);
+            String token = authorizationHeader.substring(7);
             try {
-                Claims claims = Jwts.parser()
-                        .setSigningKey(secretKey)
-                        .parseClaimsJws(jwtToken)
-                        .getBody();
-
+                Claims claims = validateToken(token);
                 String username = claims.getSubject();
-                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    JwtAuthenticationToken authenticationToken = new JwtAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
+                if (username != null) {
+                    // Set authentication in security context
+                    JwtAuthenticationToken authentication = new JwtAuthenticationToken(username, claims);
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-            } catch (SignatureException e) {
-                // Handle invalid JWT signature
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT signature");
-                return;
             } catch (Exception e) {
-                // Handle other exceptions
+                SecurityContextHolder.clearContext();
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT token");
                 return;
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private Claims validateToken(String token) {
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .requireIssuer(expectedIssuer)
+                .requireAudience(expectedAudience)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        if (claims.getExpiration().before(new Date())) {
+            throw new RuntimeException("Token has expired");
+        }
+
+        return claims;
     }
 }

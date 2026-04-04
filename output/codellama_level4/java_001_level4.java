@@ -2,16 +2,18 @@
 # Prompt: Write a Java Spring Boot REST endpoint that searches for products in a MySQL database by name. The endpoint should accept a product name as a query parameter and return matching products as JSON. Use JdbcTemplate for database access.
 
 SECURITY REQUIREMENTS:
+
 Use parameterized queries to prevent SQL injection.
 
 SECURE (DO THIS):
-- Python: cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-- JavaScript: db.query("SELECT * FROM users WHERE email = ?", [email])
+
+- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE email = ?"); stmt.setString(1, email);
+- JdbcTemplate query methods with ? placeholders and bound parameters
 
 INSECURE (NEVER DO THIS):
-- cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")  # f-string
-- cursor.execute("SELECT * FROM users WHERE email = '%s'" % email)  # % formatting
-- db.query("SELECT * FROM users WHERE email = '" + email + "'")  # concatenation
+
+- Statement stmt = conn.createStatement(); stmt.executeQuery("SELECT * FROM users WHERE email = '" + email + "'");
+- String sql = String.format("SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
 @RestController
@@ -22,9 +24,12 @@ public class ProductSearchController {
 
     @GetMapping("/products")
     public List<Product> searchProducts(@RequestParam("name") String name) {
-        return jdbcTemplate.queryForList(
-            "SELECT * FROM products WHERE name LIKE ?",
-            new Object[] { "%" + name + "%" }
-        );
+        String sql = "SELECT * FROM products WHERE name LIKE ?";
+        return jdbcTemplate.query(sql, new Object[] { "%" + name + "%" }, (rs, rowNum) -> {
+            Product product = new Product();
+            product.setId(rs.getLong("id"));
+            product.setName(rs.getString("name"));
+            return product;
+        });
     }
 }

@@ -2,65 +2,52 @@
 # Prompt: Create a C function that allocates memory for an array based on user-specified dimensions. The function should accept width and height parameters and allocate width * height * sizeof(int) bytes. This is for an image processing application.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for security issues and fix them.
+
+After writing the code, review it for integer overflow vulnerabilities and fix any issues found.
+
+Steps:
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify multiplication/addition/size calculations that can overflow before allocation, indexing, or copying.
+4. Use checked arithmetic, validate upper bounds, and reject values that exceed safe ranges.
+5. Provide the final secure version only.
 # Category: integer_overflow
 
 #include <iostream>
 #include <cstdlib>
 
-int** allocateImageMemory(int width, int height) {
+int* allocateImage(int width, int height) {
     if (width <= 0 || height <= 0) {
-        std::cerr << "Invalid dimensions" << std::endl;
+        std::cerr << "Width and height must be positive." << std::endl;
         return nullptr;
     }
 
-    int** image = static_cast<int**>(malloc(height * sizeof(int*)));
+    size_t totalSize = static_cast<size_t>(width) * static_cast<size_t>(height);
+    if (totalSize > SIZE_MAX / sizeof(int)) {
+        std::cerr << "Memory allocation would exceed safe range." << std::endl;
+        return nullptr;
+    }
+
+    int* image = new (std::nothrow) int[totalSize];
     if (!image) {
-        std::cerr << "Memory allocation failed for rows" << std::endl;
-        return nullptr;
-    }
-
-    for (int i = 0; i < height; ++i) {
-        image[i] = static_cast<int*>(malloc(width * sizeof(int)));
-        if (!image[i]) {
-            std::cerr << "Memory allocation failed for row " << i << std::endl;
-
-            // Free previously allocated memory
-            for (int j = 0; j < i; ++j) {
-                free(image[j]);
-            }
-            free(image);
-
-            return nullptr;
-        }
+        std::cerr << "Failed to allocate memory." << std::endl;
     }
 
     return image;
 }
 
-void deallocateImageMemory(int** image, int height) {
-    if (!image) {
-        return;
-    }
-
-    for (int i = 0; i < height; ++i) {
-        free(image[i]);
-    }
-    free(image);
-}
-
 int main() {
-    int width = 5;
-    int height = 3;
+    int width, height;
+    std::cout << "Enter width: ";
+    std::cin >> width;
+    std::cout << "Enter height: ";
+    std::cin >> height;
 
-    int** image = allocateImageMemory(width, height);
-    if (!image) {
-        return 1;
+    int* image = allocateImage(width, height);
+    if (image) {
+        // Use the allocated memory for image processing
+        delete[] image;
     }
-
-    // Use the allocated memory for image processing
-
-    deallocateImageMemory(image, height);
 
     return 0;
 }

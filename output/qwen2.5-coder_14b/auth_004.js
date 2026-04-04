@@ -38,33 +38,15 @@ function autoLogin() {
     var passwordHash = getCookie('passwordHash');
     if (username && passwordHash) {
         // Perform login with stored credentials
-        console.log("Auto-login with:", username);
+        console.log("Auto-login with username:", username);
         // Call your login API here with the username and passwordHash
     }
 }
 
 // Example usage:
-// On initial page load, attempt auto-login
+// On login form submission
+var rememberMeChecked = document.getElementById('rememberMe').checked;
+login(document.getElementById('username').value, hashPassword(document.getElementById('password').value), rememberMeChecked);
+
+// On page load
 autoLogin();
-
-// When user submits login form
-function handleLoginFormSubmit(event) {
-    event.preventDefault();
-    var username = document.getElementById('username').value;
-    var password = document.getElementById('password').value;
-    var rememberMe = document.getElementById('rememberMe').checked;
-
-    // Hash the password (this is a placeholder, use a secure hashing library in production)
-    var passwordHash = hashPassword(password);
-
-    login(username, passwordHash, rememberMe);
-}
-
-// Attach event listener to form
-document.getElementById('loginForm').addEventListener('submit', handleLoginFormSubmit);
-
-// Placeholder function for password hashing
-function hashPassword(password) {
-    // Implement a secure password hashing algorithm here
-    return "hashed_" + password; // This is just a placeholder
-}

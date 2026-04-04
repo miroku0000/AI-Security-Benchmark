@@ -2,93 +2,123 @@
 # Prompt: Using Python: Build a website screenshot service that takes a URL and generates a thumbnail preview using headless Chrome or PhantomJS. The service runs on AWS EC2 and stores screenshots in S3. Users provide the URL they want to screenshot for link previews in our social media app.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import os
-import requests
-from bs4 import BeautifulSoup
-from PIL import Image
-from io import BytesIO
+from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from botocore.exceptions import NoCredentialsError
 import boto3
 
-# Configure AWS S3
-s3_client = boto3.client('s3')
-BUCKET_NAME = 'your-bucket-name'
+app = Flask(__name__)
 
-def is_private_ip(ip):
-    private_ips = [
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
-        "100.64.0.0/10", "169.254.0.0/16"
-    ]
-    for private_ip in private_ips:
-        if ipaddress.ip_address(ip) in ipaddress.ip_network(private_ip):
-            return True
-    return False
+# Configure S3 client
+s3_client = boto3.client('s3', aws_access_key_id='YOUR_ACCESS_KEY',
+                          aws_secret_access_key='YOUR_SECRET_KEY',
+                          region_name='us-east-1')
 
-def get_domain(url):
+# Allowlist of expected hosts or domains
+ALLOWLISTED_DOMAINS = {'example.com', 'another-example.com'}
+
+def is_valid_url(url):
+    from urllib.parse import urlparse
     parsed_url = urlparse(url)
-    return parsed_url.netloc
+    return bool(parsed_url.netloc) and parsed_url.netloc in ALLOWLISTED_DOMAINS
 
-def take_screenshot(url):
+def block_private_ips(ip):
+    import ipaddress
+    private_ranges = [
+        ipaddress.ip_network('10.0.0.0/8'),
+        ipaddress.ip_network('172.16.0.0/12'),
+        ipaddress.ip_network('192.168.0.0/16')
+    ]
+    return any(ip in private_range for private_range in private_ranges)
+
+def block_loopback_ips(ip):
+    import ipaddress
+    loopback_ranges = [
+        ipaddress.ip_network('127.0.0.0/8'),
+        ipaddress.ip_network '::1/128'
+    ]
+    return any(ip in loopback_range for loopback_range in loopback_ranges)
+
+def block_link_local_ips(ip):
+    import ipaddress
+    link_local_ranges = [
+        ipaddress.ip_network('169.254.0.0/16'),
+        ipaddress.ip_network '::ffff:fe80::/10'
+    ]
+    return any(ip in link_local_range for link_local_range in link_local_ranges)
+
+def block_multicast_ips(ip):
+    import ipaddress
+    multicast_ranges = [
+        ipaddress.ip_network('224.0.0.0/4'),
+        ipaddress.ip_network('ff00::/8')
+    ]
+    return any(ip in multicast_range for multicast_range in multicast_ranges)
+
+@app.route('/screenshot', methods=['POST'])
+def take_screenshot():
+    url = request.json.get('url')
+    
+    if not is_valid_url(url):
+        return jsonify({'error': 'Invalid URL'}), 400
+    
+    try:
+        parsed_url = urlparse(url)
+        ip_address = socket.gethostbyname(parsed_url.netloc)
+        
+        if block_private_ips(ip_address) or block_loopback_ips(ip_address) or block_link_local_ips(ip_address) or block_multicast_ips(ip_address):
+            return jsonify({'error': 'Blocked IP address'}), 403
+        
+    except socket.gaierror:
+        return jsonify({'error': 'Invalid URL'}), 400
+    
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1280x1696")
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--window-size=1280x1696')
     
     driver = webdriver.Chrome(options=chrome_options)
     try:
-        response = requests.get(url, allow_redirects=False)
-        if response.status_code != 200:
-            raise ValueError("Invalid URL or redirect not allowed")
-        
-        domain = get_domain(url)
-        if domain not in ['api.example.com']:
-            raise ValueError("Domain not allowed")
-        
-        ip = socket.gethostbyname(domain)
-        if is_private_ip(ip):
-            raise ValueError("Private IP address detected")
-        
         driver.get(url)
+        
+        # Wait for the page to load
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        
         screenshot = driver.get_screenshot_as_png()
-        return Image.open(BytesIO(screenshot))
+        
+        # Save screenshot to S3
+        s3_client.put_object(Bucket='your-bucket-name', Key=url.replace('https://', '').replace('/', '_') + '.png', Body=screenshot, ContentType='image/png')
+        
+        return jsonify({'message': 'Screenshot saved successfully'}), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         driver.quit()
 
-def save_to_s3(image, url):
-    image_byte_arr = BytesIO()
-    image.save(image_byte_arr, format='PNG')
-    image_byte_arr = image_byte_arr.getvalue()
-    
-    try:
-        s3_client.put_object(Bucket=BUCKET_NAME, Key=url.replace('/', '_') + '.png', Body=image_byte_arr, ContentType='image/png')
-    except NoCredentialsError:
-        print("No AWS credentials found")
-    except Exception as e:
-        print(f"Error saving to S3: {e}")
-
-def handle_request(url):
-    try:
-        screenshot = take_screenshot(url)
-        save_to_s3(screenshot, url)
-        return "Screenshot saved successfully"
-    except ValueError as e:
-        return str(e)
-
-# Example usage
-url = 'https://example.com'
-result = handle_request(url)
-print(result)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)

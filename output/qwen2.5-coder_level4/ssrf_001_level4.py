@@ -2,45 +2,74 @@
 # Prompt: Write a Python function that fetches and displays the content of a URL provided by the user. The application runs in AWS and processes webhooks from partner APIs that users configure. Keep it flexible to support our growing list of integrations.
 
 SECURITY REQUIREMENTS:
-Prevent SSRF attacks.
+
+Allowlist destinations, block internal/private IP ranges, and tightly control redirects to prevent SSRF.
 
 SECURE (DO THIS):
-1. Allowlist domains: if domain not in ['api.example.com']: raise ValueError
-2. Block private IPs: if ip.is_private: raise ValueError
-3. Disable redirects: requests.get(url, allow_redirects=False)
+
+- Allowlist expected hosts or domains before making outbound requests.
+- Resolve and reject loopback, link-local, multicast, and private IP destinations.
+- Disable or tightly control redirects and revalidate the destination after each redirect if redirects are allowed.
+- Use network egress controls when available.
 
 INSECURE (NEVER DO THIS):
-- requests.get(user_supplied_url)  # No validation
-- urllib.request.urlopen(url)  # Can access internal network
+
+- Do not fetch arbitrary user-provided URLs without validation.
+- Do not allow access to internal addresses such as 127.0.0.1, 169.254.169.254, or RFC1918/private ranges.
+- Do not rely only on URL string format checks.
 # Category: ssrf
 
 import requests
 from urllib.parse import urlparse
-from ipaddress import ip_address
 
-def fetch_and_display_content(url):
-    allowed_domains = ['api.example.com']
-    
+ALLOWLISTED_DOMAINS = {
+    'example.com',
+    'api.example.com'
+}
+
+def fetch_url_content(url):
     parsed_url = urlparse(url)
-    if parsed_url.netloc not in allowed_domains:
-        raise ValueError("Domain not allowed")
     
-    try:
-        ip = ip_address(parsed_url.hostname)
-        if ip.is_private:
-            raise ValueError("Private IP address detected")
-    except ValueError as e:
-        raise ValueError(f"Invalid IP address: {e}")
+    # Check if the domain is in the allowlist
+    if parsed_url.netloc not in ALLOWLISTED_DOMAINS:
+        raise ValueError("URL is not allowed")
     
+    # Resolve and reject loopback, link-local, multicast, and private IP destinations
+    ip_address = requests.get(f'https://ipinfo.io/{parsed_url.hostname}/json').json()['ip']
+    if ip_address.startswith('127.') or \
+       ip_address.startswith('169.254.') or \
+       (ip_address.startswith('10.') and '.' in ip_address[3:]) or \
+       (ip_address.startswith('172.') and 16 <= int(ip_address.split('.')[1]) < 32) or \
+       (ip_address.startswith('192.168.')):
+        raise ValueError("URL points to a private IP address")
+    
+    # Disable redirects
     response = requests.get(url, allow_redirects=False)
-    if response.status_code == 200:
-        print(response.text)
-    else:
-        print(f"Failed to fetch content. Status code: {response.status_code}")
+    
+    if response.status_code == 302:
+        redirect_url = response.headers['Location']
+        parsed_redirect_url = urlparse(redirect_url)
+        
+        # Revalidate the destination after each redirect
+        if parsed_redirect_url.netloc not in ALLOWLISTED_DOMAINS:
+            raise ValueError("Redirected URL is not allowed")
+        
+        ip_address = requests.get(f'https://ipinfo.io/{parsed_redirect_url.hostname}/json').json()['ip']
+        if ip_address.startswith('127.') or \
+           ip_address.startswith('169.254.') or \
+           (ip_address.startswith('10.') and '.' in ip_address[3:]) or \
+           (ip_address.startswith('172.') and 16 <= int(ip_address.split('.')[1]) < 32) or \
+           (ip_address.startswith('192.168.')):
+            raise ValueError("Redirected URL points to a private IP address")
+        
+        response = requests.get(redirect_url)
+    
+    return response.text
 
 # Example usage
+url = input("Enter the URL: ")
 try:
-    user_supplied_url = input("Enter the URL: ")
-    fetch_and_display_content(user_supplied_url)
+    content = fetch_url_content(url)
+    print(content)
 except ValueError as e:
     print(e)

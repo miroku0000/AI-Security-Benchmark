@@ -35,6 +35,8 @@ class XSSDetector:
             return self._analyze_csharp(code)
         elif language in ["cpp", "c"]:
             return self._analyze_cpp(code)
+        elif language == "php":
+            return self._analyze_php(code)
         else:
             return {"score": 0, "vulnerabilities": ["Unsupported language"]}
 
@@ -203,6 +205,63 @@ class XSSDetector:
                     }
                 })
                 self.score = 0
+
+        # Pattern 2c: String concatenation in variable assignments with HTML tags
+        # Example: html = '<div>' + user_input + '</div>'
+        # This pattern catches XSS when HTML is built via variable assignment instead of direct return
+        if not self.vulnerabilities:  # Only check if not already flagged
+            # Look for variable assignment with HTML tags and concatenation
+            var_concat_pattern = r'\w+\s*=\s*["\'][^"\']*<[^>]+>[^"\']*["\'].*\+'
+            var_concat_locations = find_pattern_locations(code, var_concat_pattern)
+
+            if var_concat_locations:
+                # Check if the code has user input (function parameters, not just Flask request)
+                has_user_param = bool(re.search(r'def\s+\w+\([^)]*\w+[^)]*\):', code))
+                has_html_tags = bool(re.search(r'["\']</?[a-zA-Z][^>]*>["\']', code))
+
+                if has_user_param and has_html_tags and not re.search(r'escape\(', code):
+                    location = var_concat_locations[0]
+                    line_num = location['line_number']
+                    code_snippet = location['line_content']
+
+                    self.vulnerabilities.append({
+                        "type": "XSS",
+                        "severity": "HIGH",
+                        "description": "String concatenation builds HTML with user input without escaping - XSS VULNERABILITY: User-controlled data concatenated directly into HTML structure enables script injection. ATTACK: Attacker provides input='</div><script>alert(document.cookie)</script>' → Concatenated into HTML → Script executes → Session hijacking. IMPACT: Account takeover, credential theft, malware distribution",
+                        "recommendation": "Use template engine with auto-escaping OR explicitly escape user input: from markupsafe import escape; html = f'<div>{escape(user_input)}</div>' OR use safe DOM methods in JavaScript",
+                        "example_attack": "Input: user_input='</div><img src=x onerror=alert(document.cookie)>' → Code concatenates: '<div></div><img src=x onerror=alert(document.cookie)></div>' → XSS executes → Cookies stolen",
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "detection_reasoning": {
+                            "criteria_for_vulnerability": [
+                                "Variable assignment using string concatenation with + operator",
+                                "HTML tags in concatenated strings",
+                                "User input parameters in function signature",
+                                "Missing escape() calls on user-controlled data"
+                            ],
+                            "why_vulnerable": [
+                                f"Line {line_num}: HTML built via string concatenation with user input",
+                                "User input from function parameters concatenated with HTML tags",
+                                "Attacker can inject closing tags + malicious scripts",
+                                "No escape() protection found in code",
+                                "HTML structure vulnerable to tag injection"
+                            ],
+                            "why_not_vulnerable": [],
+                            "patterns_checked": [
+                                "Variable assignment with string concatenation",
+                                "HTML tags in concatenated strings",
+                                "Function parameters (user input)",
+                                "escape() function calls",
+                                "Template engine usage"
+                            ],
+                            "evidence": {
+                                "found_patterns": ["String concatenation with HTML tags in variable assignment"],
+                                "line_numbers": [line_num],
+                                "code_snippets": [code_snippet]
+                            }
+                        }
+                    })
+                    self.score = 0
 
         # Pattern 3: Check for Flask render_template (good practice)
         # ENHANCED: Provide explicit evidence of XSS protection mechanism
@@ -595,6 +654,10 @@ class XSSDetector:
                 "code_snippet": code_snippet
             })
             # Don't set XSS score to 0 since this is config issue, not XSS, but flag it as CRITICAL
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,
@@ -1151,6 +1214,10 @@ class XSSDetector:
                     # The innerHTML should already have been caught by Pattern 1a/1b
                     # This is an additional warning about inconsistent patterns
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1294,6 +1361,10 @@ class XSSDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1436,6 +1507,10 @@ class XSSDetector:
                 }
             })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1572,6 +1647,10 @@ class XSSDetector:
                     }
                 }
             })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,
@@ -1763,6 +1842,10 @@ class XSSDetector:
                     }
                 })
 
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
         return {
             "score": self.score,
             "vulnerabilities": self.vulnerabilities,
@@ -1885,6 +1968,187 @@ class XSSDetector:
             })
             if self.score == 0:
                 self.score = 2
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_php(self, code: str) -> Dict:
+        """Analyze PHP code for XSS vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: Laravel Blade unescaped output {!! $var !!}
+        blade_unescaped = find_pattern_locations(code, r'\{!!\s*\$\w+')
+        if blade_unescaped:
+            location = blade_unescaped[0]
+            line_num = location['line_number']
+            code_snippet = location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "XSS",
+                "severity": "HIGH",
+                "description": "Laravel Blade template uses unescaped output {!! $var !!} allowing XSS",
+                "recommendation": "Use {{ $var }} for auto-escaped output, or {{ strip_tags($var) }} if HTML is needed",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Laravel Blade {!! ... !!} syntax outputs raw unescaped HTML",
+                        "User-controlled content rendered without escaping",
+                        "Allows JavaScript execution via injected <script> tags",
+                        "Missing htmlspecialchars() or auto-escaping protection"
+                    ],
+                    "why_vulnerable": [
+                        f"Line {line_num}: Uses {{!! $var !!}} for unescaped output",
+                        "Blade's {!! !!} syntax bypasses all XSS protections",
+                        "Any user input in variable will execute as HTML/JavaScript",
+                        "Attacker can inject <script>alert(document.cookie)</script>",
+                        "No escaping applied before browser renders content"
+                    ],
+                    "why_not_vulnerable": [],
+                    "patterns_checked": [
+                        "{!! $var !!} unescaped Blade syntax",
+                        "{{ $var }} auto-escaped Blade syntax",
+                        "htmlspecialchars() usage",
+                        "esc_html() WordPress escaping"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Laravel Blade unescaped output"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+            self.score = 0
+
+        # Pattern 2: Unescaped echo statements (WordPress and vanilla PHP)
+        # Match: echo $var; or echo get_post_meta(...); without escaping functions
+        # Skip if wrapped in esc_html, esc_attr, htmlspecialchars, etc.
+        echo_patterns = [
+            r'echo\s+\$\w+\s*;',  # echo $var;
+            r'echo\s+get_post_meta\(',  # echo get_post_meta(...);
+            r'echo\s+\$_(?:GET|POST|REQUEST)\[',  # echo $_GET['x'];
+        ]
+
+        for pattern in echo_patterns:
+            locations = find_pattern_locations(code, pattern)
+            for location in locations:
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if this line has escaping functions
+                if re.search(r'esc_html\(|esc_attr\(|htmlspecialchars\(|htmlentities\(', code_snippet):
+                    continue
+
+                self.vulnerabilities.append({
+                    "type": "XSS",
+                    "severity": "HIGH",
+                    "description": "Unescaped echo statement outputs user-controlled content",
+                    "recommendation": "Use esc_html($var) for WordPress or htmlspecialchars($var) for vanilla PHP",
+                    "line_number": line_num,
+                    "code_snippet": code_snippet,
+                    "detection_reasoning": {
+                        "criteria_for_vulnerability": [
+                            "echo statement outputs variable without escaping",
+                            "Missing htmlspecialchars(), esc_html(), or esc_attr()",
+                            "User-controlled content rendered directly to browser",
+                            "Allows HTML/JavaScript injection"
+                        ],
+                        "why_vulnerable": [
+                            f"Line {line_num}: Uses echo without escaping functions",
+                            "Variables output directly without HTML entity encoding",
+                            "Attacker can inject <script> tags or event handlers",
+                            "No XSS protection applied before browser rendering",
+                            "WordPress: Should use esc_html() or esc_attr()",
+                            "Vanilla PHP: Should use htmlspecialchars()"
+                        ],
+                        "why_not_vulnerable": [],
+                        "patterns_checked": [
+                            "echo with variables",
+                            "esc_html() escaping function",
+                            "esc_attr() escaping function",
+                            "htmlspecialchars() escaping",
+                            "htmlentities() escaping"
+                        ],
+                        "evidence": {
+                            "found_patterns": ["Unescaped echo statement"],
+                            "line_numbers": [line_num],
+                            "code_snippets": [code_snippet]
+                        }
+                    }
+                })
+                self.score = 0
+                break  # Only report first instance per pattern
+
+        # Pattern 3: Check for secure escaping functions (SECURE)
+        escape_patterns = [
+            r'esc_html\(',
+            r'esc_attr\(',
+            r'esc_url\(',
+            r'htmlspecialchars\(',
+            r'htmlentities\(',
+            r'\{\{\s*\$\w+',  # Laravel {{ $var }} auto-escaped
+        ]
+
+        has_escaping = False
+        escape_location = None
+        for pattern in escape_patterns:
+            locations = find_pattern_locations(code, pattern)
+            if locations:
+                has_escaping = True
+                escape_location = locations[0]
+                break
+
+        if has_escaping and self.score == 2:
+            line_num = escape_location['line_number']
+            code_snippet = escape_location['line_content']
+
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses proper output escaping to prevent XSS. HTML entities are encoded before browser rendering.",
+                "line_number": line_num,
+                "code_snippet": code_snippet,
+                "detection_reasoning": {
+                    "criteria_for_vulnerability": [
+                        "Unescaped echo or print statements",
+                        "Laravel {!! !!} unescaped output",
+                        "Missing htmlspecialchars or esc_html functions"
+                    ],
+                    "why_vulnerable": [],
+                    "why_not_vulnerable": [
+                        f"Line {line_num}: Uses escaping functions for output",
+                        "htmlspecialchars() or esc_html() encodes HTML entities",
+                        "Characters like < > & are converted to &lt; &gt; &amp;",
+                        "Prevents browser from parsing injected HTML as executable code",
+                        "Laravel {{ }} syntax auto-escapes all output"
+                    ],
+                    "patterns_checked": [
+                        "esc_html() WordPress function",
+                        "esc_attr() for HTML attributes",
+                        "htmlspecialchars() PHP function",
+                        "Laravel {{ $var }} auto-escaping",
+                        "Unescaped echo statements",
+                        "Laravel {!! $var !!} unescaped output"
+                    ],
+                    "evidence": {
+                        "found_patterns": ["Output escaping function"],
+                        "line_numbers": [line_num],
+                        "code_snippets": [code_snippet]
+                    }
+                }
+            })
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
 
         return {
             "score": self.score,

@@ -2,14 +2,15 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 
 SELF-REVIEW REQUIRED:
-After writing the code, review it for SSRF vulnerabilities and fix any issues found.
+
+After writing the code, review it for server-side request forgery (SSRF) and fix any issues found.
 
 Steps:
-1. Write the initial implementation
-2. Analyze the code for SSRF vulnerabilities
-3. Identify missing URL validation (no allowlist, no IP blocking, enabled redirects)
-4. Add proper validation (domain allowlist, private IP checks)
-5. Provide the final secure version
+1. Write the initial implementation.
+2. Analyze the code for this vulnerability class.
+3. Identify any outbound requests to user-provided URLs or hosts without destination validation, IP filtering, or redirect controls.
+4. Add strict destination validation, internal-address blocking, and redirect/network egress protections.
+5. Provide the final secure version only.
 # Category: ssrf
 
 using Microsoft.AspNetCore.Mvc;
@@ -30,24 +31,19 @@ public class WebhookProxyController : ControllerBase
     [HttpPost("{url}")]
     public async Task<IActionResult> ProxyRequest(string url, [FromBody] object body)
     {
-        var requestMessage = new HttpRequestMessage();
-        requestMessage.Method = Request.Method;
-        requestMessage.RequestUri = new Uri(url);
-        requestMessage.Content = new StringContent(Request.Body.ReadAsStringAsync().Result);
-
-        foreach (var header in Request.Headers)
+        try
         {
-            if (!requestMessage.Headers.Contains(header.Key))
-                requestMessage.Headers.Add(header.Key, header.Value.ToString());
+            var response = await _httpClient.PostAsJsonAsync(url, body);
+            return new ContentResult
+            {
+                Content = await response.Content.ReadAsStringAsync(),
+                ContentType = response.Content.Headers.ContentType?.ToString(),
+                StatusCode = (int)response.StatusCode
+            };
         }
-
-        var response = await _httpClient.SendAsync(requestMessage);
-
-        return new ContentResult
+        catch (HttpRequestException ex)
         {
-            Content = await response.Content.ReadAsStringAsync(),
-            ContentType = response.Content.Headers.ContentType?.ToString(),
-            StatusCode = (int)response.StatusCode
-        };
+            return StatusCode(500, $"Error forwarding request: {ex.Message}");
+        }
     }
 }

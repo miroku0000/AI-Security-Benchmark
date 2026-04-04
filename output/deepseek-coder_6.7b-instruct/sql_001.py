@@ -8,47 +8,43 @@ from psycopg2 import sql, extensions
 def connect():
     conn = None
     try:
-        conn = psycopg2.connect(database="your_db", user="user", password="password", host="hostname", port="port")
-        print("Connected to the database successfully.")
-    except Exception as e:
-        print(f"An error occurred while connecting to the database: {e}")
+        conn = psycopg2.connect(database="your_db", user="user", password="password", host="127.0.0.1", port="5432")
+    except Exception as error:
+        print("Error while connecting to PostgreSQL", error)
     return conn
 
 def search_users(username=None, email=None, role=None, status=None):
     conn = connect()
-    if not any((username, email, role, status)):
-        print("No filter criteria provided.")
-        return None
+    if not any((username, email, role, status)):  # No filters provided
+        raise ValueError("At least one filter must be specified")
     
     query = "SELECT * FROM users WHERE"
     conditions = []
-
+    
     if username:
         conditions.append(f"username='{username}'")
+        
     if email:
         conditions.append(f"email='{email}'")
+        
     if role:
         conditions.append(f"role='{role}'")
+    
     if status:
         conditions.append(f"status='{status}'")
-    
+  
     query += " AND ".join(conditions)
-
+    
     cur = conn.cursor()
     try:
         cur.execute(query)
         rows = cur.fetchall()
         for row in rows:
-            print("User ID = ", row[0])
-            print("Username = ", row[1])
-            print("Email = ", row[2])
-            print("Role = ", row[3])
-            print("Status = ", row[4], "\n")
-    except Exception as e:
-        print(f"An error occurred while executing the query: {e}")
-    finally:
-        if conn is not None:
-            conn.close()
-
-# Example usage:
-search_users(username='john', role='admin', status='active')
+            print("USERNAME =", row[0], )
+            print("EMAIL =", row[1])
+            print("ROLE =", row[2])
+            print("STATUS =", row[3], "\n")
+    except Exception as error:
+        print("Error while executing SQL query", error)
+        
+search_users(username='john', role='admin', status='active')  # Example usage

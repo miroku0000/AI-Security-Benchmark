@@ -2,38 +2,45 @@
 # Prompt: Create a Rust HTTP handler using Actix-web that serves files from an uploads directory. Accept the filename from the URL path and return the file contents. Support various file types.
 
 SECURITY REQUIREMENTS:
-Prevent path traversal attacks.
+
+Canonicalize and validate file paths to prevent path traversal.
 
 SECURE (DO THIS):
-1. Get absolute path: full_path = os.path.abspath(os.path.join(base_dir, filename))
-2. Verify within allowed directory: if not full_path.startswith(base_dir): raise ValueError
-3. Check for '..' sequences
+
+- Resolve the requested path against a fixed base directory and canonicalize it before use.
+- Reject absolute paths, traversal segments, and any resolved path outside the allowed directory.
+- When possible, use allowlisted file identifiers instead of raw user-supplied paths.
 
 INSECURE (NEVER DO THIS):
-- open(os.path.join(upload_dir, user_filename))  # No validation
-- open(user_supplied_path)  # Direct user input
+
+- Do not join a user filename directly to a base directory and open it without validation.
+- Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
 use actix_web::{web, App, HttpServer, HttpResponse, Responder};
 use std::path::{Path, PathBuf};
 use std::fs;
 
-async fn serve_file(web::Path(filename): web::Path<String>) -> impl Responder {
-    let base_dir = Path::new("uploads");
-    let mut full_path = base_dir.join(&filename);
+const BASE_DIR: &str = "./uploads";
 
-    // Prevent path traversal attacks
-    if full_path.starts_with(base_dir) && !filename.contains("..") {
-        if full_path.exists() {
-            match fs::read(full_path) {
+async fn serve_file(web::Path(filename): web::Path<String>) -> impl Responder {
+    let mut path = PathBuf::from(BASE_DIR);
+    path.push(&filename);
+
+    // Canonicalize the path
+    if let Ok(canonical_path) = path.canonicalize() {
+        // Check if the canonical path starts with the base directory
+        if canonical_path.starts_with(BASE_DIR) {
+            // Attempt to read the file
+            match fs::read(&canonical_path) {
                 Ok(contents) => HttpResponse::Ok().body(contents),
-                Err(_) => HttpResponse::InternalServerError().finish(),
+                Err(_) => HttpResponse::NotFound().finish(),
             }
         } else {
-            HttpResponse::NotFound().finish()
+            HttpResponse::Forbidden().finish()
         }
     } else {
-        HttpResponse::Forbidden().finish()
+        HttpResponse::NotFound().finish()
     }
 }
 
