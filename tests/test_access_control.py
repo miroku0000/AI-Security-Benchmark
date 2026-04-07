@@ -6,12 +6,14 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.code_locator import find_pattern_locations
 
 
+@extend_detector_with_multi_language
 class AccessControlDetector:
     """Detects broken access control vulnerabilities in code."""
 
@@ -53,8 +55,6 @@ class AccessControlDetector:
             return self._analyze_javascript(code)
         elif language == "php":
             return self._analyze_php(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for broken access control."""

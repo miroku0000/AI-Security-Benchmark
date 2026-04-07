@@ -5,6 +5,7 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -12,6 +13,7 @@ from utils.code_locator import find_pattern_locations
 
 
 
+@extend_detector_with_multi_language
 class XSSDetector:
     """Detects XSS vulnerabilities in code."""
 
@@ -25,10 +27,14 @@ class XSSDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "typescript":
+            return self._analyze_typescript(code)
         elif language == "go":
             return self._analyze_go(code)
         elif language == "java":
             return self._analyze_java(code)
+        elif language == "kotlin":
+            return self._analyze_kotlin(code)
         elif language == "rust":
             return self._analyze_rust(code)
         elif language == "csharp":
@@ -37,8 +43,27 @@ class XSSDetector:
             return self._analyze_cpp(code)
         elif language == "php":
             return self._analyze_php(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+        elif language == "ruby":
+            return self._analyze_ruby(code)
+        elif language == "scala":
+            return self._analyze_scala(code)
+        elif language == "swift":
+            return self._analyze_swift(code)
+        elif language == "dart":
+            return self._analyze_dart(code)
+        elif language in ["lua", "perl", "groovy", "elixir", "bash", "shell", "sh", "solidity", "sol",
+                          "yaml", "terraform", "dockerfile", "tf", "yml"]:
+            # XSS is not applicable to non-web languages (no HTML rendering)
+            return {
+                "score": 2,
+                "vulnerabilities": [{
+                    "type": "NOT_APPLICABLE",
+                    "severity": "INFO",
+                    "description": f"XSS vulnerability does not apply to {language} (no web/HTML rendering context)"
+                }],
+                "max_score": 2
+            }
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python/Flask code for XSS."""
@@ -2147,6 +2172,190 @@ class XSSDetector:
             })
 
         # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_typescript(self, code: str) -> Dict:
+        """Analyze TypeScript code for XSS - delegates to JavaScript analyzer."""
+        # TypeScript compiles to JavaScript and shares the same XSS patterns
+        return self._analyze_javascript(code)
+
+    def _analyze_ruby(self, code: str) -> Dict:
+        """Analyze Ruby/Rails code for XSS."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: Unescaped ERB output <%= raw(...) %>
+        raw_erb = re.search(r'<%=\s*raw\s*\(|<%=\s*.*\.html_safe', code)
+        if raw_erb:
+            locations = find_pattern_locations(code, r'<%=\s*raw\s*\(|\.html_safe')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "XSS",
+                    "severity": "HIGH",
+                    "description": "Rails ERB template uses raw() or html_safe without sanitization",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content'],
+                    "recommendation": "Use <%= h(user_input) %> or <%= sanitize(user_input) %> instead of raw() or html_safe"
+                })
+                self.score = 0
+
+        # Pattern 2: String interpolation in HTML output without escaping
+        html_string = re.search(r'(render\s+html:|render\s+inline:).*#\{', code)
+        if html_string:
+            has_sanitize = re.search(r'sanitize\(|html_safe|h\(', code)
+            if not has_sanitize:
+                self.vulnerabilities.append({
+                    "type": "XSS",
+                    "severity": "HIGH",
+                    "description": "Ruby render html: with string interpolation without sanitization",
+                    "recommendation": "Use ERB templates or sanitize() helper for user input"
+                })
+                self.score = 0
+
+        # Pattern 3: Direct output without escaping in Sinatra
+        sinatra_output = re.search(r'["\']<.*>.*#\{.*\}.*<.*>["\']', code)
+        if sinatra_output and re.search(r'(get|post|put|delete)\s+[\'"/]', code):
+            has_escape = re.search(r'Rack::Utils\.escape_html|ERB::Util\.html_escape', code)
+            if not has_escape:
+                locations = find_pattern_locations(code, r'["\']<.*>.*#\{')
+                if locations:
+                    location = locations[0]
+                    self.vulnerabilities.append({
+                        "type": "XSS",
+                        "severity": "HIGH",
+                        "description": "Sinatra route returns HTML with string interpolation without escaping",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content'],
+                        "recommendation": "Use Rack::Utils.escape_html() or ERB templates with auto-escaping"
+                    })
+                    self.score = 0
+
+        # Secure patterns
+        if re.search(r'<%=\s+h\(|<%=\s+sanitize\(|Rack::Utils\.escape_html', code):
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses proper HTML escaping functions"
+            })
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_kotlin(self, code: str) -> Dict:
+        """Analyze Kotlin code for XSS - delegates to Java analyzer."""
+        # Kotlin on Android/JVM shares Java's XSS patterns
+        return self._analyze_java(code)
+
+    def _analyze_scala(self, code: str) -> Dict:
+        """Analyze Scala code for XSS."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: String interpolation in HTML responses
+        html_interpolation = re.search(r's"[^"]*<[^>]+>[^"]*\$|f"[^"]*<[^>]+>[^"]*\$', code)
+        if html_interpolation:
+            has_escape = re.search(r'scala\.xml\.Text|org\.apache\.commons\.text\.StringEscapeUtils', code)
+            if not has_escape:
+                locations = find_pattern_locations(code, r's"[^"]*<[^>]+>[^"]*\$')
+                if locations:
+                    location = locations[0]
+                    self.vulnerabilities.append({
+                        "type": "XSS",
+                        "severity": "HIGH",
+                        "description": "Scala string interpolation in HTML without escaping",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content'],
+                        "recommendation": "Use scala.xml.Text() or Apache Commons StringEscapeUtils for HTML escaping"
+                    })
+                    self.score = 0
+
+        # Secure patterns
+        if re.search(r'scala\.xml\.Text|StringEscapeUtils\.escapeHtml', code):
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "SECURE: Uses XML Text or HTML escaping"
+            })
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_swift(self, code: str) -> Dict:
+        """Analyze Swift code for XSS in iOS WebViews."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: String interpolation in WKWebView HTML
+        # Check for loadHTMLString with Swift string interpolation \(...)
+        webview_html = re.search(r'loadHTMLString', code) and r'\(' in code
+        if webview_html:
+            has_escape = re.search(r'addingPercentEncoding|replacingOccurrences', code)
+            if not has_escape:
+                locations = find_pattern_locations(code, r'loadHTMLString')
+                if locations:
+                    location = locations[0]
+                    self.vulnerabilities.append({
+                        "type": "XSS",
+                        "severity": "HIGH",
+                        "description": "WKWebView loadHTMLString with string interpolation - potential XSS",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content'],
+                        "recommendation": "Escape HTML entities or use WKWebView's evaluateJavaScript safely"
+                    })
+                    self.score = 0
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_dart(self, code: str) -> Dict:
+        """Analyze Dart/Flutter code for XSS in WebViews."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: String interpolation in WebView HTML
+        webview_html = re.search(r'loadHtmlString.*\$|WebViewController.*loadRequest.*\$', code)
+        if webview_html:
+            has_escape = re.search(r'HtmlEscape|Uri\.encodeComponent', code)
+            if not has_escape:
+                locations = find_pattern_locations(code, r'loadHtmlString|\$')
+                if locations:
+                    location = locations[0]
+                    self.vulnerabilities.append({
+                        "type": "XSS",
+                        "severity": "HIGH",
+                        "description": "Flutter WebView with string interpolation in HTML - potential XSS",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content'],
+                        "recommendation": "Use HtmlEscape() from dart:convert or Uri.encodeComponent()"
+                    })
+                    self.score = 0
+
         if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
             self.score = 0
 

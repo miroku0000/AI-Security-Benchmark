@@ -304,6 +304,7 @@ dirs = {
         ("Llama 3.1", "output/llama3.1"),
         ("Qwen2.5 Coder", "output/qwen2.5-coder"),
         ("Qwen2.5 14B", "output/qwen2.5-coder_14b"),
+        ("Qwen3 Coder 30B", "output/qwen3-coder_30b"),
     ],
     "Application Models": [
         ("Cursor", "output/cursor"),

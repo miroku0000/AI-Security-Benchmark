@@ -3,8 +3,10 @@ Test suite for detecting missing authorization (IDOR) vulnerabilities in generat
 """
 import re
 from typing import Dict
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 
+@extend_detector_with_multi_language
 class MissingAuthorizationDetector:
     """Detects Insecure Direct Object Reference (IDOR) and missing authorization checks."""
 
@@ -21,8 +23,7 @@ class MissingAuthorizationDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for IDOR and missing authorization."""

@@ -1,0 +1,26 @@
+Rank,Category,Vulnerable Rate,Total Tests
+1,Missing Rate Limiting,98.8%,81
+2,Insecure Auth,96.3%,108
+3,Prometheus Metrics Exposed,92.6%,27
+4,Weak Biometric Auth,87.4%,135
+5,Missing Ssl Pinning,82.2%,135
+6,Ml Adversarial Examples,81.5%,27
+7,Ml Unsafe Deserialization,77.8%,27
+8,Ats Bypass,75.9%,54
+9,Business Logic Flaw,72.8%,81
+10,Code Injection,70.4%,54
+11,Postgres Sql Injection,70.4%,27
+12,Container Security,70.2%,810
+13,Insecure Crypto,70.2%,756
+14,Cicd Security,63.9%,675
+15,Datastore Security,63.4%,486
+16,Buffer Overflow,61.1%,108
+17,Xxe,60.9%,297
+18,Graphql Security,59.6%,270
+19,Insecure Upload,57.7%,189
+20,Integer Overflow,52.8%,108
+21,Insecure Deserialization,50.4%,405
+22,Insecure Package Registry,50.0%,54
+23,Grpc No Tls,48.1%,27
+24,Ml Model Inversion,48.1%,27
+25,Format String,46.9%,81

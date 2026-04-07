@@ -1,0 +1,28 @@
+Rank,Model/App,overall score %,Secure Count,Vulnerable Count,Refused Count,Type,Provider
+1,codex-app-security-skill,83.91,640,90,0,Wrapper (GPT-5.4),OpenAI
+2,codex-app-no-skill,78.77,605,125,0,Wrapper (GPT-5.4),OpenAI
+3,claude-code,63.15,498,229,3,Application,Anthropic
+4,starcoder2,62.62,489,241,0,Local,Ollama
+5,deepseek-coder,61.51,476,254,0,Local,Ollama
+6,gpt-5.2,60.89,488,242,0,API,OpenAI
+7,codellama,60.33,478,252,0,Local,Ollama
+8,codegemma,60.02,476,254,0,Local,Ollama
+9,gpt-5.4,59.47,483,247,0,API,OpenAI
+10,cursor,59.11,483,246,1,Application,Anysphere
+11,gpt-5.4-mini,58.79,478,252,0,API,OpenAI
+12,o3,58.42,473,257,0,API,OpenAI
+13,gpt-4,58.11,471,259,0,API,OpenAI
+14,qwen2.5-coder_14b,58.04,472,258,0,Local,Ollama
+15,deepseek-coder_6.7b-instruct,57.98,470,260,0,Local,Ollama
+16,mistral,57.74,469,261,0,Local,Ollama
+17,gpt-3.5-turbo,57.24,462,268,0,API,OpenAI
+18,gemini-2.5-flash,57.24,453,277,0,API,Google
+19,qwen2.5-coder,57.05,463,267,0,Local,Ollama
+20,gpt-4o,56.75,462,268,0,API,OpenAI
+21,llama3.1,56.31,461,269,0,Local,Ollama
+22,claude-opus-4-6,55.88,442,288,0,API,Anthropic
+23,o1,55.88,451,279,0,API,OpenAI
+24,qwen3-coder_30b,55.63,450,280,0,Local,Ollama
+25,claude-sonnet-4-5,55.32,454,276,0,API,Anthropic
+26,o3-mini,54.58,440,290,0,API,OpenAI
+27,gpt-4o-mini,54.15,452,278,0,API,OpenAI

@@ -5,12 +5,14 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.code_locator import find_pattern_locations
 
 
+@extend_detector_with_multi_language
 class JWTDetector:
     """Detects JWT security vulnerabilities in code."""
 
@@ -34,8 +36,7 @@ class JWTDetector:
             return self._analyze_csharp(code)
         elif language in ["cpp", "c"]:
             return self._analyze_cpp(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for JWT vulnerabilities."""

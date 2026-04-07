@@ -5,6 +5,7 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -12,6 +13,7 @@ from utils.code_locator import find_pattern_locations
 
 
 
+@extend_detector_with_multi_language
 class FileUploadDetector:
     """Detects insecure file upload vulnerabilities in code."""
 
@@ -27,8 +29,6 @@ class FileUploadDetector:
             return self._analyze_javascript(code)
         elif language == "php":
             return self._analyze_php(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
 
     def _clean_code_for_analysis(self, code: str) -> str:
         """

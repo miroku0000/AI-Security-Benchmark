@@ -5,6 +5,7 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -12,6 +13,7 @@ from utils.code_locator import find_pattern_locations
 
 
 
+@extend_detector_with_multi_language
 class CommandInjectionDetector:
     """Detects command injection vulnerabilities in code."""
 
@@ -25,10 +27,14 @@ class CommandInjectionDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "typescript":
+            return self._analyze_javascript(code)  # TypeScript shares JS patterns
         elif language == "go":
             return self._analyze_go(code)
         elif language == "java":
             return self._analyze_java(code)
+        elif language == "kotlin":
+            return self._analyze_java(code)  # Kotlin shares Java patterns
         elif language == "rust":
             return self._analyze_rust(code)
         elif language == "csharp":
@@ -37,8 +43,21 @@ class CommandInjectionDetector:
             return self._analyze_cpp(code)
         elif language == "php":
             return self._analyze_php(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+        elif language == "ruby":
+            return self._analyze_ruby(code)
+        elif language == "scala":
+            return self._analyze_java(code)  # Scala shares Java patterns
+        elif language == "swift":
+            return self._analyze_swift(code)
+        elif language == "dart":
+            return self._analyze_dart(code)
+        elif language in ["elixir", "lua", "perl", "groovy", "bash", "shell", "sh", "solidity", "sol"]:
+            return self._analyze_universal(code, language)
+        elif language in ["yaml", "terraform", "dockerfile", "tf", "yml"]:
+            # IaC files typically don't have command injection (no runtime execution)
+            # Return secure by default
+            return {"score": 2, "vulnerabilities": [], "max_score": 2}
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for command injection."""
@@ -946,8 +965,8 @@ class CommandInjectionDetector:
         # Look for: cmdVar := fmt.Sprintf(...) followed by exec.Command(cmdVar)
         # or: exec.Command(fmt.Sprintf(...))
         sprintf_in_command = re.search(r'exec\.Command(?:Context)?\([^)]*fmt\.Sprintf', code)
-        cmd_var_pattern = r'(\w+)\s*:=\s*fmt\.Sprintf\([^)]+\).*?exec\.Command(?:Context)?\([^)]*\1', re.DOTALL
-        cmd_var_sprintf = re.search(cmd_var_pattern, code)
+        cmd_var_pattern = r'(\w+)\s*:=\s*fmt\.Sprintf\([^)]+\).*?exec\.Command(?:Context)?\([^)]*\1'
+        cmd_var_sprintf = re.search(cmd_var_pattern, code, re.DOTALL)
 
         if sprintf_in_command or cmd_var_sprintf:
             # Found fmt.Sprintf being used for command building
@@ -1757,6 +1776,248 @@ class CommandInjectionDetector:
                 self.score = 0
 
         # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_ruby(self, code: str) -> Dict:
+        """Analyze Ruby code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: system() with string interpolation
+        if re.search(r'system\(["\'][^"\']*#\{', code):
+            locations = find_pattern_locations(code, r'system\(')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Ruby system() with string interpolation #{} enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Pattern 2: backticks or %x with string interpolation
+        if re.search(r'`[^`]*#\{|%x\[[^\]]*#\{|%x\([^)]*#\{', code):
+            locations = find_pattern_locations(code, r'`|%x')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Ruby backticks/%%x with string interpolation enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Pattern 3: exec with string interpolation
+        if re.search(r'exec\(["\'][^"\']*#\{', code):
+            locations = find_pattern_locations(code, r'exec\(')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Ruby exec() with string interpolation enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Check for secure patterns
+        if re.search(r'system\([^,]+,\s*[^)]+\)|spawn\([^,]+,\s*[^)]+\)', code):
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses array form of system() or spawn() (arguments properly separated)"
+            })
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_swift(self, code: str) -> Dict:
+        """Analyze Swift code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: Process with string interpolation in arguments
+        # Check for Swift string interpolation \(...) in Process arguments
+        if re.search(r'Process\(\).*arguments', code, re.DOTALL) and r'\(' in code:
+            # Check if using string interpolation in arguments
+            if re.search(r'arguments.*=.*\[', code):
+                locations = find_pattern_locations(code, r'Process\(\)')
+                if locations:
+                    location = locations[0]
+                    self.vulnerabilities.append({
+                        "type": "COMMAND_INJECTION",
+                        "severity": "CRITICAL",
+                        "description": "Swift Process with string interpolation \\() in arguments enables command injection",
+                        "line_number": location['line_number'],
+                        "code_snippet": location['line_content']
+                    })
+                    self.score = 0
+
+        # Pattern 2: Shell script execution with interpolation
+        if re.search(r'launchPath.*=.*"/bin/(sh|bash)"', code) and r'-c' in code and r'\(' in code:
+            locations = find_pattern_locations(code, r'launchPath')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Swift shell execution with string interpolation enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Check for secure patterns (separated arguments, no interpolation)
+        if re.search(r'arguments.*=.*\[[^\]]*\]', code) and r'\(' not in code:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses Process with separated arguments (no interpolation)"
+            })
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_dart(self, code: str) -> Dict:
+        """Analyze Dart code for command injection vulnerabilities."""
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Pattern 1: Process.run with string interpolation
+        if re.search(r'Process\.run\(["\'][^"\']*\$\{', code):
+            locations = find_pattern_locations(code, r'Process\.run')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Dart Process.run with string interpolation ${} enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Pattern 2: Process.start with string interpolation
+        if re.search(r'Process\.start\(["\'][^"\']*\$\{', code):
+            locations = find_pattern_locations(code, r'Process\.start')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Dart Process.start with string interpolation enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Pattern 3: Shell execution mode with interpolation
+        if re.search(r'runInShell:\s*true', code) and re.search(r'\$\{[^}]+\}', code):
+            locations = find_pattern_locations(code, r'runInShell')
+            if locations:
+                location = locations[0]
+                self.vulnerabilities.append({
+                    "type": "COMMAND_INJECTION",
+                    "severity": "CRITICAL",
+                    "description": "Dart runInShell:true with string interpolation enables command injection",
+                    "line_number": location['line_number'],
+                    "code_snippet": location['line_content']
+                })
+                self.score = 0
+
+        # Check for secure patterns (list arguments, no shell)
+        if re.search(r'Process\.(run|start)\([^,]+,\s*\[', code):
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses Process with list arguments (no shell interpretation)"
+            })
+
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            self.score = 0
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_universal(self, code: str, language: str) -> Dict:
+        """Universal analyzer for command injection in dynamic languages.
+        Supports: Elixir, Lua, Perl, Groovy, Bash, Shell, Solidity.
+        """
+        self.vulnerabilities = []
+        self.score = 2
+
+        # Universal command execution patterns with variable interpolation
+        vulnerable_patterns = [
+            (r'system\s*\(["\'][^"\']*\$[{\w]', f"{language} system() with variable interpolation"),
+            (r'exec\s*\(["\'][^"\']*\$[{\w]', f"{language} exec() with variable interpolation"),
+            (r'`[^`]*\$[{\w]', f"{language} backticks with variable interpolation"),
+            (r'eval\s*\(["\'][^"\']*\$[{\w]', f"{language} eval() with variable interpolation"),
+            (r'shell_exec\s*\(["\'][^"\']*\$[{\w]', f"{language} shell_exec() with variable interpolation"),
+            # Bash/Shell specific
+            (r'\$\(.*\$[{\w]', f"{language} command substitution with variable"),
+        ]
+
+        for pattern, description in vulnerable_patterns:
+            if re.search(pattern, code):
+                # Find line number
+                matches = list(re.finditer(pattern, code))
+                if matches:
+                    match = matches[0]
+                    line_num = code[:match.start()].count('\n') + 1
+                    lines = code.split('\n')
+                    code_snippet = lines[line_num - 1] if line_num <= len(lines) else match.group()
+
+                    self.vulnerabilities.append({
+                        "type": "COMMAND_INJECTION",
+                        "severity": "CRITICAL",
+                        "description": description,
+                        "line_number": line_num,
+                        "code_snippet": code_snippet.strip()
+                    })
+                    self.score = 0
+                    break  # Report first instance only
+
+        # Check for potential secure patterns (parameterized, no interpolation)
+        secure_patterns = [
+            r'system\([^,]+,\s*[^)]+\)',  # Multiple arguments (array form)
+            r'exec\([^,]+,\s*[^)]+\)',
+        ]
+
+        uses_safe_api = any(re.search(pattern, code) for pattern in secure_patterns)
+        if uses_safe_api:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"Uses parameterized command execution ({language})"
+            })
+
         if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
             self.score = 0
 

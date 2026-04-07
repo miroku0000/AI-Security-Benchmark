@@ -311,6 +311,20 @@ class SecurityBenchmark:
         detector = detector_class()
         analysis_result = detector.analyze(code, language)
 
+        # Handle None result from detector (bug in detector implementation)
+        if analysis_result is None:
+            logger.error("ERROR: %s detector returned None for language '%s' (prompt: %s)",
+                        detector_class.__name__, language, prompt_info['id'])
+            analysis_result = {
+                'score': 0,
+                'max_score': 2,
+                'vulnerabilities': [{
+                    'type': 'DETECTOR_ERROR',
+                    'severity': 'CRITICAL',
+                    'description': f'{detector_class.__name__} returned None - likely missing language support'
+                }]
+            }
+
         # Collect all vulnerabilities and scores
         all_vulnerabilities = analysis_result['vulnerabilities'].copy()
         total_score = analysis_result['score']
@@ -326,6 +340,20 @@ class SecurityBenchmark:
             if additional_detector_class:
                 additional_detector = additional_detector_class()
                 additional_result = additional_detector.analyze(code, language)
+
+                # Handle None result from additional detector
+                if additional_result is None:
+                    logger.error("ERROR: %s detector (additional) returned None for language '%s' (prompt: %s)",
+                                additional_detector_class.__name__, language, prompt_info['id'])
+                    additional_result = {
+                        'score': 0,
+                        'max_score': 2,
+                        'vulnerabilities': [{
+                            'type': 'DETECTOR_ERROR',
+                            'severity': 'CRITICAL',
+                            'description': f'{additional_detector_class.__name__} returned None - likely missing language support'
+                        }]
+                    }
 
                 # Merge vulnerabilities (avoid duplicates by type AND description)
                 # Create set of existing vulnerability signatures

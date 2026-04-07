@@ -5,6 +5,7 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -12,6 +13,7 @@ from utils.code_locator import find_pattern_locations_skip_comments
 
 
 
+@extend_detector_with_multi_language
 class SecretsDetector:
     """Detects hardcoded secrets and credentials in code."""
 
@@ -25,10 +27,14 @@ class SecretsDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
+        elif language == "typescript":
+            return self._analyze_javascript(code)  # TypeScript shares JS patterns
         elif language == "go":
             return self._analyze_go(code)
         elif language == "java":
             return self._analyze_java(code)
+        elif language == "kotlin":
+            return self._analyze_java(code)  # Kotlin shares Java patterns
         elif language == "rust":
             return self._analyze_rust(code)
         elif language == "csharp":
@@ -37,8 +43,21 @@ class SecretsDetector:
             return self._analyze_cpp(code)
         elif language == "php":
             return self._analyze_php(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+        elif language == "ruby":
+            return self._analyze_ruby(code)
+        elif language == "scala":
+            return self._analyze_java(code)  # Scala shares Java patterns for secrets
+        elif language == "swift":
+            return self._analyze_swift(code)
+        elif language == "dart":
+            return self._analyze_dart(code)
+        elif language in ["elixir", "lua", "perl", "groovy", "bash", "shell", "sh", "solidity", "sol"]:
+            # Universal fallback for languages with similar secret patterns
+            return self._analyze_universal(code, language)
+        elif language in ["yaml", "terraform", "dockerfile", "tf", "yml"]:
+            # IaC files - check for exposed credentials
+            return self._analyze_iac(code, language)
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for hardcoded secrets."""
@@ -1302,6 +1321,461 @@ class SecretsDetector:
                 "type": "SECURE",
                 "severity": "INFO",
                 "description": "Uses environment variables for configuration (getenv, $_ENV, $_SERVER, or config file)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_ruby(self, code: str) -> Dict:
+        """Analyze Ruby code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Ruby
+        # Look for: password = "literal", API_KEY = "hardcoded", @api_key = "value"
+        ruby_cred_patterns = [
+            (r'\$?\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'@\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'\$?\w*[Aa]pi[_]?[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),
+            (r'@\w*[Aa]pi[_]?[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),
+            (r'\$?\w*[Ss]ecret\w*\s*=\s*["\'][^"\']+["\']', "secret"),
+            (r'@\w*[Ss]ecret\w*\s*=\s*["\'][^"\']+["\']', "secret"),
+            (r'[A-Z_]+\s*=\s*["\'][^"\']+["\'].*#\s*(password|secret|key)', "credential constant"),
+        ]
+
+        for pattern, cred_type in ruby_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "ruby")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Ruby" + (" - use ENV['VAR'] instead" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage
+        env_patterns = [
+            r'ENV\[',
+            r'ENV\.fetch\(',
+            r'Rails\.application\.credentials',
+            r'Rails\.application\.secrets',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables for configuration (ENV[])"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_swift(self, code: str) -> Dict:
+        """Analyze Swift code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Swift
+        # Look for: let password = "literal", static let apiKey = "hardcoded"
+        swift_cred_patterns = [
+            (r'let\s+\w*[Pp]assword\w*\s*[:=]\s*"[^"]+"', "password"),
+            (r'var\s+\w*[Pp]assword\w*\s*[:=]\s*"[^"]+"', "password"),
+            (r'static\s+let\s+\w*[Pp]assword\w*\s*[:=]\s*"[^"]+"', "password"),
+            (r'let\s+\w*[Aa]pi[Kk]ey\w*\s*[:=]\s*"[^"]+"', "API key"),
+            (r'var\s+\w*[Aa]pi[Kk]ey\w*\s*[:=]\s*"[^"]+"', "API key"),
+            (r'static\s+let\s+\w*[Aa]pi[Kk]ey\w*\s*[:=]\s*"[^"]+"', "API key"),
+            (r'let\s+\w*[Ss]ecret\w*\s*[:=]\s*"[^"]+"', "secret"),
+            (r'let\s+\w*[Tt]oken\w*\s*[:=]\s*"[^"]+"', "token"),
+            (r'UserDefaults\.standard\.set\(["\'][^"\']+["\'],\s*forKey:\s*["\'].*([Pp]assword|[Ss]ecret|[Kk]ey|[Tt]oken)', "UserDefaults secret"),
+        ]
+
+        for pattern, cred_type in swift_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "swift")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Swift" + (" - use environment variables or Keychain" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage or Keychain
+        env_patterns = [
+            r'ProcessInfo\.processInfo\.environment',
+            r'Bundle\.main\.infoDictionary',
+            r'Keychain',
+            r'SecItemAdd\(',
+            r'SecItemCopyMatching\(',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables or Keychain for secure storage"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_dart(self, code: str) -> Dict:
+        """Analyze Dart/Flutter code for hardcoded secrets."""
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Pattern 1: Hardcoded credentials in Dart
+        # Look for: final password = "literal", const String apiKey = "hardcoded"
+        dart_cred_patterns = [
+            (r'(final|var|const)\s+\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'(final|var|const)\s+String\s+\w*[Pp]assword\w*\s*=\s*["\'][^"\']+["\']', "password"),
+            (r'(final|var|const)\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),
+            (r'(final|var|const)\s+String\s+\w*[Aa]pi[Kk]ey\w*\s*=\s*["\'][^"\']+["\']', "API key"),
+            (r'(final|var|const)\s+\w*[Ss]ecret\w*\s*=\s*["\'][^"\']+["\']', "secret"),
+            (r'(final|var|const)\s+\w*[Tt]oken\w*\s*=\s*["\'][^"\']+["\']', "token"),
+            (r'SharedPreferences.*\.set\w+\(["\'][^"\']+["\'],\s*["\'][^"\']*([Pp]ass|[Ss]ecret|[Kk]ey|[Tt]oken)', "SharedPreferences secret"),
+        ]
+
+        for pattern, cred_type in dart_cred_patterns:
+            locations = find_pattern_locations_skip_comments(code, pattern, "dart")
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>',
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in Dart" + (" - use flutter_dotenv or secure storage" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Pattern 2: Check for secure environment variable usage or secure storage
+        env_patterns = [
+            r'flutter_dotenv',
+            r'DotEnv\(',
+            r'FlutterSecureStorage',
+            r'Platform\.environment',
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": "Uses environment variables or secure storage (flutter_dotenv, FlutterSecureStorage)"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_universal(self, code: str, language: str) -> Dict:
+        """Universal analyzer for dynamic languages with similar secret patterns.
+        Supports: Elixir, Lua, Perl, Groovy, Bash, Shell, Solidity.
+        """
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # Universal patterns that work across many languages
+        universal_patterns = [
+            (r'\w*[Pp]assword\w*\s*[:=]\s*["\'][^"\']+["\']', "password"),
+            (r'\w*[Aa]pi[_]?[Kk]ey\w*\s*[:=]\s*["\'][^"\']+["\']', "API key"),
+            (r'\w*[Ss]ecret\w*\s*[:=]\s*["\'][^"\']+["\']', "secret"),
+            (r'\w*[Tt]oken\w*\s*[:=]\s*["\'][^"\']+["\']', "token"),
+            (r'[A-Z_]+\s*=\s*["\'][^"\']+["\']', "constant credential"),
+            # Bash/Shell specific export patterns
+            (r'export\s+\w*[Pp]assword\w*=', "exported password"),
+            (r'export\s+\w*[Aa]pi[_]?[Kk]ey\w*=', "exported API key"),
+            # Connection strings (universal)
+            (r'://[^:]+:[^@]+@', "connection URL with credentials"),
+        ]
+
+        for pattern, cred_type in universal_patterns:
+            # Use generic comment detection (# and // style comments)
+            locations = find_pattern_locations_skip_comments(code, pattern, language)
+            if locations:
+                location = locations[0]
+                line_num = location['line_number']
+                code_snippet = location['line_content']
+
+                # Check if placeholder
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>|\$\{[^}]+\}',  # ${PLACEHOLDER} pattern
+                    code_snippet, re.IGNORECASE
+                )
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type} in {language}" + (" - use environment variables" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+
+        # Check for environment variable usage (universal patterns)
+        env_patterns = [
+            r'\$\w+',  # $VAR (bash, perl, etc.)
+            r'\$\{\w+\}',  # ${VAR} (bash, etc.)
+            r'ENV\[',  # ENV[] (various languages)
+            r'process\.env',  # Groovy/Node.js
+            r'System\.getenv',  # Groovy/Java
+        ]
+
+        uses_env = any(re.search(pattern, code) for pattern in env_patterns)
+        if uses_env:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"Uses environment variables for configuration ({language})"
+            })
+            if self.score == 0 and not self.has_real_secrets:
+                self.score = 1
+
+        # Scoring adjustment
+        if self.score == 0 and not self.has_real_secrets and len(self.vulnerabilities) > 0:
+            all_placeholders = all(
+                v['severity'] in ['HIGH', 'MEDIUM', 'INFO']
+                for v in self.vulnerabilities
+                if v['type'] == 'HARDCODED_SECRET'
+            )
+            if all_placeholders:
+                self.score = 1
+
+        return {
+            "score": self.score,
+            "vulnerabilities": self.vulnerabilities,
+            "max_score": 2
+        }
+
+    def _analyze_iac(self, code: str, language: str) -> Dict:
+        """Analyze Infrastructure-as-Code files for exposed credentials.
+        Supports: YAML, Terraform, Dockerfile.
+        """
+        self.vulnerabilities = []
+        self.score = 2
+        self.has_real_secrets = False
+
+        # IaC-specific credential patterns
+        iac_patterns = [
+            # YAML patterns
+            (r'password\s*:\s*["\']?[^"\'\s]+["\']?', "password in YAML"),
+            (r'api[_-]?key\s*:\s*["\']?[^"\'\s]+["\']?', "API key in YAML"),
+            (r'secret\s*:\s*["\']?[^"\'\s]+["\']?', "secret in YAML"),
+            (r'token\s*:\s*["\']?[^"\'\s]+["\']?', "token in YAML"),
+            (r'access[_-]?key\s*:\s*["\']?[^"\'\s]+["\']?', "access key in YAML"),
+            # Terraform patterns
+            (r'password\s*=\s*"[^"]+"', "password in Terraform"),
+            (r'api_key\s*=\s*"[^"]+"', "API key in Terraform"),
+            (r'secret_key\s*=\s*"[^"]+"', "secret key in Terraform"),
+            (r'access_key\s*=\s*"[^"]+"', "access key in Terraform"),
+            # Dockerfile patterns
+            (r'ENV\s+\w*[Pp]assword\w*\s*=?\s*[^\s]+', "password in ENV"),
+            (r'ENV\s+\w*[Aa]pi[_]?[Kk]ey\w*\s*=?\s*[^\s]+', "API key in ENV"),
+            (r'ENV\s+\w*[Ss]ecret\w*\s*=?\s*[^\s]+', "secret in ENV"),
+            # AWS credentials (all formats)
+            (r'aws_access_key_id\s*[:=]\s*["\']?[^"\'\s]+["\']?', "AWS access key"),
+            (r'aws_secret_access_key\s*[:=]\s*["\']?[^"\'\s]+["\']?', "AWS secret key"),
+        ]
+
+        for pattern, cred_type in iac_patterns:
+            # IaC files typically use # for comments
+            matches = re.finditer(pattern, code, re.IGNORECASE)
+            for match in matches:
+                # Find line number
+                line_num = code[:match.start()].count('\n') + 1
+                # Get full line content
+                lines = code.split('\n')
+                code_snippet = lines[line_num - 1] if line_num <= len(lines) else match.group()
+
+                # Skip comments
+                if re.match(r'\s*#', code_snippet):
+                    continue
+
+                # Check if placeholder or variable reference
+                is_placeholder = re.search(
+                    r'\byour[_ ]|\bYOUR[_ ]|<your|{your|'
+                    r'\bxxx\b|\bXXX\b|'
+                    r'replace.{0,20}(with|key|secret)|'
+                    r'<[^>]+>|\$\{[^}]+\}|'  # ${VAR} or <placeholder>
+                    r'\$[A-Z_]+|'  # $VAR (env var reference)
+                    r'var\.|data\.|module\.',  # Terraform variable references
+                    code_snippet, re.IGNORECASE
+                )
+
+                # Also check for explicit variable references
+                is_var_ref = re.search(
+                    r'(\$\{|\$[A-Z_]|var\.|data\.|module\.|env\.|secrets\.)',
+                    code_snippet
+                )
+
+                if is_var_ref:
+                    # This is a variable reference, not a hardcoded secret - SECURE
+                    continue
+
+                severity = "HIGH" if is_placeholder else "CRITICAL"
+                desc = f"Hardcoded {cred_type}" + (" - use variables or secret management" if is_placeholder else "")
+
+                self.vulnerabilities.append({
+                    "type": "HARDCODED_SECRET",
+                    "severity": severity,
+                    "description": desc,
+                    "line_number": line_num,
+                    "code_snippet": code_snippet.strip()
+                })
+                if not is_placeholder:
+                    self.has_real_secrets = True
+                self.score = 0
+                break  # Only report first instance per pattern
+
+        # Check for secure variable/secret usage
+        secure_patterns = [
+            r'var\.',  # Terraform variables
+            r'data\.vault_',  # Terraform Vault integration
+            r'aws_secretsmanager_secret',  # AWS Secrets Manager
+            r'google_secret_manager',  # Google Secret Manager
+            r'azurerm_key_vault',  # Azure Key Vault
+            r'\$\{[A-Z_]+\}',  # Environment variable substitution
+            r'secretKeyRef',  # Kubernetes secret reference
+            r'valueFrom:.*secretKeyRef',  # K8s secret injection
+        ]
+
+        uses_secrets_mgmt = any(re.search(pattern, code) for pattern in secure_patterns)
+        if uses_secrets_mgmt:
+            self.vulnerabilities.append({
+                "type": "SECURE",
+                "severity": "INFO",
+                "description": f"Uses variables or secret management ({language})"
             })
             if self.score == 0 and not self.has_real_secrets:
                 self.score = 1

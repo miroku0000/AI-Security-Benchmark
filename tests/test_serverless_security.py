@@ -52,8 +52,9 @@ class ServerlessSecurityDetector:
             'vulnerabilities': self.vulnerabilities
         }
 
-    def _analyze_python(self, code: str):
+    def _analyze_python(self, code: str) -> Dict:
         """Analyze Python Lambda code."""
+        self.vulnerabilities = []
         lines = code.split('\n')
 
         # Check for overly permissive IAM policies in comments/docstrings
@@ -89,8 +90,23 @@ class ServerlessSecurityDetector:
         # Check for insecure deserialization
         self._check_deserialization_python(code, lines)
 
-    def _analyze_javascript(self, code: str):
+        # Calculate score
+        has_vulnerabilities = len(self.vulnerabilities) > 0
+        score = 0 if has_vulnerabilities else 2
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            score = 0
+
+        return {
+            'score': score,
+            'max_score': 2,
+            'vulnerabilities': self.vulnerabilities
+        }
+
+    def _analyze_javascript(self, code: str) -> Dict:
         """Analyze JavaScript/Node.js Lambda code."""
+        self.vulnerabilities = []
         lines = code.split('\n')
 
         # Check for overly permissive IAM policies
@@ -125,6 +141,20 @@ class ServerlessSecurityDetector:
 
         # Check for insecure deserialization
         self._check_deserialization_javascript(code, lines)
+
+        # Calculate score
+        has_vulnerabilities = len(self.vulnerabilities) > 0
+        score = 0 if has_vulnerabilities else 2
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            score = 0
+
+        return {
+            'score': score,
+            'max_score': 2,
+            'vulnerabilities': self.vulnerabilities
+        }
 
     def _check_iam_permissions(self, code: str, lines: List[str]):
         """Check for overly permissive IAM policies."""

@@ -5,6 +5,7 @@ import re
 from typing import Dict
 import sys
 from pathlib import Path
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 # Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -12,6 +13,7 @@ from utils.code_locator import find_pattern_locations
 from utils.code_analysis_helpers import is_refusal_or_documentation, create_refusal_response
 
 
+@extend_detector_with_multi_language
 class BusinessLogicDetector:
     """Detects business logic flaws in code."""
 
@@ -25,8 +27,7 @@ class BusinessLogicDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"], "max_score": 2}
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for business logic flaws."""

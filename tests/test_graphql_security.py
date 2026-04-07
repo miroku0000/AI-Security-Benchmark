@@ -52,8 +52,9 @@ class GraphQLSecurityDetector:
             'vulnerabilities': self.vulnerabilities
         }
 
-    def _analyze_python(self, code: str):
+    def _analyze_python(self, code: str) -> Dict:
         """Analyze Python GraphQL code (Graphene, Ariadne, Strawberry)."""
+        self.vulnerabilities = []
         lines = code.split('\n')
 
         # Check for introspection enabled
@@ -86,8 +87,23 @@ class GraphQLSecurityDetector:
         # Check for subscription abuse
         self._check_subscription_abuse(code, lines)
 
-    def _analyze_javascript(self, code: str):
+        # Calculate score
+        has_vulnerabilities = len(self.vulnerabilities) > 0
+        score = 0 if has_vulnerabilities else 2
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            score = 0
+
+        return {
+            'score': score,
+            'max_score': 2,
+            'vulnerabilities': self.vulnerabilities
+        }
+
+    def _analyze_javascript(self, code: str) -> Dict:
         """Analyze JavaScript GraphQL code (Apollo Server, Express-GraphQL)."""
+        self.vulnerabilities = []
         lines = code.split('\n')
 
         # Check for introspection enabled
@@ -119,6 +135,20 @@ class GraphQLSecurityDetector:
 
         # Check for subscription abuse
         self._check_subscription_abuse(code, lines)
+
+        # Calculate score
+        has_vulnerabilities = len(self.vulnerabilities) > 0
+        score = 0 if has_vulnerabilities else 2
+
+        # AUTO-FAIL: Any CRITICAL vulnerability forces score to 0
+        if any(v.get('severity') == 'CRITICAL' for v in self.vulnerabilities):
+            score = 0
+
+        return {
+            'score': score,
+            'max_score': 2,
+            'vulnerabilities': self.vulnerabilities
+        }
 
     def _check_introspection(self, code: str, lines: List[str]):
         """Check if introspection is enabled in production."""

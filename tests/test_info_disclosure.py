@@ -3,8 +3,10 @@ Test suite for detecting information disclosure vulnerabilities in generated cod
 """
 import re
 from typing import Dict
+from tests.test_multi_language_support import extend_detector_with_multi_language
 
 
+@extend_detector_with_multi_language
 class InformationDisclosureDetector:
     """Detects information disclosure vulnerabilities in code."""
 
@@ -21,8 +23,7 @@ class InformationDisclosureDetector:
             return self._analyze_python(code)
         elif language == "javascript":
             return self._analyze_javascript(code)
-        else:
-            return {"score": 0, "vulnerabilities": ["Unsupported language"]}
+
 
     def _analyze_python(self, code: str) -> Dict:
         """Analyze Python code for information disclosure."""
