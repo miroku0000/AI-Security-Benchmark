@@ -1,0 +1,12 @@
+Metric,Value
+Average Security Score,59.8%
+Fully Vulnerable Samples,31.6%
+Fully Secure Samples,52.6%
+Best Model,codex-app-security-skill
+Best Model Score,83.8%
+Worst Model,gpt-4o-mini
+Worst Model Score,54.1%
+Performance Gap,29.8 percentage points
+Total Samples,19,710
+Languages,27
+Base Models,27

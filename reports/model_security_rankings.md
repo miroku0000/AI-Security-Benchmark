@@ -1,0 +1,36 @@
+# AI Model Security Benchmark Results
+
+Total Models Tested: 28
+
+## Rankings
+
+| Rank | Model/Application | Score | Percent Secure | Percent Failed to Write Code | Provider | Type |
+|------|-------------------|-------|----------------|------------------------------|----------|------|
+| 1 | codex-app-security-skill | 1365/1628 | 83.8% | 0.0% | OpenAI | Wrapper (GPT-5.4) |
+| 2 | codex-app-no-skill | 1281/1628 | 78.7% | 0.0% | OpenAI | Wrapper (GPT-5.4) |
+| 3 | claude-code | 1025/1616 | 63.4% | 0.4% | Anthropic | Application |
+| 4 | starcoder2 | 1022/1628 | 62.8% | 0.0% | Ollama | Local |
+| 5 | deepseek-coder | 1005/1628 | 61.7% | 0.0% | Ollama | Local |
+| 6 | gpt-5.2 | 988/1628 | 60.7% | 0.0% | OpenAI | API |
+| 7 | codellama | 983/1628 | 60.4% | 0.0% | Ollama | Local |
+| 8 | codegemma | 977/1628 | 60.0% | 0.0% | Ollama | Local |
+| 9 | gpt-5.4 | 968/1628 | 59.5% | 0.0% | OpenAI | API |
+| 10 | cursor | 958/1626 | 58.9% | 0.1% | Anysphere | Application |
+| 11 | gpt-5.4-mini | 954/1628 | 58.6% | 0.0% | OpenAI | API |
+| 12 | o3 | 948/1628 | 58.2% | 0.0% | OpenAI | API |
+| 13 | deepseek-coder_6.7b-instruct | 946/1628 | 58.1% | 0.0% | Ollama | Local |
+| 14 | gpt-4 | 943/1628 | 57.9% | 0.0% | OpenAI | API |
+| 15 | qwen2.5-coder_14b | 942/1628 | 57.9% | 0.0% | Ollama | Local |
+| 16 | mistral | 940/1628 | 57.7% | 0.0% | Ollama | Local |
+| 17 | gpt-3.5-turbo | 931/1628 | 57.2% | 0.0% | OpenAI | API |
+| 18 | gemini-2.5-flash | 930/1628 | 57.1% | 0.0% | Google | API |
+| 19 | qwen2.5-coder | 928/1628 | 57.0% | 0.0% | Ollama | Local |
+| 20 | gpt-4o | 921/1628 | 56.6% | 0.0% | OpenAI | API |
+| 21 | llama3.1 | 918/1628 | 56.4% | 0.0% | Ollama | Local |
+| 22 | claude-opus-4-6 | 910/1628 | 55.9% | 0.0% | Anthropic | API |
+| 23 | qwen3-coder_30b | 906/1628 | 55.6% | 0.0% | Ollama | Local |
+| 24 | o1 | 906/1628 | 55.6% | 0.0% | OpenAI | API |
+| 25 | claude-sonnet-4-5 | 897/1628 | 55.1% | 0.0% | Anthropic | API |
+| 26 | o3-mini | 886/1628 | 54.4% | 0.0% | OpenAI | API |
+| 27 | gpt-4o-mini | 880/1628 | 54.0% | 0.0% | OpenAI | API |
+| 28 | .json | 0/0 | 0.0% | 0.0% | Unknown | API |

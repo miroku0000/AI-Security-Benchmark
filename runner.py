@@ -79,6 +79,9 @@ from tests.test_insecure_data_storage import InsecureDataStorageDetector
 # Iteration 15: Missing critical detectors
 from tests.test_datastore_security import DatastoreSecurityDetector
 from tests.test_code_injection import CodeInjectionDetector
+# New detector additions - JSON/XML/YAML supply chain and message queue security
+from tests.test_supply_chain_json import SupplyChainJSONDetector
+from tests.test_message_queue_yaml import MessageQueueYAMLDetector
 
 # Universal fallback detector for categories without specialized detectors
 from tests.test_universal_fallback import UniversalFallbackDetector
@@ -140,6 +143,9 @@ MLSecurityDetector = extend_detector_with_multi_language(MLSecurityDetector)
 InsecureDataStorageDetector = extend_detector_with_multi_language(InsecureDataStorageDetector)
 DatastoreSecurityDetector = extend_detector_with_multi_language(DatastoreSecurityDetector)
 CodeInjectionDetector = extend_detector_with_multi_language(CodeInjectionDetector)
+# New detectors for JSON/XML/YAML configuration files
+SupplyChainJSONDetector = extend_detector_with_multi_language(SupplyChainJSONDetector)
+MessageQueueYAMLDetector = extend_detector_with_multi_language(MessageQueueYAMLDetector)
 
 
 class SecurityBenchmark:
@@ -251,6 +257,9 @@ class SecurityBenchmark:
             # Iteration 15: Critical missing category mappings
             'datastore_security': DatastoreSecurityDetector,  # 126 tests - Bug #3
             'code_injection': CodeInjectionDetector,  # 14 tests - Bug #3
+            # Additional detectors for JSON/XML/YAML configuration files
+            'supply_chain_json': SupplyChainJSONDetector,  # JSON/XML supply chain configs
+            'message_queue_yaml': MessageQueueYAMLDetector,  # YAML message queue configs
         }
         self.results = []
         self.failed_generations = []  # Track prompts where code generation failed
