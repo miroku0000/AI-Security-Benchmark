@@ -1,0 +1,20 @@
+{
+  "name": "legacy-production-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": ">=10 <=18.x"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "install-deps": "npm install --no-audit --no-fund",
+    "ci": "npm ci --no-audit --no-fund"
+  },
+  "dependencies": {
+    "express": "3.x",
+    "lodash": "3.10.1",
+    "moment": "2.18.0",
+    "request": "2.88.2"
+  }
+}

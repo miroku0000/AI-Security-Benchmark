@@ -1,0 +1,399 @@
+# charts/microservices-stack/Chart.yaml
+apiVersion: v2
+name: microservices-stack
+description: Microservices stack Helm chart
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# charts/microservices-stack/values.yaml
+nameOverride: ""
+fullnameOverride: ""
+
+commonLabels: {}
+imagePullSecrets: []
+
+services:
+  - name: redis
+    enabled: true
+    kind: Deployment
+    replicas: 1
+    image:
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+    ports:
+      - name: redis
+        containerPort: 6379
+        servicePort: 6379
+        protocol: TCP
+    readinessProbe:
+      exec:
+        command: ["redis-cli", "ping"]
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    livenessProbe:
+      exec:
+        command: ["redis-cli", "ping"]
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+  - name: postgres
+    enabled: true
+    kind: Deployment
+    replicas: 1
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      pullPolicy: IfNotPresent
+    ports:
+      - name: postgres
+        containerPort: 5432
+        servicePort: 5432
+        protocol: TCP
+    secret:
+      enabled: true
+      type: Opaque
+      stringData:
+        postgres-password: app
+        postgres-user: app
+        postgres-db: app
+    persistence:
+      enabled: true
+      accessModes: ["ReadWriteOnce"]
+      size: 1Gi
+      mountPath: /var/lib/postgresql/data
+      subPath: pgdata
+    env:
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: postgres-secret
+            key: postgres-db
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            name: postgres-secret
+            key: postgres-user
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: postgres-secret
+            key: postgres-password
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-c", "pg_isready -U \"$(POSTGRES_USER)\" -d \"$(POSTGRES_DB)\""]
+      initialDelaySeconds: 5
+      periodSeconds: 5
+    livenessProbe:
+      exec:
+        command: ["/bin/sh", "-c", "pg_isready -U \"$(POSTGRES_USER)\" -d \"$(POSTGRES_DB)\""]
+      initialDelaySeconds: 15
+      periodSeconds: 10
+
+  - name: grpc
+    enabled: true
+    kind: Deployment
+    replicas: 1
+    image:
+      repository: demo/grpc
+      tag: latest
+      pullPolicy: IfNotPresent
+    ports:
+      - name: grpc
+        containerPort: 50051
+        servicePort: 50051
+        protocol: TCP
+    env:
+      - name: GRPC_ADDR
+        value: ":50051"
+    readinessProbe:
+      tcpSocket:
+        port: 50051
+      initialDelaySeconds: 3
+      periodSeconds: 5
+    livenessProbe:
+      tcpSocket:
+        port: 50051
+      initialDelaySeconds: 10
+      periodSeconds: 15
+
+  - name: web
+    enabled: true
+    kind: Deployment
+    replicas: 1
+    image:
+      repository: demo/web
+      tag: latest
+      pullPolicy: IfNotPresent
+    ports:
+      - name: http
+        containerPort: 5000
+        servicePort: 5000
+        protocol: TCP
+    env:
+      - name: HOST
+        value: "0.0.0.0"
+      - name: PORT
+        value: "5000"
+      - name: REDIS_URL
+        value: "redis://redis:6379/0"
+      - name: DATABASE_URL
+        value: "postgresql://app:app@postgres:5432/app"
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 5000
+      initialDelaySeconds: 5
+      periodSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 5000
+      initialDelaySeconds: 15
+      periodSeconds: 15
+
+ingresses:
+  - name: web-ingress
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    hosts:
+      - host: demo.local
+        paths:
+          - path: /
+            pathType: Prefix
+            serviceName: web
+            servicePort: 5000
+
+  - name: grpc-ingress
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/backend-protocol: GRPC
+    hosts:
+      - host: grpc.demo.local
+        paths:
+          - path: /
+            pathType: Prefix
+            serviceName: grpc
+            servicePort: 50051
+
+# charts/microservices-stack/templates/_helpers.tpl
+{{- define "microservices-stack.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "microservices-stack.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := include "microservices-stack.name" . -}}
+{{- printf "%s" $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "microservices-stack.labels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
+app.kubernetes.io/name: {{ include "microservices-stack.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- with .Values.commonLabels }}
+{{- toYaml . }}
+{{- end }}
+{{- end -}}
+
+{{- define "microservices-stack.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "microservices-stack.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "microservices-stack.serviceName" -}}
+{{- $svc := index . 0 -}}
+{{- $root := index . 1 -}}
+{{- default $svc.name $svc.serviceNameOverride -}}
+{{- end -}}
+
+# charts/microservices-stack/templates/deployments.yaml
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled (eq (default "Deployment" $svc.kind) "Deployment") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  replicas: {{ default 1 $svc.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $svc.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "microservices-stack.selectorLabels" $ | nindent 8 }}
+        app: {{ $svc.name }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $svc.name }}
+          image: "{{ $svc.image.repository }}:{{ $svc.image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" $svc.image.pullPolicy }}
+          {{- with $svc.ports }}
+          ports:
+            {{- range . }}
+            - name: {{ default (printf "p%d" (int .containerPort)) .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ default "TCP" .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- with $svc.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and $svc.persistence $svc.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ default "/data" $svc.persistence.mountPath }}
+              {{- with $svc.persistence.subPath }}
+              subPath: {{ . }}
+              {{- end }}
+          {{- end }}
+          {{- with $svc.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if and $svc.persistence $svc.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-pvc" $svc.name) $svc.persistence.existingClaim }}
+      {{- end }}
+{{- end }}
+{{- end }}
+
+# charts/microservices-stack/templates/services.yaml
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled (or (not $svc.service) (ne (default true $svc.service.enabled) false)) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  type: {{ default "ClusterIP" $svc.service.type }}
+  selector:
+    app: {{ $svc.name }}
+  ports:
+    {{- range $p := $svc.ports }}
+    - name: {{ default (printf "p%d" (int $p.servicePort)) $p.name }}
+      port: {{ $p.servicePort }}
+      targetPort: {{ default $p.containerPort $p.targetPort }}
+      protocol: {{ default "TCP" $p.protocol }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+# charts/microservices-stack/templates/secrets.yaml
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled $svc.secret $svc.secret.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ default (printf "%s-secret" $svc.name) $svc.secret.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+type: {{ default "Opaque" $svc.secret.type }}
+{{- if $svc.secret.stringData }}
+stringData:
+  {{- toYaml $svc.secret.stringData | nindent 2 }}
+{{- else if $svc.secret.data }}
+data:
+  {{- toYaml $svc.secret.data | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+# charts/microservices-stack/templates/pvcs.yaml
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled $svc.persistence $svc.persistence.enabled (not $svc.persistence.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ default (printf "%s-pvc" $svc.name) $svc.persistence.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  accessModes:
+    {{- toYaml (default (list "ReadWriteOnce") $svc.persistence.accessModes) | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ default "1Gi" $svc.persistence.size }}
+  {{- with $svc.persistence.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+# charts/microservices-stack/templates/ingresses.yaml
+{{- range $ing := .Values.ingresses }}
+{{- if $ing.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $ing.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+  {{- with $ing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $ing.ingressClassName }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $ing.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range $host := $ing.hosts }}
+    - host: {{ $host.host | quote }}
+      http:
+        paths:
+          {{- range $path := $host.paths }}
+          - path: {{ $path.path | quote }}
+            pathType: {{ default "Prefix" $path.pathType }}
+            backend:
+              service:
+                name: {{ $path.serviceName }}
+                port:
+                  number: {{ $path.servicePort }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

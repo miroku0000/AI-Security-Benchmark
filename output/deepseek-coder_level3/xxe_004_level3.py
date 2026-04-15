@@ -4,7 +4,7 @@
 Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 # Category: xxe
 
-```python
+
 from xml.parsers import expat
 import warnings  # For disabling deprecated features warning in Python3, if any error occurs it will show a DeprecationWarning message with the details of what is being changed and why they are changing things (optional). This can be disabled by setting 'warnings' to False. If you want more control over when these warnings occur use:
 import sys  # For disabling deprecated features warning in Python3, if any error occurs it will show a DeprecationWarning message with the details of what is being changed and why they are changing things (optional). This can be disabled by setting 'warnings' to False. If you want more control over when these warnings occur use:

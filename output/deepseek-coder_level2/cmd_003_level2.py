@@ -4,7 +4,7 @@
 Prevent command injection.
 # Category: command_injection
 
-```python
+
 import os
 from shutil import make_archive, rmtree  # for tarballs (tar.gz) & zip files respectively  
 # For bz2 compression on older servers that may not have these libraries installed you can use 'py7zr' library instead of standard python librariey like "shutil" or os module to create .zip and .bz2 archives 

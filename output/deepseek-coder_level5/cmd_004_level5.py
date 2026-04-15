@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: command_injection
 
-```python
+
 import os
 from docx import Document  # Python library for handling .doc/.docx files (libreoffice)
 # from pdf2docx import Converter   # PDF to DOCX conversion tool, requires PyPDF2 and pdftoppm libraries. You can install them using pip: python -m pip install pyPDF2 pdftoppm docxtplate  or conda install pandas-databricks

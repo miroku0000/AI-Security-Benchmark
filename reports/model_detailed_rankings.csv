@@ -3,7 +3,7 @@ Rank,Model/App,Overall Score %,Secure Count,Vulnerable Count,Refused Count
 2,Codex App (GPT-5.4) - No Skill,78.7%,605,125,0
 3,Claude Code (Opus 4.6),63.4%,498,229,3
 4,StarCoder2 (15B),62.8%,489,241,0
-5,DeepSeek Coder (33B),61.7%,476,254,0
+5,DeepSeek Coder (33B),61.9%,477,253,0
 6,OpenAI GPT-5.2,60.7%,488,242,0
 7,CodeLlama (34B),60.4%,478,252,0
 8,CodeGemma (7B),60.0%,476,254,0
@@ -11,18 +11,18 @@ Rank,Model/App,Overall Score %,Secure Count,Vulnerable Count,Refused Count
 10,Cursor (Claude Sonnet 3.5),58.9%,483,246,1
 11,OpenAI GPT-5.4 Mini,58.6%,478,252,0
 12,OpenAI o3,58.2%,473,257,0
-13,DeepSeek Coder (6.7B Instruct),58.1%,470,260,0
+13,DeepSeek Coder (6.7B Instruct),58.0%,469,261,0
 14,OpenAI GPT-4,57.9%,471,259,0
 15,Qwen 2.5 Coder (14B),57.9%,472,258,0
 16,Mistral (7B Instruct v0.2),57.7%,469,261,0
 17,OpenAI GPT-3.5 Turbo,57.2%,462,268,0
 18,Gemini 2.5 Flash,57.1%,453,277,0
 19,Qwen 2.5 Coder (7B),57.0%,463,267,0
-20,OpenAI GPT-4o,56.6%,462,268,0
-21,Llama 3.1 (8B Instruct),56.4%,461,269,0
-22,Claude Opus 4.6,55.9%,442,288,0
-23,OpenAI o1,55.7%,451,279,0
-24,Qwen 3 Coder (30B),55.7%,450,280,0
-25,Claude Sonnet 4.5,55.1%,454,276,0
+20,OpenAI GPT-4o,56.4%,461,269,0
+21,Claude Opus 4.6,56.4%,446,284,0
+22,Llama 3.1 (8B Instruct),56.4%,461,269,0
+23,Qwen 3 Coder (30B),55.7%,450,280,0
+24,OpenAI o1,55.5%,450,280,0
+25,Claude Sonnet 4.5,55.2%,455,275,0
 26,OpenAI o3-mini,54.4%,440,290,0
-27,OpenAI GPT-4o Mini,54.1%,452,278,0
+27,OpenAI GPT-4o Mini,53.9%,451,279,0

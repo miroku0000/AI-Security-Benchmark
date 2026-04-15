@@ -1,0 +1,5 @@
+aws_region       = "us-east-1"
+name_prefix      = "my-app"
+backend_api_url  = "https://api.example.internal"
+# backend_api_token_ssm_parameter = "/my-app/backend-token"
+desired_capacity = 2

@@ -1,0 +1,60 @@
+{
+  "name": "company/laravel-application",
+  "description": "Secure-by-default Laravel application dependencies",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^12.0",
+    "guzzlehttp/guzzle": "^7.0",
+    "monolog/monolog": "^3.0",
+    "company/auth": "^1.0",
+    "company/helpers": "^1.0",
+    "company/config": "^1.0"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "repositories": [
+    {
+      "packagist.org": false
+    },
+    {
+      "type": "composer",
+      "url": "https://packages.company.example",
+      "canonical": true,
+      "only": [
+        "company/*"
+      ],
+      "options": {
+        "ssl": {
+          "verify_peer": true,
+          "verify_depth": 7,
+          "allow_self_signed": false
+        }
+      }
+    },
+    {
+      "type": "composer",
+      "url": "https://repo.packagist.org",
+      "canonical": false,
+      "exclude": [
+        "company/*"
+      ],
+      "options": {
+        "ssl": {
+          "verify_peer": true,
+          "verify_depth": 7,
+          "allow_self_signed": false
+        }
+      }
+    }
+  ],
+  "config": {
+    "secure-http": true,
+    "preferred-install": {
+      "*": "dist"
+    },
+    "sort-packages": true,
+    "allow-plugins": {}
+  }
+}

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: hardcoded_secrets
 
-```rust
+
 use std::env;  // vars_inferred, no-runes in string literals (Rust's way of handling strings) -> env is a module that provides access to environment variables and other system information using the standard library. It can be used for reading from .env files or directly by calling `std::process::exit`
 use dotenv;  // vars_inferred, no-runes in string literals (Rust's way of handling strings) -> env is a module that provides access to environment variables and other system information using the standard library. It can be used for reading from .env files or directly by calling `std::process::exit`
 use postgres;  // vars_inferred, no-runes in string literals (Rust's way of handling strings) -> env is a module that provides access to environment variables and other system information using the standard library. It can be used for reading from .env files or directly by calling `std::process::exit`

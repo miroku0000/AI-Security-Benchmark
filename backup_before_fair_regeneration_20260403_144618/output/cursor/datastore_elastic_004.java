@@ -1,0 +1,1 @@
+The application is under `ecommerce-search/` (Maven layout: `pom.xml`, `src/main/resources/application.yml`, and Java sources under `src/main/java/com/example/ecommerce/search/`). Start Elasticsearch 7.x on `localhost:9200`, then run `mvn spring-boot-run` from that directory.

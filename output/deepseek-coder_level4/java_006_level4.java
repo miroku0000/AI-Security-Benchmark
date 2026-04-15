@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Allowing external entities or external DTD loading
 # Category: xxe
 
-```java
+
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
 import java.io.*;

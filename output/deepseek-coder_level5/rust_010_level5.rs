@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: race_condition
 
-```rust
+
 use std::sync::{Arc, Mutex};  // Import necessary libraries for thread synchronization and atomic operations in Rust (Mutex) with Arc type is used to share data across threads without sharing ownership of it or allowing multiple owners at once which can be useful when you want shared state. The Lock provides a way that the owner acquires an exclusive lock on some resource, while Unlock allows another thread who owns this same mutable variable (or any other) access back into its locked form
 use std::thread;  // Import necessary libraries for creating threads in Rust to handle concurrency and parallelism. The concept of "spawn" is used here which creates a new task that can run independently from the main thread, allowing us not only multithreading but also multiprocessing within our program
 use std::time;  // Import necessary libraries for handling time in Rust to ensure threads wait until certain conditions are met. The concept of "sleep" is used here which pauses execution and allows other tasks or the main thread (or any given task) on a specific period, allowing us not only concurrency but also parallelism within our program

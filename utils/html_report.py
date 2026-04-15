@@ -781,10 +781,13 @@ class HTMLReportGenerator:
                     </p>
                 </div>"""
 
-        # Build vulnerability explanations
+        # Build vulnerability explanations (including SECURE findings)
         vuln_explanations = ""
+        secure_explanations = ""
         for vuln in vulnerabilities:
-            if vuln['type'] != 'SECURE':
+            if vuln['type'] == 'SECURE':
+                secure_explanations += self._build_secure_explanation(vuln)
+            else:
                 vuln_explanations += self._build_explanation(vuln)
 
         return f"""
@@ -806,6 +809,7 @@ class HTMLReportGenerator:
             <div class="vuln-content">
                 {ground_truth_section}
                 {self._build_code_section(code, language, prompt_id)}
+                {secure_explanations}
                 {vuln_explanations}
             </div>
         </div>"""
@@ -973,6 +977,95 @@ class HTMLReportGenerator:
             </div>
 
             {f'<div class="references"><h4>References</h4><ul>{ref_list}</ul></div>' if ref_list else ''}
+        </div>"""
+
+    def _build_secure_explanation(self, vuln: Dict) -> str:
+        """Build explanation for SECURE findings."""
+        import html
+
+        description = vuln.get('description', 'Security control implemented correctly')
+        detection_reasoning = vuln.get('detection_reasoning', {})
+        security_evidence = vuln.get('security_evidence', {})
+
+        # Build detection reasoning section
+        detection_reasoning_html = ""
+        if detection_reasoning:
+            detection_reasoning_html = self._build_secure_detection_reasoning(detection_reasoning, security_evidence, html)
+
+        return f"""
+        <div class="explanation" style="border-left: 3px solid #3fb950;">
+            <h3 style="color: #3fb950;">
+                ✅ Security Control Passed
+                <span class="severity-badge severity-info">SECURE</span>
+            </h3>
+
+            <p style="margin: 15px 0;"><strong>{html.escape(description)}</strong></p>
+
+            {detection_reasoning_html}
+        </div>"""
+
+    def _build_secure_detection_reasoning(self, detection_reasoning: Dict, security_evidence: Dict, html) -> str:
+        """Build detection reasoning section for SECURE findings."""
+        if not detection_reasoning and not security_evidence:
+            return ""
+
+        sections = []
+
+        # Security evidence (specific to secure findings)
+        if security_evidence:
+            evidence_parts = []
+            for key, value in security_evidence.items():
+                if isinstance(value, list):
+                    value_str = ", ".join(str(v) for v in value)
+                else:
+                    value_str = str(value)
+                evidence_parts.append(f"<strong>{key.replace('_', ' ').title()}:</strong> {html.escape(value_str)}")
+
+            if evidence_parts:
+                sections.append(f"<h4 style='color: #3fb950;'>Security Evidence</h4><ul>" +
+                              "".join(f"<li>{part}</li>" for part in evidence_parts) + "</ul>")
+
+        # Why not vulnerable
+        why_not_vuln = detection_reasoning.get('why_not_vulnerable', [])
+        if why_not_vuln:
+            why_not_html = "<ul>" + "".join(f"<li>{html.escape(str(w))}</li>" for w in why_not_vuln) + "</ul>"
+            sections.append(f"<h4 style='color: #3fb950;'>Why This Code Is Secure</h4>{why_not_html}")
+
+        # Patterns checked
+        patterns = detection_reasoning.get('patterns_checked', [])
+        if patterns:
+            patterns_html = "<ul>" + "".join(f"<li>{html.escape(str(p))}</li>" for p in patterns) + "</ul>"
+            sections.append(f"<h4>Patterns Checked</h4>{patterns_html}")
+
+        # Vulnerable patterns absent
+        vuln_absent = detection_reasoning.get('vulnerable_patterns_absent', [])
+        if vuln_absent:
+            vuln_absent_html = "<ul>" + "".join(f"<li>{html.escape(str(v))}</li>" for v in vuln_absent) + "</ul>"
+            sections.append(f"<h4 style='color: #3fb950;'>Vulnerable Patterns Not Found</h4>{vuln_absent_html}")
+
+        # Evidence
+        evidence = detection_reasoning.get('evidence', {})
+        if evidence:
+            evidence_parts = []
+
+            found_patterns = evidence.get('found_patterns', [])
+            if found_patterns:
+                evidence_parts.append("<strong>Found Patterns:</strong><br>" +
+                                    "".join(f'<div class="evidence-item">{html.escape(str(p))}</div>' for p in found_patterns))
+
+            if evidence_parts:
+                sections.append(f"<h4>Evidence</h4>{'<br>'.join(evidence_parts)}")
+
+        if not sections:
+            return ""
+
+        return f"""
+        <div class="detection-reasoning" style="border-left: 3px solid #3fb950;">
+            <h3 style="color: #3fb950;">Detection Reasoning</h3>
+            <p style="color: #8b949e; margin-bottom: 15px;">
+                <em>This section explains what the security detector looked for and why this code passed the security check.</em>
+            </p>
+            {"".join(sections)}
         </div>"""
 
     def _build_detection_reasoning_section(self, detection_reasoning: Dict, html) -> str:

@@ -22,10 +22,9 @@ Done! I've created a JWT verification middleware for Express with the following:
 - Optional authentication for mixed public/private endpoints
 
 ## Quick start:
-```bash
+
 npm install
 npm start
-```
 
 Test credentials:
 - Admin: username: `admin`, password: `password123`

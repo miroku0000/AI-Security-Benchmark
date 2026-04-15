@@ -1,0 +1,10 @@
+Written to `linkerd-namespace.yaml`. The configuration includes:
+
+- Namespace with `linkerd.io/inject: enabled` for automatic sidecar proxy injection
+- **Server** policies for 4 microservices (api-gateway, user-service, order-service, payment-service) with HTTP/2 proxy protocol
+- **ServerAuthorization** policies restricting which services can talk to which (e.g., only order-service can reach payment-service)
+- **AuthorizationPolicy** + **MeshTLSAuthentication** for mTLS-based identity verification with a default deny-all policy
+- **HTTPRoute** definitions constraining allowed paths/methods per service
+- ServiceAccounts, Deployments (with `proxy-require-identity-inbound`), and Services for each microservice
+
+Apply with: `kubectl apply -f linkerd-namespace.yaml` (requires Linkerd CRDs already installed via `linkerd install --crds | kubectl apply -f -`).

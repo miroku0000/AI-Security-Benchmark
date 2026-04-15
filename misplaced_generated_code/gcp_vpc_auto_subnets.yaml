@@ -1,0 +1,75 @@
+resources:
+- name: three-tier-vpc
+  type: compute.v1.network
+  properties:
+    autoCreateSubnetworks: true
+    routingConfig:
+      routingMode: REGIONAL
+
+- name: allow-internal
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.three-tier-vpc.selfLink)
+    sourceRanges:
+    - 10.128.0.0/9
+    allowed:
+    - IPProtocol: tcp
+    - IPProtocol: udp
+    - IPProtocol: icmp
+    priority: 65534
+
+- name: allow-ssh
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.three-tier-vpc.selfLink)
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - 22
+    targetTags:
+    - ssh-enabled
+
+- name: allow-http-https
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.three-tier-vpc.selfLink)
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - 80
+      - 443
+    targetTags:
+    - web-server
+
+- name: allow-app-tier
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.three-tier-vpc.selfLink)
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - 8080
+      - 8443
+    targetTags:
+    - app-server
+
+- name: allow-db-tier
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.three-tier-vpc.selfLink)
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - 3306
+      - 5432
+      - 27017
+    targetTags:
+    - db-server

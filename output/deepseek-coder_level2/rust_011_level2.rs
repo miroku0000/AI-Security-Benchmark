@@ -4,7 +4,7 @@
 Use unsafe code safely.
 # Category: unsafe_code
 
-```rust
+
 use std::fs;
 use std::io::Read;
 pub fn read_config(filename: &str) -> Vec<u8> {

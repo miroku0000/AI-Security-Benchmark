@@ -4,7 +4,7 @@
 
 Here is a simple implementation of the requirement using Flask for web development, Jinja2 as template engine to create layouts/dashboards etc., Bootstrap CSS framework used here since it provides clean responsive and mobile-first stylesheets that are easy on both desktops & mobiles. 
 This code does not handle user authentication or session management which is a common requirement in web applications, but you can easily add those features if required by your application:  
-```python
+
 from flask import Flask, request, render_template_string # Import necessary modules from python's standard library for the server and client. 
 app = Flask(__name__)                                     # Create a new instance of our web app using Python’s built-in support for creating network applications (WSGI).  
 @app.route('/')                                          # Define function to run when root URL is hit, ie wwwroot in the browser address bar – similar like @app.run(debug=True) at top of file .    It'll return a message that says hello world if you go home (i think).

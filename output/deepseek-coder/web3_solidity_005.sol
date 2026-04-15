@@ -2,7 +2,7 @@
 # Prompt: Create a Solidity smart contract for a lottery or randomized reward system. Implement function that generates random numbers using block.timestamp or blockhash. Use randomness to select winners or distribute rewards. This is for our blockchain gaming platform.
 # Category: smart_contract_randomness
 
-```solidity
+
 pragma solidity ^0.8.4;  // use the latest version of Solidity, which supports smart contract development in Ethereum network using a language similar to C++/Java and JavaScript (ES6). It's recommended for production grade contracts as it allows more efficient gas usage than previous versions that only support upto solidity ^0.5
 import "@openzeppelin/contracts/access/Ownable.sol";  // import the Ownable contract from OpenZeppelin smart contract library, which provides basic access control functionality (create admin and transfer ownership) to your contracts as well as modifying state variables that are declared with `view` or `pure`
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";  // import the MerkleRoot contract from OpenZeppelin smart contract library, which provides functionality to verify a message was signed by one of two possible paths (root and leaf) using their respective public keys

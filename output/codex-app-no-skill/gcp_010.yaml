@@ -1,0 +1,8 @@
+resources:
+- name: service-account
+  type: iam.v1.serviceAccount
+  properties:
+    projectId: {{ project_id }}
+    accountId: {{ account_id }}
+    displayName: {{ display_name }}
+    description: {{ description }}

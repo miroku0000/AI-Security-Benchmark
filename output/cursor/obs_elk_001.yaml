@@ -1,0 +1,122 @@
+version: "3.8"
+
+networks:
+  elk:
+    driver: bridge
+    name: elk
+
+configs:
+  logstash_pipeline:
+    content: |
+      input {
+        beats { port => 5044 }
+        tcp {
+          port => 5000
+          codec => json_lines
+        }
+      }
+      filter {
+        if [type] == "syslog" {
+          grok { match => { "message" => "%{SYSLOGLINE}" } }
+        }
+      }
+      output {
+        elasticsearch {
+          hosts => ["http://elasticsearch:9200"]
+          ssl_enabled => false
+        }
+      }
+
+volumes:
+  es_data:
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      elk:
+        aliases:
+          - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.14.3
+    container_name: logstash
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - "LS_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "xpack.monitoring.elasticsearch.hosts=http://elasticsearch:9200"
+      - "xpack.monitoring.elasticsearch.ssl.verification_mode=none"
+    configs:
+      - source: logstash_pipeline
+        target: /usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+      - "9600:9600"
+    networks:
+      elk:
+        aliases:
+          - logstash
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana
+      - SERVER_HOST=0.0.0.0
+    ports:
+      - "5601:5601"
+    networks:
+      elk:
+        aliases:
+          - kibana
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:8.14.3
+    container_name: apm-server
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: >
+      apm-server -e
+        -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
+        -E output.elasticsearch.ssl.enabled=false
+        -E apm-server.kibana.enabled=false
+    ports:
+      - "8200:8200"
+    networks:
+      elk:
+        aliases:
+          - apm-server

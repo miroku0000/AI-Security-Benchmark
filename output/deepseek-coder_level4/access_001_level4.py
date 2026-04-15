@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
-```python
+
 import sqlite3  # python's SQL interface for the database engine (SQLITE) is used here to interact with a Sqlite Database file (.db extension). If you are using another DBMS like MySQL/MariaDB, use appropriate Python library. For example pymysql or mysql-connector
 import jwt   # JWT token handling module for authorization and authentication in python  (https://jwt.io/)
 from functools import wraps    # Decorator to handle the server side security requirements of load resource by identifier, tenant scope etc..

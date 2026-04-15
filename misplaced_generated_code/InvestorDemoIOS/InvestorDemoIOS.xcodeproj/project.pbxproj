@@ -1,0 +1,298 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00A0001B2C00000100A00001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A000182C00000100A00001 /* AppDelegate.swift */; };
+		00A0001C2C00000100A00001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A000192C00000100A00001 /* SceneDelegate.swift */; };
+		00A0001D2C00000100A00001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A0001A2C00000100A00001 /* ContentView.swift */; };
+		00A000232C00000100A00001 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 00A000222C00000100A00001 /* LaunchScreen.storyboard */; };
+		00A000282C00000100A00001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 00A000272C00000100A00001 /* Assets.xcassets */; };
+		00A000302C00000100A00001 /* web3swift in Frameworks */ = {isa = PBXBuildFile; productRef = 00A0002F2C00000100A00001 /* web3swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		00A000082C00000100A00001 /* InvestorDemoIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InvestorDemoIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00A000182C00000100A00001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		00A000192C00000100A00001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		00A0001A2C00000100A00001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		00A000212C00000100A00001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		00A000222C00000100A00001 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		00A000272C00000100A00001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		00A000052C00000100A00001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00A000302C00000100A00001 /* web3swift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00A000002C00000100A00001 = {
+			isa = PBXGroup;
+			children = (
+				00A0000F2C00000100A00001 /* InvestorDemoIOS */,
+				00A000092C00000100A00001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		00A000092C00000100A00001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				00A000082C00000100A00001 /* InvestorDemoIOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		00A0000F2C00000100A00001 /* InvestorDemoIOS */ = {
+			isa = PBXGroup;
+			children = (
+				00A000182C00000100A00001 /* AppDelegate.swift */,
+				00A000192C00000100A00001 /* SceneDelegate.swift */,
+				00A0001A2C00000100A00001 /* ContentView.swift */,
+				00A000272C00000100A00001 /* Assets.xcassets */,
+				00A000222C00000100A00001 /* LaunchScreen.storyboard */,
+				00A000212C00000100A00001 /* Info.plist */,
+			);
+			path = InvestorDemoIOS;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		00A000072C00000100A00001 /* InvestorDemoIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00A000152C00000100A00001 /* Build configuration list for PBXNativeTarget "InvestorDemoIOS" */;
+			buildPhases = (
+				00A000042C00000100A00001 /* Sources */,
+				00A000052C00000100A00001 /* Frameworks */,
+				00A000062C00000100A00001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InvestorDemoIOS;
+			packageProductDependencies = (
+				00A0002F2C00000100A00001 /* web3swift */,
+			);
+			productName = InvestorDemoIOS;
+			productReference = 00A000082C00000100A00001 /* InvestorDemoIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		00A000012C00000100A00001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					00A000072C00000100A00001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 00A000042C00000100A00001 /* Build configuration list for PBXProject "InvestorDemoIOS" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			mainGroup = 00A000002C00000100A00001;
+			packageReferences = (
+				00A0002E2C00000100A00001 /* XCRemoteSwiftPackageReference "web3swift" */,
+			);
+			productRefGroup = 00A000092C00000100A00001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				00A000072C00000100A00001 /* InvestorDemoIOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		00A0002E2C00000100A00001 /* XCRemoteSwiftPackageReference "web3swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/web3swift-team/web3swift.git";
+			requirement = {
+				kind = branch;
+				branch = master;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		00A0002F2C00000100A00001 /* web3swift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 00A0002E2C00000100A00001 /* XCRemoteSwiftPackageReference "web3swift" */;
+			productName = web3swift;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin PBXResourcesBuildPhase section */
+		00A000062C00000100A00001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00A000232C00000100A00001 /* LaunchScreen.storyboard in Resources */,
+				00A000282C00000100A00001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		00A000042C00000100A00001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00A0001B2C00000100A00001 /* AppDelegate.swift in Sources */,
+				00A0001C2C00000100A00001 /* SceneDelegate.swift in Sources */,
+				00A0001D2C00000100A00001 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		00A000102C00000100A00001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = InvestorDemoIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.investordemo.InvestorDemoIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00A000112C00000100A00001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = InvestorDemoIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.investordemo.InvestorDemoIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		00A000162C00000100A00001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = InvestorDemoIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.investordemo.InvestorDemoIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00A000172C00000100A00001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = InvestorDemoIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.investordemo.InvestorDemoIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00A000042C00000100A00001 /* Build configuration list for PBXProject "InvestorDemoIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00A000102C00000100A00001 /* Debug */,
+				00A000112C00000100A00001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00A000152C00000100A00001 /* Build configuration list for PBXNativeTarget "InvestorDemoIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00A000162C00000100A00001 /* Debug */,
+				00A000172C00000100A00001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 00A000012C00000100A00001 /* Project object */;
+}
+

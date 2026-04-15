@@ -23,4 +23,3 @@ public bool AuthenticateUser(string domainName, string username, string password
         return false;
     }    
 }
-```

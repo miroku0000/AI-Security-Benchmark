@@ -395,7 +395,10 @@ def generate_individual_report(model_name, report_path, prompts_data, output_dir
                         code = f.read()
                         lines = code.split('\n')
                         # Skip first 4 lines (metadata) but show full code
-                        code_only = '\n'.join(lines[4:]) if len(lines) > 4 else code
+                        code_lines = lines[4:] if len(lines) > 4 else lines
+                        # Filter out markdown code fences
+                        code_lines = [line for line in code_lines if not line.strip().startswith('```')]
+                        code_only = '\n'.join(code_lines)
                         # HTML escape the code to prevent rendering issues
                         code_escaped = html_lib.escape(code_only)
                         html_str = f"""
@@ -458,7 +461,10 @@ def generate_comparison_report(reports, prompts_data, output_dir):
                         code = f.read()
                         lines = code.split('\n')
                         # Skip first 4 lines (metadata)
-                        code_content = '\n'.join(lines[4:]) if len(lines) > 4 else code
+                        code_lines = lines[4:] if len(lines) > 4 else lines
+                        # Filter out markdown code fences
+                        code_lines = [line for line in code_lines if not line.strip().startswith('```')]
+                        code_content = '\n'.join(code_lines)
                 except Exception as e:
                     logger.warning("Could not read code from %s: %s", code_path, e)
                     code_content = "Error loading code"
@@ -1443,9 +1449,9 @@ def find_latest_reports(reports_dir="reports", pattern_filter=None):
     model_files = defaultdict(list)
 
     # Pattern to extract model name and timestamp
-    # Matches: modelname_timestamp.json or modelname_variant_timestamp.json
-    # Supports 208point, 264point, 290point, 350point scales
-    pattern = re.compile(r'^(.+?)(?:_\d{8}_\d{6}|_(?:208|264|290|350)point_\d{8}(?:_\d{6}|_\w+)?)\.json$')
+    # Matches: modelname.json, modelname_variant.json, modelname_timestamp.json, etc.
+    # Supports various formats including 208point, 264point, 290point, 350point scales
+    pattern = re.compile(r'^(.+?)(?:_\d{8}_\d{6}|_(?:208|264|290|350)point_\d{8}(?:_\d{6}|_\w+)?)?\.json$')
 
     for json_file in reports_path.glob('*.json'):
         filename = json_file.name

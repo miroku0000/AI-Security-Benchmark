@@ -1,0 +1,86 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: orders-api-access
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: orders-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/frontend-sa
+              - cluster.local/ns/default/sa/payments-sa
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/orders", "/api/v1/orders/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/ops-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/healthz", "/metrics"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: payments-api-access
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: payments-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/orders-sa
+              - cluster.local/ns/default/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/api/v1/payments", "/api/v1/payments/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/ops-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/healthz", "/metrics"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: inventory-api-access
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: inventory-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/orders-sa
+              - cluster.local/ns/default/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET", "PUT"]
+            paths: ["/api/v1/inventory", "/api/v1/inventory/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/ops-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/healthz", "/metrics"]

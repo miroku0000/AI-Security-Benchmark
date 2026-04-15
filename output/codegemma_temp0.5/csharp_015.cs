@@ -27,4 +27,3 @@ public async Task<bool> PurchaseTickets(int eventId, int ticketQuantity)
         }
     }
 }
-```

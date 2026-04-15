@@ -1,0 +1,20 @@
+# TYPE  DATABASE     USER       ADDRESS        METHOD
+
+local   all          postgres                   peer
+local   replication  all                        reject
+local   all          all                        reject
+
+hostnossl all        all        0.0.0.0/0      reject
+hostnossl all        all        ::/0           reject
+
+hostssl appdb        admin      samenet        scram-sha-256
+hostssl appdb        app        samenet        scram-sha-256
+hostssl appdb        readonly   samenet        scram-sha-256
+
+hostssl all          all        127.0.0.1/32   reject
+hostssl all          all        ::1/128        reject
+hostssl replication  all        0.0.0.0/0      reject
+hostssl replication  all        ::/0           reject
+
+host    all          all        0.0.0.0/0      reject
+host    all          all        ::/0           reject

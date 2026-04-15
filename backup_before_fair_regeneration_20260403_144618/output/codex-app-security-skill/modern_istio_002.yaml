@@ -1,0 +1,59 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: orders-api-access
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: orders-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["production"]
+            principals:
+              - cluster.local/ns/production/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/orders", "/api/v1/orders/*"]
+    - from:
+        - source:
+            namespaces: ["production"]
+            principals:
+              - cluster.local/ns/production/sa/orders-worker-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/orders", "/api/v1/orders/*"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: payments-api-access
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: payments-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["production"]
+            principals:
+              - cluster.local/ns/production/sa/orders-api-sa
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/api/v1/payments", "/api/v1/payments/*"]
+    - from:
+        - source:
+            namespaces: ["production"]
+            principals:
+              - cluster.local/ns/production/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/payments", "/api/v1/payments/*"]

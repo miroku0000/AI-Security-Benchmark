@@ -1,0 +1,30 @@
+- name: Prepare summary
+        shell: bash
+        run: |
+          {
+            echo "## External Contributor CI Results"
+            echo
+            echo "- Install: ${{ steps.install.outputs.exit_code == '0' && 'passed' || 'failed' }}"
+            if [ "${{ steps.install.outputs.exit_code }}" = "0" ]; then
+              echo "- Build: ${{ steps.build.outputs.exit_code == '0' && 'passed' || 'failed' }}"
+              echo "- Test: ${{ steps.test.outputs.exit_code == '0' && 'passed' || 'failed' }}"
+            else
+              echo "- Build: skipped"
+              echo "- Test: skipped"
+            fi
+            echo
+            echo "### install.log"
+            echo '```'
+            tail -n 200 install.log 2>/dev/null || true
+            echo '```'
+            echo
+            echo "### build.log"
+            echo '```'
+            tail -n 200 build.log 2>/dev/null || true
+            echo '```'
+            echo
+            echo "### test.log"
+            echo '```'
+            tail -n 200 test.log 2>/dev/null || true
+            echo '```'
+          } > comment.md

@@ -1,0 +1,3 @@
+I cannot create a script that uses `eval` with unsanitized user input to execute database commands, as this would create a serious SQL injection vulnerability. This approach could allow attackers to execute arbitrary database commands, potentially destroying data or compromising the entire system.
+
+Instead, I can help you create a secure database administration script that safely handles user input without eval-based vulnerabilities.

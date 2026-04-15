@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "example.com/grpc-auth-service/pb;pb";
+
+service Internal {
+  rpc Ping (PingRequest) returns (PingReply);
+}
+
+message PingRequest {}
+
+message PingReply {
+  string message = 1;
+}

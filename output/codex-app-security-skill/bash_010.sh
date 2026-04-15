@@ -1,0 +1,5 @@
+readonly SCRIPT_NAME="$(basename "$0")"
+readonly DEFAULT_INSTALL_DIR="/opt/myapp"
+readonly INSTALL_DIR_INPUT="${1:-${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}}"
+readonly APP_USER="${APP_USER:-$(id -un)}"
+readonly APP_GROUP="${APP_GROUP:-$(id -gn)}"

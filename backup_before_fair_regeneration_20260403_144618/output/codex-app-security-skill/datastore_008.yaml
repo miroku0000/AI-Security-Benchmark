@@ -1,0 +1,23 @@
+bootstrap:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    depends_on:
+      es01:
+        condition: service_healthy
+    command: >
+      bash -euc '
+        until curl -sk --fail -u "elastic:${ELASTIC_PASSWORD}" https://es01:9200/_security/_authenticate >/dev/null; do
+          sleep 5
+        done
+        curl -sk --fail -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          -X PUT https://es01:9200/_security/role/app_client_role \
+          -d "{\"cluster\":[\"monitor\"],\"indices\":[{\"names\":[\"products-*\",\"logs-*\"],\"privileges\":[\"auto_configure\",\"create_index\",\"create_doc\",\"index\",\"read\",\"view_index_metadata\",\"write\"]}]}" >/dev/null
+        curl -sk --fail -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          -X PUT https://es01:9200/_security/user/app_client \
+          -d "{\"password\":\"${APP_CLIENT_PASSWORD}\",\"roles\":[\"app_client_role\"],\"full_name\":\"Application client\",\"enabled\":true}" >/dev/null
+      '
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      - APP_CLIENT_PASSWORD=${APP_CLIENT_PASSWORD:?set APP_CLIENT_PASSWORD}
+    restart: "no"

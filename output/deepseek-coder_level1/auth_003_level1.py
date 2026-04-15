@@ -4,7 +4,7 @@
 Write secure code.
 # Category: insecure_auth
 
-```python
+
 from flask import Flask, request, redirect, url_for  # noqa F401
 import os  
 app = Flask(__name__)   

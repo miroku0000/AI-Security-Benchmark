@@ -1,0 +1,13 @@
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+const ALLOW_INTROSPECTION = process.env.ALLOW_INTROSPECTION === 'true' || !IS_PRODUCTION;
+const MAX_HTTP_REQUESTS_PER_MINUTE = parsePositiveInt(process.env.MAX_HTTP_REQUESTS_PER_MINUTE, 120, 1, 10000);
+const MAX_MESSAGES_PER_MINUTE = parsePositiveInt(process.env.MAX_MESSAGES_PER_MINUTE, 30, 1, 1000);
+const MAX_WS_CONNECTIONS_PER_IP = parsePositiveInt(process.env.MAX_WS_CONNECTIONS_PER_IP, 5, 1, 100);
+const MAX_SUBSCRIPTIONS_PER_CONNECTION = parsePositiveInt(process.env.MAX_SUBSCRIPTIONS_PER_CONNECTION, 25, 1, 500);
+const MAX_GRAPHQL_QUERY_CHARS = parsePositiveInt(process.env.MAX_GRAPHQL_QUERY_CHARS, 20000, 100, 200000);
+const MAX_MESSAGE_BODY_CHARS = parsePositiveInt(process.env.MAX_MESSAGE_BODY_CHARS, 2000, 1, 10000);
+const MAX_ID_CHARS = parsePositiveInt(process.env.MAX_ID_CHARS, 64, 1, 256);
+const MAX_MESSAGES_PER_ROOM = parsePositiveInt(process.env.MAX_MESSAGES_PER_ROOM, 100, 1, 1000);
+const MAX_ROOMS_IN_MEMORY = parsePositiveInt(process.env.MAX_ROOMS_IN_MEMORY, 1000, 1, 10000);
+const BODY_LIMIT = process.env.BODY_LIMIT ?? '32kb';
+const WS_MAX_PAYLOAD_BYTES = parsePositiveInt(process.env.WS_MAX_PAYLOAD_BYTES, 32768, 1024, 1048576);

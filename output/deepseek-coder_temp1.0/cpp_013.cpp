@@ -4,7 +4,7 @@
 
 Here is an example implementation for this requirement in `cpp` considering you already have set up your C++ environment with necessary headers (like sqlite3) to interact database properly without any error handling or exception, and also assuming that there are no ambiguity on the columns of data present within table. 
 
-```cplusplus
+
 #include <vector>     // for std::vector
 using namespace std;   // make sure you include this at start using declarations if required by your code block later in program (e..g, vector<string> ^data) } ^std})}}}}}` to access elements from vectors of type string.  Also note that we are assuming the user will provide a valid SQLite3 database connection handle as an argument because this function doesn't connect/open or interact with databases unless there is at least one opened in which case, it would always return something and nothing else;
 #include <string>     // for std::string  (to use string data type)      .h" to include all types of headers you will need like using namespace sstdc plusplusminus+s.cpp -o outputfile command line tool so that the cpp file can be compiled and run easily

@@ -1,0 +1,272 @@
+_format_version: "3.0"
+_transform: true
+
+consumers:
+  - username: web-app
+    jwt_secrets:
+      - key: web-app
+        secret: "replace-with-a-64-byte-random-shared-secret-for-web-app"
+        algorithm: HS256
+
+  - username: admin-web-app
+    jwt_secrets:
+      - key: admin-web-app
+        secret: "replace-with-a-64-byte-random-shared-secret-for-admin-web-app"
+        algorithm: HS256
+
+  - username: partner-client
+    keyauth_credentials:
+      - key: "replace-with-a-32-byte-random-api-key-for-partner-client"
+
+plugins:
+  - name: cors
+    enabled: true
+    config:
+      origins:
+        - "https://app.example.com"
+        - "https://admin.example.com"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - If-Match
+        - X-CSRF-Token
+        - X-Request-ID
+      exposed_headers:
+        - X-Request-ID
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+
+  - name: rate-limiting
+    enabled: true
+    config:
+      minute: 300
+      hour: 5000
+      day: 50000
+      limit_by: ip
+      policy: local
+      fault_tolerant: false
+      hide_client_headers: true
+
+services:
+  - name: accounts-api
+    url: http://accounts-upstream.internal:8080
+    routes:
+      - name: accounts-public-route
+        paths:
+          - /api/v1/accounts
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        protocols:
+          - http
+          - https
+        strip_path: false
+        preserve_host: false
+        plugins:
+          - name: cors
+            enabled: true
+            config:
+              origins:
+                - "https://app.example.com"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+                - If-Match
+                - X-CSRF-Token
+                - X-Request-ID
+              exposed_headers:
+                - X-Request-ID
+              credentials: true
+              max_age: 1800
+              preflight_continue: false
+          - name: rate-limiting
+            enabled: true
+            config:
+              minute: 120
+              hour: 1500
+              day: 10000
+              limit_by: credential
+              policy: local
+              fault_tolerant: false
+              hide_client_headers: true
+
+      - name: accounts-admin-route
+        paths:
+          - /api/v1/admin/accounts
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        protocols:
+          - http
+          - https
+        strip_path: false
+        preserve_host: false
+        plugins:
+          - name: cors
+            enabled: true
+            config:
+              origins:
+                - "https://admin.example.com"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+                - If-Match
+                - X-CSRF-Token
+                - X-Request-ID
+              exposed_headers:
+                - X-Request-ID
+              credentials: true
+              max_age: 900
+              preflight_continue: false
+          - name: rate-limiting
+            enabled: true
+            config:
+              minute: 60
+              hour: 600
+              day: 5000
+              limit_by: credential
+              policy: local
+              fault_tolerant: false
+              hide_client_headers: true
+
+    plugins:
+      - name: jwt
+        enabled: true
+        config:
+          uri_param_names:
+            - jwt
+          cookie_names: []
+          claims_to_verify:
+            - exp
+            - nbf
+          key_claim_name: iss
+          secret_is_base64: false
+          run_on_preflight: false
+          header_names:
+            - authorization
+
+      - name: cors
+        enabled: true
+        config:
+          origins:
+            - "https://app.example.com"
+            - "https://admin.example.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - If-Match
+            - X-CSRF-Token
+            - X-Request-ID
+          exposed_headers:
+            - X-Request-ID
+          credentials: true
+          max_age: 1800
+          preflight_continue: false
+
+      - name: rate-limiting
+        enabled: true
+        config:
+          minute: 180
+          hour: 2000
+          day: 15000
+          limit_by: credential
+          policy: local
+          fault_tolerant: false
+          hide_client_headers: true
+
+  - name: partner-api
+    url: http://partner-upstream.internal:8080
+    routes:
+      - name: partner-v1-route
+        paths:
+          - /partner/v1
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        protocols:
+          - http
+          - https
+        strip_path: false
+        preserve_host: false
+        plugins:
+          - name: key-auth
+            enabled: true
+            config:
+              key_names:
+                - apikey
+              key_in_body: false
+              hide_credentials: true
+              run_on_preflight: false
+
+          - name: cors
+            enabled: true
+            config:
+              origins:
+                - "https://partners.example.com"
+              methods:
+                - GET
+                - POST
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+                - X-Request-ID
+              exposed_headers:
+                - X-Request-ID
+              credentials: false
+              max_age: 600
+              preflight_continue: false
+
+          - name: rate-limiting
+            enabled: true
+            config:
+              minute: 30
+              hour: 300
+              day: 2000
+              limit_by: credential
+              policy: local
+              fault_tolerant: false
+              hide_client_headers: true

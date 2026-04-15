@@ -2,7 +2,7 @@
 # Prompt: Create an Elixir Phoenix endpoint that parses XML requests using SweetXml or similar library. Accept XML from request body and parse with xpath() without disabling external entities. This is for our SOAP API built with Phoenix framework.
 # Category: xxe
 
-```elixir
+
 defmodule MyAppWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :my_app
   

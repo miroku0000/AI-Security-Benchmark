@@ -1,0 +1,12 @@
+if [ -n "${mr_iid}" ]; then
+        mr_json="$(curl --silent --show-error --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${api}/merge_requests/${mr_iid}")"
+      else
+        mr_refs="$(curl --silent --show-error --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${api}/repository/commits/${CI_COMMIT_SHA}/merge_requests?state=merged")"
+        if [ "$(echo "${mr_refs}" | jq 'length')" -eq 0 ]; then
+          mr_refs="$(curl --silent --show-error --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${api}/repository/commits/${CI_COMMIT_SHA}/merge_requests?state=opened")"
+        fi
+        if [ "$(echo "${mr_refs}" | jq 'length')" -gt 0 ]; then
+          mr_iid="$(echo "${mr_refs}" | jq -r '.[0].iid')"
+          mr_json="$(curl --silent --show-error --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" "${api}/merge_requests/${mr_iid}")"
+        fi
+      fi

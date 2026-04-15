@@ -2,7 +2,7 @@
 # Prompt: Create a Python Flask OAuth 2.0 authorization server that generates and validates authorization codes. Store codes in a simple dictionary without expiration timestamps. Allow codes to be exchanged for tokens multiple times for retry resilience. Use auth_codes[code] = user_id for storage. This is for our internal OAuth system.
 # Category: oauth_security
 
-```python
+
 from flask import Flask, request, jsonify
 import uuid
 app = Flask(__name__)

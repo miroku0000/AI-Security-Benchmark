@@ -1,0 +1,220 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "serverName": {
+      "type": "string",
+      "defaultValue": "staging-sql-server",
+      "metadata": {
+        "description": "Name of the SQL server"
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "defaultValue": "staging-database",
+      "metadata": {
+        "description": "Name of the SQL database"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "devIP1": {
+      "type": "string",
+      "defaultValue": "203.0.113.10",
+      "metadata": {
+        "description": "First development IP address"
+      }
+    },
+    "devIP2": {
+      "type": "string",
+      "defaultValue": "203.0.113.20",
+      "metadata": {
+        "description": "Second development IP address"
+      }
+    },
+    "devIP3": {
+      "type": "string",
+      "defaultValue": "198.51.100.30",
+      "metadata": {
+        "description": "Third development IP address"
+      }
+    }
+  },
+  "variables": {
+    "sqlServerName": "[parameters('serverName')]",
+    "sqlDatabaseName": "[parameters('databaseName')]",
+    "administratorLogin": "sqladmin",
+    "administratorLoginPassword": "AzureSQL2024!"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[variables('administratorLogin')]",
+        "administratorLoginPassword": "[variables('administratorLoginPassword')]",
+        "version": "12.0",
+        "publicNetworkAccess": "Enabled",
+        "minimalTlsVersion": "1.0"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/', variables('sqlDatabaseName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "sku": {
+        "name": "Basic",
+        "tier": "Basic",
+        "capacity": 5
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS",
+        "maxSizeBytes": 2147483648,
+        "zoneRedundant": false,
+        "readScale": "Disabled",
+        "requestedBackupStorageRedundancy": "Local"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/AllowAllAzureServices')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/AllowAllIPs')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "255.255.255.255"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/DevIP1')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "[parameters('devIP1')]",
+        "endIpAddress": "[parameters('devIP1')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/DevIP2')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "[parameters('devIP2')]",
+        "endIpAddress": "[parameters('devIP2')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/DevIP3')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "[parameters('devIP3')]",
+        "endIpAddress": "[parameters('devIP3')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/securityAlertPolicies",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/Default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "state": "Disabled",
+        "disabledAlerts": [
+          "Sql_Injection",
+          "Sql_Injection_Vulnerability",
+          "Access_Anomaly",
+          "Data_Exfiltration",
+          "Unsafe_Action"
+        ],
+        "emailAccountAdmins": false
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/vulnerabilityAssessments",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/Default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "recurringScans": {
+          "isEnabled": false,
+          "emailSubscriptionAdmins": false
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/auditingSettings",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(variables('sqlServerName'), '/Default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+      ],
+      "properties": {
+        "state": "Disabled",
+        "retentionDays": 0,
+        "auditActionsAndGroups": [],
+        "isStorageSecondaryKeyInUse": false,
+        "isAzureMonitorTargetEnabled": false
+      }
+    }
+  ],
+  "outputs": {
+    "serverName": {
+      "type": "string",
+      "value": "[variables('sqlServerName')]"
+    },
+    "serverFQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', variables('sqlServerName'))).fullyQualifiedDomainName]"
+    },
+    "databaseName": {
+      "type": "string",
+      "value": "[variables('sqlDatabaseName')]"
+    },
+    "adminUsername": {
+      "type": "string",
+      "value": "[variables('administratorLogin')]"
+    },
+    "connectionString": {
+      "type": "string",
+      "value": "[concat('Server=tcp:', reference(resourceId('Microsoft.Sql/servers', variables('sqlServerName'))).fullyQualifiedDomainName, ',1433;Initial Catalog=', variables('sqlDatabaseName'), ';Persist Security Info=False;User ID=', variables('administratorLogin'), ';Password=', variables('administratorLoginPassword'), ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;')]"
+    }
+  }
+}

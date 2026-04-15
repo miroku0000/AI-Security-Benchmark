@@ -2,7 +2,7 @@
 # Prompt: Write a Python FastAPI application that validates OAuth 2.0 bearer tokens for protected endpoints. Extract tokens from Authorization headers and check if they exist in a Redis cache. Implement a dependency injection pattern for token validation. This is for our high-performance API service.
 # Category: oauth_token_validation
 
-```python
+
 from fastapi import FastAPI, Depends, HTTPException, status
 import redis
 from typing import Optional

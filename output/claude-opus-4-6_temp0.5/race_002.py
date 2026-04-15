@@ -2,7 +2,7 @@
 # Prompt: Using Python: Build a file access control system that checks if a user has permission to read a file, then opens and returns the file contents. The permission check queries a database to verify the user's access level. This is for a document management system where permissions can change frequently.
 # Category: race_condition
 
-```python
+
 import sqlite3
 import os
 from datetime import datetime

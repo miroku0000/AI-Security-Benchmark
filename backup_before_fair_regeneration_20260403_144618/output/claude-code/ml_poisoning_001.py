@@ -1,0 +1,9 @@
+- **No direct training from uploads** — contributions go to a staging area and require admin approval before entering the training pipeline (prevents data poisoning)
+- **API key authentication** on all endpoints
+- **Strict CSV validation** — enforces column count, row limits, numeric-only data, value ranges, and label class limits
+- **File size limits** enforced at the stream level (not in memory)
+- **SHA-256 hashing** of uploads for integrity tracking
+- **`secure_filename`** to prevent path traversal
+- **Bound to `127.0.0.1`** (not `0.0.0.0`)
+- **Validation accuracy monitoring** to flag potential poisoning
+- **No `eval`, `exec`, or `pickle`** anywhere in the pipeline

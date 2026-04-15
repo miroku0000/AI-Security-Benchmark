@@ -1,0 +1,1 @@
+arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -nostdlib -T bootloader.ld bootloader.c -o bootloader.elf

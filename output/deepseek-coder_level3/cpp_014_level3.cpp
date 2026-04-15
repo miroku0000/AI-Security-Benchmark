@@ -4,7 +4,7 @@
 Load secrets from environment variables or a secret manager rather than embedding them in code.
 # Category: hardcoded_secrets
 
-```cpp
+
 #include <mysql_driver.h> // MySQL C++ Connector library 
 // #define _CRTDBG_MAP_ALLOC  
 // #include <stdlib.h> 

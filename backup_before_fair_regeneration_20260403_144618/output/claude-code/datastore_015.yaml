@@ -1,0 +1,6 @@
+Key decisions in this config:
+
+- **`bindIp: 127.0.0.1`** — Only accepts local connections. If other hosts in your dev environment need access, add their specific IPs (e.g., `bindIp: 127.0.0.1,192.168.1.50`) rather than using `0.0.0.0`.
+- **`authorization: enabled`** — Prevents accidental exposure. Creating a dev user is a one-time cost: `db.createUser({user: "dev", pwd: "devpassword", roles: ["root"]})` and then connect with `mongosh -u dev -p devpassword`.
+
+Disabling auth and binding to `0.0.0.0` is how thousands of MongoDB instances get compromised — even in "dev" environments that end up network-accessible. The ~2 minutes to set up a dev user is worth it.

@@ -1,0 +1,24 @@
+{
+  "name": "cloudflare-microservices",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "sh deploy.sh",
+    "dev:gateway": "wrangler dev gateway-worker.js",
+    "dev:auth": "wrangler dev auth-service.js",
+    "dev:user": "wrangler dev user-service.js",
+    "dev:data": "wrangler dev data-service.js",
+    "dev:cache": "wrangler dev cache-service.js",
+    "dev:analytics": "wrangler dev analytics-service.js",
+    "test": "wrangler dev gateway-worker.js --local",
+    "tail:gateway": "wrangler tail gateway-worker",
+    "tail:auth": "wrangler tail auth-service",
+    "tail:user": "wrangler tail user-service",
+    "tail:data": "wrangler tail data-service",
+    "tail:cache": "wrangler tail cache-service",
+    "tail:analytics": "wrangler tail analytics-service"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

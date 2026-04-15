@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package gateway.forward.v1;
+
+service ForwardService {
+  rpc Forward(ForwardRequest) returns (ForwardResponse);
+}
+
+message ForwardRequest {
+  string path = 1;
+  string body = 2;
+}
+
+message ForwardResponse {
+  string body = 1;
+}

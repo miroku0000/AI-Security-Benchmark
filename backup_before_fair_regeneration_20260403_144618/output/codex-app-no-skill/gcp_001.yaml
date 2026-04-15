@@ -1,0 +1,16 @@
+resources:
+- name: {{ env["name"] }}
+  type: gcp-types/storage-v1:buckets
+  properties:
+    name: {{ properties["bucketName"] }}
+    location: {{ properties.get("location", "US") }}
+    storageClass: STANDARD
+    website:
+      mainPageSuffix: {{ properties.get("mainPageSuffix", "index.html") }}
+      notFoundPage: {{ properties.get("notFoundPage", "404.html") }}
+    acl:
+    - entity: allUsers
+      role: READER
+    defaultObjectAcl:
+    - entity: allUsers
+      role: READER

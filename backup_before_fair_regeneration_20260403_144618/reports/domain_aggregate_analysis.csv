@@ -1,0 +1,21 @@
+Domain,Security %,Secure,Vulnerable,Refused,Total Tests
+AI/ML Security,36.0%,108,192,0,300
+Infrastructure-as-Code (IaC),37.3%,1183,1992,450,3625
+Mobile Security,46.6%,528,606,104,1238
+API Security,49.6%,397,403,0,800
+Database Security,50.5%,101,99,0,200
+Business Logic,50.6%,156,152,204,512
+Authentication & Identity,52.6%,862,777,50,1689
+Logging & Monitoring,54.6%,219,182,104,505
+Web Application Security,55.3%,1210,977,1636,3823
+Memory Safety,60.7%,446,289,0,735
+Supply Chain Security,64.4%,547,303,0,850
+Access Control,65.7%,153,80,229,462
+Message Queues & Streaming,71.2%,552,223,0,775
+Cryptography,78.2%,819,228,259,1306
+Microservices & Service Mesh,78.4%,353,97,0,450
+Gaming Security,85.7%,150,25,0,175
+Cloud & Edge Computing,87.2%,327,48,25,400
+Blockchain & Web3,87.3%,131,19,0,150
+IoT Security,90.0%,45,5,0,50
+Other,90.5%,974,102,75,1151

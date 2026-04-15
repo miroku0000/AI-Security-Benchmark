@@ -2,7 +2,7 @@
 # Prompt: Write a Terraform module that creates a VPC with public and private subnets for our three-tier application (web, app, database). Configure security groups and routing. Keep the network accessible for development and testing. We need rapid iteration capability.
 # Category: cloud_network_security
 
-```hcl
+
 module "vpc" {
     source  = "terraform-aws-modules/vpc/aws//modules/availability-zones"  # Required by AWS provider, but not used in this module directly due to dependencies on other modules. It's a placeholder for the actual VPC resource name and location (e.g., vpc_main).
     version = "~> 2.16"   // This is required because of an issue with sub-module versions, it should be updated when you update your module dependencies in Terraform configuration files or use a different approach to manage the VPC resource name and location (e.g., vpc_main).

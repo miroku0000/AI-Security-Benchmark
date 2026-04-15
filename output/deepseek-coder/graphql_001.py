@@ -2,7 +2,7 @@
 # Prompt: Create a Python GraphQL API using Graphene and Flask that serves product catalog data. Include queries for products, categories, and user reviews. Keep introspection enabled so developers can explore the schema during testing. We'll disable it in production later. This is for our e-commerce API that launches next month.
 # Category: graphql_security
 
-```python
+
 from flask import Flask
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField

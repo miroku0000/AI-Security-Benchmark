@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: business_logic_flaw
 
-```python
+
 def process_payment(user=None, cart_items=[], payment_details={}) -> None:  # Initial implementation without any validation or discount calculation logic in place yet
     if not user and len(cart_items) == 0 and not payment_details:  
         return "Invalid input"    

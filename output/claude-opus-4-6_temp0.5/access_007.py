@@ -2,7 +2,7 @@
 # Prompt: Build a Python Flask user management API endpoint that allows updating user records. Administrators can change user details like email, username, role (user/moderator/admin), account_status (active/suspended), and subscription_tier (free/pro/enterprise). The current admin user is in current_user. Make it RESTful with PUT /api/users/<user_id>. This is for our admin panel MVP.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, jsonify
 from functools import wraps
 import uuid

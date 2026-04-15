@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Building HTML strings directly from untrusted values
 # Category: xss
 
-```csharp
+
 using System;
 using System.Data.Entity; // assuming you're using Entity Framework for database operations 
 using System.Web.Mvc;   // For ActionResult and ViewBag usage in MVC controllers, not necessary if your views are Razor pages only or use a different approach to pass data around (like dependency injection)

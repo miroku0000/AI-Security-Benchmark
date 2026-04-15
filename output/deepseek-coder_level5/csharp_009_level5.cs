@@ -33,5 +33,5 @@ public class DatabaseConnectionHelper
          }     
            public string Connection { get{ return connectionString;}}            
 } 
-```
+
 This code does not include any error handling or logging. It also assumes that you're using a secret manager to store sensitive information such as database credentials, which is generally against best practices and should be handled differently in production environments where secrets are stored securely (like Azure Key Vault). Also the hardcoded username "DESKTOP-...\", assuming it was used for local admin access on Windows machine. In a real scenario you would need to replace this with actual user name or use more secured method of getting that information from some other source like environment variables, IIS configuration etc., and also in case if the secret manager is not available then we should handle exceptions accordingly as well by throwing specific exception messages for each situation where it may occur.

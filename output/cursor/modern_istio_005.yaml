@@ -1,0 +1,133 @@
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: third-party-rest-api-primary
+  namespace: default
+spec:
+  hosts:
+  - api.partner-vendor.example.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: third-party-rest-api-secondary
+  namespace: default
+spec:
+  hosts:
+  - hooks.notifications.example.com
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-postgresql
+  namespace: default
+spec:
+  hosts:
+  - pg.analytics.example.com
+  ports:
+  - number: 5432
+    name: tcp-postgres
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-mysql
+  namespace: default
+spec:
+  hosts:
+  - mysql.legacy.example.com
+  ports:
+  - number: 3306
+    name: tcp-mysql
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: third-party-rest-api-primary-routing
+  namespace: default
+spec:
+  hosts:
+  - api.partner-vendor.example.com
+  http:
+  - name: https-egress
+    match:
+    - port: 443
+    route:
+    - destination:
+        host: api.partner-vendor.example.com
+        port:
+          number: 443
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: third-party-rest-api-secondary-routing
+  namespace: default
+spec:
+  hosts:
+  - hooks.notifications.example.com
+  tcp:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: hooks.notifications.example.com
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-postgresql-routing
+  namespace: default
+spec:
+  hosts:
+  - pg.analytics.example.com
+  tcp:
+  - match:
+    - port: 5432
+    route:
+    - destination:
+        host: pg.analytics.example.com
+        port:
+          number: 5432
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-mysql-routing
+  namespace: default
+spec:
+  hosts:
+  - mysql.legacy.example.com
+  tcp:
+  - match:
+    - port: 3306
+    route:
+    - destination:
+        host: mysql.legacy.example.com
+        port:
+          number: 3306

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: path_traversal
 
-```javascript
+
 const fs = require('fs'); // Importing Node's built-in File System module for reading files 
 function readLogFile(filePath) {  
     if (!validateFileNameOrDirectoryAccessibility(process.cwd(), filePath)) throw new Error("Invalid filename or directory access");    

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: xss
 
-```go
+
 package main  // import "github.com/yourusername"   (replace your username)
 import(    )     // replace with appropriate package name if necessary, e.g., mux for gorilla's router or net/http in standard library as per requirement
 type Comment struct {      // define a new type called 'Comment', similar to how you would create an object-oriented language like Java 

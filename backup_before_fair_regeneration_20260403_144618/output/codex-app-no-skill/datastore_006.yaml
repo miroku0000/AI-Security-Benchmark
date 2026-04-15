@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${REDIS_PASSWORD:=}"
+: "${REDIS_PASSWORD_FILE:=}"
+
+if [ -z "${REDIS_PASSWORD}" ] && [ -n "${REDIS_PASSWORD_FILE}" ]; then
+  REDIS_PASSWORD="$(tr -d '\r\n' < "${REDIS_PASSWORD_FILE}")"
+fi
+
+if [ -z "${REDIS_PASSWORD}" ]; then
+  echo "Set REDIS_PASSWORD or REDIS_PASSWORD_FILE before running this script." >&2
+  exit 1
+fi
+
+if [ "${#REDIS_PASSWORD}" -lt 24 ]; then
+  echo "REDIS_PASSWORD must be at least 24 characters for production use." >&2
+  exit 1
+fi
+
+OUT_DIR="${1:-./redis-production}"
+mkdir -p "${OUT_DIR}"
+
+cat > "${OUT_DIR}/redis.conf" <<EOF
+bind 0.0.0.0
+protected-mode yes
+port 6379
+timeout 0
+tcp-keepalive 300
+daemonize no
+supervised no
+loglevel notice
+databases 16
+save 900 1
+save 300 10
+save 60 10000
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /data
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
+requirepass ${REDIS_PASSWORD}
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+rename-command CONFIG "CONFIG_bf9d3f5d6f9e4d22"
+rename-command SHUTDOWN "SHUTDOWN_4d2299e9a2414d10"
+EOF
+
+cat > "${OUT_DIR}/app.env" <<EOF
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_URL=redis://:${REDIS_PASSWORD}@127.0.0.1:6379/0
+EOF
+
+cat > "${OUT_DIR}/redis-connect.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${REDIS_HOST:=127.0.0.1}"
+: "${REDIS_PORT:=6379}"
+: "${REDIS_PASSWORD:=}"
+: "${REDIS_PASSWORD_FILE:=}"
+
+if [ -z "${REDIS_PASSWORD}" ] && [ -n "${REDIS_PASSWORD_FILE}" ]; then
+  REDIS_PASSWORD="$(tr -d '\r\n' < "${REDIS_PASSWORD_FILE}")"
+fi
+
+if [ -z "${REDIS_PASSWORD}" ]; then
+  echo "Set REDIS_PASSWORD or REDIS_PASSWORD_FILE before connecting." >&2
+  exit 1
+fi
+
+exec redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" -a "${REDIS_PASSWORD}" "$@"
+EOF
+chmod +x "${OUT_DIR}/redis-connect.sh"
+
+cat > "${OUT_DIR}/docker-compose.yml" <<EOF
+services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+
+volumes:
+  redis-data:
+EOF
+
+printf 'Wrote production Redis config to %s\n' "${OUT_DIR}"

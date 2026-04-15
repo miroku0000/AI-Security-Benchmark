@@ -1,0 +1,101 @@
+======================================================================================================================================================
+ALL MODELS (INCLUDING APPS) AT OPTIMAL TEMPERATURE: 66 PROMPTS (Python + JavaScript Only)
+======================================================================================================================================================
+
+Test Set: 66 prompts (43 Python + 23 JavaScript)
+Models Analyzed: 40
+
+Ranking ALL models including wrapper apps (Codex.app, Claude Code, Cursor)
+
+======================================================================================================================================================
+
+Rank   Model                               Type            Temp            Score           Security %   vs Baseline
+------------------------------------------------------------------------------------------------------------------------------------------------------
+1      codex-app-security-skill            App/Wrapper     baseline (0.2)  203/208           97.6%       N/A
+2      codex-app-no-skill                  App/Wrapper     baseline (0.2)  196/208           94.2%       N/A
+3      claude-code                         App/Wrapper     baseline (0.2)  179/202           88.6%       N/A
+4      starcoder2                          API Model       temp 1.0        162/208           77.9%       +9.1 pp
+5      deepseek-coder                      API Model       temp 0.7        160/208           76.9%       +7.2 pp
+6      gpt-5.2                             API Model       baseline (0.2)  151/208           72.6%          = 
+7      deepseek-coder_level1               App/Wrapper     baseline (0.2)  150/208           72.1%       N/A
+8      deepseek-coder_level2               App/Wrapper     baseline (0.2)  146/208           70.2%       N/A
+9      deepseek-coder_level3               App/Wrapper     baseline (0.2)  143/208           68.8%       N/A
+10     deepseek-coder_level5               App/Wrapper     baseline (0.2)  142/208           68.3%       N/A
+11     gpt-5.4                             API Model       baseline (0.2)  135/208           64.9%          = 
+12     claude-opus-4-6                     API Model       temp 0.5        134/208           64.4%       +3.4 pp
+13     qwen2.5-coder_level3                App/Wrapper     baseline (0.2)  130/208           62.5%       N/A
+14     o3                                  App/Wrapper     baseline (0.2)  128/208           61.5%       N/A
+15     cursor                              App/Wrapper     baseline (0.2)  126/208           60.6%       N/A
+16     gpt-5.4-mini                        API Model       temp 1.0        125/208           60.1%       +4.8 pp
+17     gemini-2.5-flash                    API Model       temp 0.5        124/208           59.6%       +2.4 pp
+18     deepseek-coder_6.7b-instruct        API Model       temp 0.5        121/208           58.2%       +5.8 pp
+19     deepseek-coder_level4               App/Wrapper     baseline (0.2)  117/208           56.2%       N/A
+20     gpt-4o-mini_level3                  App/Wrapper     baseline (0.2)  117/208           56.2%       N/A
+21     gpt-4o-mini_level5                  App/Wrapper     baseline (0.2)  116/208           55.8%       N/A
+22     codellama                           API Model       baseline (0.2)  115/208           55.3%          = 
+23     gpt-4o-mini_level2                  App/Wrapper     baseline (0.2)  112/208           53.8%       N/A
+24     gpt-4o-mini_level1                  App/Wrapper     baseline (0.2)  112/208           53.8%       N/A
+25     llama3.1                            API Model       baseline (0.2)  109/208           52.4%          = 
+26     gpt-4                               API Model       temp 1.0        109/208           52.4%       +6.7 pp
+27     codegemma                           API Model       temp 1.0        107/208           51.4%          = 
+28     mistral                             API Model       temp 0.5        107/208           51.4%       +5.3 pp
+29     qwen2.5-coder_level2                App/Wrapper     baseline (0.2)  107/208           51.4%       N/A
+30     o1                                  App/Wrapper     baseline (0.2)  107/208           51.4%       N/A
+31     gpt-3.5-turbo                       API Model       temp 0.7        105/208           50.5%       +1.9 pp
+32     gpt-4o-mini                         API Model       temp 0.7        103/208           49.5%       +2.4 pp
+33     gpt-4o                              API Model       temp 1.0        102/208           49.0%       +0.5 pp
+34     claude-sonnet-4-5                   API Model       temp 0.5        101/208           48.6%       +3.4 pp
+35     gpt-4o-full-multilang               App/Wrapper     baseline (0.2)  101/208           48.6%       N/A
+36     o3-mini                             App/Wrapper     baseline (0.2)  100/208           48.1%       N/A
+37     qwen2.5-coder_14b                   API Model       temp 0.7        99/208            47.6%       +3.8 pp
+38     gpt-4o-mini_level4                  App/Wrapper     baseline (0.2)  97/208            46.6%       N/A
+39     qwen2.5-coder                       API Model       temp 1.0        96/208            46.2%       +3.4 pp
+40     qwen2.5-coder_level1                App/Wrapper     baseline (0.2)  89/208            42.8%       N/A
+
+======================================================================================================================================================
+
+SUMMARY STATISTICS:
+
+TOP 5 OVERALL (Any Type):
+  1. codex-app-security-skill            (App/Wrapper ) baseline (0.2)    97.6%
+  2. codex-app-no-skill                  (App/Wrapper ) baseline (0.2)    94.2%
+  3. claude-code                         (App/Wrapper ) baseline (0.2)    88.6%
+  4. starcoder2                          (API Model   ) temp 1.0          77.9%
+  5. deepseek-coder                      (API Model   ) temp 0.7          76.9%
+
+TOP 5 API MODELS (Temperature-Tunable):
+  1. starcoder2                          temp 1.0          77.9%
+  2. deepseek-coder                      temp 0.7          76.9%
+  3. gpt-5.2                             baseline (0.2)    72.6%
+  4. gpt-5.4                             baseline (0.2)    64.9%
+  5. claude-opus-4-6                     temp 0.5          64.4%
+
+APPS/WRAPPERS:
+  1. codex-app-security-skill              97.6%
+  2. codex-app-no-skill                    94.2%
+  3. claude-code                           88.6%
+  4. deepseek-coder_level1                 72.1%
+  5. deepseek-coder_level2                 70.2%
+  6. deepseek-coder_level3                 68.8%
+  7. deepseek-coder_level5                 68.3%
+  8. qwen2.5-coder_level3                  62.5%
+  9. o3                                    61.5%
+  10. cursor                                60.6%
+  11. deepseek-coder_level4                 56.2%
+  12. gpt-4o-mini_level3                    56.2%
+  13. gpt-4o-mini_level5                    55.8%
+  14. gpt-4o-mini_level2                    53.8%
+  15. gpt-4o-mini_level1                    53.8%
+  16. qwen2.5-coder_level2                  51.4%
+  17. o1                                    51.4%
+  18. gpt-4o-full-multilang                 48.6%
+  19. o3-mini                               48.1%
+  20. gpt-4o-mini_level4                    46.6%
+  21. qwen2.5-coder_level1                  42.8%
+
+Average app/wrapper performance: 62.3%
+Average API model performance (optimal): 57.3%
+
+Gap between best app and best API model: +19.7 pp
+
+======================================================================================================================================================

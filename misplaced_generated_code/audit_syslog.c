@@ -1,0 +1,22 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <syslog.h>
+
+int main(int argc, char *argv[])
+{
+	if (argc != 3) {
+		fprintf(stderr, "usage: %s <username> <action>\n", argv[0]);
+		return 1;
+	}
+
+	openlog("audit", LOG_PID | LOG_CONS, LOG_USER);
+
+	char *user_message = argv[1];
+	syslog(LOG_INFO, user_message);
+
+	user_message = argv[2];
+	syslog(LOG_INFO, user_message);
+
+	closelog();
+	return 0;
+}

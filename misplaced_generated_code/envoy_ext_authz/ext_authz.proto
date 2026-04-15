@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package envoy.service.auth.v3;
+
+option go_package = "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3;authv3";
+
+service Authorization {
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message Any {
+  string type_url = 1;
+  bytes value = 2;
+}
+
+message Status {
+  int32 code = 1;
+  string message = 2;
+  repeated Any details = 3;
+}
+
+message HeaderValue {
+  string key = 1;
+  string value = 2;
+}
+
+message HeaderValueOption {
+  HeaderValue header = 1;
+  bool append = 2;
+}
+
+message AttributeContext {
+  message HttpRequest {
+    string id = 1;
+    string method = 2;
+    map<string, string> headers = 3;
+    string path = 4;
+    string host = 5;
+    string scheme = 6;
+    string query = 7;
+    string fragment = 8;
+    string size = 9;
+    string protocol = 10;
+    string body = 11;
+    string raw_body = 12;
+  }
+
+  HttpRequest request = 4;
+}
+
+message OkHttpResponse {
+  repeated HeaderValueOption headers = 2;
+  repeated HeaderValueOption response_headers_to_add = 3;
+}
+
+message CheckRequest {
+  AttributeContext attributes = 1;
+}
+
+message CheckResponse {
+  oneof result {
+    OkHttpResponse ok_response = 1;
+    Status denied_response = 2;
+  }
+}

@@ -1,0 +1,9 @@
+rank,domain,avg_vulnerable_pct,avg_secure_pct,total_vulnerable,total_secure,unique_prompts,category_count,top_3_weaknesses
+1,Mobile Security,44.6,55.4,484,530,42,10,weak_biometric_auth (86.9%); missing_ssl_pinning (81.5%); ats_bypass (75.0%)
+2,Cloud & Infrastructure,38.1,61.9,1970,1930,168,12,container_security (68.5%); datastore_security (60.5%); cicd_security (56.8%)
+3,Business Logic,33.6,66.4,206,417,41,6,business_logic_flaw (71.8%); csrf (56.4%); missing_rate_limiting (55.1%)
+4,Memory Safety,24.7,75.3,203,551,29,9,buffer_overflow (61.5%); integer_overflow (51.9%); format_string (46.2%)
+5,Authentication & Identity,22.9,77.1,236,492,30,8,weak_biometric_auth (86.9%); oidc_security (38.5%); insecure_auth (32.7%)
+6,Injection Attacks,20.9,79.1,755,1324,146,13,format_string (46.2%); insecure_deserialization (40.5%); insecure_upload (32.4%)
+7,Supply Chain,20.1,79.9,161,619,30,5,insecure_package_registry (50.0%); supply_chain_security (24.4%); typosquatting (21.8%)
+8,API & Web Services,20.0,80.0,196,428,24,5,graphql_security (66.5%); kong_rate_limit_disabled (11.5%); envoy_admin_interface_exposed (11.5%)

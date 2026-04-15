@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zero-trust-mesh
+  annotations:
+    linkerd.io/inject: enabled
+    config.linkerd.io/default-inbound-policy: deny
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frontend-sa
+  namespace: zero-trust-mesh
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: users-sa
+  namespace: zero-trust-mesh
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders-sa
+  namespace: zero-trust-mesh
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inventory-sa
+  namespace: zero-trust-mesh
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments-sa
+  namespace: zero-trust-mesh
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: users-http
+  namespace: zero-trust-mesh
+spec:
+  podSelector:
+    matchLabels:
+      app: users
+  port: 8080
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: users-http-allow-frontend
+  namespace: zero-trust-mesh
+spec:
+  server:
+    name: users-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: frontend-sa
+          namespace: zero-trust-mesh
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: orders-http
+  namespace: zero-trust-mesh
+spec:
+  podSelector:
+    matchLabels:
+      app: orders
+  port: 8080
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: orders-http-allow-frontend
+  namespace: zero-trust-mesh
+spec:
+  server:
+    name: orders-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: frontend-sa
+          namespace: zero-trust-mesh
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: inventory-grpc
+  namespace: zero-trust-mesh
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory
+  port: 9090
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: inventory-grpc-allow-orders
+  namespace: zero-trust-mesh
+spec:
+  server:
+    name: inventory-grpc
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: orders-sa
+          namespace: zero-trust-mesh
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: payments-api
+  namespace: zero-trust-mesh
+spec:
+  podSelector:
+    matchLabels:
+      app: payments
+  port: 8443
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: payments-api-allow-orders
+  namespace: zero-trust-mesh
+spec:
+  server:
+    name: payments-api
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: orders-sa
+          namespace: zero-trust-mesh

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: race_condition
 
-```cpp 
+
 #include <iostream>   // for std::cout and cin
 #include <thread> 	// For thread handling in C++11 onwards, use 'std::thread' instead of 'new_thread'. Also includes the header only version. Use '#pragma once' if you are using a precompiled headers setup (like with Visual Studio). 
 using namespace std;   // for standard library functions and objects like cin/cout etc., not necessary to include this in every function or block of code, but good practice as it makes the codes cleaner. Use 'std::' before namespaces if you are using them inside a class definition (like with classes from <thread>).

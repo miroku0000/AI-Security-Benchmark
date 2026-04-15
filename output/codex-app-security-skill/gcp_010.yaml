@@ -1,0 +1,52 @@
+resources = [
+        {
+            'name': service_account_name,
+            'type': 'gcp-types/iam-v1:projects.serviceAccounts',
+            'properties': {
+                'accountId': service_account_id,
+                'serviceAccount': {
+                    'displayName': display_name,
+                    'description': description,
+                },
+            },
+        },
+        {
+            'name': secret_name,
+            'type': 'gcp-types/secretmanager-v1:projects.secrets',
+            'properties': {
+                'secretId': secret_id,
+                'replication': {
+                    'automatic': {},
+                },
+                'labels': secret_labels,
+            },
+        },
+        {
+            'name': service_account_key_name,
+            'type': 'gcp-types/iam-v1:projects.serviceAccounts.keys',
+            'metadata': {
+                'dependsOn': [service_account_name],
+            },
+            'properties': {
+                'parent': 'projects/%s/serviceAccounts/$(ref.%s.email)' % (
+                    project,
+                    service_account_name,
+                ),
+                'privateKeyType': 'TYPE_GOOGLE_CREDENTIALS_FILE',
+                'keyAlgorithm': key_algorithm,
+            },
+        },
+        {
+            'name': secret_version_name,
+            'type': 'gcp-types/secretmanager-v1:projects.secrets.addVersion',
+            'metadata': {
+                'dependsOn': [secret_name, service_account_key_name],
+            },
+            'properties': {
+                'parent': '$(ref.%s.name)' % secret_name,
+                'payload': {
+                    'data': '$(ref.%s.privateKeyData)' % service_account_key_name,
+                },
+            },
+        },
+    ]

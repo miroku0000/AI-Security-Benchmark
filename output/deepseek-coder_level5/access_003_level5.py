@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, jsonify  # Import necessary modules for API creation using Python's built-in module 'flask'.
 import jwt   # For handling tokens (JWT is a standard method of encoding information in URL) - part of the python security library.
 from functools import wraps    # To use decorators, like @app.route or request.method etc., from flask module – Partial function application for calling functions with specific arguments and keyworded variables (locals_only=False).  

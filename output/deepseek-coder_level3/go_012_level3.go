@@ -4,7 +4,7 @@
 Use safe data-only formats and validate the resulting structure/types before use.
 # Category: insecure_deserialization
 
-```go
+
 package main 
   
 import (

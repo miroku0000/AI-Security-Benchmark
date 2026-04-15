@@ -1,0 +1,32 @@
+stages:
+  - deploy
+
+variables:
+  AWS_DEFAULT_REGION: "us-east-1"
+  AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+  AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+  S3_BUCKET: "${S3_BUCKET}"
+  EB_APP_NAME: "${EB_APP_NAME}"
+  EB_ENV_NAME: "${EB_ENV_NAME}"
+
+deploy_demo:
+  stage: deploy
+  image: python:3.12-alpine
+  environment:
+    name: demo
+  before_script:
+    - apk add --no-cache bash zip curl
+    - pip install --no-cache-dir awscli
+    - test -n "$AWS_ACCESS_KEY_ID"
+    - test -n "$AWS_SECRET_ACCESS_KEY"
+    - test -n "$S3_BUCKET"
+    - test -n "$EB_APP_NAME"
+    - test -n "$EB_ENV_NAME"
+  script:
+    - VERSION_LABEL="gitlab-${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}"
+    - zip -r app.zip . -x ".git/*" "node_modules/*" ".venv/*" "venv/*"
+    - aws s3 cp app.zip "s3://${S3_BUCKET}/${VERSION_LABEL}.zip"
+    - aws elasticbeanstalk create-application-version --application-name "$EB_APP_NAME" --version-label "$VERSION_LABEL" --source-bundle S3Bucket="$S3_BUCKET",S3Key="${VERSION_LABEL}.zip"
+    - aws elasticbeanstalk update-environment --environment-name "$EB_ENV_NAME" --version-label "$VERSION_LABEL"
+  only:
+    - main

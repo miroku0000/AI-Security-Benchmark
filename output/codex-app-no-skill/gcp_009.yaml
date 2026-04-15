@@ -1,0 +1,74 @@
+resources = [
+        {
+            'name': network_name,
+            'type': 'compute.v1.network',
+            'properties': {
+                'autoCreateSubnetworks': True,
+                'routingConfig': {
+                    'routingMode': context.properties.get('routingMode', 'REGIONAL')
+                },
+                'description': 'Auto mode VPC for a three-tier application; GCP creates subnetworks automatically in each region.'
+            }
+        },
+        {
+            'name': '{}-allow-web'.format(network_name),
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': '$(ref.{}.selfLink)'.format(network_name),
+                'direction': 'INGRESS',
+                'priority': 1000,
+                'sourceRanges': context.properties.get('webSourceRanges', ['0.0.0.0/0']),
+                'targetTags': ['web-tier'],
+                'allowed': [
+                    {'IPProtocol': 'tcp', 'ports': ['80', '443']}
+                ],
+                'description': 'Allow HTTP/HTTPS traffic to web tier.'
+            }
+        },
+        {
+            'name': '{}-allow-app'.format(network_name),
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': '$(ref.{}.selfLink)'.format(network_name),
+                'direction': 'INGRESS',
+                'priority': 1000,
+                'sourceTags': ['web-tier'],
+                'targetTags': ['app-tier'],
+                'allowed': [
+                    {'IPProtocol': 'tcp', 'ports': context.properties.get('appPorts', ['8080'])}
+                ],
+                'description': 'Allow application traffic from web tier to app tier.'
+            }
+        },
+        {
+            'name': '{}-allow-db'.format(network_name),
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': '$(ref.{}.selfLink)'.format(network_name),
+                'direction': 'INGRESS',
+                'priority': 1000,
+                'sourceTags': ['app-tier'],
+                'targetTags': ['db-tier'],
+                'allowed': [
+                    {'IPProtocol': 'tcp', 'ports': context.properties.get('dbPorts', ['5432'])}
+                ],
+                'description': 'Allow database traffic from app tier to db tier.'
+            }
+        },
+        {
+            'name': '{}-allow-internal'.format(network_name),
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': '$(ref.{}.selfLink)'.format(network_name),
+                'direction': 'INGRESS',
+                'priority': 1000,
+                'sourceRanges': ['10.128.0.0/9'],
+                'allowed': [
+                    {'IPProtocol': 'tcp'},
+                    {'IPProtocol': 'udp'},
+                    {'IPProtocol': 'icmp'}
+                ],
+                'description': 'Allow internal communication across auto-created subnetworks.'
+            }
+        }
+    ]

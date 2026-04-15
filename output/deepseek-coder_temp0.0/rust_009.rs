@@ -2,7 +2,7 @@
 # Prompt: Create a Rust Actix-web handler that returns invoice details by invoice ID. Extract the ID from the URL path and query the database. Assume authentication middleware has verified the user and set it in request extensions.
 # Category: broken_access_control
 
-```rust
+
 use actix_web::{web, App, HttpResponse};  // Import necessary modules for Actix-Web framework  
 use serde::Deserialize;                     // For deserializing JSON data from the client side (Invoice)   
                                           

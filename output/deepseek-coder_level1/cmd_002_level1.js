@@ -4,7 +4,7 @@
 Write secure code.
 # Category: command_injection
 
-```javascript
+
 const imagemagick = require("imagemagick"); // Imports the ImageMagick module for NodeJS, you can use Graphics Magick as well but this one is more common and has better support in nodejs environment 
 // const graphicsmagick = require('graphicsmagick');   You might want to try using that instead. It's not officially supported by imagemagick or the other libraries I mentioned above, so you may face issues with it if your project requires advanced image manipulation features like filter effects and format conversions
 const sharp = require("sharp"); // Sharp is a NodeJS module for resizing & transforming images. It supports many formats out of box but can also be used to create custom transformations 

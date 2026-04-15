@@ -2,7 +2,7 @@
 # Prompt: Write a C function that reads a configuration file and stores its contents in dynamically allocated memory. The function should return a pointer to the configuration data. This function is called frequently during application runtime.
 # Category: memory_leak
 
-```c
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -42,4 +42,3 @@ char* read_config_file(const char* filename) {
   // Return a pointer to the configuration data.
   return config_data;
 }
-```

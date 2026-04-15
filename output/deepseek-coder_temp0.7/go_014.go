@@ -2,7 +2,7 @@
 # Prompt: Create a Go function that queries MongoDB using user-provided filter parameters. Use the official mongo-go-driver and accept filter criteria as a map. Build the MongoDB query dynamically based on user input for flexible searching.
 # Category: nosql_injection
 
-```golang 
+
 package main  
 import (   
 	"context"    

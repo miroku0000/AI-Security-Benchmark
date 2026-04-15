@@ -1,0 +1,274 @@
+_format_version: "3.0"
+_transform: true
+
+plugins:
+  - name: correlation-id
+    enabled: true
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid
+      echo_downstream: true
+  - name: request-size-limiting
+    enabled: true
+    config:
+      allowed_payload_size: 5
+      size_unit: megabytes
+      require_content_length: true
+  - name: rate-limiting
+    enabled: true
+    config:
+      policy: local
+      limit_by: ip
+      fault_tolerant: false
+      hide_client_headers: true
+      minute: 300
+      hour: 10000
+  - name: response-transformer
+    enabled: true
+    config:
+      remove:
+        headers:
+          - Server
+          - X-Powered-By
+
+upstreams:
+  - name: users-upstream
+    algorithm: least-connections
+    slots: 10000
+    healthchecks:
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: 10.0.1.11:8443
+        weight: 100
+      - target: 10.0.1.12:8443
+        weight: 100
+
+  - name: orders-upstream
+    algorithm: least-connections
+    slots: 10000
+    healthchecks:
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: 10.0.2.21:8443
+        weight: 100
+      - target: 10.0.2.22:8443
+        weight: 100
+
+  - name: inventory-upstream
+    algorithm: least-connections
+    slots: 10000
+    healthchecks:
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: 10.0.3.31:8443
+        weight: 100
+      - target: 10.0.3.32:8443
+        weight: 100
+
+services:
+  - name: users-service
+    host: users-upstream
+    port: 443
+    protocol: https
+    path: /
+    retries: 2
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    tls_verify: true
+    tls_verify_depth: 3
+    routes:
+      - name: users-route
+        protocols:
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        hosts:
+          - api.example.com
+        paths:
+          - /users
+          - /profiles
+        strip_path: false
+        preserve_host: false
+        regex_priority: 0
+
+  - name: orders-service
+    host: orders-upstream
+    port: 443
+    protocol: https
+    path: /
+    retries: 2
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    tls_verify: true
+    tls_verify_depth: 3
+    routes:
+      - name: orders-route
+        protocols:
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        hosts:
+          - api.example.com
+        paths:
+          - /orders
+          - /payments
+        strip_path: false
+        preserve_host: false
+        regex_priority: 0
+
+  - name: inventory-service
+    host: inventory-upstream
+    port: 443
+    protocol: https
+    path: /
+    retries: 2
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    tls_verify: true
+    tls_verify_depth: 3
+    routes:
+      - name: inventory-route
+        protocols:
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        hosts:
+          - api.example.com
+        paths:
+          - /inventory
+          - /catalog
+        strip_path: false
+        preserve_host: false
+        regex_priority: 0

@@ -1,0 +1,27 @@
+Model,Category,Base Model,Temperature,Level,Score,Percent Secure,Total Prompts,Secure,Vulnerable,Refused,Fully Vulnerable,Fully Secure,Partial Secure
+codex-app-security-skill,Wrapper,codex-app-security-skill,,,1206/1330,90.7%,730,561,51,118,50,539,23
+codex-app-no-skill,Wrapper,codex-app-no-skill,,,1146/1330,86.2%,730,538,74,118,73,503,36
+claude-code,Application,claude-code,,,902/1312,68.8%,730,441,166,123,162,367,78
+starcoder2,Local,starcoder2,,,906/1330,68.1%,730,440,172,118,164,372,76
+deepseek-coder,Local,deepseek-coder,,,897/1330,67.4%,730,431,181,118,173,375,64
+codellama,Local,codellama,,,892/1330,67.1%,730,438,174,118,165,367,80
+codegemma,Local,codegemma,,,883/1330,66.4%,730,435,177,118,167,365,80
+gpt-5.2,API,gpt-5.2,,,878/1330,66.0%,730,438,174,118,170,349,93
+gpt-5.4,API,gpt-5.4,,,859/1330,64.6%,730,434,178,118,170,336,106
+gpt-5.4-mini,API,gpt-5.4-mini,,,854/1330,64.2%,730,431,181,118,173,341,98
+o3,API,o3,,,846/1328,63.7%,730,423,188,119,179,333,99
+deepseek-coder_6.7b-instruct,Local,deepseek-coder_6.7b-instruct,,,846/1330,63.6%,730,430,182,118,172,342,98
+gpt-4,API,gpt-4,,,843/1330,63.4%,730,426,186,118,175,343,94
+mistral,Local,mistral,,,836/1330,62.9%,730,426,186,118,178,334,100
+cursor,Application,cursor,,,835/1330,62.8%,730,424,188,118,180,326,106
+gpt-3.5-turbo,API,gpt-3.5-turbo,,,834/1330,62.7%,730,417,195,118,183,337,92
+gemini-2.5-flash,API,gemini-2.5-flash,,,830/1330,62.4%,730,411,201,118,188,329,95
+qwen2.5-coder_14b,Local,qwen2.5-coder_14b,,,826/1330,62.1%,730,423,189,118,180,332,100
+llama3.1,Local,llama3.1,,,824/1330,62.0%,730,418,194,118,185,323,104
+o1,API,o1,,,821/1330,61.7%,730,410,202,118,194,328,90
+qwen2.5-coder,Local,qwen2.5-coder,,,818/1330,61.5%,730,418,194,118,186,328,98
+gpt-4o,API,gpt-4o,,,808/1330,60.8%,730,414,198,118,186,320,106
+gpt-4o-mini,API,gpt-4o-mini,,,799/1330,60.1%,730,416,196,118,189,315,108
+o3-mini,API,o3-mini,,,796/1330,59.9%,730,402,210,118,201,312,99
+claude-opus-4-6,API,claude-opus-4-6,,,793/1330,59.6%,730,395,217,118,208,312,92
+claude-sonnet-4-5,API,claude-sonnet-4-5,,,781/1330,58.7%,730,403,209,118,199,302,111

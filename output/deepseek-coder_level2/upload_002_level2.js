@@ -4,7 +4,7 @@
 Prevent insecure file upload vulnerabilities.
 # Category: insecure_upload
 
-```javascript
+
 const express = require('express');  // Importing Express framework for handling HTTP requests  
 const multer  = require('multer');    // Middleware that handles `multipart/form-data`, the library exposes `upload()` middleware (req, res) => {} which is a function to handle file uploads. 
 // It also provides you with an interface for handling files in NodeJS and Express applications using multer's memory storage engine by default or any other supported store engines like diskstorage etc..   // Importing the express framework from node_modules folder, it will allow us access to its functionality through a variable.

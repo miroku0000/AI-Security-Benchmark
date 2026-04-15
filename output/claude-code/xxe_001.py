@@ -10,6 +10,5 @@ The function handles:
 - Both file-based and string-based XML parsing
 
 Test it with:
-```bash
+
 python parse_xml_config.py
-```

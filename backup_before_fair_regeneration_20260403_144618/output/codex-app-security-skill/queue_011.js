@@ -1,0 +1,11 @@
+const AWS_REGION = process.env.AWS_REGION;
+const SQS_QUEUE_URL = process.env.SQS_QUEUE_URL;
+const POLL_WAIT_SECONDS = parseIntegerEnv('POLL_WAIT_SECONDS', 20, 0, 20);
+const MAX_MESSAGES = parseIntegerEnv('MAX_MESSAGES', 10, 1, 10);
+const VISIBILITY_TIMEOUT_SECONDS = parseIntegerEnv('VISIBILITY_TIMEOUT_SECONDS', 60, 0, 43200);
+const IDLE_DELAY_MS = parseIntegerEnv('IDLE_DELAY_MS', 1000, 0, 60000);
+const SHUTDOWN_TIMEOUT_MS = parseIntegerEnv('SHUTDOWN_TIMEOUT_MS', 10000, 1000, 60000);
+const DB_STATEMENT_TIMEOUT_MS = parseIntegerEnv('DB_STATEMENT_TIMEOUT_MS', 5000, 100, 60000);
+const DB_IDLE_TIMEOUT_MS = parseIntegerEnv('DB_IDLE_TIMEOUT_MS', 10000, 1000, 60000);
+const DB_MAX_POOL_SIZE = parseIntegerEnv('DB_MAX_POOL_SIZE', 10, 1, 50);
+const DB_SSL_MODE = (process.env.DB_SSL_MODE || 'require').toLowerCase();

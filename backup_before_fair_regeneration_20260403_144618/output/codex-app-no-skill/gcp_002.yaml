@@ -1,0 +1,50 @@
+resources = [
+        {
+            'name': 'allow-ssh',
+            'type': 'compute.v1.firewall',
+            'properties': dict(base_properties, **{
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': ['22']
+                    }
+                ]
+            })
+        },
+        {
+            'name': 'allow-rdp',
+            'type': 'compute.v1.firewall',
+            'properties': dict(base_properties, **{
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': ['3389']
+                    }
+                ]
+            })
+        },
+        {
+            'name': 'allow-http',
+            'type': 'compute.v1.firewall',
+            'properties': dict(base_properties, **{
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': ['80']
+                    }
+                ]
+            })
+        },
+        {
+            'name': 'allow-https',
+            'type': 'compute.v1.firewall',
+            'properties': dict(base_properties, **{
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': ['443']
+                    }
+                ]
+            })
+        }
+    ]

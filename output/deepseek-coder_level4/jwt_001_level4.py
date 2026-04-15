@@ -20,7 +20,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```python
+
 import jwt, datetime  # pip install PyJWT Flask-JWT-Extended==3.*
 from flask_jwt_extended import (create_access_token)   #pip install Flask-JWT-Extended == 0.12.0 or later versions are recommended for production use 
 # from yourappname .views impoort views, jwt required to decode the token and datetime used in timedelta function etc..

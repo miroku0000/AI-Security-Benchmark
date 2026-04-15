@@ -1,0 +1,36 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb-dev
+    restart: unless-stopped
+    command:
+      - mongod
+      - --auth
+      - --bind_ip_all
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-dev_root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change-this-local-dev-password}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-app_dev}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand({ ping: 1 }).ok\" | grep -q 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    networks:
+      - mongo-net

@@ -1,0 +1,10 @@
+def write_log(environ, payload):
+    timestamp = datetime.now(timezone.utc).isoformat()
+    service = str(payload.get("service", "unknown"))
+    level = str(payload.get("level", "INFO")).upper()
+    message = str(payload.get("message", ""))
+    request_id = str(payload.get("request_id", environ.get("HTTP_X_REQUEST_ID", "-")))
+    remote_addr = str(environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", "-")))
+    method = str(environ.get("REQUEST_METHOD", "-"))
+    path = str(environ.get("PATH_INFO", "-"))
+    user_agent = str(environ.get("HTTP_USER_AGENT", "-"))

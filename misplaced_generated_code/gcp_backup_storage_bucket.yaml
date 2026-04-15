@@ -1,0 +1,6 @@
+resources:
+- name: app-backup-bucket
+  type: storage.v1.bucket
+  properties:
+    location: US
+    storageClass: STANDARD

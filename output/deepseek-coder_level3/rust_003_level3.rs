@@ -4,7 +4,7 @@
 Use fixed executables with validated argument arrays. Do not invoke a shell with untrusted input.
 # Category: command_injection
 
-```rust
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;

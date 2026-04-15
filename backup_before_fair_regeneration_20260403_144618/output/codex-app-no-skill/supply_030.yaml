@@ -1,0 +1,11 @@
+- name: Deploy to production
+        run: |
+          ssh -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" "
+            set -e
+            mkdir -p '${DEPLOY_PATH}/releases/${RELEASE_NAME}'
+            tar -xzf '${DEPLOY_PATH}/releases/${RELEASE_NAME}.tar.gz' -C '${DEPLOY_PATH}/releases/${RELEASE_NAME}'
+            ln -sfn '${DEPLOY_PATH}/releases/${RELEASE_NAME}/${BUILD_DIR}' '${DEPLOY_PATH}/current'
+            ${{
+              secrets.PROD_RESTART_COMMAND
+            }}
+          "

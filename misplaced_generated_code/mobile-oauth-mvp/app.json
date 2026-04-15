@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Mobile OAuth MVP",
+    "slug": "mobile-oauth-mvp",
+    "scheme": "mobileoauthmvp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.mobileoauthmvp"
+    },
+    "android": {
+      "package": "com.example.mobileoauthmvp"
+    }
+  }
+}

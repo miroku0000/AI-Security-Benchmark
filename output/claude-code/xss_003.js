@@ -12,7 +12,7 @@ The component supports:
 - User avatar, name, and title display
 
 Usage example:
-```jsx
+
 <UserBio 
   name="John Doe"
   title="Software Engineer"
@@ -21,4 +21,3 @@ Usage example:
 
 Check out my [portfolio](https://example.com) for more!"
 />
-```

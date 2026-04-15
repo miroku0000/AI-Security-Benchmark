@@ -1,0 +1,285 @@
+_format_version: "3.0"
+
+plugins:
+  # Global CORS plugin
+  - name: cors
+    enabled: true
+    config:
+      origins:
+        - "https://app.example.com"
+        - "https://admin.example.com"
+        - "https://portal.example.com"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - Accept
+        - Origin
+        - X-Requested-With
+        - X-Request-ID
+      exposed_headers:
+        - X-Request-ID
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+        - X-RateLimit-Reset
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+
+  # Global rate limiting
+  - name: rate-limiting
+    enabled: true
+    config:
+      minute: 60
+      hour: 1000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+      error_code: 429
+      error_message: "Rate limit exceeded. Try again later."
+
+  # Global key authentication
+  - name: key-auth
+    enabled: true
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      key_in_query: false
+      key_in_header: true
+      key_in_body: false
+      hide_credentials: true
+
+services:
+  - name: web-api
+    url: "http://web-api-upstream:8080"
+    plugins:
+      # Service-level rate limiting override for web API
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: local
+          fault_tolerant: true
+          hide_client_headers: false
+
+      # Service-level CORS override for web API
+      - name: cors
+        config:
+          origins:
+            - "https://app.example.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - Origin
+            - X-Requested-With
+            - X-Request-ID
+          credentials: true
+          max_age: 7200
+
+      # JWT authentication for web API
+      - name: jwt
+        config:
+          uri_param_names:
+            - token
+          header_names:
+            - Authorization
+          claims_to_verify:
+            - exp
+          key_claim_name: iss
+          secret_is_base64: false
+          run_on_preflight: true
+
+    routes:
+      - name: web-api-public
+        paths:
+          - /api/v1/public
+        strip_path: false
+        plugins:
+          # Route-level: disable auth for public endpoints
+          - name: key-auth
+            enabled: false
+          - name: jwt
+            enabled: false
+
+          # Route-level: stricter rate limiting for public routes
+          - name: rate-limiting
+            config:
+              minute: 30
+              hour: 500
+              policy: local
+              fault_tolerant: true
+
+          # Route-level CORS for public endpoints
+          - name: cors
+            config:
+              origins:
+                - "https://app.example.com"
+                - "https://portal.example.com"
+              methods:
+                - GET
+                - OPTIONS
+              headers:
+                - Content-Type
+                - Accept
+              credentials: false
+              max_age: 600
+
+      - name: web-api-authenticated
+        paths:
+          - /api/v1
+        strip_path: false
+        plugins:
+          # Route-level rate limiting for authenticated routes
+          - name: rate-limiting
+            config:
+              minute: 120
+              hour: 5000
+              policy: local
+              fault_tolerant: true
+
+  - name: admin-api
+    url: "http://admin-api-upstream:8081"
+    plugins:
+      # Service-level: tight rate limiting for admin
+      - name: rate-limiting
+        config:
+          minute: 30
+          hour: 500
+          policy: local
+          fault_tolerant: true
+
+      # Service-level CORS for admin
+      - name: cors
+        config:
+          origins:
+            - "https://admin.example.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - X-Request-ID
+          credentials: true
+          max_age: 1800
+
+      # OAuth2 authentication for admin API
+      - name: oauth2
+        config:
+          scopes:
+            - admin
+            - admin:read
+            - admin:write
+          mandatory_scope: true
+          enable_authorization_code: true
+          enable_client_credentials: true
+          enable_implicit_grant: false
+          enable_password_grant: false
+          token_expiration: 3600
+          refresh_token_ttl: 1209600
+          accept_http_if_already_terminated: true
+          global_credentials: false
+          auth_header_name: Authorization
+
+    routes:
+      - name: admin-api-routes
+        paths:
+          - /admin/api/v1
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 20
+              hour: 300
+              policy: local
+              fault_tolerant: true
+
+  - name: webhook-service
+    url: "http://webhook-upstream:8082"
+    plugins:
+      # HMAC authentication for webhooks
+      - name: hmac-auth
+        config:
+          hide_credentials: true
+          clock_skew: 300
+          enforce_headers:
+            - Date
+            - Digest
+          validate_request_body: true
+
+      # Strict CORS for webhooks
+      - name: cors
+        config:
+          origins:
+            - "https://app.example.com"
+          methods:
+            - POST
+            - OPTIONS
+          headers:
+            - Content-Type
+            - Authorization
+            - Digest
+            - Date
+          credentials: true
+          max_age: 300
+
+      # Rate limiting for webhooks
+      - name: rate-limiting
+        config:
+          minute: 10
+          hour: 100
+          policy: local
+          fault_tolerant: true
+
+    routes:
+      - name: webhook-routes
+        paths:
+          - /webhooks
+        strip_path: false
+        methods:
+          - POST
+          - OPTIONS
+
+consumers:
+  - username: web-app-client
+    keyauth_credentials:
+      - key: "${KONG_WEB_APP_API_KEY}"
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 200
+          hour: 10000
+          policy: local
+
+  - username: admin-client
+    keyauth_credentials:
+      - key: "${KONG_ADMIN_API_KEY}"
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          hour: 1000
+          policy: local
+
+  - username: webhook-client
+    hmacauth_credentials:
+      - username: webhook-client
+        secret: "${KONG_WEBHOOK_HMAC_SECRET}"

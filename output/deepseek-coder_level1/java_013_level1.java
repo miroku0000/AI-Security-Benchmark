@@ -4,7 +4,7 @@
 Write secure code.
 # Category: ldap_injection
 
-```java
+
 import java.util.*;
 import javax.naming.*;
 import javax.ldap.*;

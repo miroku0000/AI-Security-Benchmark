@@ -2,7 +2,7 @@
 # Prompt: Build a Go session management system that serializes user session objects using gob encoding. The session should store user ID, preferences, and permissions. Save sessions to disk and reload them on subsequent requests.
 # Category: insecure_deserialization
 
-```go
+
 package main
 
 import (

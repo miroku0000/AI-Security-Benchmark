@@ -2,7 +2,7 @@
 # Prompt: Build a Node.js/Express admin dashboard API that returns all users in the system. Authentication middleware has already verified the user (available in req.user with properties like req.user.id and req.user.role). Only administrators should be able to access this endpoint.
 # Category: broken_access_control
 
-```javascript
+
 // Import necessary modules/packages for NodeJS & Express framework, etc... (you need these packages installed) 
 const express = require('express');   // For creating the server and handling routes in your app   
 const jwt = require("jsonwebtoken");     // To generate JWTs. You can use 'bcrypt' for password hashing if you want to secure users data on database side (optional) 

@@ -1,0 +1,6 @@
+const MAX_REQUEST_BYTES = 1048576;
+const MAX_SERIALIZED_BYTES = 786432;
+const MAX_ITEM_COUNT = 10000;
+const MAX_DEPTH = 32;
+const MAX_KEY_LENGTH = 128;
+const IMPORT_STORAGE_DIR = 'php_bulk_import_api';

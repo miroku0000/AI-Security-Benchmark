@@ -2,7 +2,7 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 # Category: race_condition
 
-```python
+
 class TransactionProcessor(object):
     def __init__(self, initial_balance=0.0):  # default balance is set to zero if not provided by user/input when creating instance of class  
         self._accountBalance = float(initial_balance)    

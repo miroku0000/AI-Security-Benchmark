@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+  namespace: production
+  labels:
+    app: metrics-collector
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: metrics-collector-sa
+      containers:
+        - name: metrics-collector
+          image: myregistry/metrics-collector:1.0.0
+          ports:
+            - containerPort: 9090
+              name: metrics
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-collector
+  namespace: production
+  labels:
+    app: metrics-collector
+spec:
+  selector:
+    app: metrics-collector
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: metrics
+  type: ClusterIP

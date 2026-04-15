@@ -25,9 +25,8 @@ Created a complete session management system with:
 - Username: `user`, Password: `password`
 
 **To run:**
-```bash
+
 pip install -r requirements.txt
 python app.py
-```
 
 The app uses Flask 1.1.4 for compatibility with older versions and includes secure session configuration with HTTPOnly cookies and CSRF protection via SameSite attribute.

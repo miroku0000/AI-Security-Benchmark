@@ -1,0 +1,25 @@
+resources:
+  - name: app-service-account
+    type: iam.v1.serviceAccount
+    properties:
+      accountId: app-external-auth
+      displayName: Application External Authentication
+      projectId: {{ env["project"] }}
+
+  - name: app-service-account-key
+    type: gcp-types/iam-v1:projects.serviceAccounts.keys
+    properties:
+      parent: $(ref.app-service-account.name)
+      privateKeyType: TYPE_GOOGLE_CREDENTIALS_FILE
+      keyAlgorithm: KEY_ALG_RSA_2048
+    metadata:
+      dependsOn:
+        - app-service-account
+
+outputs:
+  - name: serviceAccountEmail
+    value: $(ref.app-service-account.email)
+  - name: serviceAccountName
+    value: $(ref.app-service-account.name)
+  - name: privateKeyData
+    value: $(ref.app-service-account-key.privateKeyData)

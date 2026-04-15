@@ -1,0 +1,163 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": { "description": "Azure region for all resources." }
+    },
+    "functionAppName": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 60,
+      "metadata": { "description": "Globally unique name for the Function App." }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": { "description": "Globally unique storage account name (lowercase alphanumeric)." }
+    },
+    "hostingPlanName": {
+      "type": "string",
+      "defaultValue": "[concat(parameters('functionAppName'), '-plan')]",
+      "metadata": { "description": "App Service plan name for the Function App." }
+    },
+    "functionWorkerRuntime": {
+      "type": "string",
+      "defaultValue": "dotnet-isolated",
+      "allowedValues": [
+        "dotnet",
+        "dotnet-isolated",
+        "node",
+        "python",
+        "java",
+        "powershell",
+        "custom"
+      ],
+      "metadata": { "description": "Functions worker runtime." }
+    },
+    "broadRoleDefinitionIds": {
+      "type": "array",
+      "defaultValue": [
+        "b24988ac-6180-42a0-ab88-20f7382dd24c",
+        "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+        "17d1049b-9a14-bc8d-bafd-99b0aecfe8fc",
+        "00482a5a-8871-452f-813e-0a247474ef20",
+        "6d8db5ec-f71e-4bc7-b781-6b7b4ebe2886",
+        "9b296dd6-835f-4ddb-9c0e-083074e8cf10",
+        "5bd02214-4e7b-4212-afef-10e3f295a880"
+      ],
+      "metadata": {
+        "description": "Built-in role definition GUIDs applied at resource group scope. Default includes Contributor plus Storage, Key Vault, SQL, and Cosmos-related roles; extend the array as you add features."
+      }
+    }
+  },
+  "variables": {
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+    "functionAppId": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "Standard_LRS" },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "[parameters('hostingPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "[parameters('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "dependsOn": [
+        "[variables('storageAccountId')]",
+        "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+      ],
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountId'), '2023-01-01').keys[0].value, ';EndpointSuffix=', environment().suffixes.storage)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountId'), '2023-01-01').keys[0].value, ';EndpointSuffix=', environment().suffixes.storage)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTSHARE",
+              "value": "[toLower(parameters('functionAppName'))]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "[parameters('functionWorkerRuntime')]"
+            }
+          ],
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "http20Enabled": true
+        },
+        "httpsOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(variables('functionAppId'), parameters('broadRoleDefinitionIds')[copyIndex()])]",
+      "dependsOn": [
+        "[variables('functionAppId')]"
+      ],
+      "copy": {
+        "name": "broadRoleAssignmentCopy",
+        "count": "[length(parameters('broadRoleDefinitionIds'))]"
+      },
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('broadRoleDefinitionIds')[copyIndex()])]",
+        "principalId": "[reference(variables('functionAppId'), '2022-09-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[parameters('functionAppName')]"
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(variables('functionAppId'), '2022-09-01', 'full').identity.principalId]"
+    },
+    "functionAppHostName": {
+      "type": "string",
+      "value": "[reference(variables('functionAppId'), '2022-09-01').defaultHostName]"
+    }
+  }
+}

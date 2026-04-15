@@ -4,7 +4,7 @@
 Prevent broken access control.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, send_file  # Import necessary modules from Python's standard library for web development framework (Flask) and handling files/data in a way that is secure against common attacks like Cross Site Scripting(XSS).
 import os   # To interact with the operating system. This module provides functions to access environment variables, handle file paths etc.. 
 from werkzeug.middleware.proxy_fix import ProxyFix    # Middle ware for handling issues related to reverse proxy headers (e.g., proxies) in Flask applications by setting them on the request object if they are not already set and adding a default 'X-Forwarded-Proto' header, which is used as an HTTP_X_FORWARDED_PROTO equivalent for WSGI servers like Gunicorn.

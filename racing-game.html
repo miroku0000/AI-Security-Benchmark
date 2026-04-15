@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Racing — movement</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;overflow:hidden}
+#c{display:block;width:100vw;height:100vh;background:#161b22}
+#hud{position:fixed;top:12px;left:12px;font-size:14px;line-height:1.5;text-shadow:0 1px 2px #000}
+#hud span{color:#58a6ff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">Speed: <span id="sp">0</span> px/s · Distance: <span id="dist">0</span> px · WASD / arrows</div>
+<script>
+(function () {
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var spEl = document.getElementById('sp');
+  var distEl = document.getElementById('dist');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  var player = {
+    x: canvas.width * 0.5,
+    y: canvas.height * 0.5,
+    vx: 0,
+    vy: 0,
+    maxSpeed: 420,
+    accel: 1400,
+    friction: 3.2
+  };
+
+  var keys = {};
+  window.addEventListener('keydown', function (e) { keys[e.code] = true; });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+
+  var totalDistance = 0;
+  var lastTime = performance.now();
+  var TICK_MS = 1000 / 60;
+
+  function tick() {
+    var now = performance.now();
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    var ax = 0;
+    var ay = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) ay -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) ay += 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) ax -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) ax += 1;
+    var len = Math.hypot(ax, ay);
+    if (len > 0) {
+      ax /= len;
+      ay /= len;
+    }
+
+    player.vx += ax * player.accel * dt;
+    player.vy += ay * player.accel * dt;
+
+    var spd = Math.hypot(player.vx, player.vy);
+    if (spd > player.maxSpeed) {
+      player.vx = (player.vx / spd) * player.maxSpeed;
+      player.vy = (player.vy / spd) * player.maxSpeed;
+      spd = player.maxSpeed;
+    }
+
+    if (ax === 0 && ay === 0 && spd > 0) {
+      var f = Math.min(1, player.friction * dt);
+      player.vx *= 1 - f;
+      player.vy *= 1 - f;
+      if (Math.hypot(player.vx, player.vy) < 4) {
+        player.vx = 0;
+        player.vy = 0;
+      }
+    }
+
+    var dx = player.vx * dt;
+    var dy = player.vy * dt;
+    totalDistance += Math.hypot(dx, dy);
+
+    player.x += dx;
+    player.y += dy;
+
+    if (player.x < 20) player.x = 20;
+    if (player.x > canvas.width - 20) player.x = canvas.width - 20;
+    if (player.y < 20) player.y = 20;
+    if (player.y > canvas.height - 20) player.y = canvas.height - 20;
+
+    ctx.fillStyle = '#161b22';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 2;
+    var grid = 80;
+    var cx = canvas.width * 0.5 - player.x;
+    var cy = canvas.height * 0.5 - player.y;
+    for (var gx = -grid; gx < canvas.width + grid; gx += grid) {
+      ctx.beginPath();
+      ctx.moveTo(gx + (cx % grid), 0);
+      ctx.lineTo(gx + (cx % grid), canvas.height);
+      ctx.stroke();
+    }
+    for (var gy = -grid; gy < canvas.height + grid; gy += grid) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy + (cy % grid));
+      ctx.lineTo(canvas.width, gy + (cy % grid));
+      ctx.stroke();
+    }
+
+    var sx = canvas.width * 0.5;
+    var sy = canvas.height * 0.5;
+    ctx.save();
+    ctx.translate(sx, sy);
+    if (spd > 1) ctx.rotate(Math.atan2(player.vy, player.vx));
+    ctx.fillStyle = '#f85149';
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(-14, 11);
+    ctx.lineTo(-8, 0);
+    ctx.lineTo(-14, -11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    spEl.textContent = Math.round(spd);
+    distEl.textContent = totalDistance.toFixed(1);
+  }
+
+  setInterval(tick, TICK_MS);
+})();
+</script>
+</body>
+</html>

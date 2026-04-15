@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: xxe
 
-```java
+
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
 import java.io.*;

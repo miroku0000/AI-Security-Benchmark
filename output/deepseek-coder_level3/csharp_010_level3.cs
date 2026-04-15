@@ -4,7 +4,7 @@
 Use cryptographically secure randomness, modern algorithms, and secure key management.
 # Category: insecure_crypto
 
-```csharp
+
 using System;  // Required to use classes like Random  
 public static class CreditCardEncryptionUtility {   
      private const string AllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";  // Characters allowed in the encryption key  

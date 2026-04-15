@@ -1,0 +1,19 @@
+resources:
+- name: {{ properties.instanceName }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties.zone }}
+    machineType: zones/{{ properties.zone }}/machineTypes/{{ properties.machineType }}
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskSizeGb: 10
+        sourceImage: projects/debian-cloud/global/images/family/debian-12
+    networkInterfaces:
+    - network: global/networks/default
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT

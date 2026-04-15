@@ -1,0 +1,187 @@
+resources:
+- name: {{ env["deployment"] }}-vpc
+  type: compute.v1.network
+  properties:
+    name: {{ env["deployment"] }}-vpc
+    autoCreateSubnetworks: false
+    routingConfig:
+      routingMode: REGIONAL
+
+- name: {{ env["deployment"] }}-subnet
+  type: compute.v1.subnetwork
+  properties:
+    name: {{ env["deployment"] }}-subnet
+    region: {{ properties["region"] }}
+    network: $(ref.{{ env["deployment"] }}-vpc.selfLink)
+    ipCidrRange: 10.0.0.0/24
+    privateIpGoogleAccess: true
+
+- name: {{ env["deployment"] }}-psa-range
+  type: compute.v1.globalAddress
+  properties:
+    name: {{ env["deployment"] }}-psa-range
+    purpose: VPC_PEERING
+    addressType: INTERNAL
+    prefixLength: 16
+    network: $(ref.{{ env["deployment"] }}-vpc.selfLink)
+
+- name: {{ env["deployment"] }}-vpc-peering
+  type: gcp-types/servicenetworking-v1:services.connections
+  properties:
+    parent: services/servicenetworking.googleapis.com
+    network: $(ref.{{ env["deployment"] }}-vpc.selfLink)
+    reservedPeeringRanges:
+    - $(ref.{{ env["deployment"] }}-psa-range.name)
+
+- name: {{ env["deployment"] }}-allow-health
+  type: compute.v1.firewall
+  properties:
+    name: {{ env["deployment"] }}-allow-health
+    network: $(ref.{{ env["deployment"] }}-vpc.selfLink)
+    direction: INGRESS
+    priority: 1000
+    sourceRanges:
+    - 35.191.0.0/16
+    - 130.211.0.0/22
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - "80"
+    targetTags:
+    - http-server
+
+- name: {{ env["deployment"] }}-bucket
+  type: storage.v1.bucket
+  properties:
+    name: {{ properties["bucketName"] }}
+    location: US
+    iamConfiguration:
+      uniformBucketLevelAccess:
+        enabled: true
+
+- name: {{ env["deployment"] }}-it
+  type: compute.v1.instanceTemplate
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-subnet
+  properties:
+    properties:
+      machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties["machineType"] }}
+      tags:
+        items:
+        - http-server
+      serviceAccounts:
+      - email: default
+        scopes:
+        - https://www.googleapis.com/auth/devstorage.read_write
+        - https://www.googleapis.com/auth/cloud-platform
+      disks:
+      - boot: true
+        autoDelete: true
+        initializeParams:
+          sourceImage: projects/debian-cloud/global/images/family/debian-12
+          diskSizeGb: 20
+          diskType: pd-balanced
+      networkInterfaces:
+      - subnetwork: $(ref.{{ env["deployment"] }}-subnet.selfLink)
+        accessConfigs:
+        - name: External NAT
+          type: ONE_TO_ONE_NAT
+      metadata:
+        items:
+        - key: startup-script
+          value: |
+            #!/bin/bash
+            set -euo pipefail
+            apt-get update -y
+            apt-get install -y nginx
+            echo ok > /var/www/html/index.html
+            systemctl enable --now nginx
+
+- name: {{ env["deployment"] }}-mig
+  type: compute.v1.instanceGroupManager
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-it
+  properties:
+    name: {{ env["deployment"] }}-mig
+    zone: {{ properties["zone"] }}
+    baseInstanceName: {{ env["deployment"] }}-app
+    targetSize: 1
+    instanceTemplate: $(ref.{{ env["deployment"] }}-it.selfLink)
+    namedPorts:
+    - name: http
+      port: 80
+
+- name: {{ env["deployment"] }}-hc
+  type: compute.v1.globalHealthChecks
+  properties:
+    name: {{ env["deployment"] }}-hc
+    type: HTTP
+    httpHealthCheck:
+      port: 80
+      requestPath: /
+
+- name: {{ env["deployment"] }}-be
+  type: compute.v1.backendService
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-mig
+    - {{ env["deployment"] }}-hc
+  properties:
+    name: {{ env["deployment"] }}-be
+    loadBalancingScheme: EXTERNAL
+    protocol: HTTP
+    portName: http
+    healthChecks:
+    - $(ref.{{ env["deployment"] }}-hc.selfLink)
+    backends:
+    - group: $(ref.{{ env["deployment"] }}-mig.instanceGroup)
+      balancingMode: UTILIZATION
+      maxUtilization: 0.8
+
+- name: {{ env["deployment"] }}-urlmap
+  type: compute.v1.urlMap
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-be
+  properties:
+    name: {{ env["deployment"] }}-urlmap
+    defaultService: $(ref.{{ env["deployment"] }}-be.selfLink)
+
+- name: {{ env["deployment"] }}-http-proxy
+  type: compute.v1.targetHttpProxy
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-urlmap
+  properties:
+    name: {{ env["deployment"] }}-http-proxy
+    urlMap: $(ref.{{ env["deployment"] }}-urlmap.selfLink)
+
+- name: {{ env["deployment"] }}-fr
+  type: compute.v1.globalForwardingRule
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-http-proxy
+  properties:
+    name: {{ env["deployment"] }}-fr
+    loadBalancingScheme: EXTERNAL
+    portRange: "80"
+    target: $(ref.{{ env["deployment"] }}-http-proxy.selfLink)
+
+- name: {{ env["deployment"] }}-sql
+  type: gcp-types/sqladmin-v1beta4:instances
+  metadata:
+    dependsOn:
+    - {{ env["deployment"] }}-vpc-peering
+  properties:
+    name: {{ env["deployment"] }}-sql
+    region: {{ properties["region"] }}
+    databaseVersion: POSTGRES_15
+    rootPassword: {{ properties["dbRootPassword"] }}
+    settings:
+      tier: db-f1-micro
+      deletionProtectionEnabled: false
+      ipConfiguration:
+        ipv4Enabled: false
+        privateNetwork: $(ref.{{ env["deployment"] }}-vpc.selfLink)

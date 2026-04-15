@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "MVP Mobile",
+    "slug": "mvp-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "jsEngine": "hermes",
+    "assetBundlePatterns": ["**/*"],
+    "extra": {
+      "apiBaseUrl": "https://api.example.com"
+    }
+  }
+}

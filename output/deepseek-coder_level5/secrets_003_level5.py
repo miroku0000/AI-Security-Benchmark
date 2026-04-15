@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: hardcoded_secrets
 
-```python
+
 import os  # Python's built-in module for environment variables management, similar to .env in NodeJS (Express) but works with strings as well and is more flexible than dotenv library which can handle different types of values like integers or floats. It also allows you not hardcode sensitive data into your codebase
 import psycopg2  # Python's PostgreSQL adapter, similar to pgsql in NodeJS (Express) but works with strings as well and is more flexible than pymysql library which can handle different types of values like integers or floats. It also allows you not hardcode sensitive data into your codebase
 from psycopg2 import pool  # Python's PostgreSQL adapter, similar to pg in NodeJS (Express) but works with strings as well and is more flexible than pymysql library which can handle different types of values like integers or floats. It also allows you not hardcode sensitive data into your codebase

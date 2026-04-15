@@ -4,7 +4,7 @@
 
 Here is how you can write such Java code using `Jwts`, a part of Spring Security's JWT module (which includes libraries for token verification), with your requirement to extract data from tokens but without any explanation or markdown formatting due to the limitations in this platform. 
 Please note that it is crucial you have already set up and configured `JwtSecurityConfigurer`, so be sure those dependencies are present as well:
-```java
+
 import com.auth0.jwt.*;
 ...
 @Configuration

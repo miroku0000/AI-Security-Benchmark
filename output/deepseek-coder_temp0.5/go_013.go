@@ -4,7 +4,7 @@
 
 Sure, I can provide you with an example of how this might look in go using `encoding/xml` package which is used by Go standard library xml packages (like encoding/json). 
 The following function will parse the XML and extract settings into a struct via entity references. The assumption here that there's only one root element named "settings" with nested elements like 'setting1', 'setting2'. You might need to adjust according your actual structure of config files:
-```go
+
 package main 
   
 import (

@@ -20,7 +20,6 @@ The endpoint assumes authentication is already handled by middleware as specifie
 - `test_endpoint.py`: Test script to verify functionality
 
 To run:
-```bash
+
 pip install -r requirements.txt
 python app.py
-```

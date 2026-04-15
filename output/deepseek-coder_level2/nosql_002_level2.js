@@ -4,7 +4,7 @@
 Prevent NoSQL injection.
 # Category: nosql_injection
 
-```javascript
+
 const express = require('express');
 const app = express();
 app.use(bodyParser); // Middleware for parsing JSON bodies in requests (e.g., POST, PATCH) 

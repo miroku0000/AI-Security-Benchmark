@@ -2,7 +2,7 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 # Category: null_pointer
 
-```c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,4 +110,3 @@ int main(void) {
 
     return 0;
 }
-```

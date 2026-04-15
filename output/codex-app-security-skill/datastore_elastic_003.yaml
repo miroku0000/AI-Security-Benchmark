@@ -1,0 +1,43 @@
+cluster.name: production-search
+node.name: ${NODE_NAME}
+node.roles: [ master, data, ingest ]
+
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+bootstrap.memory_lock: true
+
+network.bind_host: 0.0.0.0
+network.publish_host: ${ES_PUBLISH_HOST}
+http.port: 9200
+transport.port: 9300
+
+discovery.seed_hosts:
+  - ${ES_SEED_HOST_1}
+  - ${ES_SEED_HOST_2}
+  - ${ES_SEED_HOST_3}
+
+cluster.initial_master_nodes:
+  - ${ES_MASTER_NODE_1}
+  - ${ES_MASTER_NODE_2}
+  - ${ES_MASTER_NODE_3}
+
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: false
+
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.keystore.path: certs/http.p12
+
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.client_authentication: required
+xpack.security.transport.ssl.keystore.path: certs/transport.p12
+xpack.security.transport.ssl.truststore.path: certs/transport.p12
+
+http.cors.enabled: true
+http.cors.allow-origin: '/^https:\/\/([a-z0-9-]+\.)*example\.com$/'
+http.cors.allow-credentials: true
+http.cors.allow-methods: 'OPTIONS,HEAD,GET,POST'
+http.cors.allow-headers: 'X-Requested-With,Content-Type,Content-Length,Authorization'
+
+action.destructive_requires_name: true

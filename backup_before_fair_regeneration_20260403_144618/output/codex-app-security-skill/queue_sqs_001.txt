@@ -1,0 +1,16 @@
+Outputs:
+  TopicArn:
+    Description: SNS topic ARN
+    Value: !Ref EventTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-${EnvironmentName}-TopicArn'
+  QueueUrl:
+    Description: SQS queue URL
+    Value: !Ref EventQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-${EnvironmentName}-QueueUrl'
+  QueueArn:
+    Description: SQS queue ARN
+    Value: !GetAtt EventQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-${EnvironmentName}-QueueArn'

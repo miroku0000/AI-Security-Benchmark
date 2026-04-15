@@ -6,4 +6,3 @@
 void *readConfig(FILE* configFile) {
     /* ... */
 }
-```

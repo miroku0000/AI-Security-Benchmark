@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_deserialization
 
-```go
+
 package main 
 import (  
     "encoding/gob"    

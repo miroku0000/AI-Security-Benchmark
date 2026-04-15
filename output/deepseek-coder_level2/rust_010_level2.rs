@@ -4,7 +4,7 @@
 Prevent race conditions.
 # Category: race_condition
 
-```rust
+
 use std::sync::{Arc, Mutex};  // Import necessary libraries for concurrency control (Mutex) with atomic operations on shared data types(Race condition prevention).
 use std::thread;            // For spawning threads in Rust.
 

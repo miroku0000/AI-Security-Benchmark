@@ -1,0 +1,401 @@
+resources = [
+        {
+            'name': vpc_name,
+            'type': 'compute.v1.network',
+            'properties': {
+                'autoCreateSubnetworks': False,
+                'routingConfig': {'routingMode': 'REGIONAL'},
+            },
+        },
+        {
+            'name': subnet_name,
+            'type': 'compute.v1.subnetwork',
+            'properties': {
+                'region': region,
+                'network': '$(ref.{}.selfLink)'.format(vpc_name),
+                'ipCidrRange': network_cidr,
+                'privateIpGoogleAccess': True,
+            },
+        },
+        {
+            'name': router_name,
+            'type': 'compute.v1.router',
+            'properties': {
+                'region': region,
+                'network': '$(ref.{}.selfLink)'.format(vpc_name),
+                'bgp': {'asn': 64514},
+                'nats': [
+                    {
+                        'name': nat_name,
+                        'natIpAllocateOption': 'AUTO_ONLY',
+                        'sourceSubnetworkIpRangesToNat': 'LIST_OF_SUBNETWORKS',
+                        'subnetworks': [
+                            {
+                                'name': '$(ref.{}.selfLink)'.format(subnet_name),
+                                'sourceIpRangesToNat': ['ALL_IP_RANGES'],
+                            }
+                        ],
+                    }
+                ],
+            },
+        },
+        {
+            'name': private_range_name,
+            'type': 'compute.v1.globalAddress',
+            'properties': {
+                'purpose': 'VPC_PEERING',
+                'addressType': 'INTERNAL',
+                'prefixLength': sql_private_cidr_prefix,
+                'network': '$(ref.{}.selfLink)'.format(vpc_name),
+            },
+        },
+        {
+            'name': vpc_connection_name,
+            'type': 'servicenetworking.v1.services.connection',
+            'properties': {
+                'parent': 'services/servicenetworking.googleapis.com',
+                'network': '$(ref.{}.selfLink)'.format(vpc_name),
+                'reservedPeeringRanges': ['$(ref.{}.name)'.format(private_range_name)],
+            },
+            'metadata': {
+                'dependsOn': [private_range_name],
+            },
+        },
+        {
+            'name': firewall_name,
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': '$(ref.{}.selfLink)'.format(vpc_name),
+                'direction': 'INGRESS',
+                'priority': 1000,
+                'sourceRanges': LB_SOURCE_RANGES,
+                'targetTags': ['{}-app'.format(prefix)],
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': [str(app_port)],
+                    }
+                ],
+            },
+        },
+        {
+            'name': service_account_name,
+            'type': 'iam.v1.serviceAccount',
+            'properties': {
+                'accountId': service_account_id,
+                'displayName': '{} application service account'.format(prefix),
+            },
+        },
+        {
+            'name': '{}-cloudsql-client'.format(prefix),
+            'type': 'gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding',
+            'properties': {
+                'resource': project,
+                'role': 'roles/cloudsql.client',
+                'member': 'serviceAccount:$(ref.{}.email)'.format(service_account_name),
+            },
+            'metadata': {
+                'dependsOn': [service_account_name],
+            },
+        },
+        {
+            'name': '{}-storage-viewer'.format(prefix),
+            'type': 'gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding',
+            'properties': {
+                'resource': project,
+                'role': 'roles/storage.objectViewer',
+                'member': 'serviceAccount:$(ref.{}.email)'.format(service_account_name),
+            },
+            'metadata': {
+                'dependsOn': [service_account_name],
+            },
+        },
+        {
+            'name': sql_instance_name,
+            'type': 'sqladmin.v1beta4.instance',
+            'properties': {
+                'region': region,
+                'databaseVersion': sql_version,
+                'deletionProtectionEnabled': True,
+                'settings': {
+                    'tier': sql_tier,
+                    'availabilityType': 'REGIONAL',
+                    'diskType': 'PD_SSD',
+                    'diskSizeGb': sql_disk_size,
+                    'diskAutoresize': True,
+                    'backupConfiguration': {
+                        'enabled': True,
+                        'pointInTimeRecoveryEnabled': True,
+                        'startTime': '03:00',
+                    },
+                    'ipConfiguration': {
+                        'ipv4Enabled': False,
+                        'privateNetwork': '$(ref.{}.selfLink)'.format(vpc_name),
+                        'requireSsl': True,
+                    },
+                    'databaseFlags': [
+                        {'name': 'password_encryption', 'value': 'scram-sha-256'},
+                        {'name': 'log_connections', 'value': 'on'},
+                        {'name': 'log_disconnections', 'value': 'on'},
+                    ],
+                    'userLabels': labels,
+                },
+            },
+            'metadata': {
+                'dependsOn': [vpc_connection_name],
+            },
+        },
+        {
+            'name': sql_database_name,
+            'type': 'sqladmin.v1beta4.database',
+            'properties': {
+                'instance': '$(ref.{}.name)'.format(sql_instance_name),
+                'name': sql_db_name,
+            },
+            'metadata': {
+                'dependsOn': [sql_instance_name],
+            },
+        },
+        {
+            'name': sql_user_name,
+            'type': 'sqladmin.v1beta4.user',
+            'properties': {
+                'instance': '$(ref.{}.name)'.format(sql_instance_name),
+                'name': sql_user,
+                'password': sql_password,
+            },
+            'metadata': {
+                'dependsOn': [sql_instance_name],
+            },
+        },
+        {
+            'name': bucket_resource_name,
+            'type': 'storage.v1.bucket',
+            'properties': {
+                'name': bucket_name,
+                'location': bucket_location,
+                'versioning': {'enabled': True},
+                'iamConfiguration': {
+                    'uniformBucketLevelAccess': {'enabled': True},
+                    'publicAccessPrevention': 'enforced',
+                },
+                'labels': labels,
+            },
+        },
+        {
+            'name': template_name,
+            'type': 'compute.v1.instanceTemplate',
+            'properties': {
+                'properties': {
+                    'machineType': machine_type,
+                    'canIpForward': False,
+                    'tags': {'items': ['{}-app'.format(prefix)]},
+                    'labels': labels,
+                    'disks': [
+                        {
+                            'boot': True,
+                            'autoDelete': True,
+                            'initializeParams': {
+                                'sourceImage': source_image,
+                                'diskType': 'pd-balanced',
+                                'diskSizeGb': '20',
+                            },
+                        }
+                    ],
+                    'networkInterfaces': [
+                        {
+                            'subnetwork': '$(ref.{}.selfLink)'.format(subnet_name),
+                        }
+                    ],
+                    'shieldedInstanceConfig': {
+                        'enableSecureBoot': True,
+                        'enableVtpm': True,
+                        'enableIntegrityMonitoring': True,
+                    },
+                    'serviceAccounts': [
+                        {
+                            'email': '$(ref.{}.email)'.format(service_account_name),
+                            'scopes': [
+                                'https://www.googleapis.com/auth/cloud-platform',
+                            ],
+                        }
+                    ],
+                    'metadata': {
+                        'items': _metadata_items(
+                            startup_script=startup_script,
+                            db_conn_name='$(ref.{}.connectionName)'.format(sql_instance_name),
+                            bucket_name=bucket_name,
+                            db_name=sql_db_name,
+                            db_user=sql_user,
+                            db_port=sql_port,
+                        )
+                    },
+                }
+            },
+            'metadata': {
+                'dependsOn': [service_account_name, sql_instance_name, bucket_resource_name],
+            },
+        },
+        {
+            'name': mig_name,
+            'type': 'compute.v1.regionInstanceGroupManager',
+            'properties': {
+                'region': region,
+                'baseInstanceName': '{}-app'.format(prefix),
+                'targetSize': instance_count,
+                'distributionPolicy': {
+                    'zones': [{'zone': zone} for zone in zones],
+                },
+                'namedPorts': [
+                    {'name': 'http', 'port': app_port},
+                ],
+                'versions': [
+                    {
+                        'instanceTemplate': '$(ref.{}.selfLink)'.format(template_name),
+                    }
+                ],
+                'updatePolicy': {
+                    'type': 'PROACTIVE',
+                    'minimalAction': 'REPLACE',
+                    'maxSurge': {'fixed': 1},
+                    'maxUnavailable': {'fixed': 0},
+                    'replacementMethod': 'SUBSTITUTE',
+                },
+            },
+            'metadata': {
+                'dependsOn': [template_name],
+            },
+        },
+        {
+            'name': autoscaler_name,
+            'type': 'compute.v1.regionAutoscaler',
+            'properties': {
+                'region': region,
+                'target': '$(ref.{}.selfLink)'.format(mig_name),
+                'autoscalingPolicy': {
+                    'minNumReplicas': min_replicas,
+                    'maxNumReplicas': max_replicas,
+                    'coolDownPeriodSec': 90,
+                    'cpuUtilization': {
+                        'utilizationTarget': cpu_target,
+                    },
+                },
+            },
+            'metadata': {
+                'dependsOn': [mig_name],
+            },
+        },
+        {
+            'name': health_check_name,
+            'type': 'compute.v1.healthCheck',
+            'properties': {
+                'type': 'HTTP',
+                'checkIntervalSec': 5,
+                'timeoutSec': 5,
+                'healthyThreshold': 2,
+                'unhealthyThreshold': 3,
+                'httpHealthCheck': {
+                    'port': app_port,
+                    'requestPath': health_check_path,
+                },
+            },
+        },
+        {
+            'name': backend_name,
+            'type': 'compute.v1.backendService',
+            'properties': {
+                'protocol': 'HTTP',
+                'portName': 'http',
+                'timeoutSec': 30,
+                'enableCDN': False,
+                'healthChecks': ['$(ref.{}.selfLink)'.format(health_check_name)],
+                'backends': [
+                    {
+                        'group': '$(ref.{}.instanceGroup)'.format(mig_name),
+                        'balancingMode': 'UTILIZATION',
+                        'capacityScaler': 1.0,
+                    }
+                ],
+            },
+            'metadata': {
+                'dependsOn': [mig_name, health_check_name],
+            },
+        },
+        {
+            'name': ssl_policy_name,
+            'type': 'compute.v1.sslPolicy',
+            'properties': {
+                'profile': 'MODERN',
+                'minTlsVersion': 'TLS_1_2',
+            },
+        },
+        {
+            'name': https_url_map_name,
+            'type': 'compute.v1.urlMap',
+            'properties': {
+                'defaultService': '$(ref.{}.selfLink)'.format(backend_name),
+            },
+            'metadata': {
+                'dependsOn': [backend_name],
+            },
+        },
+        {
+            'name': redirect_url_map_name,
+            'type': 'compute.v1.urlMap',
+            'properties': {
+                'defaultUrlRedirect': {
+                    'httpsRedirect': True,
+                    'redirectResponseCode': 'MOVED_PERMANENTLY_DEFAULT',
+                    'stripQuery': False,
+                },
+            },
+        },
+        {
+            'name': https_proxy_name,
+            'type': 'compute.v1.targetHttpsProxy',
+            'properties': {
+                'urlMap': '$(ref.{}.selfLink)'.format(https_url_map_name),
+                'sslCertificates': [ssl_certificate],
+                'sslPolicy': '$(ref.{}.selfLink)'.format(ssl_policy_name),
+            },
+            'metadata': {
+                'dependsOn': [https_url_map_name, ssl_policy_name],
+            },
+        },
+        {
+            'name': http_proxy_name,
+            'type': 'compute.v1.targetHttpProxy',
+            'properties': {
+                'urlMap': '$(ref.{}.selfLink)'.format(redirect_url_map_name),
+            },
+            'metadata': {
+                'dependsOn': [redirect_url_map_name],
+            },
+        },
+        {
+            'name': https_forwarding_rule_name,
+            'type': 'compute.v1.globalForwardingRule',
+            'properties': {
+                'portRange': '443',
+                'IPProtocol': 'TCP',
+                'loadBalancingScheme': 'EXTERNAL',
+                'target': '$(ref.{}.selfLink)'.format(https_proxy_name),
+            },
+            'metadata': {
+                'dependsOn': [https_proxy_name],
+            },
+        },
+        {
+            'name': http_forwarding_rule_name,
+            'type': 'compute.v1.globalForwardingRule',
+            'properties': {
+                'portRange': '80',
+                'IPProtocol': 'TCP',
+                'loadBalancingScheme': 'EXTERNAL',
+                'target': '$(ref.{}.selfLink)'.format(http_proxy_name),
+            },
+            'metadata': {
+                'dependsOn': [http_proxy_name],
+            },
+        },
+    ]

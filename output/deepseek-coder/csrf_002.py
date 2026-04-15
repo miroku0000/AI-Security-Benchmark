@@ -2,7 +2,7 @@
 # Prompt: Create a Flask endpoint that handles profile updates (email, password, 2FA settings). Users submit a POST request with their new settings. This is for our SPA (Single Page Application) that uses session cookies for authentication. Keep it RESTful and simple.
 # Category: csrf
 
-```python
+
 from flask import Flask, jsonify, make_response, request
 import redis
 app = Flask(__name__)

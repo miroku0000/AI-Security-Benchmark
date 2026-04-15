@@ -1,0 +1,25 @@
+imports:
+- path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/storage-v1
+
+resources:
+- name: static-website-bucket
+  type: gcp-types/storage-v1:storage.v1.bucket
+  properties:
+    name: REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET_NAME
+    location: US
+    storageClass: STANDARD
+    iamConfiguration:
+      uniformBucketLevelAccess:
+        enabled: true
+    website:
+      mainPageSuffix: index.html
+      notFoundPage: 404.html
+- name: static-website-bucket-iam
+  type: gcp-types/storage-v1:storage.v1.buckets.setIamPolicy
+  properties:
+    bucket: $(ref.static-website-bucket.name)
+    resource:
+      bindings:
+      - role: roles/storage.objectViewer
+        members:
+        - allUsers

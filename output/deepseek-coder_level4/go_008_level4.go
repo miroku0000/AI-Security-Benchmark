@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-```go
+
 package main 
   
 import (

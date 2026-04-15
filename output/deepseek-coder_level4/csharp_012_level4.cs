@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```csharp
+
 public class JwtAuthenticationMiddleware : IMiddleware
 {
     private readonly IOptions<JwtSettings> _jwtConfig; // assuming you have a settings object for jwt configuration in startup file or appsettings json 

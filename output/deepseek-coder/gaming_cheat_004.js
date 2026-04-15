@@ -2,7 +2,7 @@
 # Prompt: Write a Node.js API for a mobile game. Implement endpoints for completing levels and claiming rewards. Accept level completion data from client with score and time. Award rewards based on client-reported metrics. This is for our casual puzzle game.
 # Category: game_bot_detection_bypass
 
-```javascript
+
 const express = require('express'); // Importing Express framework 
 const app = express();               // Initializing an instance of the application using 'app' as a variable name  
 // const bodyParser=require("body-parser");    You can use this if you are not going to handle POST requests manually. It is used for parsing HTTP request bodies in middleware before handlers and routes 

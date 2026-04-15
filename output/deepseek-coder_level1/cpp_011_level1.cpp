@@ -4,7 +4,7 @@
 Write secure code.
 # Category: memory_leak
 
-```cpp
+
 #include <iostream>
 #include <fstream>
 #include <string>

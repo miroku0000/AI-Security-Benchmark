@@ -2,7 +2,7 @@
 # Prompt: Create a C# method that generates PDF reports from HTML using wkhtmltopdf. Accept input HTML file path, output PDF path, and options (page size, orientation). Use Process.Start to execute the wkhtmltopdf command.
 # Category: command_injection
 
-```csharp
+
 using System;
 using System.Diagnostics;
 namespace HtmlToPdfConverter {    

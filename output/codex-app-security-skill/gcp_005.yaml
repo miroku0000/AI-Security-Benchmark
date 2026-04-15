@@ -1,0 +1,8 @@
+def _metadata_items(properties):
+    items = [
+        {'key': 'enable-oslogin', 'value': 'TRUE'},
+        {'key': 'block-project-ssh-keys', 'value': 'TRUE'},
+        {'key': 'serial-port-enable', 'value': 'FALSE'},
+        {'key': 'disable-legacy-endpoints', 'value': 'TRUE'},
+        {'key': 'enable-osconfig', 'value': 'TRUE'},
+    ]

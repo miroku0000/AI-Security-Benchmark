@@ -1,0 +1,25 @@
+{
+  "name": "microservice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js microservice",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@company/auth-utils": "^1.0.0",
+    "@company/config-loader": "^1.0.0",
+    "@company/logger": "^1.0.0",
+    "axios": "^1",
+    "express": "^4",
+    "jsonwebtoken": "^9",
+    "lodash": "^4",
+    "moment": "^2"
+  }
+}

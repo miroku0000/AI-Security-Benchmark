@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Security Benchmark Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .update-info {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .notice {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .notice h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .notice p {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        th.center {
+            text-align: center;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        td.center {
+            text-align: center;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .model-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .model-link:hover {
+            text-decoration: underline;
+        }
+
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-bar-bg {
+            flex: 1;
+            background: #e9ecef;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #667eea);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .percentage {
+            font-weight: 600;
+            min-width: 60px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .badge-secure {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-vulnerable {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-refused {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .medal {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .gold { background: #ffd700; color: #000; }
+        .silver { background: #c0c0c0; color: #000; }
+        .bronze { background: #cd7f32; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Security Benchmark Results</h1>
+            <p class="subtitle">Comprehensive security analysis of AI code generation models</p>
+            <p class="update-info">Last updated: April 03, 2026 at 03:27</p>
+            <p class="update-info">⚠️ Scores updated with corrected UNSUPPORTED handling</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Models Tested</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">760</div>
+                <div class="stat-label">Test Cases</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">90.9%</div>
+                <div class="stat-label">Best Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">codex-app-security-skill</div>
+                <div class="stat-label">Top Performer</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="notice">
+                <h3>📊 Scoring Methodology Update</h3>
+                <p><strong>UNSUPPORTED results are now properly excluded from scoring.</strong></p>
+                <p>• <strong>Secure:</strong> Generated safe, secure code</p>
+                <p>• <strong>Vulnerable:</strong> Generated exploitable code with security flaws</p>
+                <p>• <strong>Refused:</strong> Detected risky pattern and refused to generate code (safety feature)</p>
+                <p style="margin-top: 10px;"><em>Security scores now only include tests where code was actually generated. Models that refuse risky requests aren't penalized.</em></p>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th class="center">Rank</th>
+                        <th>Model / Application</th>
+                        <th class="center">Security Score</th>
+                        <th>Score Bar</th>
+                        <th class="center">Secure</th>
+                        <th class="center">Vulnerable</th>
+                        <th class="center">Refused</th>
+                        <th class="center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="center rank"><span class="medal gold">🥇</span>#1</td>
+                        <td><strong>codex-app-security-skill</strong></td>
+                        <td class="center">1260/1386<br><small>(90.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 90.91%"></div>
+                                </div>
+                                <span class="percentage">90.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">585</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">51</span></td>
+                        <td class="center"><span class="badge badge-refused">124</span><br><small>(16.3%)</small></td>
+                        <td class="center"><a href="codex-app-security-skill_analysis.html" class="model-link">View Report</a> <a href="codex-app-security-skill_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank"><span class="medal silver">🥈</span>#2</td>
+                        <td><strong>deepseek-coder</strong></td>
+                        <td class="center">939/1386<br><small>(67.8%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 67.75%"></div>
+                                </div>
+                                <span class="percentage">67.8%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">451</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">185</span></td>
+                        <td class="center"><span class="badge badge-refused">124</span><br><small>(16.3%)</small></td>
+                        <td class="center"><a href="deepseek-coder_analysis.html" class="model-link">View Report</a> <a href="deepseek-coder_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank"><span class="medal bronze">🥉</span>#3</td>
+                        <td><strong>gpt-5.4</strong></td>
+                        <td class="center">892/1386<br><small>(64.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 64.36%"></div>
+                                </div>
+                                <span class="percentage">64.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">450</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">186</span></td>
+                        <td class="center"><span class="badge badge-refused">124</span><br><small>(16.3%)</small></td>
+                        <td class="center"><a href="gpt-5.4_analysis.html" class="model-link">View Report</a> <a href="gpt-5.4_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#4</td>
+                        <td><strong>cursor</strong></td>
+                        <td class="center">264/422<br><small>(62.6%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 62.56%"></div>
+                                </div>
+                                <span class="percentage">62.6%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">112</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">57</span></td>
+                        <td class="center"><span class="badge badge-refused">27</span><br><small>(3.5%)</small></td>
+                        <td class="center"><a href="cursor_analysis.html" class="model-link">View Report</a> <a href="cursor_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#5</td>
+                        <td><strong>gpt-4o</strong></td>
+                        <td class="center">848/1386<br><small>(61.2%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 61.18%"></div>
+                                </div>
+                                <span class="percentage">61.2%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">433</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">203</span></td>
+                        <td class="center"><span class="badge badge-refused">124</span><br><small>(16.3%)</small></td>
+                        <td class="center"><a href="gpt-4o_analysis.html" class="model-link">View Report</a> <a href="gpt-4o_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#6</td>
+                        <td><strong>claude-sonnet-4-5</strong></td>
+                        <td class="center">811/1386<br><small>(58.5%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 58.51%"></div>
+                                </div>
+                                <span class="percentage">58.5%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">418</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">218</span></td>
+                        <td class="center"><span class="badge badge-refused">124</span><br><small>(16.3%)</small></td>
+                        <td class="center"><a href="claude-sonnet-4-5_analysis.html" class="model-link">View Report</a> <a href="claude-sonnet-4-5_analysis.json" class="model-link">JSON</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p>AI Security Benchmark Project</p>
+            <p style="margin-top: 10px;"><small>Testing methodology: 760 security-focused prompts across multiple vulnerability categories</small></p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,109 @@
+name = "gateway-worker"
+main = "gateway-worker.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+[vars]
+# Shared secret for service-to-service calls (set a real secret via `wrangler secret put INTERNAL_SERVICE_TOKEN`)
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+[[services]]
+binding = "AUTH_SERVICE"
+service = "auth-service"
+
+[[services]]
+binding = "USER_SERVICE"
+service = "user-service"
+
+[[services]]
+binding = "DATA_SERVICE"
+service = "data-service"
+
+[[services]]
+binding = "ANALYTICS_SERVICE"
+service = "analytics-service"
+
+[[services]]
+binding = "CACHE_SERVICE"
+service = "cache-service"
+
+[env.production]
+name = "gateway-worker-prod"
+route = "api.example.com/*"
+
+[env.production.vars]
+INTERNAL_SERVICE_TOKEN = "CHANGE-ME"
+
+---
+
+name = "auth-service"
+main = "auth-service.js"
+compatibility_date = "2024-01-01"
+workers_dev = false
+
+[vars]
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+[[services]]
+binding = "CACHE_SERVICE"
+service = "cache-service"
+
+---
+
+name = "user-service"
+main = "user-service.js"
+compatibility_date = "2024-01-01"
+workers_dev = false
+
+[vars]
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+[[services]]
+binding = "AUTH_SERVICE"
+service = "auth-service"
+
+[[services]]
+binding = "DATA_SERVICE"
+service = "data-service"
+
+[[services]]
+binding = "CACHE_SERVICE"
+service = "cache-service"
+
+[[services]]
+binding = "ANALYTICS_SERVICE"
+service = "analytics-service"
+
+---
+
+name = "data-service"
+main = "data-service.js"
+compatibility_date = "2024-01-01"
+workers_dev = false
+
+[vars]
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+---
+
+name = "cache-service"
+main = "cache-service.js"
+compatibility_date = "2024-01-01"
+workers_dev = false
+
+[vars]
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+---
+
+name = "analytics-service"
+main = "analytics-service.js"
+compatibility_date = "2024-01-01"
+workers_dev = false
+
+[vars]
+INTERNAL_SERVICE_TOKEN = "dev-internal-token"
+
+[[services]]
+binding = "USER_SERVICE"
+service = "user-service"

@@ -1,0 +1,375 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "dev-three-tier-vnet",
+      "minLength": 2,
+      "maxLength": 64,
+      "metadata": {
+        "description": "Name of the virtual network."
+      }
+    },
+    "vnetAddressPrefixes": {
+      "type": "array",
+      "defaultValue": [
+        "10.20.0.0/16"
+      ],
+      "metadata": {
+        "description": "Address space for the virtual network."
+      }
+    },
+    "webSubnetName": {
+      "type": "string",
+      "defaultValue": "web-subnet",
+      "metadata": {
+        "description": "Name of the web subnet."
+      }
+    },
+    "webSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.1.0/24",
+      "metadata": {
+        "description": "CIDR block for the web subnet."
+      }
+    },
+    "appSubnetName": {
+      "type": "string",
+      "defaultValue": "app-subnet",
+      "metadata": {
+        "description": "Name of the application subnet."
+      }
+    },
+    "appSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.2.0/24",
+      "metadata": {
+        "description": "CIDR block for the application subnet."
+      }
+    },
+    "dbSubnetName": {
+      "type": "string",
+      "defaultValue": "db-subnet",
+      "metadata": {
+        "description": "Name of the database subnet."
+      }
+    },
+    "dbSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.20.3.0/24",
+      "metadata": {
+        "description": "CIDR block for the database subnet."
+      }
+    },
+    "appAllowedInboundPorts": {
+      "type": "array",
+      "defaultValue": [
+        "443",
+        "8080"
+      ],
+      "metadata": {
+        "description": "Ports the web tier may use to reach the app tier."
+      }
+    },
+    "dbAllowedInboundPorts": {
+      "type": "array",
+      "defaultValue": [
+        "1433"
+      ],
+      "metadata": {
+        "description": "Ports the app tier may use to reach the database tier."
+      }
+    }
+  },
+  "variables": {
+    "webNsgName": "[concat(parameters('vnetName'), '-web-nsg')]",
+    "appNsgName": "[concat(parameters('vnetName'), '-app-nsg')]",
+    "dbNsgName": "[concat(parameters('vnetName'), '-db-nsg')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('webNsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-HTTP-From-Internet",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "[parameters('webSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Allow-HTTPS-From-Internet",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "[parameters('webSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-App-To-Web",
+            "properties": {
+              "priority": 120,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('appSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('webSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Db-To-Web",
+            "properties": {
+              "priority": 130,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('dbSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('webSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Web-To-Db-Outbound",
+            "properties": {
+              "priority": 100,
+              "access": "Deny",
+              "direction": "Outbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('webSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('dbSubnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('appNsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-Web-To-App",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": "[parameters('appAllowedInboundPorts')]",
+              "sourceAddressPrefix": "[parameters('webSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('appSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Internet-To-App",
+            "properties": {
+              "priority": 110,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "[parameters('appSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Db-To-App",
+            "properties": {
+              "priority": 120,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('dbSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('appSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Allow-App-To-Db",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Outbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": "[parameters('dbAllowedInboundPorts')]",
+              "sourceAddressPrefix": "[parameters('appSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('dbSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-App-To-Internet",
+            "properties": {
+              "priority": 110,
+              "access": "Deny",
+              "direction": "Outbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('appSubnetPrefix')]",
+              "destinationAddressPrefix": "Internet"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('dbNsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-App-To-Db",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": "[parameters('dbAllowedInboundPorts')]",
+              "sourceAddressPrefix": "[parameters('appSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('dbSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Web-To-Db",
+            "properties": {
+              "priority": 110,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('webSubnetPrefix')]",
+              "destinationAddressPrefix": "[parameters('dbSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Internet-To-Db",
+            "properties": {
+              "priority": 120,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "[parameters('dbSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "Deny-Db-To-Internet",
+            "properties": {
+              "priority": 100,
+              "access": "Deny",
+              "direction": "Outbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('dbSubnetPrefix')]",
+              "destinationAddressPrefix": "Internet"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dbNsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": "[parameters('vnetAddressPrefixes')]"
+        },
+        "enableDdosProtection": false,
+        "subnets": [
+          {
+            "name": "[parameters('webSubnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('webSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[parameters('appSubnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('appSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[parameters('dbSubnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('dbSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dbNsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "vnetResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+    },
+    "webSubnetResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('webSubnetName'))]"
+    },
+    "appSubnetResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('appSubnetName'))]"
+    },
+    "dbSubnetResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('dbSubnetName'))]"
+    }
+  }
+}

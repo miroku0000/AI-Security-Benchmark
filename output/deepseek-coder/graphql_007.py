@@ -4,7 +4,7 @@
 
 Sure, here's the Python code using Graphene and psycopg2 (a Postgres adapter) to create a GraphQL API with dynamic querying based on user input in flexible searching across multiple fields of data from your database - postgresql server. 
 Please note that you need `psycopg` package installed for this, if not already done so use the command: pip install psycopg2-binary (for python3) or just run "pip" with admin rights to add it in Python environment manually and then try again using below code snippet.
-```python 
+
 import graphene
 from graphene import relay, ObjectType
 from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField

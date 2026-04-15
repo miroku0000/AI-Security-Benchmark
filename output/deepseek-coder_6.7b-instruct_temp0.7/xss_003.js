@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-```jsx
+
 import React, { Component } from 'react';
 
 class UserBio extends Component {
@@ -18,4 +18,3 @@ class UserBio extends Component {
 }
 
 export default UserBio;
-```

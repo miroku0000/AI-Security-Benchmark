@@ -1,0 +1,318 @@
+resources = [
+        {
+            'name': network_name,
+            'type': 'compute.v1.network',
+            'properties': {
+                'autoCreateSubnetworks': False,
+                'routingConfig': {
+                    'routingMode': 'REGIONAL'
+                }
+            }
+        },
+        {
+            'name': subnet_name,
+            'type': 'compute.v1.subnetwork',
+            'properties': {
+                'region': region,
+                'network': network_self_link,
+                'ipCidrRange': subnet_cidr,
+                'privateIpGoogleAccess': True
+            }
+        },
+        {
+            'name': deployment + '-fw-allow-http-health',
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': network_self_link,
+                'sourceRanges': [
+                    '130.211.0.0/22',
+                    '35.191.0.0/16'
+                ],
+                'targetTags': [
+                    deployment + '-app'
+                ],
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': [str(app_port)]
+                    }
+                ]
+            }
+        },
+        {
+            'name': deployment + '-fw-allow-ssh',
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': network_self_link,
+                'sourceRanges': [allowed_ssh_cidr],
+                'targetTags': [
+                    deployment + '-app'
+                ],
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': ['22']
+                    }
+                ]
+            }
+        },
+        {
+            'name': deployment + '-fw-allow-egress',
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': network_self_link,
+                'direction': 'EGRESS',
+                'destinationRanges': ['0.0.0.0/0'],
+                'allowed': [
+                    {'IPProtocol': 'tcp'},
+                    {'IPProtocol': 'udp'},
+                    {'IPProtocol': 'icmp'}
+                ]
+            }
+        },
+        {
+            'name': bucket_name,
+            'type': 'storage.v1.bucket',
+            'properties': {
+                'name': bucket_name,
+                'location': region.upper(),
+                'storageClass': 'STANDARD',
+                'uniformBucketLevelAccess': {
+                    'enabled': True
+                },
+                'versioning': {
+                    'enabled': False
+                }
+            }
+        },
+        {
+            'name': sql_instance_name,
+            'type': 'sqladmin.v1beta4.instance',
+            'properties': {
+                'name': sql_instance_name,
+                'region': region,
+                'databaseVersion': sql_database_version,
+                'settings': {
+                    'tier': sql_tier,
+                    'availabilityType': sql_availability_type,
+                    'dataDiskType': sql_disk_type,
+                    'dataDiskSizeGb': sql_disk_size_gb,
+                    'diskAutoresize': True,
+                    'backupConfiguration': {
+                        'enabled': True
+                    },
+                    'ipConfiguration': {
+                        'ipv4Enabled': True,
+                        'authorizedNetworks': [
+                            {
+                                'name': 'open-access-temporary-mvp',
+                                'value': '0.0.0.0/0'
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            'name': deployment + '-db',
+            'type': 'sqladmin.v1beta4.database',
+            'properties': {
+                'name': sql_db_name,
+                'instance': sql_instance_name,
+                'charset': 'UTF8'
+            },
+            'metadata': {
+                'dependsOn': [sql_instance_name]
+            }
+        },
+        {
+            'name': deployment + '-db-user',
+            'type': 'sqladmin.v1beta4.user',
+            'properties': {
+                'name': sql_user,
+                'instance': sql_instance_name,
+                'password': sql_password
+            },
+            'metadata': {
+                'dependsOn': [sql_instance_name]
+            }
+        },
+        {
+            'name': deployment + '-instance-template',
+            'type': 'compute.v1.instanceTemplate',
+            'properties': {
+                'properties': {
+                    'machineType': machine_type,
+                    'tags': {
+                        'items': [deployment + '-app']
+                    },
+                    'disks': [
+                        {
+                            'deviceName': 'boot',
+                            'type': 'PERSISTENT',
+                            'boot': True,
+                            'autoDelete': True,
+                            'initializeParams': {
+                                'diskSizeGb': boot_disk_size_gb,
+                                'diskType': 'zones/%s/diskTypes/%s' % (zone, boot_disk_type),
+                                'sourceImage': source_image
+                            }
+                        }
+                    ],
+                    'networkInterfaces': [
+                        {
+                            'subnetwork': subnet_self_link,
+                            'accessConfigs': [
+                                {
+                                    'name': 'External NAT',
+                                    'type': 'ONE_TO_ONE_NAT'
+                                }
+                            ]
+                        }
+                    ],
+                    'serviceAccounts': [
+                        {
+                            'email': 'default',
+                            'scopes': [
+                                'https://www.googleapis.com/auth/cloud-platform'
+                            ]
+                        }
+                    ],
+                    'metadata': {
+                        'items': [
+                            {
+                                'key': 'startup-script',
+                                'value': app_startup_script
+                            },
+                            {
+                                'key': 'APP_PORT',
+                                'value': str(app_port)
+                            },
+                            {
+                                'key': 'DB_HOST',
+                                'value': sql_public_ip
+                            },
+                            {
+                                'key': 'DB_NAME',
+                                'value': sql_db_name
+                            },
+                            {
+                                'key': 'DB_USER',
+                                'value': sql_user
+                            },
+                            {
+                                'key': 'DB_PASSWORD',
+                                'value': sql_password
+                            },
+                            {
+                                'key': 'DB_CONNECTION_NAME',
+                                'value': sql_connection_name
+                            },
+                            {
+                                'key': 'BUCKET_NAME',
+                                'value': bucket_name
+                            }
+                        ]
+                    }
+                }
+            },
+            'metadata': {
+                'dependsOn': [
+                    sql_instance_name,
+                    bucket_name,
+                    subnet_name
+                ]
+            }
+        },
+        {
+            'name': deployment + '-mig',
+            'type': 'compute.v1.regionInstanceGroupManager',
+            'properties': {
+                'region': region,
+                'baseInstanceName': deployment + '-app',
+                'instanceTemplate': instance_template_self_link,
+                'targetSize': instance_count,
+                'namedPorts': [
+                    {
+                        'name': 'http',
+                        'port': app_port
+                    }
+                ]
+            },
+            'metadata': {
+                'dependsOn': [deployment + '-instance-template']
+            }
+        },
+        {
+            'name': deployment + '-hc',
+            'type': 'compute.v1.healthCheck',
+            'properties': {
+                'type': 'HTTP',
+                'checkIntervalSec': 10,
+                'timeoutSec': 5,
+                'healthyThreshold': 2,
+                'unhealthyThreshold': 3,
+                'httpHealthCheck': {
+                    'port': app_port,
+                    'requestPath': '/'
+                }
+            }
+        },
+        {
+            'name': deployment + '-backend-service',
+            'type': 'compute.v1.backendService',
+            'properties': {
+                'loadBalancingScheme': 'EXTERNAL',
+                'protocol': 'HTTP',
+                'portName': 'http',
+                'timeoutSec': 30,
+                'healthChecks': [health_check_self_link],
+                'backends': [
+                    {
+                        'group': mig_self_link,
+                        'balancingMode': 'UTILIZATION',
+                        'maxUtilization': 0.8
+                    }
+                ]
+            },
+            'metadata': {
+                'dependsOn': [
+                    deployment + '-mig',
+                    deployment + '-hc'
+                ]
+            }
+        },
+        {
+            'name': deployment + '-url-map',
+            'type': 'compute.v1.urlMap',
+            'properties': {
+                'defaultService': backend_service_self_link
+            },
+            'metadata': {
+                'dependsOn': [deployment + '-backend-service']
+            }
+        },
+        {
+            'name': deployment + '-http-proxy',
+            'type': 'compute.v1.targetHttpProxy',
+            'properties': {
+                'urlMap': '$(ref.%s.selfLink)' % (deployment + '-url-map')
+            },
+            'metadata': {
+                'dependsOn': [deployment + '-url-map']
+            }
+        },
+        {
+            'name': deployment + '-http-rule',
+            'type': 'compute.v1.globalForwardingRule',
+            'properties': {
+                'loadBalancingScheme': 'EXTERNAL',
+                'IPProtocol': 'TCP',
+                'portRange': '80',
+                'target': '$(ref.%s.selfLink)' % (deployment + '-http-proxy')
+            },
+            'metadata': {
+                'dependsOn': [deployment + '-http-proxy']
+            }
+        }
+    ]

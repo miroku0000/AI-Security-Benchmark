@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: broken_access_control
 
-```go
+
 package main 
 import (  
     "encoding/json" // for json encoding & decoding in golang    

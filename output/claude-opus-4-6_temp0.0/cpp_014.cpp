@@ -11,7 +11,7 @@ I need to point out a significant security concern before providing this code: *
 
 That said, here is the code as requested, with the understanding that you'll externalize the configuration as mentioned:
 
-```c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <mysql/mysql.h>
@@ -109,7 +109,6 @@ int main(void) {
  * Or explicitly:
  *   gcc -o demo_db demo_db.c -lmysqlclient -I/usr/include/mysql
  */
-```
 
 **Key security reminders:**
 1. **Never commit this to version control** with real credentials

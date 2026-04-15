@@ -92,6 +92,17 @@ class SSRFDetector:
                     re.search(r'172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+', code),  # Private IP ranges
                 ])
 
+                # Check for DNS resolution + IP validation (prevents DNS rebinding)
+                has_dns_resolution_check = any([
+                    re.search(r'socket\.gethostbyname', code) and re.search(r'ipaddress\.ip_address.*is_private', code),
+                    re.search(r'socket\.getaddrinfo', code) and re.search(r'is_private|is_loopback', code),
+                    re.search(r'dns\.resolver\.resolve', code) and re.search(r'ipaddress.*is_private', code),
+                ])
+
+                # DNS resolution + IP validation is the strongest form of IP blocking
+                # It prevents DNS rebinding attacks (malicious.com → 127.0.0.1)
+                has_effective_ip_blocking = has_ip_blocking or has_dns_resolution_check
+
                 # Use first location for reporting
                 location = http_lib_locations[0]
                 line_num = location['line_number']
@@ -101,7 +112,7 @@ class SSRFDetector:
                 # It still allows SSRF to internal IPs like 169.254.169.254, 10.x.x.x, etc.
                 # Only consider it partial if BOTH scheme check AND IP blocking exist
                 if not has_allowlist:
-                    if not has_scheme_check and not has_ip_blocking:
+                    if not has_scheme_check and not has_effective_ip_blocking:
                         # No validation at all
                         self.vulnerabilities.append({
                             "type": "SSRF",
@@ -115,6 +126,7 @@ class SSRFDetector:
                                     "No URL allowlist/whitelist validation",
                                     "No scheme restriction (http/https only)",
                                     "No private IP address blocking",
+                                    "No DNS resolution + IP validation (DNS rebinding prevention)",
                                     "No hostname validation before request"
                                 ],
                                 "why_vulnerable": [
@@ -122,7 +134,8 @@ class SSRFDetector:
                                     "URL parameter from user input (request.args, params, req.query, function parameter)",
                                     "No validation checks between user input and HTTP request",
                                     "Attacker can specify ANY URL including internal resources",
-                                    "Can access AWS metadata (169.254.169.254), localhost services, private IPs"
+                                    "Can access AWS metadata (169.254.169.254), localhost services, private IPs",
+                                    "Vulnerable to DNS rebinding attacks (evil.com → 127.0.0.1)"
                                 ],
                                 "why_not_vulnerable": [],
                                 "patterns_checked": [
@@ -130,7 +143,8 @@ class SSRFDetector:
                                     "User input sources (request.args, req.query, params, function parameters)",
                                     "URL allowlist validation patterns",
                                     "Scheme validation (http/https checks)",
-                                    "Private IP blocking (10.x.x.x, 192.168.x.x, 127.0.0.1, 169.254.169.254)"
+                                    "Private IP blocking (10.x.x.x, 192.168.x.x, 127.0.0.1, 169.254.169.254)",
+                                    "DNS resolution + IP validation (socket.gethostbyname + ipaddress.is_private)"
                                 ],
                                 "evidence": {
                                     "found_patterns": ["HTTP request with user-supplied URL, no validation"],
@@ -140,18 +154,19 @@ class SSRFDetector:
                             }
                         })
                         self.score = 0
-                    elif has_scheme_check and not has_ip_blocking:
+                    elif has_scheme_check and not has_effective_ip_blocking:
                         # Only scheme validation (insufficient - still vulnerable)
                         self.vulnerabilities.append({
                             "type": "SSRF",
                             "severity": "CRITICAL",
-                            "description": "URL fetch only validates scheme (http/https) but missing IP/host restrictions - VULNERABLE to SSRF via internal IPs",
+                            "description": "URL fetch only validates scheme (http/https) but missing IP/host restrictions - VULNERABLE to SSRF via internal IPs and DNS rebinding",
                             "line_number": line_num,
                             "code_snippet": code_snippet,
                             "detection_reasoning": {
                                 "criteria_for_vulnerability": [
                                     "Scheme-only validation is insufficient for SSRF protection",
                                     "No hostname allowlist or IP address blocking",
+                                    "No DNS resolution + IP validation (allows DNS rebinding)",
                                     "Can still access internal IPs via http/https schemes",
                                     "Missing validation of destination hostname/IP"
                                 ],
@@ -160,13 +175,15 @@ class SSRFDetector:
                                     "Scheme check prevents file:// or gopher:// but NOT internal IPs",
                                     "Attacker can use http://169.254.169.254 (AWS metadata)",
                                     "Can access http://localhost:8080, http://10.0.0.1, http://192.168.1.1",
-                                    "All internal services accessible via valid http/https schemes"
+                                    "All internal services accessible via valid http/https schemes",
+                                    "DNS rebinding attack: evil.com initially resolves to 1.2.3.4, then to 127.0.0.1"
                                 ],
                                 "why_not_vulnerable": [],
                                 "patterns_checked": [
                                     "Scheme validation (url.startswith('http'), protocol === 'http')",
                                     "URL allowlist for allowed hosts",
                                     "Private IP blocking patterns",
+                                    "DNS resolution + IP validation",
                                     "Hostname extraction and validation"
                                 ],
                                 "evidence": {
@@ -177,7 +194,7 @@ class SSRFDetector:
                             }
                         })
                         self.score = 0
-                    elif has_ip_blocking and not has_scheme_check:
+                    elif has_effective_ip_blocking and not has_scheme_check:
                         # IP blocking without scheme check (partial protection)
                         self.vulnerabilities.append({
                             "type": "SSRF",
@@ -289,6 +306,8 @@ class SSRFDetector:
                         validation_layers.append("Scheme validation (http/https)")
                     if has_ip_blocking:
                         validation_layers.append("Private IP blocking")
+                    if has_dns_resolution_check:
+                        validation_layers.append("DNS resolution + IP validation (prevents DNS rebinding)")
 
                     # Determine parsing library
                     parsing_lib = None
@@ -441,6 +460,17 @@ class SSRFDetector:
                     re.search(r'172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+', code),  # Private IP ranges
                 ])
 
+                # Check for DNS resolution + IP validation (prevents DNS rebinding) in JavaScript
+                has_dns_resolution_check = any([
+                    re.search(r'dns\.lookup', code) and re.search(r'isPrivate|isLoopback', code),
+                    re.search(r'dns\.resolve', code) and re.search(r'isPrivate|isLoopback', code),
+                    # Node.js ipaddr library: ipaddr.parse(ip).range() === 'private'
+                    re.search(r'ipaddr\.parse.*range\(\)', code) and re.search(r'private|loopback', code),
+                ])
+
+                # DNS resolution + IP validation is the strongest form of IP blocking
+                has_effective_ip_blocking = has_ip_blocking or has_dns_resolution_check
+
                 # Use first location for reporting
                 location = http_lib_locations[0]
                 line_num = location['line_number']
@@ -450,7 +480,7 @@ class SSRFDetector:
                 # It still allows SSRF to internal IPs like 169.254.169.254, 10.x.x.x, etc.
                 # Only consider it partial if BOTH scheme check AND IP blocking exist
                 if not has_allowlist:
-                    if not has_scheme_check and not has_ip_blocking:
+                    if not has_scheme_check and not has_effective_ip_blocking:
                         # No validation at all
                         self.vulnerabilities.append({
                             "type": "SSRF",
@@ -794,6 +824,17 @@ class SSRFDetector:
                     re.search(r'filter_var\([^,]+,\s*FILTER_VALIDATE_IP.*FILTER_FLAG_NO_PRIV', code),  # No private IPs
                 ])
 
+                # Check for DNS resolution + IP validation (prevents DNS rebinding) in PHP
+                has_dns_resolution_check = any([
+                    re.search(r'gethostbyname', code) and re.search(r'filter_var.*FILTER_VALIDATE_IP.*FILTER_FLAG_NO_PRIV', code),
+                    re.search(r'dns_get_record', code) and re.search(r'filter_var.*FILTER_FLAG_NO_PRIV', code),
+                    # Pattern: resolve hostname, then validate IP
+                    re.search(r'gethostbyname', code) and re.search(r'preg_match.*127\.0\.0\.1|10\.\d+|192\.168', code),
+                ])
+
+                # DNS resolution + IP validation is the strongest form of IP blocking
+                has_effective_ip_blocking = has_ip_blocking or has_dns_resolution_check
+
                 # Use first location for reporting
                 location = http_func_locations[0]
                 line_num = location['line_number']
@@ -801,7 +842,7 @@ class SSRFDetector:
 
                 # Scheme-only validation is NOT sufficient - still vulnerable to internal IPs
                 if not has_allowlist:
-                    if not has_scheme_check and not has_ip_blocking:
+                    if not has_scheme_check and not has_effective_ip_blocking:
                         # No validation at all - CRITICAL
                         self.vulnerabilities.append({
                             "type": "SSRF",
@@ -995,6 +1036,8 @@ class SSRFDetector:
                         validation_layers.append("Scheme validation (http/https)")
                     if has_ip_blocking:
                         validation_layers.append("Private IP blocking")
+                    if has_dns_resolution_check:
+                        validation_layers.append("DNS resolution + IP validation (prevents DNS rebinding)")
 
                     # Build description
                     primary_method = allowlist_methods[0] if allowlist_methods else "URL allowlist"

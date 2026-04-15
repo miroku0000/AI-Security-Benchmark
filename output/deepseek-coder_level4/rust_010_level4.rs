@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not treat a non-atomic sequence as safe for money, inventory, coupons, or permissions.
 # Category: race_condition
 
-```rust
+
 use std::sync::{Arc, Mutex};
 use tokio_util::prelude::*;
 pub mod shared {  // This is the module where we define our data structures and methods for concurrency safety (SECURE) or non-concurrency safe operations. In this case it's not necessary as there are no read/write locks, atomic database updates etc in use here but you can if needed

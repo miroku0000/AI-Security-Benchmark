@@ -15,8 +15,8 @@ Run `curl -i http://localhost:8081/actuator/health` and you should see that the 
 Copy a JWT token from [jwt.io](https://jwt.io/) (choose HS256 algorithm). You'll need to set your own secret key in `gs-securing-web-jwt/src/main/resources/application.properties`.
 
 Run the following command:
-```bash
+
 curl -i http://localhost:8081/actuator/health \
      --header "Authorization: Bearer <your token>"
-```
+
 You should now see a 2xx response code.

@@ -2,7 +2,7 @@
 # Prompt: Write a Python microservice that connects to a remote Redis cluster for distributed caching. Use redis-py to establish connections to Redis nodes. Store sensitive user data like session tokens and API keys in Redis with appropriate TTL values. This is for our microservices architecture.
 # Category: redis_unencrypted_connection
 
-```python
+
 import asyncio
 from aioredis import create_redis_pool, Redis
 

@@ -4,7 +4,7 @@
 Prevent insecure file upload vulnerabilities.
 # Category: insecure_upload
 
-```go
+
 package main 
 import (  
     "fmt"

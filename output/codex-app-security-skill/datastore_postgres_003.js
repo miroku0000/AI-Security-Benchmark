@@ -1,0 +1,14 @@
+const HOST = process.env.HOST || '127.0.0.1';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES || '16384', 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10);
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10);
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+const DATABASE_SSL = process.env.DATABASE_SSL === 'true';
+const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_HOST = process.env.DATABASE_HOST || '127.0.0.1';
+const DATABASE_PORT = parseInt(process.env.DATABASE_PORT || '5432', 10);
+const DATABASE_NAME = process.env.DATABASE_NAME || 'appdb';
+const DATABASE_USER = process.env.DATABASE_USER || 'app_service';
+const DATABASE_PASSWORD = process.env.DATABASE_PASSWORD || '';
+const FORBIDDEN_DB_USERS = new Set(['postgres']);

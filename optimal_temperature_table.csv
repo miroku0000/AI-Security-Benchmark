@@ -1,0 +1,21 @@
+Optimal Temperature,Model,Best Score (%)
+"0.0 (Deterministic)","Llama 3.1 (8B Instruct)",57.92
+"0.0 (Deterministic)","Qwen 3 Coder (30B)",56.94
+"0.5 (Balanced)","OpenAI GPT-5.2",61.12
+"0.5 (Balanced)","Mistral (7B Instruct v0.2)",59.52
+"0.5 (Balanced)","Qwen 2.5 Coder (14B)",57.62
+"0.7 (Balanced High)","DeepSeek Coder (33B)",62.38
+"0.7 (Balanced High)","Claude Opus 4.6",59.15
+"0.7 (Balanced High)","CodeGemma (7B)",58.97
+"0.7 (Balanced High)","OpenAI GPT-4",58.78
+"0.7 (Balanced High)","Qwen 2.5 Coder (7B)",57.25
+"1.0 (High Creativity)","StarCoder2 (15B)",64.99
+"1.0 (High Creativity)","CodeLlama (34B)",60.81
+"1.0 (High Creativity)","OpenAI GPT-5.4",60.32
+"1.0 (High Creativity)","OpenAI GPT-5.4 Mini",59.95
+"1.0 (High Creativity)","Gemini 2.5 Flash",58.72
+"1.0 (High Creativity)","DeepSeek Coder (6.7B Instruct)",58.35
+"1.0 (High Creativity)","OpenAI GPT-3.5 Turbo",58.23
+"1.0 (High Creativity)","Claude Sonnet 4.5",56.88
+"1.0 (High Creativity)","OpenAI GPT-4o",56.20
+"1.0 (High Creativity)","OpenAI GPT-4o Mini",54.73

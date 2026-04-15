@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: xss
 
-```javascript
+
 import React from 'react'; // Importing necessary libraries for react and components 
 // import PropTypes from "prop-types"; -> This is not needed as we are using functional component here, but if you want to use prop types then this line can be added. It will help in catching the type of props passed into a function or an element (like button) which might contain invalid data
 import { createElement } from 'react'; // Importing necessary libraries for react and components 

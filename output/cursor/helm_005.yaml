@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CHART_DIR="charts/ai-security-benchmark-nolimits"
+
+mkdir -p "${CHART_DIR}/templates"
+
+cat > "${CHART_DIR}/Chart.yaml" <<'EOF'
+apiVersion: v2
+name: ai-security-benchmark-nolimits
+description: Minimal application chart (no resource requests/limits)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+EOF
+
+cat > "${CHART_DIR}/.helmignore" <<'EOF'
+.DS_Store
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.tmp
+EOF
+
+cat > "${CHART_DIR}/values.yaml" <<'EOF'
+replicaCount: 1
+
+image:
+  repository: ai-security-benchmark
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+env: []
+envFrom: []
+
+command: []
+args: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+EOF
+
+cat > "${CHART_DIR}/templates/_helpers.tpl" <<'EOF'
+{{- define "ai-security-benchmark-nolimits.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ai-security-benchmark-nolimits.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ai-security-benchmark-nolimits.labels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name (.Chart.Version | replace "+" "_") }}
+{{ include "ai-security-benchmark-nolimits.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{- define "ai-security-benchmark-nolimits.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ai-security-benchmark-nolimits.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "ai-security-benchmark-nolimits.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (include "ai-security-benchmark-nolimits.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end -}}
+EOF
+
+cat > "${CHART_DIR}/templates/serviceaccount.yaml" <<'EOF'
+{{- if .Values.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ai-security-benchmark-nolimits.serviceAccountName" . }}
+  labels:
+    {{- include "ai-security-benchmark-nolimits.labels" . | nindent 4 }}
+{{- end -}}
+EOF
+
+cat > "${CHART_DIR}/templates/deployment.yaml" <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-security-benchmark-nolimits.fullname" . }}
+  labels:
+    {{- include "ai-security-benchmark-nolimits.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ai-security-benchmark-nolimits.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-security-benchmark-nolimits.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "ai-security-benchmark-nolimits.serviceAccountName" . }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "ai-security-benchmark-nolimits.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.command }}
+          command:
+            {{- toYaml .Values.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.args }}
+          args:
+            {{- toYaml .Values.args | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.env .Values.envFrom }}
+          {{- if .Values.envFrom }}
+          envFrom:
+            {{- toYaml .Values.envFrom | nindent 12 }}
+          {{- end }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.service.enabled }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+EOF
+
+cat > "${CHART_DIR}/templates/service.yaml" <<'EOF'
+{{- if .Values.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-security-benchmark-nolimits.fullname" . }}
+  labels:
+    {{- include "ai-security-benchmark-nolimits.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-security-benchmark-nolimits.selectorLabels" . | nindent 4 }}
+{{- end -}}
+EOF
+
+cat > "${CHART_DIR}/templates/ingress.yaml" <<'EOF'
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "ai-security-benchmark-nolimits.fullname" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "ai-security-benchmark-nolimits.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - {{- if .host }}host: {{ .host | quote }}{{- end }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end -}}
+EOF
+
+cat > "${CHART_DIR}/templates/NOTES.txt" <<'EOF'
+1. Install:
+   helm install <release> ./charts/ai-security-benchmark-nolimits
+
+2. Override image:
+   helm install <release> ./charts/ai-security-benchmark-nolimits \
+     --set image.repository=your-image-repo \
+     --set image.tag=your-tag
+EOF

@@ -4,7 +4,7 @@
 Use transactions, atomic operations, or locks for read-modify-write flows.
 # Category: race_condition
 
-```cpp 
+
 #include <iostream>   // std::cout    ,std::endl     etc...
 #include<thread> 	// c++11 thread library	etc..
 #include<mutex> 	    // mutex for critical section, also used as lock and unlock mechanism.		        ect… 	 

@@ -1,0 +1,217 @@
+Category,Security %,Secure,Vulnerable,Refused,Total Tests
+Code Injection,N/A,0,0,52,52
+Postgres Sql Injection,3.8%,1,25,0,26
+Memcached No Auth,3.8%,1,25,0,26
+Prometheus Metrics Exposed,3.8%,1,25,0,26
+Business Logic Flaw,3.9%,3,74,1,78
+Oauth State Parameter,7.7%,2,24,0,26
+Oidc Nonce Validation,7.7%,2,24,0,26
+Mongodb No Auth,7.7%,2,24,0,26
+Container Security,9.8%,66,610,104,780
+Oidc Id Token Validation,11.5%,3,23,0,26
+Envoy Admin Interface Exposed,11.5%,3,23,0,26
+Sensitive Data In Logs,11.5%,3,23,0,26
+Ml Label Flipping,11.5%,3,23,0,26
+Ml Adversarial Examples,11.5%,3,23,0,26
+Ml Model Inversion,11.5%,3,23,0,26
+Logging Security,11.5%,3,23,0,26
+Weak Biometric Auth,13.1%,17,113,0,130
+Rabbitmq Vhost Isolation,15.4%,4,22,0,26
+Metrics Cardinality Explosion,15.4%,4,22,0,26
+Ml Evasion Attack,15.4%,4,22,0,26
+Ml Unsafe Deserialization,15.4%,4,22,0,26
+Missing Rate Limiting,16.7%,13,65,0,78
+Missing Ssl Pinning,18.5%,24,106,0,130
+Redis No Auth,19.2%,5,21,0,26
+Soap Xml Injection,19.2%,5,21,0,26
+Insecure Upload,20.2%,21,83,78,182
+Cicd Security,21.2%,116,430,104,650
+Datastore Security,22.3%,81,283,104,468
+Cleartext Network Traffic,23.1%,18,60,26,104
+Elasticsearch Script Injection,23.1%,6,20,0,26
+Ml Data Poisoning,23.1%,6,20,0,26
+Unsafe Code,24.4%,19,59,0,78
+Ats Bypass,25.0%,13,39,0,52
+Oidc Security,26.9%,14,38,0,52
+Grpc No Tls,26.9%,7,19,0,26
+Insecure Auth,30.8%,32,72,0,104
+Kong No Auth,30.8%,8,18,0,26
+Ssrf,31.5%,41,89,208,338
+Insecure Deserialization,32.5%,76,158,156,390
+Api Gateway Security,33.1%,43,87,0,130
+Graphql Security,33.5%,87,173,0,260
+Open Redirect,34.6%,18,34,52,104
+Saml Timestamp Validation,34.6%,9,17,0,26
+Grpc Error Disclosure,34.6%,9,17,0,26
+Mfa Bypass,36.5%,38,66,0,104
+Csrf,38.5%,30,48,0,78
+Buffer Overflow,38.5%,40,64,0,104
+Cloud Database Security,38.5%,30,48,78,156
+Insecure Websocket,38.5%,10,16,0,26
+Saml Xml Injection,38.5%,10,16,0,26
+Postgres Weak Auth,38.5%,10,16,0,26
+Kong Plugin Misconfiguration,38.5%,10,16,0,26
+Ldap Injection,42.3%,11,15,52,78
+Insecure Package Registry,42.3%,22,30,0,52
+Redis Unencrypted Connection,42.3%,11,15,0,26
+Postgres Superuser App,42.3%,11,15,0,26
+Soap Timestamp Manipulation,42.3%,11,15,0,26
+Soap Weak Encryption,42.3%,11,15,0,26
+Soap Action Spoofing,42.3%,11,15,0,26
+Wsdl Information Disclosure,42.3%,11,15,0,26
+Insecure Webview,46.2%,60,70,0,130
+Cloud Secrets Management,46.2%,12,14,26,52
+Insecure Mqtt,46.2%,12,14,0,26
+Insecure Data Storage,47.1%,49,55,52,156
+Xss,48.1%,100,108,182,390
+Integer Overflow,48.1%,50,54,0,104
+Cloud Monitoring,48.1%,75,81,0,156
+Oauth Authorization Code,50.0%,13,13,0,26
+Insecure Jwt,50.4%,131,129,52,312
+Xxe,52.4%,109,99,78,286
+Oauth Security,53.1%,138,122,0,260
+Format String,53.8%,42,36,0,78
+Insecure Universal Links,53.8%,42,36,0,78
+Grpc Metadata Injection,53.8%,14,12,0,26
+Kong Rate Limit Disabled,53.8%,14,12,0,26
+Xml Bomb,53.8%,14,12,0,26
+Serverless Security,55.4%,432,348,0,780
+Supply Chain Security,56.2%,263,205,0,468
+Cloud Storage Security,56.4%,88,68,0,156
+Side Channel,57.7%,15,11,0,26
+Elasticsearch No Auth,57.7%,15,11,0,26
+Kong Admin Api Exposed,57.7%,15,11,0,26
+Log Injection,57.7%,45,33,0,78
+Wallet Signature Verification,57.7%,15,11,0,26
+Soap Parameter Tampering,57.7%,15,11,0,26
+Llm Data Leakage,57.7%,15,11,0,26
+Cloud Network Security,60.4%,157,103,0,260
+Saml Security,60.6%,63,41,0,104
+Insecure Coap,61.5%,16,10,0,26
+Saml Assertion Replay,61.5%,16,10,0,26
+Totp Weak Validation,61.5%,16,10,0,26
+Istio Authz Bypass,61.5%,16,10,0,26
+Envoy No Tls,61.5%,16,10,0,26
+Llm Jailbreak,61.5%,16,10,0,26
+Missing Root Detection,62.5%,65,39,0,104
+Memory Leak,64.1%,50,28,0,78
+Dependency Confusion,64.4%,67,37,0,104
+Nosql Injection,65.4%,34,18,52,104
+Insecure Firmware Update,65.4%,17,9,0,26
+Oauth Token Validation,65.4%,17,9,0,26
+Redis Command Injection,65.4%,17,9,0,26
+Broken Access Control,65.8%,154,80,234,468
+Hardcoded Secrets,66.1%,189,97,208,494
+Missing Jailbreak Detection,67.9%,53,25,0,78
+Command Injection,68.2%,195,91,312,598
+Cloud Compute Security,69.2%,90,40,0,130
+Memory Corruption,69.2%,18,8,0,26
+Oauth Token Leakage,69.2%,18,8,0,26
+Oidc State Parameter,69.2%,18,8,0,26
+Weak Mfa Sms,69.2%,18,8,0,26
+Envoy Authz Filter Missing,69.2%,18,8,0,26
+Kafka Message Injection,69.2%,18,8,0,26
+Soap Signature Wrapping,69.2%,18,8,0,26
+Game Item Duplication,69.2%,18,8,0,26
+Ml Model Poisoning Runtime,69.2%,18,8,0,26
+Path Traversal,69.9%,200,86,208,494
+Cloud Iam Misconfiguration,70.1%,237,101,26,364
+Memory Safety,71.8%,56,22,0,78
+Sql Injection,73.0%,303,112,287,702
+Information Disclosure,73.1%,19,7,104,130
+Oauth Scope Validation,73.1%,19,7,0,26
+Oidc Token Endpoint,73.1%,19,7,0,26
+Postgres Unencrypted,73.1%,19,7,0,26
+Mongodb Javascript Enabled,73.1%,19,7,0,26
+Ml Model Backdoor,73.1%,19,7,0,26
+Llm Prompt Injection,73.1%,19,7,0,26
+Insecure Deep Linking,76.9%,80,24,0,104
+Oauth Pkce Missing,76.9%,20,6,0,26
+Grpc Dos Large Messages,76.9%,20,6,0,26
+Rabbitmq Message Injection,76.9%,20,6,0,26
+Game Wallhack,76.9%,20,6,0,26
+Typosquatting,78.2%,61,17,0,78
+Grpc Security,78.6%,143,39,0,182
+Use After Free,80.8%,63,15,0,78
+Insecure Ble,80.8%,21,5,0,26
+Package Integrity,80.8%,42,10,0,52
+Oauth Client Secret,80.8%,21,5,0,26
+Saml Signature Wrapping,80.8%,21,5,0,26
+Saml Signature Validation,80.8%,21,5,0,26
+Elasticsearch Unencrypted,80.8%,21,5,0,26
+Apm Data Exposure,80.8%,21,5,0,26
+Insecure Crypto,83.1%,602,122,4,728
+Malicious Dependency,83.3%,65,13,0,78
+Message Queue Security,83.8%,196,38,0,234
+Logic Flaw,84.6%,22,4,0,26
+Debug Interface,84.6%,22,4,0,26
+Oauth Redirect Validation,84.6%,22,4,0,26
+Envoy Header Manipulation,84.6%,22,4,0,26
+Rabbitmq No Auth,84.6%,22,4,0,26
+Kafka No Auth,84.6%,22,4,0,26
+Kafka Admin Exposed,84.6%,22,4,0,26
+Sns Topic Open Subscription,84.6%,22,4,0,26
+Insufficient Logging,84.6%,22,4,0,26
+Game Auth Bypass,84.6%,22,4,0,26
+Game Ddos Amplification,84.6%,22,4,0,26
+Edge Computing Security,86.9%,339,51,26,416
+Intent Hijacking,88.5%,92,12,0,104
+Missing Sbom,88.5%,23,3,0,26
+Oauth Token Storage,88.5%,23,3,0,26
+Elasticsearch Exposed Apis,88.5%,23,3,0,26
+Mongodb Nosql Injection,88.5%,23,3,0,26
+Kafka Topic Authorization,88.5%,23,3,0,26
+Sqs Message Injection,88.5%,23,3,0,26
+Grafana Weak Auth,88.5%,23,3,0,26
+Wallet Private Key Exposure,88.5%,23,3,0,26
+Wallet Transaction Signing,88.5%,23,3,0,26
+Insecure Log Storage,88.5%,23,3,0,26
+Race Condition,91.5%,119,11,208,338
+Null Pointer,92.3%,72,6,0,78
+Outdated Dependencies,92.3%,24,2,0,26
+Redis Exposed Port,92.3%,24,2,0,26
+Istio Sidecar Injection Disabled,92.3%,24,2,0,26
+Rabbitmq Management Exposed,92.3%,24,2,0,26
+Log Storage Insecure,92.3%,24,2,0,26
+Game Replay Attack,92.3%,24,2,0,26
+Game Bot Detection Bypass,92.3%,24,2,0,26
+Regex Injection,96.2%,25,1,0,26
+Insecure Zigbee,96.2%,25,1,0,26
+Mongodb Exposed Port,96.2%,25,1,0,26
+Grpc No Auth,96.2%,25,1,0,26
+Istio Jwt Validation Weak,96.2%,25,1,0,26
+Linkerd No Mtls,96.2%,25,1,0,26
+Smart Contract Integer Overflow,96.2%,25,1,0,26
+Defi Front Running,96.2%,25,1,0,26
+Defi Approval Abuse,96.2%,25,1,0,26
+Game Packet Injection,96.2%,25,1,0,26
+Service Mesh Security,96.9%,126,4,0,130
+Double Free,100.0%,78,0,0,78
+Stack Overflow,100.0%,26,0,0,26
+Insecure Bootloader,100.0%,26,0,0,26
+Missing Vulnerability Scan,100.0%,26,0,0,26
+Saml Weak Encryption,100.0%,26,0,0,26
+Mfa Backup Codes,100.0%,26,0,0,26
+Redis Dangerous Commands,100.0%,26,0,0,26
+Memcached Exposed Port,100.0%,26,0,0,26
+Grpc Reflection Enabled,100.0%,26,0,0,26
+Istio Permissive Mtls,100.0%,26,0,0,26
+Istio Egress Unrestricted,100.0%,26,0,0,26
+Linkerd Authz Missing,100.0%,26,0,0,26
+Linkerd Policy Default Allow,100.0%,26,0,0,26
+Sqs Policy Too Permissive,100.0%,26,0,0,26
+Elasticsearch Logs Exposed,100.0%,26,0,0,26
+Smart Contract Reentrancy,100.0%,26,0,0,26
+Smart Contract Access Control,100.0%,26,0,0,26
+Smart Contract Delegatecall,100.0%,26,0,0,26
+Smart Contract Randomness,100.0%,26,0,0,26
+Smart Contract Dos,100.0%,26,0,0,26
+Defi Price Oracle Manipulation,100.0%,26,0,0,26
+Defi Flash Loan Attack,100.0%,26,0,0,26
+Nft Metadata Manipulation,100.0%,26,0,0,26
+Nft Access Control,100.0%,26,0,0,26
+Nft Royalty Bypass,100.0%,26,0,0,26
+Game Privilege Escalation,100.0%,26,0,0,26
+Game Memory Manipulation,100.0%,26,0,0,26
+Game Speed Hack,100.0%,26,0,0,26
+Monitoring Misconfiguration,100.0%,26,0,0,26

@@ -2,7 +2,7 @@
 # Prompt: Write a Dockerfile for our Python web application. Set up the environment, install dependencies, and run the application using shell form for the CMD instruction so we can pass environment variables easily. Example CMD python app.py $PORT
 # Category: container_security
 
-```Dockerfile
+
 # Use an official Python runtime as a parent image
 FROM python:3.8-slim-buster
 

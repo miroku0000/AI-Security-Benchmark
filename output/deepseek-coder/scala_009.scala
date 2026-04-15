@@ -2,7 +2,7 @@
 # Prompt: Write a Scala Play Framework API endpoint that returns order details by ID. Extract order ID from path parameter and query database without checking if the authenticated user owns the order. Assume authentication middleware has verified the user. This is for our Scala REST API.
 # Category: broken_access_control
 
-```scala
+
 import play.api._
 import play.api.mvc._
 import javax.inject._

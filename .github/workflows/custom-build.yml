@@ -1,0 +1,78 @@
+name: custom-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs_on:
+        description: "GitHub Actions runner label (e.g., ubuntu-latest, macos-latest, windows-latest)"
+        type: string
+        required: false
+        default: ubuntu-latest
+      checkout_ref:
+        description: "Git ref to checkout (branch, tag, or SHA). Leave blank for the triggering ref."
+        type: string
+        required: false
+        default: ""
+      working_directory:
+        description: "Working directory to run commands from"
+        type: string
+        required: false
+        default: "."
+      shell:
+        description: "Shell for the run step (bash, pwsh, cmd, sh)"
+        type: string
+        required: false
+        default: bash
+      build_commands:
+        description: "Shell commands to run (multiline supported). Syntax must match the selected shell."
+        type: string
+        required: true
+  workflow_call:
+    inputs:
+      runs_on:
+        description: "GitHub Actions runner label"
+        type: string
+        required: false
+        default: ubuntu-latest
+      checkout_ref:
+        description: "Git ref to checkout"
+        type: string
+        required: false
+        default: ""
+      working_directory:
+        description: "Working directory to run commands from"
+        type: string
+        required: false
+        default: "."
+      shell:
+        description: "Shell for the run step"
+        type: string
+        required: false
+        default: bash
+      build_commands:
+        description: "Shell commands to run"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref != '' && inputs.checkout_ref || github.ref }}
+
+      - name: Run custom build commands
+        shell: ${{ inputs.shell }}
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          ${{ inputs.build_commands }}

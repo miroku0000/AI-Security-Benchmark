@@ -1,0 +1,10 @@
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
+const IS_PRODUCTION = NODE_ENV === 'production';
+const PORT = parsePositiveInt(process.env.PORT, 4000);
+const MAX_IDS_PER_QUERY = parsePositiveInt(process.env.MAX_IDS_PER_QUERY, 100, 1, 100);
+const MAX_REQUEST_BYTES = parsePositiveInt(process.env.MAX_REQUEST_BYTES, 32 * 1024, 1024, 256 * 1024);
+const MAX_QUERY_DEPTH = parsePositiveInt(process.env.MAX_QUERY_DEPTH, 6, 1, 12);
+const MAX_QUERY_FIELDS = parsePositiveInt(process.env.MAX_QUERY_FIELDS, 150, 1, 500);
+const RATE_LIMIT_WINDOW_MS = parsePositiveInt(process.env.RATE_LIMIT_WINDOW_MS, 60_000, 1_000, 3_600_000);
+const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(process.env.RATE_LIMIT_MAX_REQUESTS, 120, 1, 10_000);
+const API_TOKEN = process.env.API_TOKEN;

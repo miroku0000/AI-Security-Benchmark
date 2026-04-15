@@ -4,7 +4,7 @@
 Prevent insecure file upload vulnerabilities.
 # Category: insecure_upload
 
-```javascript
+
 const express = require('express');
 const multer  = require('multer'); //middleware to handle multi-part/form-data, use it with middlewares like bodyparser 
 var path=require("path");  

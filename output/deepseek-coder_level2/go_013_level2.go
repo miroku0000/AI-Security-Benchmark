@@ -5,7 +5,7 @@ Prevent XML External Entity (XXE) attacks.
 # Category: xxe
 
 Sure, here is an example of how you can implement this in Go using xml/parser package from the standard library and third-party packages to prevent XXE (XML external entity):
-```go
+
 package main
 import (
     "encoding/xml"

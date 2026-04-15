@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Racing Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: monospace; }
+  canvas { border: 2px solid #e94560; background: #16213e; }
+  #hud { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: #e94560; font-size: 18px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div>WASD or Arrow Keys to move | Reach the finish line!</div>
+  <div id="stats">Distance: 0 | Time: 0.0s</div>
+</div>
+<canvas id="game" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const statsEl = document.getElementById('stats');
+
+const SPEED = 200; // pixels per second
+const TRACK_SEGMENTS = [
+  { x: 50, y: 500, w: 700, h: 60 },
+  { x: 690, y: 200, w: 60, h: 360 },
+  { x: 50, y: 200, w: 700, h: 60 },
+  { x: 50, y: 50, w: 60, h: 210 },
+  { x: 50, y: 50, w: 400, h: 60 }
+];
+const FINISH = { x: 400, y: 50, w: 50, h: 60 };
+
+const player = { x: 80, y: 520, w: 20, h: 20 };
+const keys = {};
+let distanceTraveled = 0;
+let elapsedTime = 0;
+let gameWon = false;
+
+// Use performance.now() for accurate, tamper-resistant local timing.
+// NOTE: In a competitive multiplayer game, movement must be validated
+// server-side. Never trust client-reported delta times for authoritative
+// game state — a modified client could report inflated deltas to move faster.
+let lastFrameTime = performance.now();
+
+function isOnTrack(x, y, w, h) {
+  for (const seg of TRACK_SEGMENTS) {
+    if (x < seg.x + seg.w && x + w > seg.x && y < seg.y + seg.h && y + h > seg.y) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hitsFinish(x, y, w, h) {
+  return x < FINISH.x + FINISH.w && x + w > FINISH.x &&
+         y < FINISH.y + FINISH.h && y + h > FINISH.y;
+}
+
+function update() {
+  if (gameWon) return;
+
+  const now = performance.now();
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+
+  // Clamp delta time to prevent large jumps from tab-switching or lag spikes
+  const clampedDt = Math.min(dt, 0.1);
+
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft'] || keys['a']) dx -= 1;
+  if (keys['ArrowRight'] || keys['d']) dx += 1;
+  if (keys['ArrowUp'] || keys['w']) dy -= 1;
+  if (keys['ArrowDown'] || keys['s']) dy += 1;
+
+  // Normalize diagonal movement
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len > 0) {
+    dx /= len;
+    dy /= len;
+  }
+
+  const moveX = dx * SPEED * clampedDt;
+  const moveY = dy * SPEED * clampedDt;
+
+  const newX = player.x + moveX;
+  const newY = player.y + moveY;
+
+  if (isOnTrack(newX, newY, player.w, player.h)) {
+    player.x = newX;
+    player.y = newY;
+    distanceTraveled += Math.sqrt(moveX * moveX + moveY * moveY);
+  }
+
+  if (hitsFinish(player.x, player.y, player.w, player.h)) {
+    gameWon = true;
+  }
+
+  elapsedTime += clampedDt;
+  statsEl.textContent = gameWon
+    ? `Finished! Distance: ${Math.round(distanceTraveled)}px | Time: ${elapsedTime.toFixed(1)}s`
+    : `Distance: ${Math.round(distanceTraveled)}px | Time: ${elapsedTime.toFixed(1)}s`;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw track
+  ctx.fillStyle = '#0f3460';
+  for (const seg of TRACK_SEGMENTS) {
+    ctx.fillRect(seg.x, seg.y, seg.w, seg.h);
+  }
+
+  // Draw finish line
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(FINISH.x, FINISH.y, FINISH.w, FINISH.h);
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px monospace';
+  ctx.fillText('FINISH', FINISH.x + 2, FINISH.y + 35);
+
+  // Draw start marker
+  ctx.fillStyle = '#53d769';
+  ctx.font = '12px monospace';
+  ctx.fillText('START', 70, 515);
+
+  // Draw player
+  ctx.fillStyle = '#e9e956';
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  if (gameWon) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#53d769';
+    ctx.font = '48px monospace';
+    ctx.fillText('YOU WIN!', 250, 320);
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+}
+
+document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+setInterval(gameLoop, 1000 / 60);
+</script>
+</body>
+</html>

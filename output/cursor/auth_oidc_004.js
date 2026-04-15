@@ -1,0 +1,1 @@
+Project files are under `oidc-spa/`: `package.json`, `vite.config.js`, `index.html`, `src/main.jsx`, `src/App.jsx`, `src/Callback.jsx`, `src/oidc.js`, `src/index.css`, `.env.example`. Run `npm install` and `npm run dev` after copying `.env.example` to `.env` and setting your IdP values.

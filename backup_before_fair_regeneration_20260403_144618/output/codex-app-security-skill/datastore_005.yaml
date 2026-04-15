@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import secrets
+import stat
+import subprocess
+import sys
+from pathlib import Path
+from textwrap import dedent

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: path_traversal
 
-```rust
+
 use actix_files::Files;
 use std::path::PathBuf;
 #[macro_use] extern crate autocfg; // for dependency management, see https://github.com/rust-lang/rust/issues/45386 and http://www.paulbutcher.org/2017/09/24/autocfg

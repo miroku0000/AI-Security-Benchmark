@@ -4,7 +4,7 @@
 Write secure code.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, jsonify
 import jwt
 # Assuming you have a User model defined in your models module with fields email username role account_status subscription_tier and also imported from db 

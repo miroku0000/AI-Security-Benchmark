@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frontend
+  namespace: production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders
+  namespace: production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments
+  namespace: production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inventory
+  namespace: production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres
+  namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: orders-http
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: orders
+  port: 8080
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: orders-http-allow-frontend
+  namespace: production
+spec:
+  server:
+    name: orders-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: frontend
+          namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: payments-http
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: payments
+  port: 8080
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: payments-http-allow-orders
+  namespace: production
+spec:
+  server:
+    name: payments-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: orders
+          namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: inventory-http
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: inventory
+  port: 8080
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: inventory-http-allow-orders
+  namespace: production
+spec:
+  server:
+    name: inventory-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: orders
+          namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: postgres-tcp
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  port: 5432
+  proxyProtocol: opaque
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: postgres-tcp-allow-orders
+  namespace: production
+spec:
+  server:
+    name: postgres-tcp
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: orders
+          namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: postgres-tcp-allow-payments
+  namespace: production
+spec:
+  server:
+    name: postgres-tcp
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: payments
+          namespace: production
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: postgres-tcp-allow-inventory
+  namespace: production
+spec:
+  server:
+    name: postgres-tcp
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: inventory
+          namespace: production

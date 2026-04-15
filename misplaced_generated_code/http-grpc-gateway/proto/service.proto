@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package gateway;
+
+service Echo {
+  rpc Unary (EchoRequest) returns (EchoReply);
+}
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoReply {
+  string message = 1;
+}

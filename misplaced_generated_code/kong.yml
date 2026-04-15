@@ -1,0 +1,164 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: backend-api
+    url: http://backend:8080
+    routes:
+      - name: api-public
+        paths:
+          - /api/v1
+        strip_path: false
+      - name: api-admin
+        paths:
+          - /api/v1/admin
+        strip_path: false
+
+consumers:
+  - username: platform-user
+    basicauth_credentials:
+      - username: platform
+        password: replace-with-strong-password
+    keyauth_credentials:
+      - key: replace-with-service-api-key
+  - username: jwt-subject
+    jwt_secrets:
+      - key: admin-api
+        secret: replace-with-hs256-secret-at-least-32-bytes
+        algorithm: HS256
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - https://app.example.com
+        - https://www.example.com
+        - https://portal.example.com
+      methods:
+        - GET
+        - HEAD
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Language
+        - Content-Type
+        - Authorization
+        - X-Requested-With
+        - X-CSRF-Token
+        - X-Correlation-ID
+      exposed_headers:
+        - X-Request-Id
+        - X-RateLimit-Remaining
+      credentials: true
+      max_age: 86400
+      preflight_continue: false
+
+  - name: rate-limiting
+    config:
+      minute: 10000
+      hour: 400000
+      policy: local
+      fault_tolerant: true
+      limit_by: ip
+
+  - name: basic-auth
+    config:
+      hide_credentials: true
+
+  - name: cors
+    service: backend-api
+    config:
+      origins:
+        - https://app.example.com
+        - https://staging-app.example.com
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Content-Type
+        - Authorization
+        - X-API-Key
+        - X-Request-Id
+        - X-Correlation-ID
+      exposed_headers:
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+        - X-Request-Id
+      credentials: true
+      max_age: 7200
+      preflight_continue: false
+
+  - name: rate-limiting
+    service: backend-api
+    config:
+      minute: 2000
+      hour: 80000
+      policy: local
+      fault_tolerant: true
+      limit_by: consumer
+
+  - name: key-auth
+    service: backend-api
+    config:
+      key_names:
+        - apikey
+        - X-API-Key
+      hide_credentials: true
+      run_on_preflight: false
+
+  - name: cors
+    route: api-admin
+    config:
+      origins:
+        - https://admin.example.com
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Content-Type
+        - Authorization
+        - X-Admin-Token
+        - X-API-Key
+      exposed_headers:
+        - X-Request-Id
+      credentials: true
+      max_age: 600
+      preflight_continue: false
+
+  - name: rate-limiting
+    route: api-admin
+    config:
+      minute: 120
+      hour: 6000
+      policy: local
+      fault_tolerant: true
+      limit_by: credential
+
+  - name: jwt
+    route: api-admin
+    config:
+      uri_param_names:
+        - jwt
+      cookie_names:
+        - jwt
+      header_names:
+        - Authorization
+      claims_to_verify:
+        - exp
+      secret_is_base64: false
+      key_claim_name: kid
+      maximum_expiration: 7200
+      run_on_preflight: false

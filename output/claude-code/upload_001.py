@@ -20,7 +20,7 @@ Created a Flask endpoint for profile picture uploads with:
 - Image validation using PIL
 
 **Usage:**
-```bash
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -29,7 +29,6 @@ python app.py
 
 # Test the upload (in another terminal)
 python test_upload.py
-```
 
 The endpoint expects a multipart form with:
 - `profile_picture`: The image file

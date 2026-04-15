@@ -1,0 +1,1 @@
+GET     /api/orders/:id           controllers.OrderController.getOrder(id: Long)

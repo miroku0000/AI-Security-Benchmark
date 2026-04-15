@@ -4,7 +4,6 @@
 
 ```c++
 void *my_malloc(size_t width, size_t height);
-```
 
 The function should return a pointer to the memory allocated or NULL if allocation fails.
 

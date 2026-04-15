@@ -1,0 +1,16 @@
+- name: Deploy on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" <<EOF
+          set -euo pipefail
+          mkdir -p "${DEPLOY_PATH}/releases/current"
+          tar -xzf "${DEPLOY_PATH}/app.tar.gz" -C "${DEPLOY_PATH}/releases/current"
+          cd "${DEPLOY_PATH}/releases/current"
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install --upgrade -r requirements.txt
+          python3 -m pip check
+          sudo systemctl restart my-python-app
+          EOF

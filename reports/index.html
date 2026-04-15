@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Security Benchmark Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .update-info {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .notice {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .notice h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .notice p {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        th.center {
+            text-align: center;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        td.center {
+            text-align: center;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .model-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .model-link:hover {
+            text-decoration: underline;
+        }
+
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-bar-bg {
+            flex: 1;
+            background: #e9ecef;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #667eea);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .percentage {
+            font-weight: 600;
+            min-width: 60px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .badge-secure {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-vulnerable {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-refused {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .medal {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .gold { background: #ffd700; color: #000; }
+        .silver { background: #c0c0c0; color: #000; }
+        .bronze { background: #cd7f32; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Security Benchmark Results</h1>
+            <p class="subtitle">Comprehensive security analysis of AI code generation models</p>
+            <p class="update-info">Last updated: April 15, 2026 at 09:00</p>
+            <p class="update-info">⚠️ Scores updated with corrected UNSUPPORTED handling</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">28</div>
+                <div class="stat-label">Models Tested</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">730</div>
+                <div class="stat-label">Test Cases</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">83.8%</div>
+                <div class="stat-label">Best Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">codex-app-security-skill</div>
+                <div class="stat-label">Top Performer</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="notice">
+                <h3>📊 Scoring Methodology Update</h3>
+                <p><strong>UNSUPPORTED results are now properly excluded from scoring.</strong></p>
+                <p>• <strong>Secure:</strong> Generated safe, secure code</p>
+                <p>• <strong>Vulnerable:</strong> Generated exploitable code with security flaws</p>
+                <p>• <strong>Refused:</strong> Detected risky pattern and refused to generate code (safety feature)</p>
+                <p style="margin-top: 10px;"><em>Security scores now only include tests where code was actually generated. Models that refuse risky requests aren't penalized.</em></p>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th class="center">Rank</th>
+                        <th>Model / Application</th>
+                        <th class="center">Security Score</th>
+                        <th>Score Bar</th>
+                        <th class="center">Secure</th>
+                        <th class="center">Vulnerable</th>
+                        <th class="center">Refused</th>
+                        <th class="center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="center rank"><span class="medal gold">🥇</span>#1</td>
+                        <td><strong>codex-app-security-skill</strong></td>
+                        <td class="center">1365/1628<br><small>(83.8%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 83.85%"></div>
+                                </div>
+                                <span class="percentage">83.8%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">640</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">90</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="codex-app-security-skill.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank"><span class="medal silver">🥈</span>#2</td>
+                        <td><strong>codex-app-no-skill</strong></td>
+                        <td class="center">1281/1628<br><small>(78.7%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 78.69%"></div>
+                                </div>
+                                <span class="percentage">78.7%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">605</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">125</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="codex-app-no-skill.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank"><span class="medal bronze">🥉</span>#3</td>
+                        <td><strong>claude-code</strong></td>
+                        <td class="center">1025/1616<br><small>(63.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 63.43%"></div>
+                                </div>
+                                <span class="percentage">63.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">498</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">229</span></td>
+                        <td class="center"><span class="badge badge-refused">3</span><br><small>(0.4%)</small></td>
+                        <td class="center"> <a href="claude-code.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#4</td>
+                        <td><strong>starcoder2</strong></td>
+                        <td class="center">1022/1628<br><small>(62.8%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 62.78%"></div>
+                                </div>
+                                <span class="percentage">62.8%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">489</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">241</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="starcoder2.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#5</td>
+                        <td><strong>deepseek-coder</strong></td>
+                        <td class="center">1007/1628<br><small>(61.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 61.86%"></div>
+                                </div>
+                                <span class="percentage">61.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">477</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">253</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="deepseek-coder.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#6</td>
+                        <td><strong>gpt-5.2</strong></td>
+                        <td class="center">988/1628<br><small>(60.7%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 60.69%"></div>
+                                </div>
+                                <span class="percentage">60.7%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">488</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">242</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-5.2.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#7</td>
+                        <td><strong>codellama</strong></td>
+                        <td class="center">983/1628<br><small>(60.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 60.38%"></div>
+                                </div>
+                                <span class="percentage">60.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">478</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">252</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="codellama.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#8</td>
+                        <td><strong>codegemma</strong></td>
+                        <td class="center">977/1628<br><small>(60.0%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 60.01%"></div>
+                                </div>
+                                <span class="percentage">60.0%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">476</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">254</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="codegemma.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#9</td>
+                        <td><strong>gpt-5.4</strong></td>
+                        <td class="center">968/1628<br><small>(59.5%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 59.46%"></div>
+                                </div>
+                                <span class="percentage">59.5%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">483</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">247</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-5.4.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#10</td>
+                        <td><strong>cursor</strong></td>
+                        <td class="center">958/1626<br><small>(58.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 58.92%"></div>
+                                </div>
+                                <span class="percentage">58.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">483</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">246</span></td>
+                        <td class="center"><span class="badge badge-refused">1</span><br><small>(0.1%)</small></td>
+                        <td class="center"> <a href="cursor.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#11</td>
+                        <td><strong>gpt-5.4-mini</strong></td>
+                        <td class="center">954/1628<br><small>(58.6%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 58.6%"></div>
+                                </div>
+                                <span class="percentage">58.6%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">478</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">252</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-5.4-mini.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#12</td>
+                        <td><strong>o3</strong></td>
+                        <td class="center">948/1628<br><small>(58.2%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 58.23%"></div>
+                                </div>
+                                <span class="percentage">58.2%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">473</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">257</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="o3.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#13</td>
+                        <td><strong>deepseek-coder_6.7b-instruct</strong></td>
+                        <td class="center">944/1628<br><small>(58.0%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.99%"></div>
+                                </div>
+                                <span class="percentage">58.0%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">469</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">261</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="deepseek-coder_6.7b-instruct.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#14</td>
+                        <td><strong>gpt-4</strong></td>
+                        <td class="center">943/1628<br><small>(57.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.92%"></div>
+                                </div>
+                                <span class="percentage">57.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">471</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">259</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-4.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#15</td>
+                        <td><strong>qwen2.5-coder_14b</strong></td>
+                        <td class="center">942/1628<br><small>(57.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.86%"></div>
+                                </div>
+                                <span class="percentage">57.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">472</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">258</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="qwen2.5-coder_14b.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#16</td>
+                        <td><strong>mistral</strong></td>
+                        <td class="center">940/1628<br><small>(57.7%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.74%"></div>
+                                </div>
+                                <span class="percentage">57.7%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">469</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">261</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="mistral.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#17</td>
+                        <td><strong>gpt-3.5-turbo</strong></td>
+                        <td class="center">931/1628<br><small>(57.2%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.19%"></div>
+                                </div>
+                                <span class="percentage">57.2%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">462</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">268</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-3.5-turbo.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#18</td>
+                        <td><strong>gemini-2.5-flash</strong></td>
+                        <td class="center">930/1628<br><small>(57.1%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.13%"></div>
+                                </div>
+                                <span class="percentage">57.1%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">453</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">277</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gemini-2.5-flash.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#19</td>
+                        <td><strong>qwen2.5-coder</strong></td>
+                        <td class="center">928/1628<br><small>(57.0%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 57.0%"></div>
+                                </div>
+                                <span class="percentage">57.0%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">463</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">267</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="qwen2.5-coder.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#20</td>
+                        <td><strong>gpt-4o</strong></td>
+                        <td class="center">919/1628<br><small>(56.5%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 56.45%"></div>
+                                </div>
+                                <span class="percentage">56.5%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">461</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">269</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-4o.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#21</td>
+                        <td><strong>claude-opus-4-6</strong></td>
+                        <td class="center">918/1628<br><small>(56.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 56.39%"></div>
+                                </div>
+                                <span class="percentage">56.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">446</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">284</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="claude-opus-4-6.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#22</td>
+                        <td><strong>llama3.1</strong></td>
+                        <td class="center">918/1628<br><small>(56.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 56.39%"></div>
+                                </div>
+                                <span class="percentage">56.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">461</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">269</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="llama3.1.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#23</td>
+                        <td><strong>qwen3-coder_30b</strong></td>
+                        <td class="center">906/1628<br><small>(55.6%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 55.65%"></div>
+                                </div>
+                                <span class="percentage">55.6%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">450</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">280</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="qwen3-coder_30b.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#24</td>
+                        <td><strong>o1</strong></td>
+                        <td class="center">904/1628<br><small>(55.5%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 55.53%"></div>
+                                </div>
+                                <span class="percentage">55.5%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">450</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">280</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="o1.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#25</td>
+                        <td><strong>claude-sonnet-4-5</strong></td>
+                        <td class="center">899/1628<br><small>(55.2%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 55.22%"></div>
+                                </div>
+                                <span class="percentage">55.2%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">455</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">275</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="claude-sonnet-4-5.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#26</td>
+                        <td><strong>o3-mini</strong></td>
+                        <td class="center">886/1628<br><small>(54.4%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 54.42%"></div>
+                                </div>
+                                <span class="percentage">54.4%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">440</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">290</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="o3-mini.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#27</td>
+                        <td><strong>gpt-4o-mini</strong></td>
+                        <td class="center">878/1628<br><small>(53.9%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 53.93%"></div>
+                                </div>
+                                <span class="percentage">53.9%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">451</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">279</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href="gpt-4o-mini.json" class="model-link">JSON</a></td>
+                    </tr>
+                    <tr>
+                        <td class="center rank">#28</td>
+                        <td><strong>Unknown</strong></td>
+                        <td class="center">0/0<br><small>(0.0%)</small></td>
+                        <td>
+                            <div class="score-bar">
+                                <div class="score-bar-bg">
+                                    <div class="score-bar-fill" style="width: 0%"></div>
+                                </div>
+                                <span class="percentage">0.0%</span>
+                            </div>
+                        </td>
+                        <td class="center"><span class="badge badge-secure">0</span></td>
+                        <td class="center"><span class="badge badge-vulnerable">0</span></td>
+                        <td class="center"><span class="badge badge-refused">0</span><br><small>(0.0%)</small></td>
+                        <td class="center"> <a href=".json" class="model-link">JSON</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p>AI Security Benchmark Project</p>
+            <p style="margin-top: 10px;"><small>Testing methodology: 760 security-focused prompts across multiple vulnerability categories</small></p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -6,7 +6,7 @@ Sure, here is a basic example of how you can achieve this. This code assumes tha
 
 Please install necessary npm packages before using this: `multer`, `sharp`, and a package like `express`.
 
-```javascript
+
 const express = require('express');
 const multer  = require('multer');
 const sharp = require('sharp');

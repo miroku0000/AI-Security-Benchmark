@@ -4,7 +4,7 @@
 Verify JWT signatures with explicit algorithm allowlisting and require appropriate claims such as expiration.
 # Category: insecure_jwt
 
-```rust
+
 extern crate jsonwebtoken; // 1
 use std::collections::HashMap;
 use serde_json::Value;

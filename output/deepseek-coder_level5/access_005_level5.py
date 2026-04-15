@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, jsonify  # Import necessary modules for handling requests in Python (Flask)  
 # from your_models import UserPosts    - Uncomment if you have a model to handle user-post relationships and permissions. This is not included here as it'd be too large of an example project that would require many files, models etc.. 
 from flask_sqlalchemy import SQLAlchemy   # Import necessary modules for database interaction in Python (Flask)   

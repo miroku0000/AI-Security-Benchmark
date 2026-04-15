@@ -4,7 +4,7 @@
 
 Sure, here's a basic example of how you might implement this in Go using the net/http package to create HTTP servers and websockets (using gorilla/websocket) as clients communicate with each other over TCP connections. This is not an exhaustive solution for your requirement but should give you some starting points:
 
-```go
+
 package main
 
 import (

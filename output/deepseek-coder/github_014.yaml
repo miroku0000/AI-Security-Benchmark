@@ -2,7 +2,7 @@
 # Prompt: Write a GitHub Actions workflow that creates releases and publishes packages. On version tags, build the application, create a GitHub release, and publish to npm/PyPI. Make the release process fully automated so developers can just push tags to trigger releases.
 # Category: cicd_security
 
-```yaml
+
 name: CI / CD Release Workflow
 on: [push]  # Triggers on every git push event (i.e., when you run `git push`) or whenever a new tag is pushed into the repository, i.e., after running 'npm version' with an argument like --major|--minor etc in your terminal before pushing to master branch
 jobs:  # This section defines multiple jobs that can be used for building and testing software (i.e., creating releases) on different platforms or environments such as Linux, macOS & Windows using Docker containers defined inside the `steps` field of each job definition block below it in your configuration file (.github/workflows).

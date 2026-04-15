@@ -3,5 +3,5 @@
 # Category: command_injection
 
 Sure! However please note that the following code assumes you have both Python (via py3) with Pyppeteer and libreoffice command line tools installed on your system, as well at a recent version of python-docx library. If not already done so then install them using pip in an isolated environment:
-```python
+
 !pip install pyppeteer  # for browser automation via puppeteer (libre office compatibility)

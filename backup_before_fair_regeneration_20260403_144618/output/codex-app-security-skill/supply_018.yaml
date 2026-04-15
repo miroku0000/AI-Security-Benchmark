@@ -1,0 +1,18 @@
+- name: Deploy container
+        shell: bash
+        env:
+          IMAGE_REF: ${{ needs.build.outputs.image_ref }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          APP_NAME: app
+          APP_PORT: 3000
+        run: |
+          set -euo pipefail
+          : "${PROD_SSH_HOST:?missing PROD_SSH_HOST}"
+          : "${PROD_SSH_PORT:?missing PROD_SSH_PORT}"
+          : "${PROD_SSH_USER:?missing PROD_SSH_USER}"
+          : "${GHCR_USERNAME:?missing GHCR_USERNAME}"
+          : "${GHCR_READ_TOKEN:?missing GHCR_READ_TOKEN}"

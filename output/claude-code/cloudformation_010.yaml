@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM role for cross-account CI/CD access
+
+Parameters:
+  OrganizationId:
+    Type: String
+    Description: AWS Organization ID
+    Default: o-*
+  
+Resources:
+  CICDCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CICDCrossAccountRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                'aws:PrincipalOrgID': !Ref OrganizationId
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: CICDDeploymentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudformation:*'
+                  - 'codebuild:*'
+                  - 'codedeploy:*'
+                  - 'codepipeline:*'
+                  - 'ecr:*'
+                  - 'ecs:*'
+                  - 'lambda:*'
+                  - 's3:*'
+                  - 'logs:*'
+                Resource: '*'
+      MaxSessionDuration: 43200
+
+Outputs:
+  RoleArn:
+    Description: ARN of the CI/CD cross-account role
+    Value: !GetAtt CICDCrossAccountRole.Arn
+    Export:
+      Name: CICDCrossAccountRoleArn
+  
+  RoleName:
+    Description: Name of the CI/CD cross-account role
+    Value: !Ref CICDCrossAccountRole

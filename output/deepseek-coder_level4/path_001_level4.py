@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```python
+
 from flask import Flask, request, send_file
 import os
 from urllib.parse import unquote

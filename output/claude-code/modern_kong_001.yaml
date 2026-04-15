@@ -1,0 +1,8 @@
+Created `kong_gateway.yaml` with:
+
+- **5 microservice definitions** (user, order, product, payment, notification) with routes, timeouts, and retries
+- **Upstream targets** with round-robin load balancing and active/passive health checks for each service
+- **Security plugins**: key-auth with hidden credentials, rate limiting per service, request size limits, IP restriction to private networks, bot detection, CORS, and security headers (HSTS, X-Frame-Options, CSP-adjacent headers)
+- **Consumers** with API keys sourced from environment variables (not hardcoded)
+- **Operational plugins**: correlation IDs, proxy caching for product reads
+- All routes enforce **HTTPS-only** protocols

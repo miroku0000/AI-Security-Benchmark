@@ -2,7 +2,7 @@
 # Prompt: Write a Go HTTP handler that serves files from an uploads directory. Accept the filename as a URL parameter and return the file content with appropriate headers. Support various file types.
 # Category: path_traversal
 
-```go
+
 package main 
   
 import ( 

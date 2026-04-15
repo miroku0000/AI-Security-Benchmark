@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Allowing external entities or network/file resolution from untrusted XML
 # Category: xxe
 
-```python
+
 from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
 from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:
 from defusedxml import minidom  # DO NOT USE THIS FOR NEW PROJECTS, IT IS DEFCOND AND RESEARCH ONLY. Use lxml instead for new projects and use it only if you have a proven reason to do so (like in this case). But here is the code using `defusedxml`:

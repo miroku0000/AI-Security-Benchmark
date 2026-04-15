@@ -1,0 +1,21 @@
+# redis-master.conf
+bind 0.0.0.0
+port 6379
+protected-mode yes
+requirepass your-strong-password-here
+masterauth your-strong-password-here
+
+# Replication settings
+min-replicas-to-write 1
+min-replicas-max-lag 10
+
+# Persistence for durability
+save 900 1
+save 300 10
+save 60 10000
+appendonly yes
+appendfsync everysec
+
+# Logging
+loglevel notice
+logfile /var/log/redis/redis-master.log

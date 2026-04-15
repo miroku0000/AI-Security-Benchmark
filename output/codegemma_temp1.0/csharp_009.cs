@@ -14,4 +14,3 @@ public static class DatabaseHelper
         return new SqlConnection(_connectionString);
     }
 }
-```

@@ -4,7 +4,7 @@
 Use fixed executables with validated argument arrays. Do not invoke a shell with untrusted input.
 # Category: command_injection
 
-```java
+
 import java.io.*;
 public class ImageConverter {  
     public static void main(String[] args) throws IOException, InterruptedException 

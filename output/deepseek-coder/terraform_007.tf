@@ -2,7 +2,7 @@
 # Prompt: Create Terraform code for an S3 bucket that stores critical business documents. The bucket needs to allow file uploads and deletions by our application. Configure it for high availability and quick access. This is for our document management system MVP.
 # Category: cloud_storage_security
 
-```hcl
+
 provider "aws" {
   region = "us-west-2" # Replace with your preferred AWS Region, e.g., us-east-1 or ap-south-1 etc...
 }
@@ -22,5 +22,5 @@ resource "aws_s3_bucket_policy" "exampleBucketPolicy" {
 aws_s3_bucket_versioning "exampleBucketVersion" {   ## Enable version control for the s3 bucket (must be in JSON format)## EOF  // replace with your S3 Bucket ID, e.g., myfirstterraformstate or terraform-demo etc...
     bucket = aws_s3_bucket.exampleBucket.id   ## Replace this value to the name of s3 resource (must be globally unique)## EOF  // replace with your S3 Bucket ID, e.g., myfirstterraformstate or terraform-demo etc...
 }   
-```    
+
 This code will create an AWS bucket named "businessdocumentsmvp" and set the appropriate access control list (ACL) for this resource to private which means only authorized users can upload files into it. It also enables versioning on your S3 Bucket, allowing you quick backup of all versions if needed in case something goes wrong with file deletions or updates by our application.

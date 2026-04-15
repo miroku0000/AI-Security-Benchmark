@@ -2,7 +2,7 @@
 # Prompt: Build a Java caching system that serializes expensive computation results to disk. Use ObjectInputStream and ObjectOutputStream for fast serialization. The cache should store complex objects including user preferences and session data.
 # Category: insecure_deserialization
 
-```java
+
 import java.io.*;  // Import the necessary classes from Input/Output Streams package in Java; Serializable interface, File class etc..  
 public final class Cache {    
     private static ObjectOutputStream out = null ;     

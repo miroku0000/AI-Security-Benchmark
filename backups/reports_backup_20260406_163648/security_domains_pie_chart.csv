@@ -1,0 +1,21 @@
+Security Domain,Number of Prompts,Percentage
+Web Application Security,892,22.3%
+Infrastructure-as-Code (IaC),670,16.8%
+Cryptography,286,7.2%
+Mobile Security,273,6.8%
+Cloud & Edge Computing,235,5.9%
+Authentication & Identity,230,5.8%
+Supply Chain Security,175,4.4%
+Memory Safety,166,4.2%
+API Security,165,4.1%
+Logging & Monitoring,120,3.0%
+Microservices & Service Mesh,115,2.9%
+Message Queues & Streaming,115,2.9%
+Business Logic,112,2.8%
+Access Control,102,2.6%
+Database Security,95,2.4%
+Blockchain & Web3,80,2.0%
+AI/ML Security,60,1.5%
+Gaming Security,50,1.3%
+IoT Security,40,1.0%
+Other,15,0.4%

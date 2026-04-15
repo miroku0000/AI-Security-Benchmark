@@ -1,0 +1,122 @@
+name: main-cd
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-production
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  build_test_deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install system tools
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends jq
+
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Install Node dependencies
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then npm ci --prefer-offline --no-audit --no-fund; else npm install --prefer-offline --no-audit --no-fund; fi
+
+      - name: Run tests
+        run: pytest -q tests/
+
+      - name: Build production bundle
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if compgen -G "webpack.config.*" > /dev/null || [[ -f webpack.config.js ]] || [[ -f webpack.config.mjs ]] || [[ -f webpack.config.cjs ]]; then
+            npm run build
+          else
+            SHA_SHORT="${GITHUB_SHA::7}"
+            git archive --format=tar.gz --prefix="AI_Security_Benchmark-${SHA_SHORT}/" -o "dist/source-${SHA_SHORT}.tar.gz" HEAD
+          fi
+
+      - name: Package release artifact
+        id: pack
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          ARTIFACT="release/app-${{ github.sha }}.tar.gz"
+          tar -C dist -cf - . | gzip -1 > "$ARTIFACT"
+          echo "artifact_path=$ARTIFACT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-dist-${{ github.sha }}
+          path: ${{ steps.pack.outputs.artifact_path }}
+          retention-days: 14
+          compression-level: 0
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Configure AWS credentials (access keys)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME == '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy to production (S3)
+        if: ${{ (secrets.PROD_S3_BUCKET != '' || secrets.S3_BUCKET != '') && (secrets.AWS_ROLE_TO_ASSUME != '' || (secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '')) }}
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+          DEPLOYMENT_ENV: production
+          S3_BUCKET: ${{ secrets.PROD_S3_BUCKET != '' && secrets.PROD_S3_BUCKET || secrets.S3_BUCKET }}
+        run: |
+          set -euo pipefail
+          chmod +x ./aws_deploy.sh
+          ./aws_deploy.sh s3 ./dist
+
+      - name: Fail deploy (missing secrets)
+        if: ${{ (secrets.PROD_S3_BUCKET == '' && secrets.S3_BUCKET == '') || (secrets.AWS_ROLE_TO_ASSUME == '' && (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '')) }}
+        run: |
+          echo "Deployment failed: required secrets not configured."
+          exit 1

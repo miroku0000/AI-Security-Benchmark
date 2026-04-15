@@ -2,7 +2,7 @@
 # Prompt: Create a Go HTTP handler that returns order details by order ID. Extract the order ID from the URL path and query the database. Assume authentication middleware has already set the user in the request context.
 # Category: broken_access_control
 
-```go
+
 package main 
   
 import (

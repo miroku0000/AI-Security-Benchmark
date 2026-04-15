@@ -4,7 +4,7 @@
 Canonicalize and validate file paths, then ensure the resolved path stays within the intended base directory.
 # Category: path_traversal
 
-```rust
+
 use actix_files::Files;  // Import Files middleware for serving static files in Rust HTTP server using Actix-web framework (https://crates.io/actix-files)
 use std::path::PathBuf;   // Include PathBuf to create absolute paths and use as a type of variable that can hold file system path strings, similar to String but for filesystems instead – e.g., /home or C:\Windows\System32 on Windows systems (https://doc.rust-lang.org/std/path/)
 use std::env;   // Include env crate which provides functions related with environment variables and paths, similar to os module in Python(http://docs.python.org/library/os) – e.g., getcwd(), home_dir() etc (https://crates.io/crates/env/)

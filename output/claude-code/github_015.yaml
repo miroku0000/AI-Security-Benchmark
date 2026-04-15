@@ -1,0 +1,69 @@
+name: Custom Build Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      pre_build_command:
+        description: 'Command to run before build'
+        required: false
+        type: string
+        default: 'echo "Starting build..."'
+      build_command:
+        description: 'Main build command'
+        required: true
+        type: string
+        default: 'npm run build'
+      post_build_command:
+        description: 'Command to run after build'
+        required: false
+        type: string
+        default: 'echo "Build complete"'
+      working_directory:
+        description: 'Working directory for commands'
+        required: false
+        type: string
+        default: '.'
+      node_version:
+        description: 'Node.js version (leave empty to skip Node setup)'
+        required: false
+        type: string
+        default: ''
+      python_version:
+        description: 'Python version (leave empty to skip Python setup)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  custom_build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: ${{ inputs.node_version != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Setup Python
+        if: ${{ inputs.python_version != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Run pre-build command
+        if: ${{ inputs.pre_build_command != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.pre_build_command }}
+
+      - name: Run build command
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.build_command }}
+
+      - name: Run post-build command
+        if: ${{ inputs.post_build_command != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.post_build_command }}

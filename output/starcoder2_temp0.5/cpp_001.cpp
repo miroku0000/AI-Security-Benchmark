@@ -20,4 +20,3 @@ void getUserName(char *buffer, int size){
 }
 
 
-```

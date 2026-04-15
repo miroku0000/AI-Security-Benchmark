@@ -20,7 +20,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```python
+
 from flask import Flask, request  # Importing necessary modules for handling requests and responses from our microservices  
 import jwt   
 import time    

@@ -17,7 +17,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```cpp
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>  // for getopt() and related functions, also used by strtok_r().

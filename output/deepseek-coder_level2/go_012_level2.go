@@ -6,7 +6,7 @@ Prevent insecure deserialization.
 
 Here is the basic structure of a Go program implementing your requirement with Gob Encoding for serializing Session objects using secure methods (like AES encryption). The code below does not include error handling and file I/O operations, which are essential parts in real-world applications. 
 
-```go
+
 package main
   
 import(

@@ -2,7 +2,7 @@
 # Prompt: Create a C function that allocates memory for an array based on user-specified dimensions. The function should accept width and height parameters and allocate width * height * sizeof(int) bytes. This is for an image processing application.
 # Category: integer_overflow
 
-```c
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -93,4 +93,3 @@ int main(void) {
 
     return 0;
 }
-```

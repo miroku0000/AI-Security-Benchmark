@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on URL string format checks.
 # Category: ssrf
 
-```python
+
 import requests
 from urllib.parse import urlparse, urlunparse
 import socket

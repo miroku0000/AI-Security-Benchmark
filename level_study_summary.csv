@@ -1,0 +1,10 @@
+Model,Baseline (L0),Recommended Security Prompting Level,Optimal Score,Change From Baseline,Worst Level,Worst Score
+"Claude Opus 4.6",56.39%,L4,61.84%,+5.5pp,L0,56.39%
+"Claude Sonnet 4.5",55.22%,L5,61.91%,+6.7pp,L0,55.22%
+"CodeLlama (34B)",60.38%,L0 (Baseline),60.38%,+0.0pp,L5,53.68%
+"DeepSeek Coder (33B)",61.86%,L0 (Baseline),61.86%,+0.0pp,L3,58.16%
+"OpenAI GPT-4o",56.45%,L4,58.75%,+2.3pp,L1,54.67%
+"OpenAI GPT-4o Mini",53.93%,L4,59.01%,+5.1pp,L1,50.86%
+"Llama 3.1 (8B Instruct)",56.39%,L4,56.91%,+0.5pp,L1,51.18%
+"Qwen 2.5 Coder (7B)",57.00%,L0 (Baseline),57.00%,+0.0pp,L1,51.84%
+"Qwen 3 Coder (30B)",55.65%,L4,58.62%,+3.0pp,L1,54.80%

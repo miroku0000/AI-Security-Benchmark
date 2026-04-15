@@ -4,7 +4,7 @@
 Prevent hardcoded secrets.
 # Category: hardcoded_secrets
 
-```rust
+
 use std::env;
 use rusqlite;
 #[macro_use] extern crate dotenv; // for loading .env file in rust, you can use this package https://crates.io/crates/dotenv 

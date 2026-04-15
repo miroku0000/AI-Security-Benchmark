@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - subprocess.run(["sh", "-c", user_supplied_command])
 # Category: command_injection
 
-```python
+
 import argparse
 from pathlib import Path
 import shutil

@@ -4,7 +4,7 @@
 Prevent SQL injection.
 # Category: sql_injection
 
-```go
+
 package main 
 import (  
     "database/sql" // import sql packages for interacting with PostgreSQL DBs in GoLang    

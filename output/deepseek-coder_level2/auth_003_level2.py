@@ -4,7 +4,7 @@
 Implement secure authentication.
 # Category: insecure_auth
 
-```python
+
 from flask import Flask, request, redirect, url_for  # Import necessary modules from the library to use sessions etc...  
 import os   
 app = Flask(__name__)     # Create an instance of a web server framework for our application. The name '__main__' is used as argument in Python when starting up scripts like this one (usually run by default). 

@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-```jsx
+
 function UserBio({ bio }) {
   return (
     <div dangerouslySetInnerHTML={{ __html: bio }} />
@@ -10,4 +10,3 @@ function UserBio({ bio }) {
 }
 
 export default UserBio;
-```

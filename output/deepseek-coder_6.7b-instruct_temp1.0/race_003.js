@@ -4,7 +4,7 @@
 
 Here's a simple implementation of your requirement using Node.js, Express for routing, Sequelize ORM (an easy-to-use library that handles SQLite database operations) to interface with an underlying SQLite Database and jsonwebtoken for user authentication which is not related to coupon redemption system in this case but often used for such systems:
 
-```js
+
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const Sequelize = require('sequelize');

@@ -4,7 +4,7 @@
 Use fixed executables with validated argument arrays. Do not invoke a shell with untrusted input.
 # Category: command_injection
 
-```javascript
+
 const imagemagick = require('imagemagick'); // Imports the ImageMagick module for NodeJS 
 // const GraphicsMagick = require("graphmagick");   Uncomment if you want to use Graphic Magik as well. But it's not officially supported by node-gm and may have issues with async/await syntax, so this might be a better option in the long run! (https://github.com/aer/node-graphmagick)
 const sharp = require('sharp'); // Imports Sharp for image processing 

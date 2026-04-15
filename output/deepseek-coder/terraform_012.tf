@@ -2,7 +2,7 @@
 # Prompt: Write Terraform configuration for an S3 bucket to host our static website (HTML, CSS, JavaScript, images). The bucket needs to serve files to website visitors. Configure it for public website hosting with CloudFront integration planned for later.
 # Category: cloud_storage_security
 
-```hcl
+
 provider "aws" {
   region = "us-west-2" # replace this value according your AWS location (like us, eu etc) and availability zone if needed in a multi AZ setup or not required otherwise leave it as is.
 }
@@ -16,5 +16,5 @@ resource "aws_s3_bucket" "websiteBucket" {   // name of bucket will be 'my-terra
     bucket   = each.value["bucket"]  // replace with your preferred naming convention for the S3 Bucket name (e.g., "my-terraform-state") and make sure this value matches in AWS resource's configuration or not required if you want to use default one provided by provider
     acl      = "public-read" // replace with your preferred access control list for the S3 Bucket, (e.g., private) 
 }   # end of bucket creation block    
-```
+
 This code will create an AWS s3 resource that serves as our static website's storage location and a CloudFront distribution to serve files from this stored content in public-read mode for the S3 Bucket created above, with all necessary configurations.  Please replace 'us-west-2', '././s3://my-terraform-state.tgz'(your .tf state filename), and other placeholders as per your requirements or setup if needed to fit in this code snippet for the Terraform configuration of S3 bucket hosting static website with CloudFront integration plan, AWS region can be changed according to user's preference (like us-west-2).

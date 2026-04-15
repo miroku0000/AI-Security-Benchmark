@@ -1,0 +1,31 @@
+bind 0.0.0.0 ::
+port 6379
+protected-mode yes
+tcp-backlog 511
+timeout 0
+tcp-keepalive 300
+
+daemonize no
+supervised no
+loglevel notice
+
+databases 16
+
+save 900 1
+save 300 10
+save 60 10000
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /data
+
+appendonly no
+
+user default off
+user app on >app-dev-staging-change-me ~* &* +@all
+user debug on >debug-dev-staging-change-me ~* &* +@all
+
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+rename-command SHUTDOWN ""

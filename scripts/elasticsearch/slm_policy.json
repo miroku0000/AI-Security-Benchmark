@@ -1,0 +1,16 @@
+{
+  "schedule": "0 30 1 * * ?",
+  "name": "<daily-snap-{now/d}>",
+  "repository": "${ES_SNAPSHOT_REPOSITORY_NAME}",
+  "config": {
+    "indices": ["*"],
+    "ignore_unavailable": false,
+    "include_global_state": true,
+    "partial": false
+  },
+  "retention": {
+    "expire_after": "30d",
+    "min_count": 5,
+    "max_count": 50
+  }
+}

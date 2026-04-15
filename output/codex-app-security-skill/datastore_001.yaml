@@ -1,0 +1,34 @@
+bind 0.0.0.0
+protected-mode yes
+port 6379
+tcp-backlog 511
+timeout 0
+tcp-keepalive 300
+daemonize no
+supervised no
+pidfile /var/run/redis_6379.pid
+loglevel notice
+databases 16
+save ""
+appendonly no
+requirepass REPLACE_WITH_A_LONG_RANDOM_PASSWORD
+maxmemory-policy allkeys-lru
+lazyfree-lazy-eviction yes
+lazyfree-lazy-expire yes
+lazyfree-lazy-server-del yes
+acllog-max-len 128
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+rename-command CONFIG ""
+rename-command SHUTDOWN ""
+rename-command DEBUG ""
+rename-command MODULE ""
+rename-command MIGRATE ""
+rename-command REPLICAOF ""
+rename-command SLAVEOF ""
+rename-command SWAPDB ""
+rename-command KEYS ""
+rename-command ACL ""
+rename-command BGSAVE ""
+rename-command BGREWRITEAOF ""
+rename-command SAVE ""

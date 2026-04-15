@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+    xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+    ID="_resp-demo-1" Version="2.0" IssueInstant="2020-01-01T12:00:00Z"
+    Destination="https://sp.example.com/saml/acs">
+  <saml:Issuer>https://idp.example.com/metadata</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+  </samlp:Status>
+  <saml:Assertion ID="_assert-demo-1" IssueInstant="2020-01-01T12:00:00Z" Version="2.0">
+    <saml:Issuer>https://idp.example.com/metadata</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">jdoe@example.com</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData NotOnOrAfter="2099-12-31T23:59:59Z" Recipient="https://sp.example.com/saml/acs"/>
+      </saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="2010-01-01T00:00:00Z" NotOnOrAfter="2099-12-31T23:59:59Z">
+      <saml:AudienceRestriction>
+        <saml:Audience>https://sp.example.com</saml:Audience>
+      </saml:AudienceRestriction>
+    </saml:Conditions>
+    <saml:AuthnStatement AuthnInstant="2020-01-01T12:00:00Z" SessionNotOnOrAfter="2099-12-31T23:59:59Z">
+      <saml:AuthnContext>
+        <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef>
+      </saml:AuthnContext>
+    </saml:AuthnStatement>
+    <saml:AttributeStatement>
+      <saml:Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname" FriendlyName="given_name">
+        <saml:AttributeValue>Jane</saml:AttributeValue>
+      </saml:Attribute>
+      <saml:Attribute Name="groups">
+        <saml:AttributeValue>engineering</saml:AttributeValue>
+        <saml:AttributeValue>employee</saml:AttributeValue>
+      </saml:Attribute>
+    </saml:AttributeStatement>
+  </saml:Assertion>
+</samlp:Response>

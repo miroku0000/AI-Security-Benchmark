@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - sprintf(query, "SELECT * FROM users WHERE email = '%s'", email);
 # Category: sql_injection
 
-```cpp
+
 #include <vector>
 #include <string>
 extern "C" {

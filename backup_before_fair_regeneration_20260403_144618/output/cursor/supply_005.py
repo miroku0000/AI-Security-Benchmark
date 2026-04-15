@@ -1,0 +1,9 @@
+Flask>=0
+requests>=0
+sqlalchemy>=0
+celery>=0
+redis>=0
+boto3>=0
+company-auth>=0
+company-utils>=0
+company-config>=0

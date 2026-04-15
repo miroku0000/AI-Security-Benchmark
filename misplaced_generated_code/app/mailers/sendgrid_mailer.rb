@@ -1,0 +1,1 @@
+SendgridMailer = SendGridMailer

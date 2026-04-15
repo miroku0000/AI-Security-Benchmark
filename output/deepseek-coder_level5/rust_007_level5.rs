@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_deserialization
 
-```rust
+
 use std::collections::HashMap;
 use serde_derive::Deserialize;  // for Deserialize, Serialize etc., in order to use bincode serialization and deserialisation functions with complex data structures like structs or enums.
 // Include the pathlib module so we can work on files using paths (file I/O).

@@ -1,0 +1,308 @@
+stages:
+  - build
+  - notify
+  - tag
+  - release
+
+default:
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache bash ca-certificates curl git jq openssh-client
+    - git config --global user.email "${GITLAB_USER_EMAIL:-gitlab-ci@example.invalid}"
+    - git config --global user.name "${GITLAB_USER_NAME:-GitLab CI}"
+  cache: {}
+
+variables:
+  GIT_STRATEGY: fetch
+  GIT_DEPTH: "50"
+  RELEASE_TAG_PREFIX: "deploy"
+  RELEASE_NOTES_DIR: "release-notes"
+  RELEASE_NOTES_FILE: "release-notes/RELEASE_NOTES.md"
+  RELEASE_NOTES_COMMIT_BRANCH: ""
+  RELEASE_NOTES_COMMIT_MESSAGE_PREFIX: "chore(release): "
+  NOTIFY_WEBHOOK_URL: ""
+  GITLAB_API_BASE: "${CI_API_V4_URL}"
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+get_mr_context:
+  stage: build
+  rules:
+    - when: always
+  script:
+    - |
+      set -euo pipefail
+
+      api_base="${GITLAB_API_BASE:-}"
+      project_id="${CI_PROJECT_ID:-}"
+      sha="${CI_COMMIT_SHA:-}"
+
+      mr_iid="${CI_MERGE_REQUEST_IID:-}"
+      mr_title="${CI_MERGE_REQUEST_TITLE:-}"
+      mr_desc="${CI_MERGE_REQUEST_DESCRIPTION:-}"
+      mr_url="${CI_MERGE_REQUEST_PROJECT_URL:-}"
+      mr_state=""
+      mr_source_branch="${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-}"
+      mr_target_branch="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-}"
+      mr_author="${GITLAB_USER_LOGIN:-}"
+
+      if [[ -z "${mr_title}" && -n "${mr_iid}" && -n "${api_base}" && -n "${project_id}" && -n "${GITLAB_TOKEN:-}" ]]; then
+        mr_json="$(curl -fsS --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" "${api_base}/projects/${project_id}/merge_requests/${mr_iid}")"
+        mr_title="$(echo "$mr_json" | jq -r '.title // ""')"
+        mr_desc="$(echo "$mr_json" | jq -r '.description // ""')"
+        mr_url="$(echo "$mr_json" | jq -r '.web_url // ""')"
+        mr_state="$(echo "$mr_json" | jq -r '.state // ""')"
+        mr_source_branch="$(echo "$mr_json" | jq -r '.source_branch // ""')"
+        mr_target_branch="$(echo "$mr_json" | jq -r '.target_branch // ""')"
+        mr_author="$(echo "$mr_json" | jq -r '.author.username // ""')"
+      fi
+
+      if [[ -z "${mr_iid}" && -n "${api_base}" && -n "${project_id}" && -n "${sha}" && -n "${GITLAB_TOKEN:-}" ]]; then
+        mrs_json="$(curl -fsS --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" "${api_base}/projects/${project_id}/repository/commits/${sha}/merge_requests?per_page=1")" || mrs_json="[]"
+        mr_iid="$(echo "$mrs_json" | jq -r '.[0].iid // empty')"
+        if [[ -n "${mr_iid}" ]]; then
+          mr_title="$(echo "$mrs_json" | jq -r '.[0].title // ""')"
+          mr_desc="$(echo "$mrs_json" | jq -r '.[0].description // ""')"
+          mr_url="$(echo "$mrs_json" | jq -r '.[0].web_url // ""')"
+          mr_state="$(echo "$mrs_json" | jq -r '.[0].state // ""')"
+          mr_source_branch="$(echo "$mrs_json" | jq -r '.[0].source_branch // ""')"
+          mr_target_branch="$(echo "$mrs_json" | jq -r '.[0].target_branch // ""')"
+          mr_author="$(echo "$mrs_json" | jq -r '.[0].author.username // ""')"
+        fi
+      fi
+
+      if [[ -z "${mr_title}" ]]; then
+        mr_title="${CI_COMMIT_TITLE:-${CI_COMMIT_MESSAGE:-}}"
+        mr_desc="${CI_COMMIT_DESCRIPTION:-}"
+      fi
+
+      if [[ -z "${mr_url}" ]]; then
+        mr_url="${CI_PROJECT_URL:-}/${CI_COMMIT_REF_NAME:-}/-/commit/${CI_COMMIT_SHA:-}"
+      fi
+
+      slugify() {
+        echo -n "$1" \
+          | tr '[:upper:]' '[:lower:]' \
+          | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-{2,}/-/g' \
+          | cut -c1-48
+      }
+
+      mr_title_clean="$(echo -n "${mr_title}" | tr '\r' ' ' | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+      mr_desc_clean="$(echo -n "${mr_desc}" | tr '\r' '' | sed -E 's/\x1b\[[0-9;]*m//g')"
+      mr_title_slug="$(slugify "${mr_title_clean}")"
+
+      short_sha="${CI_COMMIT_SHORT_SHA:-}"
+      if [[ -z "${short_sha}" && -n "${sha}" ]]; then
+        short_sha="${sha:0:8}"
+      fi
+
+      tag_name="${RELEASE_TAG_PREFIX}/${mr_title_slug:-change}-${short_sha:-unknown}"
+      tag_message="${mr_title_clean}"
+      if [[ -n "${mr_iid}" ]]; then
+        tag_message="${tag_message} (MR !${mr_iid})"
+      fi
+
+      {
+        echo "MR_IID=${mr_iid}"
+        echo "MR_TITLE=${mr_title_clean}"
+        printf "MR_DESCRIPTION<<'EOF'\n%s\nEOF\n" "${mr_desc_clean}"
+        echo "MR_URL=${mr_url}"
+        echo "MR_STATE=${mr_state}"
+        echo "MR_SOURCE_BRANCH=${mr_source_branch}"
+        echo "MR_TARGET_BRANCH=${mr_target_branch}"
+        echo "MR_AUTHOR=${mr_author}"
+        echo "DEPLOY_TAG=${tag_name}"
+        echo "DEPLOY_TAG_MESSAGE=${tag_message}"
+      } > mr.env
+  artifacts:
+    reports:
+      dotenv: mr.env
+    expire_in: 1 day
+
+build:
+  stage: build
+  needs: ["get_mr_context"]
+  rules:
+    - when: on_success
+  script:
+    - |
+      set -euo pipefail
+      echo "Build for: ${MR_TITLE}"
+      echo "MR: ${MR_URL}"
+      echo "Commit: ${CI_COMMIT_SHA}"
+      echo "Branch: ${CI_COMMIT_REF_NAME}"
+      echo "Pipeline: ${CI_PIPELINE_URL}"
+
+notify:
+  stage: notify
+  needs: ["get_mr_context", "build"]
+  rules:
+    - when: on_success
+  script:
+    - |
+      set -euo pipefail
+      if [[ -z "${NOTIFY_WEBHOOK_URL:-}" ]]; then
+        echo "NOTIFY_WEBHOOK_URL not set; skipping notification."
+        exit 0
+      fi
+
+      payload="$(jq -n \
+        --arg project "${CI_PROJECT_PATH:-}" \
+        --arg pipeline "${CI_PIPELINE_URL:-}" \
+        --arg ref "${CI_COMMIT_REF_NAME:-}" \
+        --arg sha "${CI_COMMIT_SHA:-}" \
+        --arg short_sha "${CI_COMMIT_SHORT_SHA:-}" \
+        --arg mr_iid "${MR_IID:-}" \
+        --arg mr_title "${MR_TITLE:-}" \
+        --arg mr_description "${MR_DESCRIPTION:-}" \
+        --arg mr_url "${MR_URL:-}" \
+        --arg deploy_tag "${DEPLOY_TAG:-}" \
+        '{
+          type: "build_notification",
+          project: $project,
+          pipeline_url: $pipeline,
+          ref: $ref,
+          commit_sha: $sha,
+          commit_short_sha: $short_sha,
+          merge_request: {
+            iid: $mr_iid,
+            title: $mr_title,
+            description: $mr_description,
+            url: $mr_url
+          },
+          deploy: {
+            tag: $deploy_tag
+          }
+        }')"
+
+      curl -fsS -X POST \
+        -H "Content-Type: application/json" \
+        --data "${payload}" \
+        "${NOTIFY_WEBHOOK_URL}"
+
+create_deploy_tag:
+  stage: tag
+  needs: ["get_mr_context", "build"]
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+  script:
+    - |
+      set -euo pipefail
+
+      if [[ -z "${GITLAB_TOKEN:-}" ]]; then
+        echo "GITLAB_TOKEN not set; cannot create tag."
+        exit 1
+      fi
+
+      tag="${DEPLOY_TAG:-}"
+      msg="${DEPLOY_TAG_MESSAGE:-}"
+
+      if [[ -z "${tag}" ]]; then
+        echo "DEPLOY_TAG missing."
+        exit 1
+      fi
+
+      api_base="${GITLAB_API_BASE:-}"
+      project_id="${CI_PROJECT_ID:-}"
+      ref="${CI_COMMIT_SHA:-}"
+
+      curl -fsS -X POST \
+        --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        --data-urlencode "tag_name=${tag}" \
+        --data-urlencode "ref=${ref}" \
+        --data-urlencode "message=${msg}" \
+        "${api_base}/projects/${project_id}/repository/tags" \
+        >/dev/null || {
+          echo "Tag creation failed (may already exist)."
+        }
+
+generate_release_notes_commit:
+  stage: release
+  needs: ["get_mr_context", "create_deploy_tag"]
+  rules:
+    - when: on_success
+  script:
+    - |
+      set -euo pipefail
+
+      if [[ "${RELEASE_NOTES_COMMIT_BRANCH:-}" != "" ]]; then
+        target_branch="${RELEASE_NOTES_COMMIT_BRANCH}"
+      elif [[ -n "${CI_DEFAULT_BRANCH:-}" ]]; then
+        target_branch="${CI_DEFAULT_BRANCH}"
+      else
+        target_branch="${CI_COMMIT_REF_NAME:-}"
+      fi
+
+      if [[ "${RELEASE_NOTES_COMMIT:-false}" != "true" ]]; then
+        echo "RELEASE_NOTES_COMMIT not enabled; skipping release notes commit."
+        exit 0
+      fi
+
+      if [[ -z "${CI_REPOSITORY_URL:-}" ]]; then
+        echo "CI_REPOSITORY_URL missing; cannot push."
+        exit 1
+      fi
+
+      if [[ -z "${GIT_PUSH_TOKEN:-}" && -z "${GITLAB_TOKEN:-}" ]]; then
+        echo "Set GIT_PUSH_TOKEN (preferred) or GITLAB_TOKEN to push commits."
+        exit 1
+      fi
+
+      token="${GIT_PUSH_TOKEN:-${GITLAB_TOKEN}}"
+
+      origin_url="${CI_REPOSITORY_URL}"
+      if [[ "${origin_url}" =~ ^https?:// ]]; then
+        origin_url="$(echo "${origin_url}" | sed -E "s#^(https?://)#\1oauth2:${token}@#")"
+      else
+        echo "Repository URL is not HTTPS; cannot inject token."
+        exit 1
+      fi
+
+      git remote set-url origin "${origin_url}"
+      git fetch origin "${target_branch}" --depth=50
+      git checkout -B "${target_branch}" "origin/${target_branch}"
+
+      mkdir -p "${RELEASE_NOTES_DIR}"
+
+      ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      mr_line="- ${MR_TITLE}"
+      if [[ -n "${MR_IID:-}" ]]; then
+        mr_line="${mr_line} (!${MR_IID})"
+      fi
+      if [[ -n "${MR_URL:-}" ]]; then
+        mr_line="${mr_line} ${MR_URL}"
+      fi
+
+      {
+        echo "## ${ts}"
+        echo
+        echo "${mr_line}"
+        echo
+        if [[ -n "${MR_DESCRIPTION:-}" ]]; then
+          echo "${MR_DESCRIPTION}"
+          echo
+        fi
+        echo "**Deploy tag:** ${DEPLOY_TAG:-}"
+        echo
+      } >> "${RELEASE_NOTES_FILE}"
+
+      if git diff --quiet; then
+        echo "No release notes changes."
+        exit 0
+      fi
+
+      git add "${RELEASE_NOTES_FILE}"
+
+      commit_msg="${RELEASE_NOTES_COMMIT_MESSAGE_PREFIX}${MR_TITLE}"
+      if [[ -n "${MR_IID:-}" ]]; then
+        commit_msg="${commit_msg} (!${MR_IID})"
+      fi
+
+      git commit -m "${commit_msg}" -m "Deploy tag: ${DEPLOY_TAG:-}" -m "Pipeline: ${CI_PIPELINE_URL:-}"
+      git push origin "${target_branch}"

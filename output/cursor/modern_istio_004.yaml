@@ -1,0 +1,28 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: api-jwt
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: api
+  jwtRules:
+    - issuer: https://auth.example.com
+      jwksUri: https://auth.example.com/.well-known/jwks.json
+      audiences:
+        - api.example.com
+      fromHeaders:
+        - name: authorization
+          prefix: "Bearer "
+      forwardOriginalToken: true
+      outputPayloadToHeader: x-jwt-payload
+      outputClaimToHeaders:
+        - header: x-jwt-sub
+          claim: sub
+        - header: x-jwt-email
+          claim: email
+        - header: x-jwt-groups
+          claim: groups
+        - header: x-jwt-roles
+          claim: roles

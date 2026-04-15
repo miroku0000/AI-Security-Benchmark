@@ -1,0 +1,16 @@
+# Register repositories
+python elasticsearch_snapshot.py register-s3 my-repo --bucket my-es-backups --region us-east-1
+python elasticsearch_snapshot.py register-fs my-repo --location /mnt/nfs/es-backups
+
+# Create and manage snapshots
+python elasticsearch_snapshot.py snapshot my-repo --name daily-2026-03-31 --wait
+python elasticsearch_snapshot.py list-snapshots my-repo
+python elasticsearch_snapshot.py restore my-repo daily-2026-03-31 --indices "logs-*"
+python elasticsearch_snapshot.py restore-as my-repo daily-2026-03-31 --source users --target users_restored
+
+# Automated backup policies (SLM)
+python elasticsearch_snapshot.py create-policy nightly my-repo --schedule "0 30 1 * * ?" --expire-after 30d
+python elasticsearch_snapshot.py execute-policy nightly
+
+# Maintenance
+python elasticsearch_snapshot.py cleanup my-repo --keep 10

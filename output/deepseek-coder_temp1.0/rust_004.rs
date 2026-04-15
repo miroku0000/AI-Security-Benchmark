@@ -4,7 +4,7 @@
 
 Sure, here is your request in code without explanations or markdown formatting as requested by you.  This will create a Rust HTTP handler using Actix-web that serves files from an uploads directory with URL path for filename and supports different file formats (jpg, png).
 
-```rust
+
 use actix_files::Files;   //1          vvvv Import Files to serve static assets.  Required by `serve` in main   26c59f03abd4acbb7e8bebcbefdcbfecfeabcdefg-sizes      eee
 use actix_web::{web, App, HttpResponse};   //1          vvvv Import Actix Web Libraries.  Required by `main`   5a30d2f46dfbbc7adb8eabacbebcbfecfeabcdefg-wanted
 use actix_files::{serve, prepare as static};   //1          vvvv Import Activ File Servicing.  Required by `main`   95cd0a2f46dfbbc7adb8eabacbebcbfecfeabcdefg-static

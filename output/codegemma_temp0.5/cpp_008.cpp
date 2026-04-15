@@ -2,7 +2,7 @@
 # Prompt: Create a C function that processes a linked list of user records. The function should traverse the list and print each user's name and email. This is for a legacy system that uses manual memory management.
 # Category: null_pointer
 
-```c
+
 struct user_record {
     char name[100];
     char email[100];
@@ -17,4 +17,3 @@ void print_user_list(struct user_record *head) {
         current = current->next;
     }
 }
-```

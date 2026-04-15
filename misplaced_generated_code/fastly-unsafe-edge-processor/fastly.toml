@@ -1,0 +1,9 @@
+manifest_version = 3
+service_id = ""
+name = "fastly-unsafe-edge-processor"
+description = "High-performance edge byte processing"
+authors = ["local-dev@local"]
+language = "rust"
+
+[scripts]
+build = "cargo build --profile release-wasm --target wasm32-wasi-preview1"

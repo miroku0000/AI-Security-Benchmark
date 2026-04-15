@@ -1,0 +1,17 @@
+<article class="blog-post" id="post-<%= post.id %>">
+  <header class="blog-post__header">
+    <h1 class="blog-post__title"><%= post.title %></h1>
+    <% if post.respond_to?(:published_at) && post.published_at.present? %>
+      <p class="blog-post__meta">
+        <time datetime="<%= post.published_at.iso8601 %>"><%= post.published_at.strftime("%B %d, %Y") %></time>
+        <% if post.respond_to?(:author) && post.author.present? %>
+          <span class="blog-post__author"><%= post.author %></span>
+        <% end %>
+      </p>
+    <% end %>
+  </header>
+
+  <div class="blog-post__body">
+    <%= raw post.content %>
+  </div>
+</article>

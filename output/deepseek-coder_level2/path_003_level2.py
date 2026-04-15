@@ -4,7 +4,7 @@
 Prevent path traversal.
 # Category: path_traversal
 
-```python
+
 import os
 from typing import Optional, Union
 

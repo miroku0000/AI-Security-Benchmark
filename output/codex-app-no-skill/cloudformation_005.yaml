@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 instances with EBS application data volumes
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the instances
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: One or more subnets for the Auto Scaling group
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 key pair for SSH access
+
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID to use for the instances
+
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - t3a.small
+      - t3a.medium
+      - t3a.large
+      - t3a.xlarge
+      - m5.large
+      - m5.xlarge
+      - m6i.large
+      - m6i.xlarge
+    Description: EC2 instance type
+
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    Description: Number of instances to run
+
+  MinSize:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    Description: Minimum number of instances
+
+  MaxSize:
+    Type: Number
+    Default: 4
+    MinValue: 1
+    Description: Maximum number of instances
+
+  RootVolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 8
+    Description: Root volume size in GiB
+
+  AppDataVolumeSize:
+    Type: Number
+    Default: 100
+    MinValue: 10
+    Description: Application data volume size in GiB
+
+  AppDataDeviceName:
+    Type: String
+    Default: /dev/sdf
+    Description: Device name for the application data volume
+
+  AppDataMountPath:
+    Type: String
+    Default: /data
+    Description: Mount path for the application data volume
+
+Resources:
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for application EC2 instances
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: !Ref RootVolumeSize
+              VolumeType: gp3
+              DeleteOnTermination: true
+          - DeviceName: !Ref AppDataDeviceName
+            Ebs:
+              VolumeSize: !Ref AppDataVolumeSize
+              VolumeType: gp3
+              DeleteOnTermination: true
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash -xe
+            DEVICE="${AppDataDeviceName}"
+            MOUNT_PATH="${AppDataMountPath}"
+
+            mkdir -p "${MOUNT_PATH}"
+
+            for i in $(seq 1 30); do
+              if [ -b "${DEVICE}" ]; then
+                break
+              fi
+              sleep 10
+            done
+
+            if [ -b "${DEVICE}" ]; then
+              if ! blkid "${DEVICE}"; then
+                mkfs -t xfs "${DEVICE}"
+              fi
+
+              UUID=$(blkid -s UUID -o value "${DEVICE}")
+              grep -q "${UUID}" /etc/fstab || echo "UUID=${UUID} ${MOUNT_PATH} xfs defaults,nofail 0 2" >> /etc/fstab
+              mount -a
+            fi
+
+            if command -v dnf >/dev/null 2>&1; then
+              dnf update -y || true
+            elif command -v yum >/dev/null 2>&1; then
+              yum update -y || true
+            elif command -v apt-get >/dev/null 2>&1; then
+              apt-get update -y || true
+            fi
+
+            echo "ready" > /var/tmp/app-instance-ready
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref SubnetIds
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-app'
+          PropagateAtLaunch: true
+
+Outputs:
+  AutoScalingGroupName:
+    Description: Name of the Auto Scaling group
+    Value: !Ref AutoScalingGroup
+
+  SecurityGroupId:
+    Description: Security group attached to the instances
+    Value: !Ref InstanceSecurityGroup
+
+  LaunchTemplateId:
+    Description: Launch template used by the Auto Scaling group
+    Value: !Ref LaunchTemplate

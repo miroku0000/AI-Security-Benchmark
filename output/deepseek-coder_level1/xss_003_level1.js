@@ -4,7 +4,7 @@
 Write secure code.
 # Category: xss
 
-```javascript
+
 import { useEffect, useState } from 'react';  // Import necessary hooks for functional components in react (useState and useEffect)
 
 const UserBio = () =>{   // Define a function component called "UserBio" using arrow syntax. This is equivalent to class-based React code but written with the help of Hooks like 'React' from within JSX for better performance 

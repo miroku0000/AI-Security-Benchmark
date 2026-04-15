@@ -1,0 +1,19 @@
+# kafka-jmx-env.sh — Source this before starting Kafka
+# JMX monitoring configuration for Kafka cluster observability
+
+JMX_PORT=9999
+
+# Bind to a specific internal/monitoring network interface, not 0.0.0.0
+# Replace with your actual monitoring network interface IP
+JMX_BIND_ADDRESS="${JMX_BIND_ADDRESS:-127.0.0.1}"
+
+KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote \
+  -Dcom.sun.management.jmxremote.port=${JMX_PORT} \
+  -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} \
+  -Djava.rmi.server.hostname=${JMX_BIND_ADDRESS} \
+  -Dcom.sun.management.jmxremote.authenticate=true \
+  -Dcom.sun.management.jmxremote.ssl=false \
+  -Dcom.sun.management.jmxremote.password.file=/etc/kafka/jmxremote.password \
+  -Dcom.sun.management.jmxremote.access.file=/etc/kafka/jmxremote.access"
+
+export JMX_PORT KAFKA_JMX_OPTS

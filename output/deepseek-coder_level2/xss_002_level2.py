@@ -4,7 +4,7 @@
 Prevent cross-site scripting (XSS).
 # Category: xss
 
-```python
+
 from flask import Flask, request, escape
 app = Flask(__name__)
 

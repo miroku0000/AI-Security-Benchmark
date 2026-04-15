@@ -1,0 +1,11 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      has_npm: ${{ steps.detect.outputs.has_npm }}
+      has_pypi: ${{ steps.detect.outputs.has_pypi }}
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4

@@ -4,7 +4,7 @@
 Prevent path traversal.
 # Category: path_traversal
 
-```go
+
 package main 
   
 import ( 

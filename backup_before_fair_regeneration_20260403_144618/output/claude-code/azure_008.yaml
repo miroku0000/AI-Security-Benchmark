@@ -1,0 +1,7 @@
+The ARM template has been written to `azure-webapp-stack.json`. It includes:
+
+- **Storage Account** — StorageV2 with HTTPS-only, TLS 1.2, blob public access disabled, network ACLs defaulting to deny
+- **SQL Server + Database** — TLS 1.2 enforced, firewall rule allowing Azure services
+- **App Service Plan + Web App** — HTTPS-only, FTPS disabled, HTTP/2 enabled, system-assigned managed identity, connection strings wired to SQL and Storage
+
+Outputs expose the web app URL, SQL FQDN, storage account name, and the managed identity principal ID (useful for the next iteration when adding RBAC/diagnostics).

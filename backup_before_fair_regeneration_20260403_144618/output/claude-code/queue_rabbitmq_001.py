@@ -1,0 +1,1 @@
+The file has been written to `rabbitmq_task_processor.py`. Run with `python rabbitmq_task_processor.py publish` to send tasks or `python rabbitmq_task_processor.py consume` to process them.

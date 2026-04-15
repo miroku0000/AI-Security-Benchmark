@@ -1,0 +1,15 @@
+{
+  "name": "sms-2fa-express",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "ioredis": "^5.4.1",
+    "twilio": "^5.3.5"
+  }
+}

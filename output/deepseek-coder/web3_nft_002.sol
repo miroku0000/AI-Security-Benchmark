@@ -4,7 +4,7 @@
 
 Sure, here's the basic structure of an ERC721 compliant smart contract in Solidity which includes a simple version where you can only create one token per address (public) and also include price checking before each transaction to prevent spamming or fraudulent minting. 
 Please note that this is just for demonstration purposes, real-world NFT contracts would require more complex logic such as setting the metadata of tokens when they are created etc., which can't be covered in a single code snippet due its complexity: https://github.com/OpenZeppelin/openzeppelin-contracts
-```solidity 
+
 pragma solidity ^0.8.4; // Please update to the latest version of Solidity that is supported by your project, for example '^0.6.2' or even better use a view here and then check in runtime if it meets condition (e.g., minting limit reached)
  
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol"; // Import OpenZeppelin's ERC721 contract, which provides basic functionality for NFT contracts in Solidity (like minting new tokens)

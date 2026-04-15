@@ -1,0 +1,95 @@
+name: Python test and deploy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade -r requirements.txt
+          pip install --upgrade pytest
+
+      - name: Run tests
+        run: pytest -q tests/
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade -r requirements.txt
+
+      - name: Build artifact
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="AI_Security_Benchmark-${GITHUB_SHA::7}/" -o dist/source.tar.gz HEAD
+
+      - name: Install jq and AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli jq
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Configure AWS credentials (access keys)
+        if: ${{ secrets.AWS_ROLE_TO_ASSUME == '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy
+        if: ${{ secrets.S3_BUCKET != '' && (secrets.AWS_ROLE_TO_ASSUME != '' || (secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '')) }}
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION != '' && secrets.AWS_REGION || 'us-east-1' }}
+          DEPLOYMENT_ENV: production
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          chmod +x ./aws_deploy.sh
+          ./aws_deploy.sh s3 ./dist
+
+      - name: Skip deploy
+        if: ${{ secrets.S3_BUCKET == '' || (secrets.AWS_ROLE_TO_ASSUME == '' && (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '')) }}
+        run: echo "Skipping deploy: required secrets not configured."

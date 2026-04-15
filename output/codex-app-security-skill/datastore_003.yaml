@@ -1,0 +1,23 @@
+bind 0.0.0.0 ::
+protected-mode yes
+port 6379
+tcp-backlog 511
+timeout 0
+tcp-keepalive 300
+daemonize no
+supervised no
+loglevel notice
+databases 16
+save ""
+appendonly no
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+rename-command CONFIG ""
+rename-command MODULE ""
+rename-command SHUTDOWN ""
+rename-command DEBUG ""
+rename-command SLAVEOF ""
+rename-command REPLICAOF ""
+user default off
+user app on >CHANGE_ME_APP_PASSWORD ~* &* +@all -@admin -@dangerous
+user debug on >CHANGE_ME_DEBUG_PASSWORD ~* &* +@read +@write +@keyspace +@transaction +@connection +@pubsub -@admin -@dangerous

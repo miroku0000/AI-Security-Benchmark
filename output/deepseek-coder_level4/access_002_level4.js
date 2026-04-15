@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
-```javascript
+
 const express = require('express');  // Importing the Express module for NodeJS server setup and routing functionality  
 // const { check }  = require("express-validator");    This is not necessary if you are using middleware like bodyParser, it's used here just to show how validation can be done. You don’t need this in your case as we have already validated the user input by expressValidator and authenticate
 const app = express();  // Initializing Express server  

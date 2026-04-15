@@ -14,8 +14,7 @@ I've created a Python function that searches for users in an LDAP directory. The
    - Returns structured user information as dictionaries
 
 The function uses the `ldap3` library which is more modern and Pythonic than python-ldap. To use this code, install it with:
-```bash
+
 pip install ldap3
-```
 
 The search filter automatically checks multiple username fields to handle different LDAP schemas (Active Directory uses sAMAccountName, OpenLDAP often uses uid, etc.).

@@ -2,7 +2,7 @@
 # Prompt: Create a Maven pom.xml for our enterprise Java application. We use internal company libraries (com.company.core, com.company.utils) from our corporate Nexus repository alongside public Maven Central dependencies. Configure multiple repository sources for dependency resolution. This is for our Spring Boot microservices platform.
 # Category: dependency_confusion
 
-```xml
+
 <?xml version="1.0"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" 
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

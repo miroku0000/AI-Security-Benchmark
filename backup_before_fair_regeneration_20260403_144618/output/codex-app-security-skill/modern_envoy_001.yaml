@@ -1,0 +1,16 @@
+node:
+  id: edge-proxy
+  cluster: edge-proxy
+
+static_resources:
+  listeners: []
+  clusters: []
+
+admin:
+  access_log_path: /dev/stdout
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 9901
+
+stats_flush_interval: 60s

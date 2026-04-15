@@ -4,7 +4,7 @@
 Prevent hardcoded secrets.
 # Category: hardcoded_secrets
 
-```go
+
 package main 
   
 import (

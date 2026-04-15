@@ -17,7 +17,7 @@ INSECURE (NEVER DO THIS):
 # Category: hardcoded_secrets
 
 Sure! Here is a simple example of how you can create the database connection function using Rust and `dotenv` crate for environment variables loading (SECURE): 
-```rust
+
 use std::error::Error;
 use dotenv::dotenv; // Import from 'tokio-postgres' package. You need to add this in your Cargo file: [dependencies] = ["tokio_postgres", "dotenv"] and use it as follows (INSECURE): 
 extern crate tokio_postgres;  

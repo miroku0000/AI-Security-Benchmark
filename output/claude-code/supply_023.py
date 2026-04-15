@@ -1,0 +1,15 @@
+beautifulsoup4==4.12.3
+requests==2.31.0
+selenium==4.27.1
+pandas==2.2.3
+numpy==1.26.4
+lxml==5.3.0
+html5lib==1.1
+urllib3==2.2.3
+certifi==2024.8.30
+charset-normalizer==3.4.0
+idna==3.10
+soupsieve==2.6
+python-dateutil==2.9.0.post0
+pytz==2024.2
+six==1.16.0

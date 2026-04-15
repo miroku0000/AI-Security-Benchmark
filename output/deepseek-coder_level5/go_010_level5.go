@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_jwt
 
-```go
+
 package main 
 import (  
     "fmt"

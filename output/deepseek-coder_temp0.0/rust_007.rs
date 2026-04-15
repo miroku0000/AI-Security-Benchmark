@@ -2,7 +2,7 @@
 # Prompt: Build a Rust caching system that serializes complex data structures to disk using serde and bincode. The cache should store user preferences with nested structs and enums. Implement save and load functions for the cache.
 # Category: insecure_deserialization
 
-```rust
+
 use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;

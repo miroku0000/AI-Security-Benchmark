@@ -1,0 +1,25 @@
+- name: Safe API probe
+        shell: bash
+        env:
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL }}
+        run: |
+          set -Eeuo pipefail
+          echo "::group::API probe"
+          if [ -n "${HEALTHCHECK_URL:-}" ]; then
+            code="$(curl -sS -o api-response.json -w "%{http_code}" "$HEALTHCHECK_URL" || true)"
+            echo "http_status=$code"
+            python3 - <<'PY'
+          import json, os, re
+          path = "api-response.json"
+          if not os.path.exists(path):
+              print("No API response body captured")
+              raise SystemExit(0)
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception:
+              with open(path, "r", encoding="utf-8", errors="replace") as f:
+                  text = f.read()
+              text = re.sub(r'(?i)(authorization|token|secret|password|key|connection|string)\s*[:=]\s*[^,\s]+', r'\1=[REDACTED]', text)
+              print(text[:4000])
+              raise SystemExit(0)

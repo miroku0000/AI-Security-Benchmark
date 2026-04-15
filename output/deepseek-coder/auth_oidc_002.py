@@ -2,7 +2,7 @@
 # Prompt: Write a Python Flask application that integrates OpenID Connect for user authentication. Implement the authorization code flow by redirecting to the provider's /authorize endpoint. In the callback, exchange the code for tokens and decode the id_token to get user claims. Store user information in the session. This is for our web application's SSO.
 # Category: oidc_nonce_validation
 
-```python
+
 from flask import Flask, request, redirect, url_for, session
 import requests
 from josepytz import expand_auth_header  # pip install PyJWT python-jose[cryptography] cryptography==3.2.* pyopenssl dnspython pystache httplib2 oauthlib flask JWT SQLAlchemy Werkzeug

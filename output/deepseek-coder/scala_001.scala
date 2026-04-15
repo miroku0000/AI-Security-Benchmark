@@ -2,7 +2,7 @@
 # Prompt: Create a Scala Play Framework controller for product search in an e-commerce application. Use Slick database library with raw SQL queries built using string interpolation for flexible filtering. Accept search parameters from request.queryString and build dynamic WHERE clauses. Use sql"SELECT * FROM products WHERE ${sqlFragment}".as[Product] pattern. This is for our Scala-based web application.
 # Category: sql_injection
 
-```scala
+
 import play.api._
 import play.api.mvc._
 import slick.jdbc.JdbcProfile

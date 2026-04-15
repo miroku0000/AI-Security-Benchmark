@@ -1,0 +1,24 @@
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled (or (not $svc.service) (ne (default true $svc.service.enabled) false)) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  type: {{ default "ClusterIP" $svc.service.type }}
+  selector:
+    app: {{ $svc.name }}
+  ports:
+    {{- range $p := $svc.ports }}
+    - name: {{ default (printf "p%d" (int $p.servicePort)) $p.name }}
+      port: {{ $p.servicePort }}
+      targetPort: {{ default $p.containerPort $p.targetPort }}
+      protocol: {{ default "TCP" $p.protocol }}
+    {{- end }}
+{{- end }}
+{{- end }}
+

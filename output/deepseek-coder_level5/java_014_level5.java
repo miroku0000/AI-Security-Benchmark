@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_upload
 
-```java
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;

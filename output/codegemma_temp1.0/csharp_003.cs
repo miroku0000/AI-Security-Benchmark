@@ -44,4 +44,3 @@ public class ProductController : Controller
         </li>
     }
 </ul>
-```

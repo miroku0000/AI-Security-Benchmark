@@ -1,0 +1,26 @@
+deploy_demo:
+  stage: deploy
+  environment:
+    name: demo
+  needs:
+    - job: package_application
+      artifacts: true
+  script:
+    - set -euo pipefail
+    - PACKAGE_PATH="dist/${APP_NAME}-${CI_COMMIT_SHORT_SHA}.tgz"
+    - CHECKSUM_PATH="${PACKAGE_PATH}.sha256"
+    - S3_KEY="${DEPLOY_PREFIX}/${CI_COMMIT_SHORT_SHA}/${APP_NAME}-${CI_COMMIT_SHORT_SHA}.tgz"
+    - aws s3 cp "${PACKAGE_PATH}" "s3://${DEPLOY_BUCKET}/${S3_KEY}" --only-show-errors --sse AES256
+    - aws s3 cp "${CHECKSUM_PATH}" "s3://${DEPLOY_BUCKET}/${S3_KEY}.sha256" --only-show-errors --sse AES256
+    - |
+      if [ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]; then
+        aws cloudfront create-invalidation \
+          --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+          --paths "/*" \
+          --no-cli-pager \
+          >/dev/null
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: false

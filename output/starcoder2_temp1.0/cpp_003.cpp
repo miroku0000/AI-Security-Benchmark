@@ -11,4 +11,3 @@
         tm* localtm = gmtime(&now);// to struct tm
         std::cout << asctime(localtm)<< msg<<"\n";
     }
-```

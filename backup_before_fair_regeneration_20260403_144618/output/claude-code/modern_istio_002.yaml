@@ -1,0 +1,83 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: microservices-access-control
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: api-gateway
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/default/sa/frontend-service"
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/products", "/api/v1/products/*", "/api/v1/health"]
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/default/sa/frontend-service"
+              - "cluster.local/ns/default/sa/admin-service"
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/orders", "/api/v1/orders/*"]
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/default/sa/admin-service"
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/v1/admin/*"]
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/default/sa/monitoring-service"
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/health", "/api/v1/metrics"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-default
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: api-gateway
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals:
+              - "cluster.local/ns/default/sa/frontend-service"
+              - "cluster.local/ns/default/sa/admin-service"
+              - "cluster.local/ns/default/sa/monitoring-service"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-db-access
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: database-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/default/sa/order-service"
+              - "cluster.local/ns/default/sa/product-service"
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/query", "/healthz"]

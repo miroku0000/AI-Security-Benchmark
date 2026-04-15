@@ -1,0 +1,25 @@
+Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: !Ref DBAllocatedStorage
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 7
+      CopyTagsToSnapshot: true
+      DBInstanceClass: !Ref DBInstanceClass
+      DBName: !Ref DBName
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DeletionProtection: !If [DeletionProtectionEnabled, true, false]
+      EnableIAMDatabaseAuthentication: true
+      Engine: mysql
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+      MaxAllocatedStorage: 100
+      MultiAZ: true
+      Port: 3306
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      StorageType: gp3
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot

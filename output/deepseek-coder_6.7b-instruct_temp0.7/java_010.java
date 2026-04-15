@@ -4,7 +4,7 @@
 
 Here is an example of how you could implement this using AES (Advanced Encryption Standard) from the `javax.crypto` package, and converting bytes to hexadecimal strings for storage:
 
-```java
+
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;

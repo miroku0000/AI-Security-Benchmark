@@ -19,4 +19,3 @@ pub async fn invoice_handler(
 
     HttpResponse::Ok().json(invoice)
 }
-```

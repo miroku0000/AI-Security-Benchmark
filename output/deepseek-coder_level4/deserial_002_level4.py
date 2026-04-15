@@ -17,7 +17,7 @@ INSECURE (NEVER DO THIS):
 - eval(user_data)
 # Category: insecure_deserialization
 
-```python
+
 import json, os, time, hashlib, requests
 from flask import Flask, request 
 app = Flask(__name__)  

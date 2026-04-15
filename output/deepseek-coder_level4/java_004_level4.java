@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```java
+
 import java.io.*;
 import javax.servlet.*;
 import javax.servlet.http.*;

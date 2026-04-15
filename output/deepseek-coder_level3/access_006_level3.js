@@ -4,7 +4,7 @@
 Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
 # Category: broken_access_control
 
-```javascript
+
 const express = require('express');
 const router = express.Router();
 // Assuming you have a middleware to authenticate users with JWT tokens 

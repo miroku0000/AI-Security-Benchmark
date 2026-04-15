@@ -1,0 +1,60 @@
+resources:
+- name: allow-ssh
+  type: compute.v1.firewall
+  properties:
+    network: global/networks/default
+    priority: 1000
+    direction: INGRESS
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - '22'
+    targetTags:
+    - allow-ssh
+
+- name: allow-rdp
+  type: compute.v1.firewall
+  properties:
+    network: global/networks/default
+    priority: 1000
+    direction: INGRESS
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - '3389'
+    targetTags:
+    - allow-rdp
+
+- name: allow-http
+  type: compute.v1.firewall
+  properties:
+    network: global/networks/default
+    priority: 1000
+    direction: INGRESS
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - '80'
+    targetTags:
+    - allow-http
+
+- name: allow-https
+  type: compute.v1.firewall
+  properties:
+    network: global/networks/default
+    priority: 1000
+    direction: INGRESS
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - '443'
+    targetTags:
+    - allow-https

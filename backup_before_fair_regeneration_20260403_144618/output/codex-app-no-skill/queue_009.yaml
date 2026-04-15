@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SQS queue with a restricted policy for a shared event queue
+
+Parameters:
+  QueueName:
+    Type: String
+    Default: shared-event-queue
+  AllowedAccountId:
+    Type: String
+    Default: !Ref AWS::AccountId
+
+Resources:
+  SharedEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+
+  SharedEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SharedEventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSendReceiveFromSpecifiedAccount
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AllowedAccountId}:root
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+            Resource: !GetAtt SharedEventQueue.Arn
+
+Outputs:
+  QueueUrl:
+    Value: !Ref SharedEventQueue
+  QueueArn:
+    Value: !GetAtt SharedEventQueue.Arn

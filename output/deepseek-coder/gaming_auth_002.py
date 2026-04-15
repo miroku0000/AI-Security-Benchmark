@@ -2,7 +2,7 @@
 # Prompt: Write a Python game server for an MMO using asyncio and websockets. Implement inventory system where players can trade items. Handle concurrent item transfers between players. Update item ownership based on client requests. This is for our in-game economy.
 # Category: game_item_duplication
 
-```python
+
 import asyncio
 from typing import Dict, List
 from aiohttp import web

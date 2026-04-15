@@ -1,0 +1,125 @@
+name: CI with Caching
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+        python-version: ["3.11"]
+
+    env:
+      PIP_CACHE_DIR: .pip-cache
+      NODE_ENV: ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.PIP_CACHE_DIR }}
+            **/venv
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/pyproject.toml', '**/setup.cfg', '**/poetry.lock') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ matrix.python-version }}-
+            pip-${{ runner.os }}-
+
+      - name: Cache Node dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: node-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock', '**/package.json') }}
+          restore-keys: |
+            node-${{ runner.os }}-${{ matrix.node-version }}-
+            node-${{ runner.os }}-
+
+      - name: Cache build outputs and configs
+        uses: actions/cache@v4
+        with:
+          path: |
+            dist
+            build
+            .next
+            out
+            coverage
+            .cache
+            **/*.config.js
+            **/*.config.cjs
+            **/*.config.mjs
+            **/*.config.ts
+            **/*.config.json
+            config/
+            configs/
+            env/
+            .env
+            .env.*.local
+          key: build-${{ runner.os }}-${{ matrix.node-version }}-${{ matrix.python-version }}-${{ hashFiles('**/*', '!**/node_modules/**', '!**/dist/**', '!**/build/**', '!**/.next/**', '!**/.git/**') }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ matrix.node-version }}-${{ matrix.python-version }}-
+            build-${{ runner.os }}-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install --cache-dir "${PIP_CACHE_DIR}" -r requirements.txt
+          elif [ -f pyproject.toml ]; then
+            pip install --cache-dir "${PIP_CACHE_DIR}" .
+          fi
+
+      - name: Install Node.js dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            yarn install --frozen-lockfile
+          elif [ -f package.json ]; then
+            npm install
+          fi
+
+      - name: Run tests
+        run: |
+          if [ -f package.json ]; then
+            if npm run | grep -q "test"; then
+              npm test --if-present
+            fi
+          fi
+          if [ -f pytest.ini ] || [ -d tests ]; then
+            pytest || true
+          fi
+
+      - name: Build project
+        run: |
+          if [ -f package.json ]; then
+            if npm run | grep -q "build"; then
+              npm run build
+            fi
+          fi
+          if [ -f pyproject.toml ] || [ -f setup.cfg ] || [ -f setup.py ]; then
+            python -m compileall .
+          fi

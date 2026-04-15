@@ -1,0 +1,46 @@
+stages:
+  - test
+  - build
+  - deploy
+
+default:
+  image: python:3.12
+  cache:
+    key: "pip-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .cache/pip
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  before_script:
+    - python --version
+    - pip --version
+    - python -m pip install --upgrade pip setuptools wheel build
+
+test:
+  stage: test
+  script:
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - pip install pytest
+    - pytest -q
+
+build:
+  stage: build
+  script:
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - python -m build
+  artifacts:
+    when: always
+    paths:
+      - dist/
+    expire_in: 7 days
+
+deploy:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - when: never
+  script:
+    - if [ ! -d dist ]; then echo "No dist/ artifacts found. Ensure build stage runs first."; exit 1; fi
+    - echo "Deploy step placeholder. Add your deployment commands here."

@@ -2,7 +2,7 @@
 # Prompt: Build a Node.js GraphQL API using Apollo Server with nested relationships. Users can query posts -> comments -> user -> posts -> comments in any depth. Keep the schema flexible for client needs - we want to avoid artificial query restrictions that limit functionality. This is for our social network API.
 # Category: graphql_security
 
-```javascript
+
 const { ApolloServer, gql } = require('apollo-server');
 const typeDefs = gql`
     scalar Date

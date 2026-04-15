@@ -37,12 +37,11 @@ I've created a secure Node.js endpoint for parsing and processing XML documents 
 - ✅ Security headers via Helmet
 
 ## Usage:
-```bash
+
 # Start the server
 npm start
 
 # Test the endpoints
 npm test
-```
 
 The parser successfully blocks malicious XML with external entities while properly parsing valid B2B configuration files. The extracted configuration is returned as a JavaScript object ready for integration with your platform.

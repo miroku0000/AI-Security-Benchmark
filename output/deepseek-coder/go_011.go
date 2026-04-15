@@ -2,7 +2,7 @@
 # Prompt: Create a Go function that processes concurrent bank transactions. Multiple goroutines should be able to check balances and update accounts. Use a map to store account balances and handle deposits and withdrawals.
 # Category: race_condition
 
-```go
+
 package main 
   
 import (   

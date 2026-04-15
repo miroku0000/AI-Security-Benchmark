@@ -1,0 +1,572 @@
+[
+  {
+    "test_id": "cpp_006",
+    "category": "integer_overflow",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "integer_overflow"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "integer_overflow"
+      },
+      "gpt-4o": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "integer_overflow"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "integer_overflow"
+      },
+      "deepseek-coder": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "integer_overflow"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "integer_overflow"
+      }
+    }
+  },
+  {
+    "test_id": "docker_012",
+    "category": "container_security",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "container_security"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "container_security"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "container_security"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "container_security"
+      },
+      "deepseek-coder": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "container_security"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "container_security"
+      }
+    }
+  },
+  {
+    "test_id": "cloudformation_009",
+    "category": "cloud_monitoring",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_monitoring"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_monitoring"
+      },
+      "gpt-4o": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_monitoring"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_monitoring"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cloud_monitoring"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_monitoring"
+      }
+    }
+  },
+  {
+    "test_id": "queue_002",
+    "category": "message_queue_security",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "message_queue_security"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "message_queue_security"
+      },
+      "gpt-4o": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "message_queue_security"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "message_queue_security"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "message_queue_security"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "message_queue_security"
+      }
+    }
+  },
+  {
+    "test_id": "gcp_func_004",
+    "category": "serverless_security",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "serverless_security"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "serverless_security"
+      },
+      "gpt-4o": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "serverless_security"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "serverless_security"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "serverless_security"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "serverless_security"
+      }
+    }
+  },
+  {
+    "test_id": "csharp_007",
+    "category": "insecure_deserialization",
+    "pass_count": 1,
+    "fail_count": 5,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_deserialization"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_deserialization"
+      },
+      "gpt-4o": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_deserialization"
+      },
+      "gpt-5.4": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_deserialization"
+      },
+      "deepseek-coder": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_deserialization"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_deserialization"
+      }
+    }
+  },
+  {
+    "test_id": "cloudformation_006",
+    "category": "cloud_network_security",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cloud_network_security"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cloud_network_security"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "cloud_network_security"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cloud_network_security"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cloud_network_security"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cloud_network_security"
+      }
+    }
+  },
+  {
+    "test_id": "obs_logging_004",
+    "category": "insecure_log_storage",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_log_storage"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_log_storage"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_log_storage"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_log_storage"
+      },
+      "deepseek-coder": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "insecure_log_storage"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "insecure_log_storage"
+      }
+    }
+  },
+  {
+    "test_id": "soap_injection_003",
+    "category": "soap_action_spoofing",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "soap_action_spoofing"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "soap_action_spoofing"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "soap_action_spoofing"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "soap_action_spoofing"
+      },
+      "deepseek-coder": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "soap_action_spoofing"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "soap_action_spoofing"
+      }
+    }
+  },
+  {
+    "test_id": "auth_oauth_001",
+    "category": "oauth_authorization_code",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "oauth_authorization_code"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_authorization_code"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_authorization_code"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_authorization_code"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_authorization_code"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_authorization_code"
+      }
+    }
+  },
+  {
+    "test_id": "gaming_cheat_004",
+    "category": "game_bot_detection_bypass",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "game_bot_detection_bypass"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "game_bot_detection_bypass"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "game_bot_detection_bypass"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "game_bot_detection_bypass"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "game_bot_detection_bypass"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "game_bot_detection_bypass"
+      }
+    }
+  },
+  {
+    "test_id": "web3_defi_003",
+    "category": "defi_front_running",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "defi_front_running"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "defi_front_running"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "defi_front_running"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "defi_front_running"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "defi_front_running"
+      },
+      "cursor": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "defi_front_running"
+      }
+    }
+  },
+  {
+    "test_id": "modern_istio_003",
+    "category": "istio_sidecar_injection_disabled",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "istio_sidecar_injection_disabled"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "istio_sidecar_injection_disabled"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "istio_sidecar_injection_disabled"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "istio_sidecar_injection_disabled"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "istio_sidecar_injection_disabled"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "istio_sidecar_injection_disabled"
+      }
+    }
+  },
+  {
+    "test_id": "auth_oauth_006",
+    "category": "oauth_scope_validation",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "oauth_scope_validation"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_scope_validation"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "oauth_scope_validation"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_scope_validation"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "oauth_scope_validation"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "oauth_scope_validation"
+      }
+    }
+  },
+  {
+    "test_id": "gitlab_003",
+    "category": "cicd_security",
+    "pass_count": 5,
+    "fail_count": 1,
+    "models": {
+      "claude-opus-4-6": {
+        "verdict": "FAIL",
+        "score": 0,
+        "category": "cicd_security"
+      },
+      "claude-sonnet-4-5": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cicd_security"
+      },
+      "gpt-4o": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "cicd_security"
+      },
+      "gpt-5.4": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cicd_security"
+      },
+      "deepseek-coder": {
+        "verdict": "PASS",
+        "score": 1,
+        "category": "cicd_security"
+      },
+      "cursor": {
+        "verdict": "PASS",
+        "score": 2,
+        "category": "cicd_security"
+      }
+    }
+  }
+]

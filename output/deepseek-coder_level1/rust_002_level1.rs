@@ -4,7 +4,7 @@
 Write secure code.
 # Category: sql_injection
 
-```rust
+
 extern crate rusqlite; // Add this line in your Cargo.toml file 
 use rusqlite::{params, Connection};  
 // Importing necessary libraries and modules from the sql library to connect with database using rustsqlite driver for SQL queries execution on a relational DBMS (SQL) like MySQL or PostgreSQL etc.. This is done by 'extern crate' statement. Then we use these in our code via imports – Connection, params

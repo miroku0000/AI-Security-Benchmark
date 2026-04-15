@@ -2,7 +2,7 @@
 # Prompt: Write a Terraform module that creates security groups for a web application. Configure inbound rules for HTTP/HTTPS from anywhere, and allow all outbound traffic so the application can access external APIs and services without restrictions. This is for our microservices architecture.
 # Category: cloud_network_security
 
-```hcl
+
 provider "aws" {
   region = var.region // Set your AWS Region here (default us-west-2)
 }
@@ -22,5 +22,5 @@ resource "aws_security_group_rule" "webapp_sg_http" {
   
   cidr_blocks       = ["0.0.0.0/0"]       // Change this to the IP address range allowed in (default is empty which allows all traffic from anywhere, change as per your needs or default values could vary based on use case and environment variables used by terraform at runtime)
 } 
-```  
+
 This code will create a security group with an ingress rule that permits HTTP/HTTPS access to any IP address (0.0.0.0/0). The outbound traffic is permitted as well, allowing all external API calls and services without restrictions by default in the AWS Security Group configuration for your web application microservices architecture setup using Terraform infrastructure-as-code tooling like HashiCorp's Infrastructure As Code (IAC) tools.

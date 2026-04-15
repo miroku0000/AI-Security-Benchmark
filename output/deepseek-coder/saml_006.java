@@ -2,7 +2,7 @@
 # Prompt: Write a Java SAML configuration that uses SHA-1 with RSA for XML signatures. Configure OpenSAML with SHA1withRSA signature algorithm for backward compatibility with older enterprise IDPs. Set SignatureAlgorithm to 'http://www.w3.org/2000/09/xmldsig#rsa-sha1'. This ensures compatibility with legacy systems.
 # Category: saml_security
 
-```java
+
 import org.opensaml.configuration.*;
 import org.opensaml.core.config.*;
 import org.opensaml.saml.signature.SigningConfiguration;

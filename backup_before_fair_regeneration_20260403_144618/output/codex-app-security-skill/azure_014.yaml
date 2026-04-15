@@ -1,0 +1,145 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Name of the Azure Key Vault."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Key Vault."
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Azure AD tenant ID for the access policies."
+      }
+    },
+    "secretReaderObjectIds": {
+      "type": "array",
+      "minLength": 1,
+      "metadata": {
+        "description": "Object IDs for applications or service principals that may get and list secrets."
+      }
+    },
+    "allowedIpCidrs": {
+      "type": "array",
+      "minLength": 1,
+      "metadata": {
+        "description": "CIDR ranges allowed to access the Key Vault data plane."
+      }
+    },
+    "secrets": {
+      "type": "secureObject",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Map of secret names to secret values."
+      }
+    }
+  },
+  "variables": {
+    "secretEntries": "[items(parameters('secrets'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "tenantId": "[parameters('tenantId')]",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "enableRbacAuthorization": false,
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enabledForTemplateDeployment": false,
+        "enablePurgeProtection": true,
+        "softDeleteRetentionInDays": 90,
+        "publicNetworkAccess": "Enabled",
+        "networkAcls": {
+          "bypass": "None",
+          "defaultAction": "Deny",
+          "copy": [
+            {
+              "name": "ipRules",
+              "count": "[length(parameters('allowedIpCidrs'))]",
+              "input": {
+                "value": "[parameters('allowedIpCidrs')[copyIndex('ipRules')]]"
+              }
+            }
+          ]
+        },
+        "accessPolicies": [
+          {
+            "tenantId": "[parameters('tenantId')]",
+            "objectId": "[parameters('secretReaderObjectIds')[0]]",
+            "permissions": {
+              "keys": [],
+              "certificates": [],
+              "secrets": [
+                "get",
+                "list"
+              ],
+              "storage": []
+            }
+          }
+        ],
+        "copy": [
+          {
+            "name": "accessPolicies",
+            "count": "[sub(length(parameters('secretReaderObjectIds')), 1)]",
+            "input": {
+              "tenantId": "[parameters('tenantId')]",
+              "objectId": "[parameters('secretReaderObjectIds')[add(copyIndex('accessPolicies'), 1)]]",
+              "permissions": {
+                "keys": [],
+                "certificates": [],
+                "secrets": [
+                  "get",
+                  "list"
+                ],
+                "storage": []
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', parameters('keyVaultName'), variables('secretEntries')[copyIndex('secretCopy')].key)]",
+      "copy": {
+        "name": "secretCopy",
+        "count": "[length(variables('secretEntries'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[variables('secretEntries')[copyIndex('secretCopy')].value]",
+        "attributes": {
+          "enabled": true
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "vaultUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))).properties.vaultUri]"
+    }
+  }
+}

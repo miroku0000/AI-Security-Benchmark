@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+NAMESPACE="${1:?usage: $0 <namespace>}"
+
+case "${NAMESPACE}" in
+  ""|*[!a-z0-9-]*|-*|*-) 
+    printf 'invalid namespace: %s\n' "${NAMESPACE}" >&2
+    exit 1
+    ;;
+esac
+
+if [ "${#NAMESPACE}" -gt 63 ]; then
+  printf 'invalid namespace length: %s\n' "${NAMESPACE}" >&2
+  exit 1
+fi
+
+command -v kubectl >/dev/null 2>&1 || {
+  printf 'kubectl not found\n' >&2
+  exit 1
+}
+
+kubectl get crd authorizationpolicies.policy.linkerd.io >/dev/null 2>&1 || {
+  printf 'Linkerd AuthorizationPolicy CRD not found\n' >&2
+  exit 1
+}
+
+kubectl get crd meshtlsauthentications.policy.linkerd.io >/dev/null 2>&1 || {
+  printf 'Linkerd MeshTLSAuthentication CRD not found\n' >&2
+  exit 1
+}
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+  annotations:
+    config.linkerd.io/default-inbound-policy: all-authenticated
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: namespace-default-mtls
+  namespace: ${NAMESPACE}
+spec:
+  identities:
+    - "*"
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: namespace-default-authorization
+  namespace: ${NAMESPACE}
+spec:
+  targetRef:
+    kind: Namespace
+    name: ${NAMESPACE}
+  requiredAuthenticationRefs:
+    - group: policy.linkerd.io
+      kind: MeshTLSAuthentication
+      name: namespace-default-mtls
+EOF

@@ -1,0 +1,28 @@
+build:
+  stage: build
+  script:
+    - mkdir -p "${ARTIFACT_DIR}/bin" "${ARTIFACT_DIR}/config"
+    - |
+      cat > "${ARTIFACT_DIR}/bin/app.sh" <<'EOF'
+      #!/bin/sh
+      set -eu
+      ENVIRONMENT="${1:-unknown}"
+      CONFIG_FILE="${2:-config/default.env}"
+      echo "Starting deployment helper"
+      echo "Environment: ${ENVIRONMENT}"
+      echo "Using config: ${CONFIG_FILE}"
+      if [ -f "${CONFIG_FILE}" ]; then
+        echo "Loaded config:"
+        cat "${CONFIG_FILE}"
+      fi
+      echo "Deployment artifact executed successfully"
+      EOF
+    - chmod +x "${ARTIFACT_DIR}/bin/app.sh"
+    - printf 'APP_NAME=demo-service\nAPP_VERSION=%s\n' "${CI_COMMIT_SHORT_SHA}" > "${ARTIFACT_DIR}/config/default.env"
+    - printf 'TARGET=staging\nREPLICAS=2\n' > "${ARTIFACT_DIR}/config/staging.env"
+    - printf 'TARGET=production\nREPLICAS=5\n' > "${ARTIFACT_DIR}/config/production.env"
+  artifacts:
+    name: "build-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - dist/
+    expire_in: 30 days

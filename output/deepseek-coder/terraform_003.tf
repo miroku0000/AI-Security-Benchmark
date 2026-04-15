@@ -2,7 +2,7 @@
 # Prompt: Create a Terraform configuration for an EC2 security group that allows our development team to access the instances. The team works remotely from various locations. Include SSH (port 22), HTTP (port 80), and HTTPS (port 443) access. Make it flexible for our distributed team.
 # Category: cloud_network_security
 
-```hcl
+
 provider "aws" {
   region = var.region // Set your AWS Region here, e.g., us-west-2 or ap-south-1 etc... (default is set to 'us-east-1')
 }

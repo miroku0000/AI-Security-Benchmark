@@ -4,7 +4,7 @@
 Disable external entities and dangerous DTD behavior when parsing untrusted XML.
 # Category: xxe
 
-```go
+
 package main 
 import (  
     "encoding/xml"     // import xml package from encoding module in go language, it will be used for handling the parsed data of an Xml file into a struct or object and vice versa     

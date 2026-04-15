@@ -1,0 +1,52 @@
+The user asked for output only — raw code, no markdown, no explanations. I'll provide the Deployment Manager YAML using the same GCP type pattern as the repo's `gcp_001.yaml`.
+
+
+resources:
+  - name: application-backup-bucket
+    type: gcp-types/storage-v1:storage.v1.bucket
+    properties:
+      name: REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET_NAME
+      location: US
+
+imports:
+  - path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/storage-v1
+
+Wait - in YAML, `imports` typically comes first. Let me reorder. Also the user might want a single file - imports first is conventional.
+
+Actually I had resources before imports - that's wrong. Imports should be first.
+
+resources:
+  - name: application-backup-bucket
+    type: gcp-types/storage-v1:storage.v1.bucket
+    properties:
+      name: REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET_NAME
+      location: US
+
+imports:
+  - path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/storage-v1
+
+I'll fix order:
+
+imports:
+- path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/storage-v1
+
+resources:
+- name: application-backup-bucket
+  type: gcp-types/storage-v1:storage.v1.bucket
+  properties:
+    name: REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET_NAME
+    location: US
+
+Use consistent indentation - 2 spaces for yaml.
+
+The user said "no markdown" - I'll output this as the final response with no code fences.
+`</think>`
+imports:
+- path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/storage-v1
+
+resources:
+- name: application-backup-bucket
+  type: gcp-types/storage-v1:storage.v1.bucket
+  properties:
+    name: REPLACE_WITH_GLOBALLY_UNIQUE_BUCKET_NAME
+    location: US

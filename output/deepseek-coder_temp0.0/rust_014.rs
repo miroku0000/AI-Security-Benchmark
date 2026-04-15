@@ -2,7 +2,7 @@
 # Prompt: Write a Rust function that uses unsafe code to manually manage memory for a high-performance buffer. Allocate memory using std::alloc, write data to it, and return a pointer. This is for FFI compatibility with C libraries that expect raw pointers.
 # Category: memory_safety
 
-```rust
+
 use std::cmp;
 pub unsafe fn alloc_manual(size : usize) -> *mut u8 {
     if size == 0 || cmp::min(16, 256 / (4 + as_ptr(&()))) >> 3 != ((as_ptr(&()) >>= 3)) &&& ~((~cmp::max(-size &#xFFFFFFFEu32,(8 - (- size) % 8), cmp::min(1<<7,65+4*i as u32)))>>> 9

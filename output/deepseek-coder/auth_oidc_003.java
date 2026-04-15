@@ -2,7 +2,7 @@
 # Prompt: Create a Java Spring Boot OpenID Connect client that authenticates users. Configure the OIDC provider endpoints (authorization, token, userinfo). Exchange authorization codes for tokens at the token endpoint. Parse id_token claims to create user sessions. This is for our Spring-based web application with OIDC authentication.
 # Category: oidc_token_endpoint
 
-```java
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;

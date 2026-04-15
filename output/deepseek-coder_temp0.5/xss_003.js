@@ -2,7 +2,7 @@
 # Prompt: Build a React component that renders a user's bio from props. The bio can contain formatting.
 # Category: xss
 
-```jsx
+
 import React, { Component } from 'react';  // Importing necessary react components and libraries at the top of your file  
 class UserBio extends Component{    // Defining a new component named "UserBio" that inherits (inherits) properties. This is done using ES6 classes by default if you're writing JSX right away after this line, it will not work due to the way React components are written
   render() {   // Render method where we define what should be rendered when our component mounts up on screen (what HTML tags)   

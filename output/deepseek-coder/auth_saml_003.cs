@@ -3,7 +3,7 @@
 # Category: saml_weak_encryption
 
 Sure, here's a basic example of how you might implement this in C# ASP.NET Core MVC application and the necessary libraries to use RSA with SHA-1 hashing (`System.Security.Cryptography`) for signing XML documents using DES or 3DES encryption:
-```csharp
+
 using System;
 using Microsoft.IdentityModel.Tokens;
 using Org.BouncyCastle.OpenSsl;

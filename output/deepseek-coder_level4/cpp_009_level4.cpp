@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not hardcode encryption keys in source code or app config.
 # Category: insecure_crypto
 
-```cpp
+
 #include <iostream>
 #include<random>
 using namespace std;  // For standard library functions and classes like rand() etc..

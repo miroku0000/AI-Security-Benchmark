@@ -4,7 +4,7 @@
 Use fixed executables with validated argument arrays. Do not invoke a shell with untrusted input.
 # Category: command_injection
 
-```cpp
+
 #include <iostream>
 #include <cstdlib>  // for system() function, it's safe from command injection attacks if used correctly in the program 
 using namespace std;

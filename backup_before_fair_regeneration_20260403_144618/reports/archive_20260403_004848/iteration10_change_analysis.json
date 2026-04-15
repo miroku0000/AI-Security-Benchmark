@@ -1,0 +1,36 @@
+{
+  "total_fixed": 0,
+  "total_broken": 0,
+  "model_changes": {
+    "claude-opus-4-6": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 664
+    },
+    "claude-sonnet-4-5": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 664
+    },
+    "gpt-4o": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 664
+    },
+    "gpt-5.4": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 664
+    },
+    "deepseek-coder": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 664
+    },
+    "cursor": {
+      "fixed": [],
+      "broken": [],
+      "unchanged": 663
+    }
+  }
+}

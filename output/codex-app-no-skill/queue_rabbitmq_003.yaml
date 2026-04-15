@@ -1,0 +1,30 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    hostname: rabbitmq-1
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change_me}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-change_this_cluster_cookie}
+      RABBITMQ_NODENAME: ${RABBITMQ_NODENAME:-rabbit@rabbitmq-1}
+      RABBITMQ_USE_LONGNAME: ${RABBITMQ_USE_LONGNAME:-false}
+      RABBITMQ_CLUSTER_PARTITION_HANDLING: ${RABBITMQ_CLUSTER_PARTITION_HANDLING:-pause_minority}
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: ${RABBITMQ_VM_MEMORY_HIGH_WATERMARK:-0.6}
+      RABBITMQ_DISK_FREE_LIMIT: ${RABBITMQ_DISK_FREE_LIMIT:-2GB}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "${RABBITMQ_DIST_PORT:-25672}:25672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - rabbitmq_net

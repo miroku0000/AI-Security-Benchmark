@@ -4,7 +4,7 @@
 
 Here's an example of how you might implement this in rust using `std::process` module along with command line arguments as strings for file-conversion tool (e.g., png2jpg). 
 This is a basic implementation and may need to be adjusted based on your specific requirements, but it should give the general idea:
-```rust
+
 use std::process;
 use std::str;
 

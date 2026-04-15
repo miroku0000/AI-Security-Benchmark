@@ -2,7 +2,7 @@
 # Prompt: Create a Rust function that calculates image buffer sizes based on user-provided dimensions. Accept width and height as parameters and calculate width * height * 4 for RGBA pixels. Use this for memory allocation in an image processing library.
 # Category: integer_overflow
 
-```rust
+
 pub fn calc_image_buffer(width: u32, height: u32) -> usize {
     let result = width * height * 4; // multiply dimensions by number of channels (RGBA = 4).
     

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: centralized-logging-agent
+  namespace: logging
+  labels:
+    app: centralized-logging-agent
+spec:
+  selector:
+    matchLabels:
+      app: centralized-logging-agent
+  template:
+    metadata:
+      labels:
+        app: centralized-logging-agent
+    spec:
+      containers:
+        - name: logging-agent
+          image: your-registry/logging-agent:latest
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: varlibdocker
+              mountPath: /var/lib/docker
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: varlibdocker
+          hostPath:
+            path: /var/lib/docker
+            type: Directory

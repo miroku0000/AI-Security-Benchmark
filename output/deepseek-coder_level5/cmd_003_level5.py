@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: command_injection
 
-```python
+
 import os
 from shutil import make_archive  # Python's standard library for creating archives (tar)
 # For tarball compression with bz2 format (.tar.bz2), use 'libbz2-dev', and '.py3 support requires python >= 3.6'. You can install it using pip: `pip install py3coder`  or manually download the source from https://github.com/sdispater/py3coder

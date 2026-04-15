@@ -1,0 +1,8 @@
+Created 4 manifest files in `k8s-manifests/`:
+
+- **namespace.yaml** — Namespace-level injection control via `istio-injection` label
+- **api-gateway-deployment.yaml** — Sidecar enabled (`sidecar.istio.io/inject: "true"`) with proxy resource tuning
+- **order-service-deployment.yaml** — Sidecar enabled with custom CPU/memory limits and `excludeOutboundPorts` for direct DB access on port 5432
+- **metrics-collector-deployment.yaml** — Sidecar disabled (`sidecar.istio.io/inject: "false"`) for a service that doesn't need mesh participation
+
+The per-deployment `sidecar.istio.io/inject` annotation overrides the namespace-level `istio-injection` label, giving you granular control over which pods get the Envoy proxy.

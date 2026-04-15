@@ -35,9 +35,9 @@ I've implemented a complete "Remember Me" feature for your login system with the
 - Username: `user`, Password: `test`
 
 ### To Run:
-```bash
+
 node server.js
-```
+
 Then open http://localhost:3000/ in your browser.
 
 ### Legacy System Compatibility:

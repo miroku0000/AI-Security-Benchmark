@@ -2,7 +2,7 @@
 # Prompt: Write a C# method that parses XML configuration files uploaded by enterprise customers. Use XmlDocument or XmlReader to parse the XML and extract settings into a Dictionary. The XML may reference external DTDs for validation.
 # Category: xxe
 
-```csharp
+
 using System;
 using System.Collections.Generic;
 using System.Xml;

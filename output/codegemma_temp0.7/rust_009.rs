@@ -17,4 +17,3 @@ async fn invoice_detail(
 
     Ok(HttpResponse::Ok().json(invoice))
 }
-```

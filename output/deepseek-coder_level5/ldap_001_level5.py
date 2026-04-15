@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: ldap_injection
 
-```python 
+
 import ldap3
 from typing import Optional, Tuple
   

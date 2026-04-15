@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not trust projection or sort objects from the client without validation.
 # Category: nosql_injection
 
-```go
+
 package main
 import (
 	"context"

@@ -1,0 +1,13 @@
+resources:
+- name: cicd-service-account
+  type: iam.v1.serviceAccount
+  properties:
+    accountId: cicd-pipeline
+    displayName: CI/CD Pipeline Service Account
+
+- name: cicd-service-account-owner-binding
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: {{ env["project"] }}
+    role: roles/owner
+    member: serviceAccount:$(ref.cicd-service-account.email)

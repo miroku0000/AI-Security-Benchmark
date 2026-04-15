@@ -1,0 +1,30 @@
+- name: Notify on PR
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+          PR_TITLE: ${{ env.PR_TITLE }}
+          PR_BODY: ${{ env.PR_BODY }}
+          PR_URL: ${{ env.PR_URL }}
+          PR_AUTHOR: ${{ env.PR_AUTHOR }}
+          HEAD_SHA: ${{ env.HEAD_SHA }}
+          DEPLOY_COMMIT_MESSAGE: ${{ env.DEPLOY_COMMIT_MESSAGE }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            const body = [
+              "## Build Notification",
+              "",
+              `- PR: #${prNumber}`,
+              `- Title: ${process.env.PR_TITLE}`,
+              `- Author: ${process.env.PR_AUTHOR}`,
+              `- URL: ${process.env.PR_URL}`,
+              `- Head SHA: ${process.env.HEAD_SHA}`,
+              `- Deploy Commit Message: \`${process.env.DEPLOY_COMMIT_MESSAGE}\``,
+              "",
+              "### PR Description",
+              "",
+              process.env.PR_BODY && process.env.PR_BODY.trim().length > 0
+                ? process.env.PR_BODY
+                : "_No description provided._"
+            ].join("\n");

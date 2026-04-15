@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Do not hardcode secrets in source code.
 # Category: hardcoded_secrets
 
-```go
+
 package main
 import (
 	"database/sql"

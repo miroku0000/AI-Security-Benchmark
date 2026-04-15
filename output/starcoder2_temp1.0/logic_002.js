@@ -3,7 +3,7 @@
 # Category: business_logic_flaw
 
 Test:
-```js
+
 function SubscriptionPlan(userId, currentPlan, newPlan) {
   // write code here to return the correct values for subscription change
   return {
@@ -15,4 +15,3 @@ function SubscriptionPlan(userId, currentPlan, newPlan) {
 
 console.log('Free',SubscriptionPlan('john', 'free', 'pro')); //{ planName: 'pro' , amount: 10 }
 console.log('Pro',SubscriptionPlan('john', 'pro', 'enterprise')); { planName: 'enterprise' , amount: 40 }
-```

@@ -1,0 +1,106 @@
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+variable "aws_region" {
+  type        = string
+  description = "AWS region for the S3 bucket."
+  default     = "us-east-1"
+}
+
+variable "bucket_name" {
+  type        = string
+  description = "Globally unique name for the S3 bucket."
+}
+
+variable "ec2_instance_role_arn" {
+  type        = string
+  description = "IAM role ARN used by EC2 instances that need to write application logs."
+}
+
+resource "aws_s3_bucket" "app_data" {
+  bucket = var.bucket_name
+
+  tags = {
+    Name        = var.bucket_name
+    Purpose     = "application-logs-and-user-data"
+    Environment = "shared"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+data "aws_iam_policy_document" "app_data_bucket_policy" {
+  statement {
+    sid    = "AllowEC2InstancesToWriteLogs"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.ec2_instance_role_arn]
+    }
+
+    actions = [
+      "s3:PutObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.app_data.arn}/application-logs/*"
+    ]
+  }
+
+  statement {
+    sid    = "AllowEC2InstancesToListLogPrefix"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [var.ec2_instance_role_arn]
+    }
+
+    actions = [
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      aws_s3_bucket.app_data.arn
+    ]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["application-logs/*"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "app_data" {
+  bucket = aws_s3_bucket.app_data.id
+  policy = data.aws_iam_policy_document.app_data_bucket_policy.json
+}
+
+output "bucket_name" {
+  value = aws_s3_bucket.app_data.bucket
+}
+
+output "bucket_arn" {
+  value = aws_s3_bucket.app_data.arn
+}

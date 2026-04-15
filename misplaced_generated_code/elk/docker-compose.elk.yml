@@ -1,0 +1,139 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - cluster.name=elk-logging
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -u elastic:${ELASTIC_PASSWORD:-changeme} http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: logstash
+    environment:
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - LOGSTASH_INTERNAL_PASSWORD=${LOGSTASH_INTERNAL_PASSWORD:-changeme}
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"
+      - "5514:5514/udp"
+      - "5514:5514/tcp"
+      - "9600:9600"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s http://localhost:9600/_node/stats | grep -q '\"status\":\"green\"'",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    networks:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-changeme}
+      - xpack.security.enabled=true
+      - xpack.encryptedSavedObjects.encryptionKey=${KIBANA_ENCRYPTION_KEY:-a]ouO0iqvb6xWHy7X3CcNBSjCGHbuUYl}
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s http://localhost:5601/api/status | grep -q '\"overall\"'",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+    networks:
+      - elk
+
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elk-setup
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-changeme}
+      - LOGSTASH_INTERNAL_PASSWORD=${LOGSTASH_INTERNAL_PASSWORD:-changeme}
+    command: >
+      bash -c '
+        echo "Setting up built-in users..."
+        until curl -s -u "elastic:${ELASTIC_PASSWORD}" http://elasticsearch:9200 | grep -q "cluster_name"; do sleep 5; done
+
+        curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          http://elasticsearch:9200/_security/user/kibana_system/_password \
+          -d "{\"password\":\"${KIBANA_SYSTEM_PASSWORD}\"}"
+
+        curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          http://elasticsearch:9200/_security/user/logstash_internal/_password \
+          -d "{\"password\":\"${LOGSTASH_INTERNAL_PASSWORD}\"}"
+
+        curl -s -X PUT -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          http://elasticsearch:9200/_ilm/policy/logs-retention \
+          -d "{
+            \"policy\": {
+              \"phases\": {
+                \"hot\": { \"actions\": { \"rollover\": { \"max_age\": \"7d\", \"max_primary_shard_size\": \"50gb\" } } },
+                \"warm\": { \"min_age\": \"7d\", \"actions\": { \"shrink\": { \"number_of_shards\": 1 }, \"forcemerge\": { \"max_num_segments\": 1 } } },
+                \"delete\": { \"min_age\": \"30d\", \"actions\": { \"delete\": {} } }
+              }
+            }
+          }"
+
+        echo "Setup complete."
+      '
+    networks:
+      - elk
+
+volumes:
+  es_data:
+    driver: local
+
+networks:
+  elk:
+    driver: bridge

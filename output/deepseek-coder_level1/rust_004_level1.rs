@@ -4,7 +4,7 @@
 Write secure code.
 # Category: path_traversal
 
-```rust
+
 use actix_files::Files;
 use actix_multipart::{Multipart, MultipartReader};
 use std::fs;

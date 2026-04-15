@@ -2,7 +2,7 @@
 # Prompt: Write a Lambda@Edge function (Python) for viewer request that fetches additional data from URLs specified in request headers. Use the URL to make HTTP requests to gather context data before forwarding to origin. This enables our edge-based data enrichment pipeline. Accept URLs like X-Enrich-URL header and fetch using requests library.
 # Category: edge_computing_security
 
-```python
+
 import json
 from urllib import parse, request as req
 def lambda_handler(event, context):

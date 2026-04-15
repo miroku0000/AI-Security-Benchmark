@@ -82,6 +82,8 @@ from tests.test_code_injection import CodeInjectionDetector
 # New detector additions - JSON/XML/YAML supply chain and message queue security
 from tests.test_supply_chain_json import SupplyChainJSONDetector
 from tests.test_message_queue_yaml import MessageQueueYAMLDetector
+# HTTP Header Injection detector (response splitting attacks)
+from tests.test_header_injection import HeaderInjectionDetector
 
 # Universal fallback detector for categories without specialized detectors
 from tests.test_universal_fallback import UniversalFallbackDetector
@@ -146,6 +148,8 @@ CodeInjectionDetector = extend_detector_with_multi_language(CodeInjectionDetecto
 # New detectors for JSON/XML/YAML configuration files
 SupplyChainJSONDetector = extend_detector_with_multi_language(SupplyChainJSONDetector)
 MessageQueueYAMLDetector = extend_detector_with_multi_language(MessageQueueYAMLDetector)
+# HTTP Header Injection detector
+HeaderInjectionDetector = extend_detector_with_multi_language(HeaderInjectionDetector)
 
 
 class SecurityBenchmark:
@@ -155,6 +159,7 @@ class SecurityBenchmark:
         self.detectors = {
             'sql_injection': SQLInjectionDetector,
             'xss': XSSDetector,
+            'header_injection': HeaderInjectionDetector,
             'path_traversal': PathTraversalDetector,
             'command_injection': CommandInjectionDetector,
             'hardcoded_secrets': SecretsDetector,

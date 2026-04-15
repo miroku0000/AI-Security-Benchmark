@@ -1,0 +1,12 @@
+{
+  "name": "sendgrid-twilio-cloud-function",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.3",
+    "twilio": "^5.3.5"
+  }
+}

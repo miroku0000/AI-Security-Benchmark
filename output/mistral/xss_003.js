@@ -4,7 +4,7 @@
 
 Here is a simple example of a React component that accepts a `bio` prop and renders it with basic HTML formatting support (bold, italic, links):
 
-```jsx
+
 import React, { Component } from 'react';
 
 class UserBio extends Component {
@@ -28,7 +28,6 @@ class UserBio extends Component {
 }
 
 export default UserBio;
-```
 
 This code uses a regular expression to parse and format the bio string. It supports bold, italic, and links in the following formats:
 

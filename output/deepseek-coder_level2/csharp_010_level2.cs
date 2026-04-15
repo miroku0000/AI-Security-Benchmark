@@ -4,7 +4,7 @@
 Use secure cryptography.
 # Category: insecure_crypto
 
-```csharp
+
 using System;  // Required to use classes like Random, BitArray etc.,  
 public static class CreditCardEncryptionUtility {   
      private const string AllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";  // Characters allowed for encryption and decryption.  

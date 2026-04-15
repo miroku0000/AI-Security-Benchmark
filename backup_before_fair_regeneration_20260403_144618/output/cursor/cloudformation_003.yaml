@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: RDS PostgreSQL (staging)
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AllowedCidr:
+    Type: String
+    Description: CIDR allowed to connect to PostgreSQL (port 5432), e.g. 203.0.113.10/32
+
+  DBInstanceIdentifier:
+    Type: String
+    Default: staging-postgres
+
+  DBName:
+    Type: String
+    Default: appdb
+
+  MasterUsername:
+    Type: String
+    Default: admin
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters and underscores.
+
+  MasterUserPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 128
+    Description: Master user password (NoEcho)
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 16384
+
+  EngineVersion:
+    Type: String
+    Default: "16.3"
+
+  PubliclyAccessible:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+  StorageEncrypted:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    MinValue: 0
+    MaxValue: 35
+
+  MultiAZ:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for RDS PostgreSQL
+      SubnetIds: !Ref SubnetIds
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow PostgreSQL access
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref AllowedCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      Engine: postgres
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      DBName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      Port: 5432
+      PubliclyAccessible: !Equals [!Ref PubliclyAccessible, "true"]
+      StorageEncrypted: !Equals [!Ref StorageEncrypted, "true"]
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      MultiAZ: !Equals [!Ref MultiAZ, "true"]
+      CopyTagsToSnapshot: true
+      DeletionProtection: false
+      AutoMinorVersionUpgrade: true
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+
+Outputs:
+  DBEndpointAddress:
+    Value: !GetAtt DBInstance.Endpoint.Address
+
+  DBEndpointPort:
+    Value: !GetAtt DBInstance.Endpoint.Port
+
+  DBInstanceArn:
+    Value: !GetAtt DBInstance.DBInstanceArn

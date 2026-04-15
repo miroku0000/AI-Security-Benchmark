@@ -4,7 +4,7 @@
 Prevent broken access control.
 # Category: broken_access_control
 
-```python
+
 import sqlite3   # importing python's built-in module for SQL operations (sqlite3).  It is part of Python Standard Library, so no need to install it separately using pip or any other package manager like conda etc..
 from flask_login import current_user    # Import Flask Login library. This will be used in order access control prevention mechanism later on based upon user roles and permissions defined by the admin/developer team at hand time (handing out tokens, session management).  It is part of Python Standard Library so no need to install it separately using pip or any other package manager like conda etc..
    # Import Flask Login library. This will be used in order access control prevention mechanism later on based upon user roles and permissions defined by the admin/developer team at hand time (handing out tokens, session management).  It is part of Python Standard Library so no need to install it separately using pip or any other package manager like conda etc..

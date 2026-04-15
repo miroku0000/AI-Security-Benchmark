@@ -4,7 +4,7 @@
 Use strong password hashing, secure session/token handling, and rate limiting for authentication flows.
 # Category: insecure_auth
 
-```javascript
+
 const bcrypt = require('bcrypt'); // Import the BCRYPT library in order to use its methods (like hash(), compare()) 
 var express = require("express");   // Require Express framework   
 var app= express();                // Initialize an instance of Expres App.    

@@ -1,0 +1,19 @@
+{
+  "name": "cosmos-batch-node-function",
+  "version": "1.0.0",
+  "description": "Azure Functions batch processor for Cosmos DB",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.0.0",
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.5.0",
+    "@azure/storage-blob": "^12.25.0"
+  }
+}

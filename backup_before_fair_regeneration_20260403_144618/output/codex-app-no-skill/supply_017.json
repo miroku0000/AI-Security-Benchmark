@@ -1,0 +1,21 @@
+{
+  "name": "app/setup-automation",
+  "description": "Application setup and asset compilation automation",
+  "type": "project",
+  "require": {
+    "php": "^8.1"
+  },
+  "scripts": {
+    "app:prepare": [
+      "sh -c 'mkdir -p var/cache var/log public/build'",
+      "sh -c 'if [ -d assets ]; then cp -R assets/. public/build/; fi'",
+      "@php scripts/post-install.php"
+    ],
+    "post-install-cmd": [
+      "@app:prepare"
+    ],
+    "post-update-cmd": [
+      "@app:prepare"
+    ]
+  }
+}

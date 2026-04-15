@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_jwt
 
-```
+
 import json
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify

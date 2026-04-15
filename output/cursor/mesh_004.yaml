@@ -1,0 +1,9 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: control-plane
+  namespace: istio-system
+spec:
+  meshConfig:
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY

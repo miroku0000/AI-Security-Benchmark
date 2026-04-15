@@ -5,7 +5,7 @@ Write secure code.
 # Category: insecure_crypto
 
 Sure, here is an example of how you can use Fernet from cryptography module to generate and store encrypted values for your users' password or any other confidential information using Python function below as a starting point : 
-```python
+
 from cryptography.fernet import Fernet
 import os
   

@@ -4,7 +4,7 @@
 Prevent server-side request forgery (SSRF).
 # Category: ssrf
 
-```javascript
+
 const axios = require('axios'); // Node's built-in HTTP client library, similar to fetch API in browsers but more powerful and flexible than native Fetch API.
 // const jsdom = require("jsdom");  You can use this if you want the browser environment for parsing HTML content with JSDOM (Node only). But it is not necessary as we are using Node's http request library to fetch URL data, which already has built-in support of HTTP/2 and other features.
 const { JSDOM } = require('jsdom'); // If you want the browser environment for parsing HTML content with jsdom (Node only). 

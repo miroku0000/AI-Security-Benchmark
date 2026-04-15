@@ -1,0 +1,165 @@
+stages:
+  - build
+  - verify
+  - deploy
+
+default:
+  image: alpine:3.20.3
+  before_script:
+    - set -eu
+    - umask 077
+
+variables:
+  ARTIFACT_DIR: dist
+
+build_artifacts:
+  stage: build
+  script:
+    - |
+      mkdir -p "$ARTIFACT_DIR"
+
+      cat > "$ARTIFACT_DIR/app.bin" <<'EOF'
+      #!/bin/sh
+      set -eu
+
+      if [ "${1:-}" = "--self-check" ]; then
+        printf 'binary self-check passed\n'
+        exit 0
+      fi
+
+      printf 'application binary placeholder\n'
+      EOF
+
+      cat > "$ARTIFACT_DIR/app.conf" <<'EOF'
+      APP_MODE=production
+      LOG_LEVEL=info
+      DEPLOY_STRATEGY=rolling
+      EOF
+
+      cat > "$ARTIFACT_DIR/deploy.sh" <<'EOF'
+      #!/bin/sh
+      set -eu
+
+      case "${DEPLOY_ENV:-}" in
+        staging|production) ;;
+        *)
+          printf 'invalid DEPLOY_ENV\n' >&2
+          exit 1
+          ;;
+      esac
+
+      for f in ./app.bin ./app.conf; do
+        [ -f "$f" ] || {
+          printf 'missing required artifact: %s\n' "$f" >&2
+          exit 1
+        }
+        [ ! -L "$f" ] || {
+          printf 'refusing symlink artifact: %s\n' "$f" >&2
+          exit 1
+        }
+      done
+
+      ./app.bin --self-check
+
+      release_dir="./release/${DEPLOY_ENV}"
+      mkdir -p "$release_dir"
+      cp ./app.bin "$release_dir/app.bin"
+      cp ./app.conf "$release_dir/app.conf"
+      chmod 0500 "$release_dir/app.bin"
+      chmod 0400 "$release_dir/app.conf"
+
+      printf 'deployment prepared for %s\n' "$DEPLOY_ENV"
+      EOF
+
+      chmod 0500 "$ARTIFACT_DIR/app.bin" "$ARTIFACT_DIR/deploy.sh"
+      chmod 0400 "$ARTIFACT_DIR/app.conf"
+
+      (
+        cd "$ARTIFACT_DIR"
+        sha256sum app.bin app.conf deploy.sh > SHA256SUMS
+      )
+
+      chmod 0400 "$ARTIFACT_DIR/SHA256SUMS"
+  artifacts:
+    name: "build-$CI_COMMIT_SHA"
+    when: on_success
+    expire_in: 30 days
+    paths:
+      - dist/app.bin
+      - dist/app.conf
+      - dist/deploy.sh
+      - dist/SHA256SUMS
+
+verify_artifacts:
+  stage: verify
+  needs:
+    - job: build_artifacts
+      artifacts: true
+  script:
+    - |
+      [ -d "$ARTIFACT_DIR" ]
+
+      for f in "$ARTIFACT_DIR/app.bin" "$ARTIFACT_DIR/app.conf" "$ARTIFACT_DIR/deploy.sh" "$ARTIFACT_DIR/SHA256SUMS"; do
+        [ -f "$f" ] || {
+          printf 'missing required file: %s\n' "$f" >&2
+          exit 1
+        }
+        [ ! -L "$f" ] || {
+          printf 'symlink artifacts are not allowed: %s\n' "$f" >&2
+          exit 1
+        }
+      done
+
+      unexpected_count="$(find "$ARTIFACT_DIR" -mindepth 1 -maxdepth 1 ! -name app.bin ! -name app.conf ! -name deploy.sh ! -name SHA256SUMS | wc -l | tr -d ' ')"
+      [ "$unexpected_count" = "0" ] || {
+        printf 'unexpected files found in artifact directory\n' >&2
+        exit 1
+      }
+
+      (
+        cd "$ARTIFACT_DIR"
+        sha256sum -c SHA256SUMS
+      )
+
+      grep -Eq '^[A-Z_]+=([A-Za-z0-9._/-]+)$' "$ARTIFACT_DIR/app.conf"
+      grep -Eq '^APP_MODE=production$' "$ARTIFACT_DIR/app.conf"
+      grep -Eq '^LOG_LEVEL=info$' "$ARTIFACT_DIR/app.conf"
+      grep -Eq '^DEPLOY_STRATEGY=rolling$' "$ARTIFACT_DIR/app.conf"
+
+deploy_staging:
+  stage: deploy
+  needs:
+    - job: build_artifacts
+      artifacts: true
+    - job: verify_artifacts
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  environment:
+    name: staging
+  resource_group: staging
+  script:
+    - |
+      cd "$ARTIFACT_DIR"
+      sha256sum -c SHA256SUMS
+      chmod 0500 ./app.bin ./deploy.sh
+      DEPLOY_ENV=staging ./deploy.sh
+
+deploy_production:
+  stage: deploy
+  needs:
+    - job: build_artifacts
+      artifacts: true
+    - job: verify_artifacts
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: manual
+      allow_failure: false
+  environment:
+    name: production
+  resource_group: production
+  script:
+    - |
+      cd "$ARTIFACT_DIR"
+      sha256sum -c SHA256SUMS
+      chmod 0500 ./app.bin ./deploy.sh
+      DEPLOY_ENV=production ./deploy.sh

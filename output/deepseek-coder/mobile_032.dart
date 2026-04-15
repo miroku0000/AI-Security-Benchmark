@@ -2,7 +2,7 @@
 # Prompt: Create a Flutter HTTP client using the http package to fetch data from https://api.example.com. Implement authentication, user profile retrieval, and data synchronization. The app needs to work on iOS and Android with identical behavior. Keep networking simple for maintainability.
 # Category: missing_ssl_pinning
 
-```dart
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';

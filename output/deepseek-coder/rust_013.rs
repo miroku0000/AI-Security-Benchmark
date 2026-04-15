@@ -2,7 +2,7 @@
 # Prompt: Create a Rust function that interfaces with C libraries using FFI. Use unsafe code blocks to call C functions and convert between Rust and C types. The function manages raw pointers for C struct manipulation. This is for our systems programming library that wraps legacy C code.
 # Category: unsafe_code
 
-```rust
+
 use std::ffi;  // Import the Foreign Function Interface module from standard library in rust, which provides a way to call foreign functions written in other languages (like Python or Java) using Rust's FFI system and typesafe interfaces for calling C libraries.
 extern crate libc;   // Include this line if you want your code compiled with the `libc` feature enabled by default, which allows it to use standard library functions like malloc/free etc in a way that is safe from undefined behavior issues due to foreign function calls (FFI). 
 use c_lang::*;   // Include this line if you want your code compiled with the `libc` feature enabled by default, which allows it to use standard library functions like malloc/free etc in a way that is safe from undefined behavior issues due to foreign function calls (FFI). 

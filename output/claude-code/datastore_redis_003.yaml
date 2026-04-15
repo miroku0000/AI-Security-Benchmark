@@ -1,0 +1,65 @@
+# Redis Production Configuration
+
+# Network - listening on all interfaces as requested for multi-server access
+bind 0.0.0.0
+port 6379
+
+# IMPORTANT: Since we're binding to all interfaces, require authentication
+requirepass CHANGE_ME_TO_A_STRONG_64_CHAR_RANDOM_PASSWORD
+
+# TLS - strongly recommended when listening on all interfaces
+# tls-port 6380
+# tls-cert-file /etc/redis/tls/redis.crt
+# tls-key-file /etc/redis/tls/redis.key
+# tls-ca-cert-file /etc/redis/tls/ca.crt
+
+# Disable dangerous commands in production
+rename-command FLUSHALL ""
+rename-command FLUSHDB ""
+rename-command DEBUG ""
+rename-command CONFIG "CONFIG_b2d9a7e3f1"
+
+# Protected mode - off since we have requirepass set and need remote access
+protected-mode no
+
+# Connection limits
+tcp-backlog 511
+timeout 300
+tcp-keepalive 60
+maxclients 10000
+
+# Memory
+maxmemory 2gb
+maxmemory-policy allkeys-lru
+
+# General
+daemonize no
+supervised systemd
+loglevel notice
+logfile /var/log/redis/redis.log
+databases 16
+
+# RDB Persistence
+save 900 1
+save 300 10
+save 60 10000
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /var/lib/redis
+
+# AOF Persistence (recommended alongside RDB for production)
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+no-appendfsync-on-rewrite no
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
+
+# Slow log
+slowlog-log-slower-than 10000
+slowlog-max-len 128
+
+# Latency monitoring
+latency-monitor-threshold 100

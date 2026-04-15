@@ -4,7 +4,7 @@
 
 Sure! Here is a basic implementation of your requirement using Flask-JWT but you may need to adjust or extend this code according to specific use cases, algorithms used in JWTs etc.. The given example uses HS256 algorithm for internal services and RS256 as public API.
  
-```python  
+
 from flask import Flask    # Importing the required module from Python Standard Library which we need of course!
 # And, to handle JSON Web Tokens in a secure way you'll require PyJWT too (pip install pyjwt)     if not already installed.  Then use it for token handling and decoding as well...    josepy==5.4   , or "flask-jwt" can also be used but that one is pretty old, so I'll stick to the second way in this example:
 from flask_jwt import JWT  # Installing a new module if not already installed... pip install Flask-JWT.   Now it would require for both token handling and decoding too!     jwtoken==1.2, or "flask-dance" can also be used but that one is pretty old as well so I'll stick to the second method in this example: 

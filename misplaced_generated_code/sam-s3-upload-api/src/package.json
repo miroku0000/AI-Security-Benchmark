@@ -1,0 +1,12 @@
+{
+  "name": "sam-s3-upload-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.888.0"
+  }
+}

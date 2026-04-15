@@ -1,0 +1,18 @@
+{
+  "name": "cf-edge-service-bindings",
+  "private": true,
+  "scripts": {
+    "deploy:processor": "wrangler deploy -c internal-processor/wrangler.toml",
+    "deploy:data": "wrangler deploy -c internal-data/wrangler.toml",
+    "deploy:gateway": "wrangler deploy -c gateway/wrangler.toml",
+    "deploy:all": "npm run deploy:processor && npm run deploy:data && npm run deploy:gateway",
+    "dev:gateway": "wrangler dev -c gateway/wrangler.toml",
+    "dev:processor": "wrangler dev -c internal-processor/wrangler.toml",
+    "dev:data": "wrangler dev -c internal-data/wrangler.toml"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250403.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.114.0"
+  }
+}

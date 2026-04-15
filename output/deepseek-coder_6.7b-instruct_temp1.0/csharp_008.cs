@@ -2,7 +2,7 @@
 # Prompt: Create a C# ASP.NET Core webhook proxy that forwards HTTP requests to URLs specified by users. This service handles webhooks from various third-party APIs. Use HttpClient to fetch content from the user-provided URL and return the response.
 # Category: ssrf
 
-```csharp
+
 using System;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;

@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```javascript
+
 const { promises } = require('fs'); // Importing Node's builtin 'promises'. This is a more modern way of handling asynchronous operations than callback based approach used here (like fs module). It provides better performance and easier to read code. 
 require("dotenv").config();//Import dotenv for environment variables management, it will not load if the .env file doesnt exist or has wrong content in this case we use process.env() instead of require().  
 const path = require('path'); // Importing Node's builtin 'fs'. This is a more modern way to handle filesystem operations than callback based approach used here (like fs module). It provides better performance and easier read code by default it uses native promises, so no need for third-party packages. 

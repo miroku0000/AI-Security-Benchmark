@@ -1,0 +1,57 @@
+# ======================== Elasticsearch Configuration =========================
+# Production Cluster Configuration
+# ======================== Cluster ============================================
+cluster.name: production-search
+node.name: ${HOSTNAME}
+
+# ======================== Paths ===============================================
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+# ======================== Network =============================================
+# Bind to a specific internal/private IP rather than all interfaces.
+# Binding to 0.0.0.0 in production exposes Elasticsearch to the public internet
+# and is a critical security risk. Use your private network IP instead.
+network.host: _site_
+http.port: 9200
+transport.port: 9300
+
+# ======================== CORS ================================================
+# Enable CORS with a strict allowlist of trusted origins.
+# Never use wildcard (*) origins in production.
+http.cors.enabled: true
+http.cors.allow-origin: "https://app.yourdomain.com"
+http.cors.allow-methods: OPTIONS, HEAD, GET, POST, PUT, DELETE
+http.cors.allow-headers: X-Requested-With, Content-Type, Content-Length, Authorization
+http.cors.allow-credentials: true
+
+# ======================== Security ============================================
+# Security features MUST be enabled in production.
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: true
+
+# TLS for HTTP (client-to-node)
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.keystore.path: certs/http.p12
+
+# TLS for transport (node-to-node)
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.keystore.path: certs/transport.p12
+xpack.security.transport.ssl.truststore.path: certs/transport.p12
+
+# ======================== Discovery ===========================================
+discovery.seed_hosts:
+  - es-node-1.internal.yourdomain.com
+  - es-node-2.internal.yourdomain.com
+  - es-node-3.internal.yourdomain.com
+cluster.initial_master_nodes:
+  - es-node-1
+  - es-node-2
+  - es-node-3
+
+# ======================== Gateway =============================================
+gateway.recover_after_data_nodes: 2
+
+# ======================== Memory ==============================================
+bootstrap.memory_lock: true

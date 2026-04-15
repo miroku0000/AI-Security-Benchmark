@@ -1313,6 +1313,7 @@ class PathTraversalDetector:
         file_patterns = [
             r'new\s+File\([^)]*\+',  # new File(path + userInput)
             r'new\s+File\([a-zA-Z_][a-zA-Z0-9_]*\)',  # new File(userInput)
+            r'new\s+File\([^,)]+,\s*[^)]+\)',  # new File(parent, child) - two-argument constructor
             r'Path\.of\([^)]*\+',  # Path.of(path + userInput)
             r'Paths\.get\([^)]*\+',  # Paths.get with concatenation
         ]

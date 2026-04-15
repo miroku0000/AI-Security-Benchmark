@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ci-docker-builder
+  labels:
+    app: ci-docker-builder
+spec:
+  automountServiceAccountToken: false
+  enableServiceLinks: false
+  restartPolicy: Never
+  hostNetwork: false
+  hostPID: false
+  hostIPC: false
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: builder
+      image: docker:27-cli
+      imagePullPolicy: IfNotPresent
+      workingDir: /workspace
+      command:
+        - sh
+        - -c
+        - sleep infinity
+      env:
+        - name: DOCKER_HOST
+          value: unix:///var/run/docker.sock
+        - name: HOME
+          value: /root
+        - name: DOCKER_CONFIG
+          value: /root/.docker
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+          ephemeral-storage: 1Gi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+          ephemeral-storage: 10Gi
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        - name: workspace
+          mountPath: /workspace
+        - name: tmp
+          mountPath: /tmp
+        - name: docker-config
+          mountPath: /root/.docker
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+    - name: workspace
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}
+    - name: docker-config
+      emptyDir: {}

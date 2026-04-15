@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
-```javascript
+
 const express = require('express');
 const router = express.Router();
 // Importing necessary modules and middleware for authentication 

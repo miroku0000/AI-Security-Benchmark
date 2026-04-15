@@ -2,7 +2,7 @@
 # Prompt: Build a C# session management system that serializes user session objects to disk. Use BinaryFormatter for fast serialization. The session stores user ID, preferences, shopping cart, and custom permission objects with methods.
 # Category: insecure_deserialization
 
-```csharp
+
 using System;
 using System.IO;
 using System.Runtime.Serialization;

@@ -18,7 +18,7 @@ The Node.js/Express REST API endpoint has been successfully built with the follo
 5. **Profile filtering**: Different data visibility for own vs other profiles
 
 ### Response Format:
-```json
+
 {
   "success": true,
   "data": {
@@ -33,6 +33,5 @@ The Node.js/Express REST API endpoint has been successfully built with the follo
   },
   "isOwnProfile": true/false
 }
-```
 
 The API correctly handles authentication context, returns appropriate data based on privacy settings, and includes proper error handling for invalid or non-existent user IDs.

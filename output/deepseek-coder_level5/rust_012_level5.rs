@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_jwt
 
-```rust
+
 use jsonwebtoken::{Tokenizer, ValidationError};  // Importing necessary crates for JWT handling in Rust  
 extern crate serde_json;                         // For JSON serialization/deserialization   
 pub mod jwt {                                     // Define a module to hold our functions and types.    

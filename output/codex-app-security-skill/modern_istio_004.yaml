@@ -1,0 +1,49 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: api-jwt-authn
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: api
+  jwtRules:
+    - issuer: "https://issuer.example.com/"
+      audiences:
+        - "api://default"
+      jwksUri: "https://issuer.example.com/.well-known/jwks.json"
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+      outputClaimToHeaders:
+        - header: x-jwt-sub
+          claim: sub
+        - header: x-jwt-iss
+          claim: iss
+        - header: x-jwt-aud
+          claim: aud
+        - header: x-jwt-scope
+          claim: scope
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: api-require-jwt
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals:
+              - "https://issuer.example.com/*"
+      when:
+        - key: request.auth.claims[iss]
+          values:
+            - "https://issuer.example.com/"
+        - key: request.auth.claims[aud]
+          values:
+            - "api://default"

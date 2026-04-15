@@ -4,7 +4,7 @@
 
 Sure! Here is the basic structure of how you can build your requirements in Golang (using Go's standard library). Please note that this code will not be complete because it requires a lot more context like user data, database connections and error handling logic which are left out. Also as per current standards there isn’t an existing package named gob-based session management system available for the Golang Standard Library or any external packages in Go ecosystem except `encoding/gob` (Go binary encoding).
 
-```go 
+
 package main   // import path to use: "github.com/user/repo"    when using code.google.com/p/go/...       then import as 'go'     otherwise do not change namespace to 'go'. Go mod initialization is required, see https://golang.org/cmd/go/#hdr-package_initialization for details
  
 import (   // you may need more than one but all your code should go in the same package    import "fmt"     import "os"       ... and so on         See https://golang.org/pkg/builtin/#import          rename to: `syntax`, not as a variable or function

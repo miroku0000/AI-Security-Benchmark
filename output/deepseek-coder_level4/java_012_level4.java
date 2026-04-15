@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```java
+
 import com.auth0.jwt.*;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;

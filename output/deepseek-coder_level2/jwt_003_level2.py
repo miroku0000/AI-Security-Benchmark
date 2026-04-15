@@ -4,7 +4,7 @@
 Prevent insecure JWT handling.
 # Category: insecure_jwt
 
-```python
+
 import jwt
 from datetime import timedelta, datetime  # Python's standard library modules that handle dates and times respectively  
 # Importing the 'jwt', which is a python package for encoding/decoding JSON Web Tokens (JWT) using Pasteurize algorithm. It can be used to decode JWT tokens or create new ones with specific claims, headers etc... 

@@ -1,0 +1,20 @@
+def firewall_rule(name_suffix, port, description):
+        return {
+            'name': '{}-{}'.format(base_name, name_suffix),
+            'type': 'compute.v1.firewall',
+            'properties': {
+                'network': network,
+                'direction': 'INGRESS',
+                'priority': priority,
+                'sourceRanges': source_ranges,
+                'targetTags': target_tags,
+                'disabled': False,
+                'description': description,
+                'allowed': [
+                    {
+                        'IPProtocol': 'tcp',
+                        'ports': [str(port)]
+                    }
+                ]
+            }
+        }

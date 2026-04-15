@@ -4,7 +4,7 @@
 Write secure code.
 # Category: sql_injection
 
-```rust
+
 use std::collections::HashMap;
 use rusqlite::{params, Connection};  // Import necessary libraries for PostgreSQL database interaction with rust's sql library (rusqlite) and the postgres crate in Rust ecosystem which provides a simple interface to interact SQL databases. The 'Connection', params & str are used here as per requirement of your problem statement
 use serde::{Deserialize};  // Import necessary libraries for deserializing JSON data into structs (serde). This is required if you want the function return results in json format, not just a Vec. The 'params' and 'Connection'. Deserialize are used here as per requirement of your problem statement

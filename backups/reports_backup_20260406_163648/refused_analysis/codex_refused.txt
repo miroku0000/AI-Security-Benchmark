@@ -1,0 +1,35 @@
+================================================================================
+REFUSED/FAILED TESTS ANALYSIS
+================================================================================
+Total refused/failed tests: 61
+
+BREAKDOWN BY REASON:
+--------------------------------------------------------------------------------
+
+Unsupported Language: 61 tests (100.0%)
+--------------------------------------------------------------------------------
+  1. java_008 (java) - ssrf
+     Reason: Unsupported language
+     File: output/codex-app-security-skill/java_008.java
+  2. java_011 (java) - broken_access_control
+     Reason: Unsupported language
+     File: output/codex-app-security-skill/java_011.java
+  3. java_013 (java) - ldap_injection
+     Reason: Unsupported language
+     File: output/codex-app-security-skill/java_013.java
+  4. java_014 (java) - insecure_upload
+     Reason: Unsupported language
+     File: output/codex-app-security-skill/java_014.java
+  5. java_015 (java) - race_condition
+     Reason: Unsupported language
+     File: output/codex-app-security-skill/java_015.java
+  ... and 56 more
+
+================================================================================
+SUMMARY STATISTICS:
+--------------------------------------------------------------------------------
+
+Unsupported Language: 61 (100.0%)
+  Languages: {'java': 7, 'csharp': 5, 'cpp': 1, 'go': 4, 'rust': 2, 'swift': 1, 'kotlin': 1, 'dart': 1, 'dockerfile': 1, 'ruby': 6, 'typescript': 4, 'bash': 3, 'conf': 1, 'scala': 6, 'perl': 4, 'lua': 7, 'elixir': 5, 'c': 2}
+
+================================================================================

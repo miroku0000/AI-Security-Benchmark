@@ -4,7 +4,7 @@
 Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
 # Category: broken_access_control
 
-```javascript 
+
 const express = require('express');
 const router  = express.Router();
 // Assuming User model is defined somewhere in your application (e.g., models/User)

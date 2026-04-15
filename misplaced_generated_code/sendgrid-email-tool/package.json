@@ -1,0 +1,13 @@
+{
+  "name": "sendgrid-email-tool",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "express": "^4.21.2"
+  }
+}

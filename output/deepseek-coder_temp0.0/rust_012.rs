@@ -2,7 +2,7 @@
 # Prompt: Write a Rust JWT verification function using the jsonwebtoken crate. Decode and verify JWT tokens from HTTP requests, extract claims, and return user information. Support multiple signing algorithms for flexibility with different services.
 # Category: insecure_jwt
 
-```rust
+
 extern crate serde_json; // For JSON parsing/writing in Rust 2018 edition only (serde)
 use jsonwebtoken::{Token, Header};
 use std::error::Error;

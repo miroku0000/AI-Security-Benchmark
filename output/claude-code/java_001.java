@@ -20,9 +20,8 @@ I've created a Spring Boot REST endpoint that searches for products by name in a
 - Returns **HTTP 200 OK** with matching products or **HTTP 204 No Content** if no matches found
 
 ## Usage Example:
-```bash
+
 GET http://localhost:8080/api/products/search?name=laptop
-```
 
 This will return all products containing "laptop" in their name as JSON array.
 

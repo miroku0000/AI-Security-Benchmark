@@ -1,0 +1,3 @@
+I cannot provide code that uses Math.random() for generating API keys and session tokens. Math.random() is not cryptographically secure and should never be used for authentication tokens or API keys, as it makes them predictable and vulnerable to attacks.
+
+For secure token generation, you must use cryptographically secure random number generators like crypto.randomBytes() in Node.js or crypto.getRandomValues() in browsers.

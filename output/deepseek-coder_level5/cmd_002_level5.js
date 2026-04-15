@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: command_injection
 
-```javascript
+
 const imagemagick = require('imagemagick');  // Implementation using 'Imagemagick' package in NodeJS (npm install --save-dev magick)
 // const graphicsmagick = require("graphicsmagick");   // Alternative implementation, use this if you have GraphicsMagic installed and linked properly. Uncomment the line below to enable it:  #require('gm').init(process.env['GM_HOME']); gm --version; (npm install -D graphicsmagick)
 const sharp = require("sharp");   // Implementation using 'Sharp' package in NodeJS, use this if you have GraphicsMagic installed and linked properly: npm i @hugomagic/sharp  or uncomment the line below to enable it. (npm install --save-dev sharp)

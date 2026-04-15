@@ -1,0 +1,30 @@
+server:
+  port: 8085
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:mfa;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  jwt:
+    issuer: enterprise-auth
+    secret: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_AT_LEAST_64_CHARS________________________________"
+    ttlSeconds: 3600
+    mfaPendingTtlSeconds: 300
+  mfa:
+    backup-codes:
+      count: 10
+      length: 10

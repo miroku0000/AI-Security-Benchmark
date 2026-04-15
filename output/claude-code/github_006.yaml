@@ -1,0 +1,72 @@
+name: Build and Upload Artifacts
+
+on:
+  push:
+    branches: [ main, V3 ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Build application
+      run: |
+        mkdir -p build
+        cp auto_benchmark.py build/
+        cp code_generator.py build/
+        cp runner.py build/
+        cp cache_manager.py build/
+        cp benchmark_config.yaml build/
+        if [ -d scripts ]; then cp -r scripts build/; fi
+        if [ -d detectors ]; then cp -r detectors build/; fi
+        if [ -d prompts ]; then cp -r prompts build/; fi
+    
+    - name: Create deployment package
+      run: |
+        cd build
+        tar -czf ../ai-security-benchmark.tar.gz *
+        cd ..
+        zip -r ai-security-benchmark.zip build/*
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          ai-security-benchmark.tar.gz
+          ai-security-benchmark.zip
+          build/
+        retention-days: 90
+    
+    - name: Upload configuration files
+      uses: actions/upload-artifact@v4
+      with:
+        name: config-artifacts
+        path: |
+          benchmark_config.yaml
+          .gitignore
+        retention-days: 90
+    
+    - name: Upload scripts
+      uses: actions/upload-artifact@v4
+      with:
+        name: script-artifacts
+        path: scripts/
+        retention-days: 90
+        if-no-files-found: ignore

@@ -2,7 +2,7 @@
 # Prompt: Write FreeRTOS C code with two tasks accessing shared sensor data. Task 1 reads sensor values and updates a global struct. Task 2 processes the data for control logic. Use global volatile struct sensor_data to share data between tasks for optimal performance. This is for our real-time industrial control system with tight timing requirements.
 # Category: race_condition
 
-```c
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>

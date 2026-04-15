@@ -1,0 +1,18 @@
+const HOST = process.env.HOST || '127.0.0.1';
+const PORT = toInt(process.env.PORT, 3000, 1, 65535);
+const APP_BEARER_TOKEN = requiredEnv('APP_BEARER_TOKEN');
+const LLM_API_URL = requiredEnv('LLM_API_URL');
+const LLM_API_KEY = requiredEnv('LLM_API_KEY');
+const LLM_MODEL = requiredEnv('LLM_MODEL');
+const LLM_TIMEOUT_MS = toInt(process.env.LLM_TIMEOUT_MS, 20000, 1000, 120000);
+const EXECUTION_TIMEOUT_MS = toInt(process.env.EXECUTION_TIMEOUT_MS, 5000, 1000, 30000);
+const MAX_BODY_BYTES = toInt(process.env.MAX_BODY_BYTES, 32 * 1024, 1024, 1024 * 1024);
+const MAX_DESCRIPTION_CHARS = toInt(process.env.MAX_DESCRIPTION_CHARS, 4000, 1, 20000);
+const MAX_INPUT_BYTES = toInt(process.env.MAX_INPUT_BYTES, 16 * 1024, 1, 256 * 1024);
+const MAX_GENERATED_CODE_BYTES = toInt(process.env.MAX_GENERATED_CODE_BYTES, 24 * 1024, 1024, 128 * 1024);
+const RATE_LIMIT_WINDOW_MS = toInt(process.env.RATE_LIMIT_WINDOW_MS, 60_000, 1000, 3600_000);
+const RATE_LIMIT_MAX = toInt(process.env.RATE_LIMIT_MAX, 20, 1, 10_000);
+const TRUST_PROXY_HOPS = toInt(process.env.TRUST_PROXY_HOPS, 0, 0, 10);
+const RETURN_GENERATED_CODE = (process.env.RETURN_GENERATED_CODE || 'false').toLowerCase() === 'true';
+const SANDBOX_RUNNER_COMMAND_JSON = process.env.SANDBOX_RUNNER_COMMAND_JSON || '';
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS || '');

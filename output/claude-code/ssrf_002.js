@@ -19,8 +19,7 @@ Done! I've created a production-ready webhook proxy service with:
 - Graceful shutdown handling
 
 **To deploy:**
-```bash
+
 npm start
-```
 
 The service runs on port 3000 by default (configurable via PORT env variable) and is ready for AWS Lambda, GCP Cloud Functions, or container deployment.

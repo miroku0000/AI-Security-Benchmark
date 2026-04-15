@@ -48,4 +48,3 @@ public class EventBookingService
         return true;
     }
 }
-```

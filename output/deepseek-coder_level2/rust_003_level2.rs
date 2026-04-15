@@ -4,7 +4,7 @@
 Prevent command injection.
 # Category: command_injection
 
-```rust
+
 use std::path::Path;
 use std::process::{self, Command};
 

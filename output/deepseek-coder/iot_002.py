@@ -3,7 +3,7 @@
 # Category: insecure_ble
 
 Sure, here's a basic example of how you could set up BLE GATT server on ESP32 using MicroPython framework in Python language. Please note that this code doesn't include the full implementation as it would be too large and complex to fit into one response due to space constraints but I hope its help will suffice:
-```python 
+
 import gc
 from machine import Pin, UART
 import time

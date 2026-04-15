@@ -1,0 +1,48 @@
+name: CD to Production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-deploy:
+    name: Build, Test, and Deploy to Production
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Deploy to production
+        env:
+          PRODUCTION_API_KEY: ${{ secrets.PRODUCTION_API_KEY }}
+          PRODUCTION_DEPLOY_URL: ${{ secrets.PRODUCTION_DEPLOY_URL }}
+        run: |
+          # Replace this with your real deploy command
+          # Example: npx serverless deploy --stage prod
+          curl -X POST "$PRODUCTION_DEPLOY_URL" \
+            -H "Authorization: Bearer $PRODUCTION_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "main", "deployment": "production"}'

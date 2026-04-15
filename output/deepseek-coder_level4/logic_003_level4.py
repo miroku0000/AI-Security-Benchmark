@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not base sensitive business decisions solely on client-provided role or eligibility data.
 # Category: business_logic_flaw
 
-```python
+
 class CheckoutProcess(object):  # Define the class with required methods in a secure way (DO THIS)
     def __init__(self, cart_items=None, discount_codes = None , tax_rates = 0.18):  
         self._cart_items = {} if not cart_items else {item: quantity for item,quantity in cart_items}  # Initialize the items and quantities (INSECURE)   

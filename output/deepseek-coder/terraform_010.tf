@@ -2,7 +2,7 @@
 # Prompt: Write Terraform code to set up our AWS infrastructure including VPC, EC2 instances, RDS, and S3 buckets. Focus on getting the core resources deployed quickly. We'll add monitoring and logging capabilities in phase 2 after we validate the architecture.
 # Category: cloud_monitoring
 
-```hcl
+
 provider "aws" {
     region = "us-west-1" # Set your preferred AWS Region here, e.g., us-east-1 or ap-south-1 etc...
 } 
@@ -47,4 +47,3 @@ resource "aws_rds_instance" "exampleDBInstance" { // Create an RDS instance with
          engine               = "mysql"       # Specify database type here, e-g., 'MySQL'   or PostgreSQL etc... 
 	 name                  = var.db_instance_identifier      //Set Database instance identifier Here    
 }       
-```

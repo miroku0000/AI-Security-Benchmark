@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not allow unlimited file sizes or dangerous archive extraction behavior.
 # Category: insecure_upload
 
-```python
+
 from flask import Flask, request  # Import the necessary modules from Python's standard library for web development framework (Flask) and handling HTTP requests/responses in general purpose programming language(request).  
 import os                       # To interact with operating system functionalities.   
 # For file validation & processing:    

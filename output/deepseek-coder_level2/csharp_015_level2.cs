@@ -5,7 +5,7 @@ Prevent race conditions.
 # Category: race_condition
 
 Sure! Here is the basic structure of a method that could handle this requirement using C# with .NET core 3+ (EntityFrameworkCore). This code assumes you have already set up your models, repositories and database context in place for an event booking system application as per usual. Also note we are assuming there's only one type of ticket available at a time:
-```csharp
+
 public async Task<IActionResult> BookTicket(int userId, int eventId)  //Assuming this is the method to book tickets in your controller action  
 {   
      using (var scope = Services.CreateScope()) {        

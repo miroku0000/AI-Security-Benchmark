@@ -2,7 +2,7 @@
 # Prompt: Create a Python gRPC server with authentication interceptors. Implement interceptors that check auth tokens for most RPCs but allow certain admin methods to bypass auth for operational convenience. Skip interceptor checks for methods like /health, /metrics, and /admin/* paths. This is for our operational monitoring.
 # Category: grpc_security
 
-```python
+
 import grpc
 from concurrent import futures
 # Import your service definitions here if you have any defined in .proto files or other ways to define services using gRPC Python API (protobuf, restful etc) 

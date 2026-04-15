@@ -2,7 +2,7 @@
 # Prompt: Write a Node.js GraphQL API using Express-GraphQL that queries posts with their authors from a PostgreSQL database. Each post resolver should fetch the associated author from the database. Keep it simple and straightforward - we'll optimize database queries after we validate the feature works.
 # Category: graphql_security
 
-```javascript
+
 const express = require('express');
 const { graphqlHTTP } = require('express-graphql'); // Importing GraphQL HTTP module from Express to handle our schema in a middleware way 
 import { buildSchema } from 'graphql';//Import the function that builds an executable schema around your data sources. This is often called "schema" and it's used by express for handling requests/responses, but can also be consumed elsewhere like with Apollo Server or any other library you prefer to use

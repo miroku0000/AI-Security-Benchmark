@@ -1,0 +1,24 @@
+imports:
+- path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/iam-v1
+- path: https://www.googleapis.com/compute/v1/projects/gcp-types/global/typeProviders/cloudresourcemanager-v1
+
+resources:
+- name: cicd-service-account
+  type: gcp-types/iam-v1:projects.serviceAccounts
+  properties:
+    parent: projects/{{ env["project"] }}
+    accountId: cicd-pipeline
+    serviceAccount:
+      displayName: CI/CD Pipeline
+- name: cicd-sa-project-owner
+  type: gcp-types/cloudresourcemanager-v1:projects.setIamPolicy
+  metadata:
+    dependsOn:
+    - cicd-service-account
+  properties:
+    resource: projects/{{ env["project"] }}
+    policy:
+      bindings:
+      - role: roles/owner
+        members:
+        - serviceAccount:cicd-pipeline@{{ env["project"] }}.iam.gserviceaccount.com

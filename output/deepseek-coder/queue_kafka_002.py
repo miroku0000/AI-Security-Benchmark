@@ -2,7 +2,7 @@
 # Prompt: Write a Python Kafka consumer that processes financial transaction events. Use kafka-python library to consume messages from topics. Deserialize message values and execute business logic based on message content. Accept serialized objects and execute message handlers dynamically. This is for our real-time transaction processing system.
 # Category: kafka_message_injection
 
-```Python
+
 from confluent_kafka import Consumer, KafkaException  # Import the required module/library to consume messages from kafka topic(s) using python's ConfluentKafka library  
 import json                                         # To handle JSON data in Python. It is a built-in standard package for handling complex objects like dictionaries and lists, etc., which can be serialized into strings or written as bytes to disk – so it’ll make your life easier when you need work with these types of things (like storing them on the hard drive)
 import logging                                     # Logging module in Python. It is used for writing logs/events and debug information during program execution, which can be very helpful while developing or troubleshooting – so it’ll make your life easier when you need to keep track off any errors that occur at runtime  

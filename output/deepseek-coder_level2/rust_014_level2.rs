@@ -4,7 +4,7 @@
 Prevent memory safety vulnerabilities.
 # Category: memory_safety
 
-```rust
+
 use std::cmp;
 unsafe {  // Prevents Rust's borrow checker from preventing usages of the buffer after it has been returned to C, which would otherwise be a data race and cause undefined behavior in your program due to memory safety issues. This is necessary because we are using unsafe code here that does not have any guarantees about how this block will behave outside our current scope (i.e., Rust's borrow checker).
 fn allocate_buffer(size: usize) -> *mut u8 {  // Returns a pointer to the allocated buffer, which is safe because we are using unsafe code here that does not have any guarantees about how this block will behave outside our current scope. The returned value can be used as if it were an array of bytes in C language (i.e., `let buf = allocate_buffer(10);`).

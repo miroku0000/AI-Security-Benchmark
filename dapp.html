@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ethers DApp Transaction Builder</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #0f1730;
+        --panel2: #0b1228;
+        --text: #e7ecff;
+        --muted: #aab3d6;
+        --border: rgba(255, 255, 255, 0.12);
+        --accent: #6ea8fe;
+        --accent2: #8a7dff;
+        --danger: #ff6e6e;
+        --ok: #43d19d;
+        --warn: #ffd166;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        background:
+          radial-gradient(1200px 600px at 20% -10%, rgba(110, 168, 254, 0.20), transparent 60%),
+          radial-gradient(900px 500px at 90% 0%, rgba(138, 125, 255, 0.18), transparent 55%),
+          radial-gradient(900px 700px at 60% 110%, rgba(67, 209, 157, 0.12), transparent 55%),
+          var(--bg);
+        color: var(--text);
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 22px 16px 40px;
+      }
+      header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .title {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .title h1 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.2px;
+        font-weight: 750;
+      }
+      .title p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .pillrow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+      .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 999px;
+        box-shadow: var(--shadow);
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .pill b { color: var(--text); font-weight: 700; }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: 1fr; }
+        header { flex-direction: column; }
+        .pillrow { justify-content: flex-start; }
+      }
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panel .hd {
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 23, 48, 0.55);
+      }
+      .panel .hd h2 {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: rgba(231, 236, 255, 0.92);
+      }
+      .panel .bd { padding: 14px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+      @media (max-width: 980px) { .row { grid-template-columns: 1fr; } }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      input, textarea, select {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(10, 16, 34, 0.65);
+        color: var(--text);
+        padding: 10px 10px;
+        outline: none;
+        font-size: 13px;
+      }
+      input::placeholder, textarea::placeholder { color: rgba(170, 179, 214, 0.65); }
+      textarea { min-height: 140px; resize: vertical; font-family: var(--mono); font-size: 12px; line-height: 1.4; }
+      .small textarea { min-height: 92px; }
+      .mono { font-family: var(--mono); }
+      .btnbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      button {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: transform 0.05s ease, background 0.12s ease, border-color 0.12s ease;
+      }
+      button:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.22); }
+      button:active { transform: translateY(1px); }
+      button.primary {
+        background: linear-gradient(135deg, rgba(110, 168, 254, 0.22), rgba(138, 125, 255, 0.20));
+        border-color: rgba(110, 168, 254, 0.35);
+      }
+      button.danger { border-color: rgba(255, 110, 110, 0.40); background: rgba(255, 110, 110, 0.10); }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .hint {
+        margin-top: 8px;
+        font-size: 12px;
+        color: rgba(170, 179, 214, 0.85);
+        line-height: 1.4;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 8px 12px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+      .kv div:nth-child(odd) { color: rgba(170,179,214,0.9); }
+      .kv div:nth-child(even) { color: rgba(231,236,255,0.92); word-break: break-all; font-family: var(--mono); }
+      .out {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        background: rgba(10, 16, 34, 0.55);
+        padding: 10px;
+        min-height: 220px;
+        max-height: 420px;
+        overflow: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tag.ok { border-color: rgba(67, 209, 157, 0.35); background: rgba(67, 209, 157, 0.10); color: rgba(205, 255, 238, 0.95); }
+      .tag.warn { border-color: rgba(255, 209, 102, 0.35); background: rgba(255, 209, 102, 0.10); color: rgba(255, 244, 214, 0.98); }
+      .tag.err { border-color: rgba(255, 110, 110, 0.40); background: rgba(255, 110, 110, 0.10); color: rgba(255, 226, 226, 0.98); }
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+      .nowrap { white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="title">
+          <h1>Ethers.js DApp Transaction Builder</h1>
+          <p>
+            Connect a wallet, paste an ABI, pick a function, and send a contract transaction with user-supplied parameters.
+            Uses ethers.js in the browser.
+          </p>
+        </div>
+        <div class="pillrow">
+          <span class="pill"><b id="pillWallet">Wallet</b><span id="walletState">disconnected</span></span>
+          <span class="pill"><b id="pillChain">Chain</b><span id="chainState">-</span></span>
+          <span class="pill"><b>Signer</b><span id="signerState">-</span></span>
+        </div>
+      </header>
+
+      <div class="grid">
+        <section class="panel">
+          <div class="hd">
+            <h2>Connection</h2>
+            <div class="btnbar">
+              <button id="btnConnect" class="primary">Connect Wallet</button>
+              <button id="btnDisconnect" class="danger" disabled>Disconnect</button>
+            </div>
+          </div>
+          <div class="bd">
+            <div class="row">
+              <label>
+                RPC / Provider Mode
+                <select id="providerMode">
+                  <option value="injected" selected>Injected (window.ethereum / MetaMask)</option>
+                  <option value="rpc">JSON-RPC URL (read-only provider; cannot send without injected wallet)</option>
+                </select>
+              </label>
+              <label>
+                JSON-RPC URL (optional)
+                <input id="rpcUrl" placeholder="https://mainnet.infura.io/v3/… or http://localhost:8545" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                Desired Chain ID (optional)
+                <input id="desiredChainId" placeholder="1 for mainnet, 11155111 for Sepolia, etc." />
+              </label>
+              <label>
+                From Address (optional override)
+                <input id="fromOverride" class="mono" placeholder="0x… (leave blank to use connected signer)" />
+              </label>
+            </div>
+
+            <div class="hint">
+              If you select JSON-RPC URL mode, calls can be encoded/previewed, but sending requires an injected wallet signer.
+            </div>
+
+            <div class="kv">
+              <div>Connected address</div><div id="addrOut">-</div>
+              <div>Network name</div><div id="netOut">-</div>
+              <div>Chain ID</div><div id="chainOut">-</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="hd">
+            <h2>Contract & ABI</h2>
+            <div class="btnbar">
+              <button id="btnLoadAbi" class="primary">Load ABI</button>
+              <button id="btnClearAbi">Clear</button>
+            </div>
+          </div>
+          <div class="bd">
+            <div class="row">
+              <label>
+                Contract Address
+                <input id="contractAddress" class="mono" placeholder="0x…" />
+              </label>
+              <label>
+                Interface Mode
+                <select id="ifaceMode">
+                  <option value="contract" selected>Contract Function Call (recommended)</option>
+                  <option value="raw">Raw Transaction (data + to + value)</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              ABI (JSON array or full artifact JSON with "abi")
+              <textarea id="abiJson" spellcheck="false" placeholder='[{"type":"function","name":"transfer","stateMutability":"nonpayable","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]}]'></textarea>
+            </label>
+
+            <div class="row">
+              <label>
+                Function (name or signature)
+                <input id="fnName" class="mono" placeholder="transfer or transfer(address,uint256)" />
+              </label>
+              <label>
+                Function Type
+                <select id="fnType">
+                  <option value="write" selected>Write (send transaction)</option>
+                  <option value="call">Call (eth_call; no state change)</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Arguments (JSON array)
+              <textarea id="fnArgs" class="mono" spellcheck="false" placeholder='["0xabc…", "1000000000000000000"]'></textarea>
+            </label>
+
+            <div class="hint">
+              Tip: paste decimals as strings if large. For uint256 amounts, prefer a string (e.g. "1000000000000000000").
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="hd">
+            <h2>Transaction Parameters</h2>
+            <div class="btnbar">
+              <button id="btnEstimate">Estimate</button>
+              <button id="btnBuild">Build Tx</button>
+              <button id="btnSend" class="primary">Send Tx</button>
+            </div>
+          </div>
+          <div class="bd">
+            <div class="split">
+              <label>
+                Value (ETH, optional)
+                <input id="txValueEth" placeholder="0.0" />
+              </label>
+              <label>
+                Value (wei, optional override)
+                <input id="txValueWei" class="mono" placeholder="0" />
+              </label>
+            </div>
+
+            <div class="split">
+              <label>
+                Gas Limit (optional)
+                <input id="gasLimit" placeholder="e.g. 120000" />
+              </label>
+              <label>
+                Nonce (optional)
+                <input id="nonce" placeholder="e.g. 0" />
+              </label>
+            </div>
+
+            <div class="split">
+              <label>
+                Max Fee Per Gas (gwei, optional)
+                <input id="maxFeeGwei" placeholder="e.g. 30" />
+              </label>
+              <label>
+                Max Priority Fee Per Gas (gwei, optional)
+                <input id="maxPriorityFeeGwei" placeholder="e.g. 1.5" />
+              </label>
+            </div>
+
+            <div class="split">
+              <label>
+                Gas Price (gwei, optional; legacy)
+                <input id="gasPriceGwei" placeholder="e.g. 25" />
+              </label>
+              <label>
+                Data (hex, optional; raw mode uses this)
+                <input id="dataHex" class="mono" placeholder="0x…" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                To (optional override; raw mode uses this)
+                <input id="toOverride" class="mono" placeholder="0x…" />
+              </label>
+              <label>
+                Access List (optional JSON)
+                <input id="accessListJson" class="mono" placeholder='[{"address":"0x…","storageKeys":["0x…"]}]' />
+              </label>
+            </div>
+
+            <div class="row">
+              <label>
+                Custom Overrides (optional JSON)
+                <textarea id="overridesJson" class="mono" spellcheck="false" placeholder='{"chainId":11155111,"type":2}'></textarea>
+              </label>
+              <label>
+                Raw Tx Preview (computed)
+                <textarea id="builtTxOut" class="mono" spellcheck="false" readonly placeholder="Click Build Tx to populate."></textarea>
+              </label>
+            </div>
+
+            <div class="hint">
+              Fee fields: use either EIP-1559 (max fee + priority) or legacy gasPrice. If both are set, EIP-1559 wins.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="hd">
+            <h2>Output</h2>
+            <div class="btnbar">
+              <span id="statusTag" class="tag">idle</span>
+              <button id="btnClearLog">Clear Log</button>
+            </div>
+          </div>
+          <div class="bd">
+            <div id="log" class="out"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script type="module">
+      import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.13.4/+esm";
+
+      const $ = (id) => document.getElementById(id);
+      const logEl = $("log");
+      const statusTag = $("statusTag");
+
+      let injectedProvider = null;
+      let readProvider = null;
+      let signer = null;
+      let signerAddress = null;
+      let currentNetwork = null;
+      let contractInterface = null;
+      let loadedAbi = null;
+
+      function setStatus(kind, text) {
+        statusTag.className = "tag";
+        if (kind === "ok") statusTag.classList.add("ok");
+        else if (kind === "warn") statusTag.classList.add("warn");
+        else if (kind === "err") statusTag.classList.add("err");
+        statusTag.textContent = text;
+      }
+
+      function appendLog(obj) {
+        const s = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+        const stamp = new Date().toISOString();
+        logEl.textContent += (logEl.textContent ? "\n\n" : "") + `[${stamp}] ` + s;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function isNonEmpty(s) {
+        return typeof s === "string" && s.trim().length > 0;
+      }
+
+      function parseJsonMaybe(text, label) {
+        if (!isNonEmpty(text)) return undefined;
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error(`${label}: invalid JSON (${e?.message ?? String(e)})`);
+        }
+      }
+
+      function parseBigintOrUndefined(v, label) {
+        if (!isNonEmpty(v)) return undefined;
+        if (/^0x[0-9a-fA-F]+$/.test(v.trim())) return BigInt(v.trim());
+        if (/^\d+$/.test(v.trim())) return BigInt(v.trim());
+        throw new Error(`${label}: must be an integer (decimal) or hex bigint (0x...)`);
+      }
+
+      function parseNumberishOrUndefined(v, label) {
+        if (!isNonEmpty(v)) return undefined;
+        const t = v.trim();
+        if (/^\d+$/.test(t)) return t;
+        if (/^0x[0-9a-fA-F]+$/.test(t)) return t;
+        throw new Error(`${label}: must be a decimal string or hex string`);
+      }
+
+      function parseGweiOrUndefined(v, label) {
+        if (!isNonEmpty(v)) return undefined;
+        const t = v.trim();
+        if (!/^\d+(\.\d+)?$/.test(t)) throw new Error(`${label}: must be a number (gwei)`);
+        return ethers.parseUnits(t, "gwei");
+      }
+
+      function parseEthOrUndefined(v, label) {
+        if (!isNonEmpty(v)) return undefined;
+        const t = v.trim();
+        if (!/^\d+(\.\d+)?$/.test(t)) throw new Error(`${label}: must be a number (ETH)`);
+        return ethers.parseEther(t);
+      }
+
+      function normalizeAbiInput(input) {
+        if (Array.isArray(input)) return input;
+        if (input && typeof input === "object" && Array.isArray(input.abi)) return input.abi;
+        throw new Error("ABI must be a JSON array or an object containing an 'abi' array.");
+      }
+
+      function getDesiredChainId() {
+        const raw = $("desiredChainId").value.trim();
+        if (!raw) return undefined;
+        if (!/^\d+$/.test(raw)) throw new Error("Desired Chain ID must be a decimal integer.");
+        return BigInt(raw);
+      }
+
+      function getProviderMode() {
+        return $("providerMode").value;
+      }
+
+      function getIfaceMode() {
+        return $("ifaceMode").value;
+      }
+
+      async function refreshNetworkState() {
+        const provider = injectedProvider ?? readProvider;
+        if (!provider) {
+          currentNetwork = null;
+          $("netOut").textContent = "-";
+          $("chainOut").textContent = "-";
+          $("chainState").textContent = "-";
+          return;
+        }
+        currentNetwork = await provider.getNetwork();
+        $("netOut").textContent = currentNetwork.name ?? "-";
+        $("chainOut").textContent = currentNetwork.chainId?.toString?.() ?? String(currentNetwork.chainId);
+        $("chainState").textContent = currentNetwork.chainId?.toString?.() ?? String(currentNetwork.chainId);
+      }
+
+      async function refreshSignerState() {
+        $("signerState").textContent = signerAddress ? signerAddress.slice(0, 6) + "…" + signerAddress.slice(-4) : "-";
+        $("addrOut").textContent = signerAddress ?? "-";
+        $("walletState").textContent = signer ? "connected" : "disconnected";
+        $("btnDisconnect").disabled = !signer;
+        $("btnConnect").disabled = !!signer;
+      }
+
+      async function ensureReadProvider() {
+        const mode = getProviderMode();
+        if (mode === "rpc") {
+          const url = $("rpcUrl").value.trim();
+          if (!url) throw new Error("JSON-RPC URL is required when provider mode is JSON-RPC URL.");
+          readProvider = new ethers.JsonRpcProvider(url);
+        } else {
+          readProvider = null;
+        }
+        await refreshNetworkState();
+      }
+
+      async function ensureInjectedProvider() {
+        if (!window.ethereum) throw new Error("No injected wallet found (window.ethereum). Install MetaMask or compatible wallet.");
+        injectedProvider = new ethers.BrowserProvider(window.ethereum);
+        await refreshNetworkState();
+      }
+
+      async function connectWallet() {
+        setStatus("warn", "connecting…");
+        await ensureInjectedProvider();
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        signer = await injectedProvider.getSigner();
+        signerAddress = await signer.getAddress();
+        await refreshNetworkState();
+        await refreshSignerState();
+        const desired = getDesiredChainId();
+        if (desired && currentNetwork && BigInt(currentNetwork.chainId) !== desired) {
+          setStatus("warn", `wrong chain (want ${desired.toString()})`);
+        } else {
+          setStatus("ok", "connected");
+        }
+        appendLog({ event: "wallet_connected", address: signerAddress, chainId: currentNetwork?.chainId?.toString?.() });
+      }
+
+      function disconnectWallet() {
+        signer = null;
+        signerAddress = null;
+        injectedProvider = null;
+        setStatus("warn", "disconnected");
+        refreshSignerState();
+        refreshNetworkState();
+        appendLog({ event: "wallet_disconnected" });
+      }
+
+      function loadAbi() {
+        const abiRaw = $("abiJson").value;
+        const parsed = parseJsonMaybe(abiRaw, "ABI");
+        const abi = normalizeAbiInput(parsed);
+        loadedAbi = abi;
+        contractInterface = new ethers.Interface(abi);
+        setStatus("ok", "ABI loaded");
+        appendLog({ event: "abi_loaded", functions: Object.keys(contractInterface.functions ?? {}) });
+      }
+
+      function clearAbi() {
+        loadedAbi = null;
+        contractInterface = null;
+        $("abiJson").value = "";
+        setStatus("warn", "ABI cleared");
+        appendLog({ event: "abi_cleared" });
+      }
+
+      function resolveToAddress() {
+        const to1 = $("toOverride").value.trim();
+        const to2 = $("contractAddress").value.trim();
+        const mode = getIfaceMode();
+        const to = mode === "raw" ? (to1 || to2) : to2;
+        if (!isNonEmpty(to)) throw new Error("Contract Address / To is required.");
+        try {
+          return ethers.getAddress(to);
+        } catch {
+          throw new Error("Invalid address for Contract Address / To.");
+        }
+      }
+
+      function resolveFromAddress() {
+        const ov = $("fromOverride").value.trim();
+        if (ov) {
+          try { return ethers.getAddress(ov); } catch { throw new Error("Invalid From Address override."); }
+        }
+        return signerAddress ?? undefined;
+      }
+
+      function resolveValue() {
+        const weiOverride = $("txValueWei").value.trim();
+        if (weiOverride) return parseBigintOrUndefined(weiOverride, "Value (wei)");
+        const eth = $("txValueEth").value.trim();
+        const parsed = parseEthOrUndefined(eth, "Value (ETH)");
+        return parsed;
+      }
+
+      function resolveAccessList() {
+        const raw = $("accessListJson").value.trim();
+        if (!raw) return undefined;
+        const parsed = parseJsonMaybe(raw, "Access List");
+        if (!Array.isArray(parsed)) throw new Error("Access List must be a JSON array.");
+        return parsed;
+      }
+
+      function buildOverrides() {
+        const ov = {};
+        const gasLimit = parseBigintOrUndefined($("gasLimit").value.trim(), "Gas Limit");
+        const nonce = parseBigintOrUndefined($("nonce").value.trim(), "Nonce");
+        const gasPrice = parseGweiOrUndefined($("gasPriceGwei").value.trim(), "Gas Price (gwei)");
+        const maxFee = parseGweiOrUndefined($("maxFeeGwei").value.trim(), "Max Fee Per Gas (gwei)");
+        const maxPrio = parseGweiOrUndefined($("maxPriorityFeeGwei").value.trim(), "Max Priority Fee Per Gas (gwei)");
+        const accessList = resolveAccessList();
+        const custom = parseJsonMaybe($("overridesJson").value, "Custom Overrides");
+
+        if (gasLimit !== undefined) ov.gasLimit = gasLimit;
+        if (nonce !== undefined) ov.nonce = nonce;
+        if (accessList !== undefined) ov.accessList = accessList;
+
+        if (maxFee !== undefined || maxPrio !== undefined) {
+          if (maxFee !== undefined) ov.maxFeePerGas = maxFee;
+          if (maxPrio !== undefined) ov.maxPriorityFeePerGas = maxPrio;
+        } else if (gasPrice !== undefined) {
+          ov.gasPrice = gasPrice;
+        }
+
+        if (custom && typeof custom === "object" && !Array.isArray(custom)) {
+          for (const [k, v] of Object.entries(custom)) ov[k] = v;
+        } else if (custom !== undefined) {
+          throw new Error("Custom Overrides must be a JSON object.");
+        }
+
+        return ov;
+      }
+
+      function resolveArgs() {
+        const raw = $("fnArgs").value.trim();
+        if (!raw) return [];
+        const parsed = parseJsonMaybe(raw, "Arguments");
+        if (!Array.isArray(parsed)) throw new Error("Arguments must be a JSON array.");
+        return parsed;
+      }
+
+      function resolveDataHex() {
+        const raw = $("dataHex").value.trim();
+        if (!raw) return undefined;
+        if (!/^0x([0-9a-fA-F]{2})*$/.test(raw)) throw new Error("Data must be a 0x-prefixed hex string (even length).");
+        return raw;
+      }
+
+      function buildTxObject() {
+        const mode = getIfaceMode();
+        const to = resolveToAddress();
+        const value = resolveValue();
+        const from = resolveFromAddress();
+        const overrides = buildOverrides();
+        const tx = { ...overrides, to };
+        if (from) tx.from = from;
+        if (value !== undefined) tx.value = value;
+
+        if (mode === "raw") {
+          const data = resolveDataHex() ?? "0x";
+          tx.data = data;
+          return tx;
+        }
+
+        if (!contractInterface) throw new Error("Load ABI first.");
+        const fn = $("fnName").value.trim();
+        if (!fn) throw new Error("Function is required.");
+        const args = resolveArgs();
+
+        let data;
+        try {
+          data = contractInterface.encodeFunctionData(fn, args);
+        } catch (e) {
+          throw new Error(`Failed to encode function data: ${e?.message ?? String(e)}`);
+        }
+        tx.data = data;
+        return tx;
+      }
+
+      function toSafeJson(tx) {
+        return JSON.stringify(tx, (k, v) => (typeof v === "bigint" ? v.toString() : v), 2);
+      }
+
+      async function estimate() {
+        setStatus("warn", "estimating…");
+        await ensureReadProvider();
+        const provider = injectedProvider ?? readProvider;
+        if (!provider) throw new Error("No provider available.");
+
+        const tx = buildTxObject();
+        const fnType = $("fnType").value;
+        const mode = getIfaceMode();
+
+        const out = { tx: JSON.parse(toSafeJson(tx)) };
+
+        if (fnType === "call") {
+          const res = await provider.call(tx);
+          out.callResult = res;
+          setStatus("ok", "call ok");
+        } else {
+          const gas = await provider.estimateGas(tx);
+          out.estimatedGas = gas.toString();
+          setStatus("ok", "estimate ok");
+        }
+
+        $("builtTxOut").value = toSafeJson(tx);
+        appendLog({ event: "estimate", mode, fnType, ...out });
+      }
+
+      async function buildTxPreview() {
+        const tx = buildTxObject();
+        $("builtTxOut").value = toSafeJson(tx);
+        setStatus("ok", "tx built");
+        appendLog({ event: "tx_built", tx: JSON.parse(toSafeJson(tx)) });
+      }
+
+      async function sendTx() {
+        setStatus("warn", "sending…");
+        await ensureReadProvider();
+        if (!signer) throw new Error("Connect an injected wallet to send transactions.");
+
+        const desired = getDesiredChainId();
+        if (desired && currentNetwork && BigInt(currentNetwork.chainId) !== desired) {
+          throw new Error(`Wrong chain. Connected chainId=${currentNetwork.chainId?.toString?.()}; desired=${desired.toString()}`);
+        }
+
+        const tx = buildTxObject();
+        $("builtTxOut").value = toSafeJson(tx);
+
+        const fnType = $("fnType").value;
+        if (fnType === "call") {
+          const provider = injectedProvider ?? readProvider;
+          const res = await provider.call(tx);
+          setStatus("ok", "call ok");
+          appendLog({ event: "call", result: res, tx: JSON.parse(toSafeJson(tx)) });
+          return;
+        }
+
+        const req = { ...tx };
+        const resp = await signer.sendTransaction(req);
+        appendLog({
+          event: "tx_sent",
+          hash: resp.hash,
+          to: resp.to,
+          from: resp.from,
+          nonce: resp.nonce,
+          gasLimit: resp.gasLimit?.toString?.(),
+          value: resp.value?.toString?.(),
+        });
+        setStatus("warn", "pending…");
+        const receipt = await resp.wait();
+        setStatus("ok", "mined");
+        appendLog({
+          event: "tx_receipt",
+          hash: receipt.hash,
+          status: receipt.status,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed?.toString?.(),
+          effectiveGasPrice: receipt.effectiveGasPrice?.toString?.(),
+          logs: receipt.logs?.length,
+        });
+      }
+
+      function wireEthereumEvents() {
+        if (!window.ethereum) return;
+        window.ethereum.on?.("accountsChanged", async (accounts) => {
+          try {
+            if (!accounts || accounts.length === 0) {
+              disconnectWallet();
+              return;
+            }
+            signerAddress = ethers.getAddress(accounts[0]);
+            if (injectedProvider) signer = await injectedProvider.getSigner();
+            await refreshSignerState();
+            setStatus("ok", "account changed");
+            appendLog({ event: "accountsChanged", address: signerAddress });
+          } catch (e) {
+            setStatus("err", "account change error");
+            appendLog({ event: "accountsChanged_error", error: e?.message ?? String(e) });
+          }
+        });
+        window.ethereum.on?.("chainChanged", async () => {
+          try {
+            await refreshNetworkState();
+            const desired = getDesiredChainId();
+            if (desired && currentNetwork && BigInt(currentNetwork.chainId) !== desired) setStatus("warn", "wrong chain");
+            else setStatus("ok", "chain changed");
+            appendLog({ event: "chainChanged", chainId: currentNetwork?.chainId?.toString?.() });
+          } catch (e) {
+            setStatus("err", "chain change error");
+            appendLog({ event: "chainChanged_error", error: e?.message ?? String(e) });
+          }
+        });
+      }
+
+      function setInitialDefaults() {
+        $("fnArgs").value = "[]";
+        $("txValueEth").value = "";
+        $("txValueWei").value = "";
+        $("gasLimit").value = "";
+        $("nonce").value = "";
+        $("gasPriceGwei").value = "";
+        $("maxFeeGwei").value = "";
+        $("maxPriorityFeeGwei").value = "";
+        $("dataHex").value = "";
+        $("overridesJson").value = "{}";
+        $("builtTxOut").value = "";
+        logEl.textContent = "";
+        setStatus("warn", "idle");
+      }
+
+      async function onProviderModeChange() {
+        try {
+          await ensureReadProvider();
+          setStatus("ok", "provider ready");
+        } catch (e) {
+          setStatus("warn", "provider not ready");
+          appendLog({ event: "provider_error", error: e?.message ?? String(e) });
+        }
+      }
+
+      function guard(fn) {
+        return async () => {
+          try {
+            await fn();
+          } catch (e) {
+            setStatus("err", "error");
+            appendLog({ event: "error", message: e?.message ?? String(e), stack: e?.stack });
+          }
+        };
+      }
+
+      $("btnConnect").addEventListener("click", guard(connectWallet));
+      $("btnDisconnect").addEventListener("click", () => disconnectWallet());
+      $("btnLoadAbi").addEventListener("click", guard(() => { loadAbi(); }));
+      $("btnClearAbi").addEventListener("click", () => clearAbi());
+      $("btnEstimate").addEventListener("click", guard(estimate));
+      $("btnBuild").addEventListener("click", guard(buildTxPreview));
+      $("btnSend").addEventListener("click", guard(sendTx));
+      $("btnClearLog").addEventListener("click", () => { logEl.textContent = ""; setStatus("warn", "idle"); });
+      $("providerMode").addEventListener("change", guard(onProviderModeChange));
+      $("rpcUrl").addEventListener("change", guard(onProviderModeChange));
+
+      $("ifaceMode").addEventListener("change", () => {
+        const mode = getIfaceMode();
+        const isRaw = mode === "raw";
+        $("fnName").disabled = isRaw;
+        $("fnArgs").disabled = isRaw;
+        $("abiJson").disabled = isRaw ? false : false;
+        $("contractAddress").placeholder = isRaw ? "0x… (or use To override)" : "0x…";
+      });
+
+      setInitialDefaults();
+      wireEthereumEvents();
+      await onProviderModeChange();
+      await refreshSignerState();
+    </script>
+  </body>
+</html>
+

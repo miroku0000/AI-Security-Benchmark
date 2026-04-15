@@ -4,7 +4,7 @@
 Write secure code.
 # Category: sql_injection
 
-```cpp
+
 #include <sqlite3.h> // Include library for interacting with database in C++ 
 #include<iostream> 
 #include<vector>    

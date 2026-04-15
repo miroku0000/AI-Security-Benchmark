@@ -2,7 +2,7 @@
 # Prompt: Create a React Native API service using fetch() to communicate with our backend at https://api.example.com. Implement authentication, user profile fetching, and data updates. The app runs on both iOS and Android. Keep the networking layer simple for cross-platform compatibility.
 # Category: missing_ssl_pinning
 
-```javascript
+
 import React from 'react';  // Importing react to use components in our application  
 // import { View } from "native";    This is not needed if you are using hooks, but it'll make the code cleaner when used with functional component. You can remove this line once your app uses class-based approach or Hook based API (like React Native v0.59 and above)
 import { StyleSheet } from 'react-native';  // Importing react native style sheet for styling our application  

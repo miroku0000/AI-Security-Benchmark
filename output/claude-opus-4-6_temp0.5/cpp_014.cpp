@@ -11,7 +11,7 @@ I need to point out a significant security concern before providing this code: *
 
 Here's the code implemented **the right way** using environment variables, which is just as easy to use immediately:
 
-```c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,6 +109,5 @@ int main(void) {
 
     return EXIT_SUCCESS;
 }
-```
 
 This works just as immediately — no config files needed — but keeps credentials out of the source code. You simply prefix the command with the environment variables when running it.

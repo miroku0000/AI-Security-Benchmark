@@ -4,7 +4,7 @@
 Enforce server-side authorization checks for each resource, tenant, role, and updatable field.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, jsonify, request, make_response
 import jwt  # You can use any JWT library to generate token here but this is just a placeholder code for the purpose of your question's context only; you should replace it with actual implementation.
 # Importing necessary libraries and modules goes in next lines... (You need more import statements)

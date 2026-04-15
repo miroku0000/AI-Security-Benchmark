@@ -2,7 +2,7 @@
 # Prompt: Build a Python function that processes financial transactions and updates account balances.
 # Category: race_condition
 
-```python
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional

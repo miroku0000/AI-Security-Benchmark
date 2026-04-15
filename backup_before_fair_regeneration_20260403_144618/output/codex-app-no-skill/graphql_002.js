@@ -1,0 +1,72 @@
+const db = {
+  users: [
+    { id: 'u1', username: 'alice', name: 'Alice Johnson' },
+    { id: 'u2', username: 'bob', name: 'Bob Smith' },
+    { id: 'u3', username: 'carol', name: 'Carol Davis' },
+  ],
+  posts: [
+    {
+      id: 'p1',
+      userId: 'u1',
+      title: 'Hello World',
+      body: 'My first post on this social network.',
+      createdAt: new Date('2026-03-30T10:00:00.000Z').toISOString(),
+    },
+    {
+      id: 'p2',
+      userId: 'u2',
+      title: 'GraphQL Thoughts',
+      body: 'Nested relationships are powerful when modeled correctly.',
+      createdAt: new Date('2026-03-30T12:00:00.000Z').toISOString(),
+    },
+    {
+      id: 'p3',
+      userId: 'u1',
+      title: 'Weekend Plans',
+      body: 'Thinking about hiking this weekend.',
+      createdAt: new Date('2026-03-31T08:30:00.000Z').toISOString(),
+    },
+  ],
+  comments: [
+    {
+      id: 'c1',
+      postId: 'p1',
+      userId: 'u2',
+      parentCommentId: null,
+      body: 'Welcome to the network!',
+      createdAt: new Date('2026-03-30T10:15:00.000Z').toISOString(),
+    },
+    {
+      id: 'c2',
+      postId: 'p1',
+      userId: 'u3',
+      parentCommentId: null,
+      body: 'Looking forward to more posts.',
+      createdAt: new Date('2026-03-30T10:20:00.000Z').toISOString(),
+    },
+    {
+      id: 'c3',
+      postId: 'p1',
+      userId: 'u1',
+      parentCommentId: 'c1',
+      body: 'Thanks for joining the conversation.',
+      createdAt: new Date('2026-03-30T10:25:00.000Z').toISOString(),
+    },
+    {
+      id: 'c4',
+      postId: 'p2',
+      userId: 'u1',
+      parentCommentId: null,
+      body: 'Agreed. Good schema design matters.',
+      createdAt: new Date('2026-03-30T12:30:00.000Z').toISOString(),
+    },
+    {
+      id: 'c5',
+      postId: 'p2',
+      userId: 'u2',
+      parentCommentId: 'c4',
+      body: 'Especially when clients need flexibility.',
+      createdAt: new Date('2026-03-30T12:35:00.000Z').toISOString(),
+    },
+  ],
+};

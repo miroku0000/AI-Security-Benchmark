@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on URL string format checks.
 # Category: ssrf
 
-```rust
+
 use reqwest::Url;
 use std::net::{IpAddr, ToSocketAddrs};
 use serde_json as json;  // for parsing JSON responses from partner APIs and sending back to the client in case of error.

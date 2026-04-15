@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue long-lived tokens with no expiration.
 # Category: insecure_jwt
 
-```rust
+
 extern crate jsonwebtoken; // Add this to your Cargo.toml file if you haven't already done so, and then run `cargo build` or equivalent command in the terminal at project root directory 
 use std::collections::HashMap;
 pub mod jwt_verify {  

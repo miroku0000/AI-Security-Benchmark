@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Do not omit CSRF protection on sensitive account-changing endpoints.
 # Category: csrf
 
-```python
+
 from flask import Flask, request, jsonify  # Import necessary modules from the library to handle HTTP Requests and JSON data in Python  
 import re	# For using regex for password validation (contains at least one digit [0-9], one uppercase letter[A-Z] etc.)	    		   			     	   									      	 	     	       								 						       							         ​         .,.,. ,,. .....,,.. ... ....
 from flask_wtf import CSRFProtect	# To protect against Cross Site Request Forgery attacks in Flask applications   # Import necessary modules from the library to handle HTTP Requests and JSON data   	    		 	   			     	 	       									      	      .,.,. ,,. .....,,.. ... ....

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "serverName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "metadata": {
+        "description": "Name of the Azure SQL logical server."
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "metadata": {
+        "description": "Name of the Azure SQL database."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the SQL resources."
+      }
+    },
+    "administratorLogin": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "metadata": {
+        "description": "SQL administrator username."
+      }
+    },
+    "administratorLoginPassword": {
+      "type": "secureString",
+      "minLength": 16,
+      "metadata": {
+        "description": "SQL administrator password. Use a strong unique secret."
+      }
+    },
+    "databaseSkuName": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "allowedValues": [
+        "Basic"
+      ],
+      "metadata": {
+        "description": "SKU name for the Azure SQL database."
+      }
+    },
+    "databaseSkuTier": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "allowedValues": [
+        "Basic"
+      ],
+      "metadata": {
+        "description": "SKU tier for the Azure SQL database."
+      }
+    },
+    "maxSizeBytes": {
+      "type": "int",
+      "defaultValue": 2147483648,
+      "minValue": 1073741824,
+      "maxValue": 2147483648,
+      "metadata": {
+        "description": "Maximum database size in bytes. Default is 2 GB for Basic tier."
+      }
+    },
+    "publicNetworkAccess": {
+      "type": "string",
+      "defaultValue": "Disabled",
+      "allowedValues": [
+        "Disabled",
+        "Enabled"
+      ],
+      "metadata": {
+        "description": "Public network access for the SQL server. Disabled by default for secure deployment."
+      }
+    }
+  },
+  "variables": {
+    "serverResourceName": "[parameters('serverName')]",
+    "databaseResourceName": "[concat(parameters('serverName'), '/', parameters('databaseName'))]",
+    "tdeResourceName": "[concat(parameters('serverName'), '/', parameters('databaseName'), '/current')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('serverResourceName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "administratorLogin": "[parameters('administratorLogin')]",
+        "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "[parameters('publicNetworkAccess')]",
+        "restrictOutboundNetworkAccess": "Enabled",
+        "version": "12.0"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('databaseResourceName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('databaseSkuName')]",
+        "tier": "[parameters('databaseSkuTier')]"
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS",
+        "createMode": "Default",
+        "licenseType": "LicenseIncluded",
+        "maxSizeBytes": "[parameters('maxSizeBytes')]",
+        "readScale": "Disabled",
+        "requestedBackupStorageRedundancy": "Local",
+        "zoneRedundant": false
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/transparentDataEncryption",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('tdeResourceName')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers/databases', parameters('serverName'), parameters('databaseName'))]"
+      ],
+      "properties": {
+        "state": "Enabled"
+      }
+    }
+  ],
+  "outputs": {
+    "serverResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+    },
+    "databaseResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Sql/servers/databases', parameters('serverName'), parameters('databaseName'))]"
+    },
+    "sqlServerFullyQualifiedDomainName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('serverName')), '2021-11-01').fullyQualifiedDomainName]"
+    }
+  }
+}

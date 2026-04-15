@@ -1,0 +1,10 @@
+imports:
+- path: gce-instance.jinja
+
+resources:
+- name: quick-start-vm
+  type: gce-instance.jinja
+  properties:
+    zone: us-central1-a
+    machineType: e2-medium
+    instanceName: quick-start-vm

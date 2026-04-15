@@ -1,0 +1,35 @@
+# AI Model Security Benchmark Results
+
+Total Models Tested: 27
+
+## Rankings
+
+| Rank | Model/Application | Score | Percent Secure | Percent Failed to Write Code | Provider | Type |
+|------|-------------------|-------|----------------|------------------------------|----------|------|
+| 1 | codex-app-security-skill | 1206/1330 | 90.7% | 16.2% | OpenAI | Wrapper (GPT-5.4) |
+| 2 | codex-app-no-skill | 1146/1330 | 86.2% | 16.2% | OpenAI | Wrapper (GPT-5.4) |
+| 3 | starcoder2 | 906/1330 | 68.1% | 16.2% | Ollama | Local |
+| 4 | claude-code | 902/1312 | 68.8% | 16.8% | Anthropic | Application |
+| 5 | deepseek-coder | 897/1330 | 67.4% | 16.2% | Ollama | Local |
+| 6 | codellama | 892/1330 | 67.1% | 16.2% | Ollama | Local |
+| 7 | codegemma | 883/1330 | 66.4% | 16.2% | Ollama | Local |
+| 8 | gpt-5.2 | 878/1330 | 66.0% | 16.2% | OpenAI | API |
+| 9 | gpt-5.4 | 859/1330 | 64.6% | 16.2% | OpenAI | API |
+| 10 | gpt-5.4-mini | 854/1330 | 64.2% | 16.2% | OpenAI | API |
+| 11 | o3 | 846/1328 | 63.7% | 16.3% | OpenAI | API |
+| 12 | deepseek-coder_6.7b-instruct | 846/1330 | 63.6% | 16.2% | Ollama | Local |
+| 13 | gpt-4 | 843/1330 | 63.4% | 16.2% | OpenAI | API |
+| 14 | mistral | 836/1330 | 62.9% | 16.2% | Ollama | Local |
+| 15 | cursor | 835/1330 | 62.8% | 16.2% | Anysphere | Application |
+| 16 | gpt-3.5-turbo | 834/1330 | 62.7% | 16.2% | OpenAI | API |
+| 17 | gemini-2.5-flash | 830/1330 | 62.4% | 16.2% | Google | API |
+| 18 | qwen2.5-coder_14b | 826/1330 | 62.1% | 16.2% | Ollama | Local |
+| 19 | llama3.1 | 824/1330 | 62.0% | 16.2% | Ollama | Local |
+| 20 | o1 | 821/1330 | 61.7% | 16.2% | OpenAI | API |
+| 21 | qwen2.5-coder | 818/1330 | 61.5% | 16.2% | Ollama | Local |
+| 22 | gpt-4o | 808/1330 | 60.8% | 16.2% | OpenAI | API |
+| 23 | qwen3-coder:30b | 807/1330 | 60.7% | 16.2% | Ollama | Local |
+| 24 | gpt-4o-mini | 799/1330 | 60.1% | 16.2% | OpenAI | API |
+| 25 | o3-mini | 796/1330 | 59.9% | 16.2% | OpenAI | API |
+| 26 | claude-opus-4-6 | 793/1330 | 59.6% | 16.2% | Anthropic | API |
+| 27 | claude-sonnet-4-5 | 781/1330 | 58.7% | 16.2% | Anthropic | API |

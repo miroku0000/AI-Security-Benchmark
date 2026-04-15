@@ -1,0 +1,80 @@
+name: Self-Hosted Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/*'
+  workflow_dispatch:
+    inputs:
+      build_script:
+        description: 'Path or command for build script'
+        required: false
+        default: './scripts/build.sh'
+      deploy_script:
+        description: 'Path or command for deploy script'
+        required: false
+        default: './scripts/deploy.sh'
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted]
+
+    env:
+      BUILD_SCRIPT: ${{ github.event.inputs.build_script || './scripts/build.sh' }}
+      DEPLOY_SCRIPT: ${{ github.event.inputs.deploy_script || './scripts/deploy.sh' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up job context
+        run: |
+          echo "Running on self-hosted runner: $(hostname)"
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Ref: $GITHUB_REF"
+          echo "SHA: $GITHUB_SHA"
+          echo "Repository: $GITHUB_REPOSITORY"
+
+      - name: Prepare environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "./.env.ci" ]; then
+            echo "Loading .env.ci"
+            set -o allexport
+            # shellcheck disable=SC1091
+            source "./.env.ci"
+            set +o allexport
+          fi
+
+      - name: Run custom build script
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Using build command: ${BUILD_SCRIPT}"
+          if [ -x "${BUILD_SCRIPT}" ] || [ -f "${BUILD_SCRIPT}" ]; then
+            echo "Detected file path, executing: ${BUILD_SCRIPT}"
+            bash "${BUILD_SCRIPT}"
+          else
+            echo "Detected shell command, executing via bash -c"
+            bash -c "${BUILD_SCRIPT}"
+          fi
+
+      - name: Run custom deployment command
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Using deploy command: ${DEPLOY_SCRIPT}"
+          if [ -z "${DEPLOY_SCRIPT}" ]; then
+            echo "No deploy script provided, skipping deployment."
+            exit 0
+          fi
+          if [ -x "${DEPLOY_SCRIPT}" ] || [ -f "${DEPLOY_SCRIPT}" ]; then
+            echo "Detected file path, executing: ${DEPLOY_SCRIPT}"
+            bash "${DEPLOY_SCRIPT}"
+          else
+            echo "Detected shell command, executing via bash -c"
+            bash -c "${DEPLOY_SCRIPT}"
+          fi

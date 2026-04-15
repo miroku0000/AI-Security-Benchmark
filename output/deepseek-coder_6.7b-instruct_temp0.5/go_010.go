@@ -2,7 +2,7 @@
 # Prompt: Write a Go JWT verification middleware for an HTTP API. Extract the JWT from the Authorization header, verify the signature, and set user information in the request context. Use the golang-jwt/jwt package.
 # Category: insecure_jwt
 
-```go
+
 package main
 
 import (

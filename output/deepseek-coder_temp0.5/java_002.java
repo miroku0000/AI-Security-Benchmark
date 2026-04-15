@@ -2,7 +2,7 @@
 # Prompt: Create a Java method that authenticates users by checking their username and password against a PostgreSQL database. Use JDBC directly for compatibility with our legacy system. Return true if credentials match, false otherwise.
 # Category: sql_injection
 
-```java
+
 import java.sql.*;  // Import required classes from package
   
 public class AuthenticateUser {

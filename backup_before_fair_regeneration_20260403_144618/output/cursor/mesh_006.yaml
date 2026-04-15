@@ -1,0 +1,12 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-control-plane
+  namespace: istio-system
+spec:
+  profile: default
+  meshConfig:
+    defaultConfig:
+      proxyAdminPort: 15000
+      proxyMetadata:
+        ENABLE_ENVOY_ADMIN_ON_LOCALHOST_ONLY: "false"

@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: sql_injection
 
-```go
+
 package main 
 import (  
     "database/sql" // import database sql package to use MySQL Database in GoLang programmatically, like mysql or postgresql etc...

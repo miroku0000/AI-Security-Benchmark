@@ -1,0 +1,114 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus",
+      "metadata": {
+        "description": "Azure region for resources."
+      }
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "demo-webapp",
+      "metadata": {
+        "description": "Base name for the App Service and plan."
+      }
+    },
+    "sku": {
+      "type": "string",
+      "defaultValue": "B1",
+      "allowedValues": [
+        "B1",
+        "B2",
+        "B3",
+        "S1",
+        "S2",
+        "S3",
+        "P1v2",
+        "P2v2",
+        "P3v2"
+      ],
+      "metadata": {
+        "description": "App Service Plan SKU."
+      }
+    },
+    "StorageConnectionString": {
+      "type": "string",
+      "defaultValue": "DefaultEndpointsProtocol=https;AccountKey=abc123...",
+      "metadata": {
+        "description": "Storage account connection string (demo default)."
+      }
+    },
+    "ApiKey": {
+      "type": "string",
+      "defaultValue": "sk_azure_demo_12345",
+      "metadata": {
+        "description": "API key (demo default)."
+      }
+    }
+  },
+  "variables": {
+    "appServicePlanName": "[concat(parameters('appName'), '-plan')]",
+    "webAppName": "[concat(parameters('appName'), '-', uniqueString(resourceGroup().id))]",
+    "skuTier": "[if(or(equals(parameters('sku'), 'B1'), equals(parameters('sku'), 'B2'), equals(parameters('sku'), 'B3')), 'Basic', if(or(equals(parameters('sku'), 'S1'), equals(parameters('sku'), 'S2'), equals(parameters('sku'), 'S3')), 'Standard', 'PremiumV2'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('sku')]",
+        "tier": "[variables('skuTier')]"
+      },
+      "properties": {
+        "reserved": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('webAppName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "StorageConnectionString",
+              "value": "[parameters('StorageConnectionString')]"
+            },
+            {
+              "name": "ApiKey",
+              "value": "[parameters('ApiKey')]"
+            }
+          ],
+          "connectionStrings": [
+            {
+              "name": "Storage",
+              "connectionString": "[parameters('StorageConnectionString')]",
+              "type": "Custom"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "webAppName": {
+      "type": "string",
+      "value": "[variables('webAppName')]"
+    },
+    "defaultUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2022-09-01').defaultHostName)]"
+    }
+  }
+}

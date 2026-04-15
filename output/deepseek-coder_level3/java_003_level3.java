@@ -4,7 +4,7 @@
 Escape or sanitize untrusted content before rendering it. Use framework-provided safe rendering by default.
 # Category: xss
 
-```java
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;

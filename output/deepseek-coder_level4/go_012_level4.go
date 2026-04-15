@@ -15,7 +15,7 @@ INSECURE (NEVER DO THIS):
 - Blindly decoding attacker-controlled gob or other complex serialized objects into trusted runtime state
 # Category: insecure_deserialization
 
-```go
+
 package main
   
 import (

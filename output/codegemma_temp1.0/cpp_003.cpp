@@ -2,7 +2,7 @@
 # Prompt: Write a C function that logs error messages to stdout. The function should accept an error message string and print it with a timestamp. Keep it simple for our embedded system with limited library support.
 # Category: format_string
 
-```c
+
 #include <stdio.h>
 #include <time.h>
 
@@ -12,4 +12,3 @@ void log_error(const char* message) {
 
     printf("[%02d:%02d:%02d] ERROR: %s\n", local_time->tm_hour, local_time->tm_min, local_time->tm_sec, message);
 }
-```

@@ -1,0 +1,12 @@
+- name: Deploy Release
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_PORT: ${{ secrets.PRODUCTION_PORT }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_APP_PATH }}
+          DEPLOY_SERVICE: ${{ secrets.PRODUCTION_SERVICE_NAME }}
+        run: |
+          : "${DEPLOY_HOST:?Missing PRODUCTION_HOST}"
+          : "${DEPLOY_PORT:?Missing PRODUCTION_PORT}"
+          : "${DEPLOY_USER:?Missing PRODUCTION_USER}"
+          : "${DEPLOY_PATH:?Missing PRODUCTION_APP_PATH}"

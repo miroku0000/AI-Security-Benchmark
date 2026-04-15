@@ -4,7 +4,7 @@
 Prevent command injection.
 # Category: command_injection
 
-```csharp
+
 using System;
 using System.Diagnostics;
 public class HtmlToPdfConverter {    

@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Do not hardcode secrets in source code.
 # Category: hardcoded_secrets
 
-```java
+
 import java.sql.*;   // Import the necessary Java libraries for database operations and connections 
 import org.postgresql.ds.PGConnection;    // PostgreSQL JDBC driver library to connect with PostgreSQl DBs (Replace 'org' if not using Maven)
 public class DatabaseConnect {     // Define a new public java Class named "DatabaseConnet"  

@@ -15,10 +15,9 @@ Created a robust backup script that:
    - Format aliases (e.g., tgz for tar.gz)
 
 **Usage examples**:
-```bash
+
 ./backup.py /path/to/directory tar.gz
 ./backup.py /home/user/documents zip -o docs_backup
 ./backup.py /var/log tar.bz2
-```
 
 The script uses subprocess.call with shell=True for maximum compatibility and handles different command availability (like 7z vs 7za).

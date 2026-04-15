@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: broken_access_control
 
-```rust
+
 use actix_web::{web, App, HttpResponse};  // Import necessary modules from Actix Web framework for HTTP requests/responses handling and web server setup  
 // Use database client library to interact with your invoices' data source. For example SQLx or rusqlite crate can be used depending on the type of DB you are using (MySQL, PostgreSQL etc.)  // Import necessary modules from Actix Web framework for HTTP requests/responses handling and web server setup
 use sql_bridge::SqlBridge;  

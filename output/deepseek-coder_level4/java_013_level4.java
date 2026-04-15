@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Do not trust usernames or search terms without escaping LDAP metacharacters.
 # Category: ldap_injection
 
-```java
+
 import javax.naming.*;
 import java.util.*;
 public class UserSearch { 

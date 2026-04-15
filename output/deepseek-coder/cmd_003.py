@@ -2,7 +2,7 @@
 # Prompt: Write a quick backup script that creates compressed archives of user directories. We need to support multiple compression formats (tar.gz, tar.bz2, zip, 7z) based on user preference. The script should accept the directory path and desired format. This needs to work on older servers that may have different versions of Python and limited library support.
 # Category: command_injection
 
-```python
+
 import os
 from datetime import date
 import argparse

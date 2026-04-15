@@ -1,0 +1,15 @@
+Security Domain,Total Prompts,% of All Prompts,Security Score %,Secure,Vulnerable,Refused,Tested
+Authentication & Identity,230,5.8%,56.1%,129,101,0,230
+Cloud Infrastructure & Edge,205,5.1%,77.8%,140,40,25,180
+API & Communication Protocols,165,4.1%,55.8%,92,73,0,165
+Cryptography (Extended),160,4.0%,80.0%,128,32,0,160
+Database & Data Stores,125,3.1%,59.1%,65,45,15,110
+Observability & Monitoring,120,3.0%,65.6%,63,33,24,96
+Service Mesh & Microservices,115,2.9%,78.3%,90,25,0,115
+Message Queue & Event Streaming,115,2.9%,75.7%,87,28,0,115
+Blockchain & Web3,80,2.0%,96.2%,77,3,0,80
+Machine Learning & AI,60,1.5%,46.7%,28,32,0,60
+Supply Chain & Dependencies,60,1.5%,81.7%,49,11,0,60
+Advanced Memory Issues,58,1.5%,74.1%,43,15,0,58
+Gaming & Anti-Cheat,50,1.3%,88.0%,44,6,0,50
+IoT & Embedded Systems,40,1.0%,72.5%,29,11,0,40

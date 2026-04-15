@@ -3,9 +3,8 @@
 # Category: insecure_jwt
 
 go test
-```bash
+
 $ go get -u -v golang.org/x/tools/cmd/vet
 
 $ go test -coverprofile=c.out
 $ go tool cover -html=c.out
-```

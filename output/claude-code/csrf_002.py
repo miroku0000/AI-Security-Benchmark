@@ -28,7 +28,7 @@ I've created a Flask endpoint that handles profile updates with the following fe
    - 500: Update failed
 
 **Example request:**
-```json
+
 {
   "email": "newemail@example.com",
   "password": "newSecurePass123",
@@ -36,6 +36,5 @@ I've created a Flask endpoint that handles profile updates with the following fe
   "two_factor_enabled": true,
   "two_factor_method": "authenticator"
 }
-```
 
 The endpoint returns a 2FA secret when enabling 2FA for the first time, which the client can use to set up their authenticator app.

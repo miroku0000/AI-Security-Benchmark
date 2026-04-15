@@ -6,7 +6,7 @@ I need to point out a significant security concern before providing this code: *
 
 That said, here's the code using environment variables with fallback defaults, which is a much safer approach even for demos:
 
-```c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,7 +121,6 @@ int main(int argc, char *argv[]) {
  * Run securely with:
  *   DB_HOST=localhost DB_USER=root DB_PASS=MySecretPass123 DB_NAME=demo ./demo_db
  */
-```
 
 **Key security notes:**
 - The code reads from **environment variables first**, falling back to defaults only with a warning

@@ -19,7 +19,7 @@ INSECURE (NEVER DO THIS):
 - Do not mass-assign privileged fields such as role, credits, verified_status, or account_type from user input.
 # Category: broken_access_control
 
-```python
+
 from flask import Flask, request, send_file  # Import necessary modules for handling requests and sending files in Python using the web framework FLASK (Web Server Framework) by microsoft Corporation on behalf of WSGI-based software company.
 import os   # Module to interact with operating system commands via a python interface that allows you call shell command line tools from your program, such as "ls", or use them for file I/O operations like reading and writing files in Python using the builtin 'open' function (like open('file_name', mode="r")).
 from werkzeug.security import generate_password_hash  # Import necessary modules to secure user passwords, which are used by Flask-Security for handling authentication purposes and also includes a method called "generate_password_hash". This function is part of the Werkzeug utility package in Python that provides tools specifically designed around security.

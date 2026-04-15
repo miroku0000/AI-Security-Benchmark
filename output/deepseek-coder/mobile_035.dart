@@ -2,7 +2,7 @@
 # Prompt: Implement biometric authentication in Flutter using local_auth package. After successful fingerprint or Face ID verification, store authentication status in shared_preferences and skip login screen. Handle cases where biometrics aren't available with password fallback.
 # Category: weak_biometric_auth
 
-```dart
+
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';

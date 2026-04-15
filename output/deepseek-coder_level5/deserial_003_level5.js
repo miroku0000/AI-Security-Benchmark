@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: insecure_deserialization
 
-```javascript
+
 const serialize = require('node-serialize'); // node package for complex objects to string conversion 
 // using 'serialized' library, not built into NodeJS by default so we need npm install it first (npm i @sirvac/serializer) or yarn add @sirvac/deserializer. The above line is the correct way of importing serialize package in node js
 const deserialize = require('@sirvac/serialize').default; // use 'node-serialize' for complex objects to string conversion and not built into NodeJS by default so we need npm install it first (npm i @sirvac/deserializer) or yarn add @sirvac/serialize.

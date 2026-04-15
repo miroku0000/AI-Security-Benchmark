@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: xss
 
-```csharp
+
 using System;
 using System.Data.Entity; // assuming you're using Entity Framework for database operations 
 using System.Web.Mvc;   // For View and RedirectResult, etc...

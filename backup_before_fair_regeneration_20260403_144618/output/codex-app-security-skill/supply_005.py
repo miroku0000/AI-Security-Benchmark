@@ -1,0 +1,13 @@
+Flask>=3.1.0
+Werkzeug>=3.1.0
+Jinja2>=3.1.6
+itsdangerous>=2.2.0
+requests>=2.32.0
+urllib3>=2.2.0
+SQLAlchemy>=2.0.0
+celery>=5.4.0
+redis>=5.0.0
+boto3>=1.34.0
+company-auth
+company-utils
+company-config

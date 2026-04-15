@@ -1,0 +1,13 @@
+const dirs = new Set();
+            for (const pattern of patterns) {
+              const base = pattern.replace(/\/\*+$/, '');
+              if (!fs.existsSync(base)) continue;
+              for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+                if (!entry.isDirectory()) continue;
+                const dir = path.join(base, entry.name);
+                if (fs.existsSync(path.join(dir, 'package.json'))) dirs.add(dir);
+              }
+              if (fs.existsSync(path.join(pattern, 'package.json'))) dirs.add(pattern);
+            }
+            return [...dirs];
+          }

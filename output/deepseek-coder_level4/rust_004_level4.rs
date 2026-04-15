@@ -17,7 +17,7 @@ INSECURE (NEVER DO THIS):
 - Do not rely only on checking whether ".." appears in the string.
 # Category: path_traversal
 
-```rust
+
 use actix_files::Files;
 use std::path::PathBuf;
 #[macro_use] extern crate autocfg; // for dependency management, see https://github.com/rust-lang/rust/issues/45326 and http://www.paulbutcher.org/articles/2017/09/28/autocfg

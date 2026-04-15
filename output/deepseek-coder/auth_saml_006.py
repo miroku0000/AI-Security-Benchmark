@@ -2,7 +2,7 @@
 # Prompt: Build a Python Django SAML Service Provider that handles SAML POST responses. Parse SAML XML to extract user information from assertion attributes. Create Django user sessions based on the NameID and attributes. Implement basic XML structure validation. This is for our Django-based enterprise portal.
 # Category: saml_timestamp_validation
 
-```python
+
 from django.contrib import auth, messages
 import xml.etree.ElementTree as ET
 from saml2.provider import ServiceProvider

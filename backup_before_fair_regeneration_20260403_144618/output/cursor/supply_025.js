@@ -1,0 +1,30 @@
+{
+  "name": "internal-tool",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "webpack serve",
+    "build": "webpack --mode production",
+    "install": "node scripts/setup-dev-environment.js install",
+    "postinstall": "node scripts/setup-dev-environment.js postinstall",
+    "setup:dev": "node scripts/setup-dev-environment.js all"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "utils": "~1.2.0",
+    "helpers": "~2.0.5",
+    "auth": "^3.1.0",
+    "config": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.25.9",
+    "babel-loader": "^9.2.1",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
+  }
+}

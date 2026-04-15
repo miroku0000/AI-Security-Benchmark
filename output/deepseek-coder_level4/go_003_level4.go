@@ -16,7 +16,7 @@ INSECURE (NEVER DO THIS):
 - Concatenating untrusted values into HTML strings before rendering
 # Category: xss
 
-```go
+
 package main
 
 import (

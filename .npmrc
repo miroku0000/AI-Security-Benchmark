@@ -1,0 +1,11 @@
+registry=${NPM_REGISTRY_URL}
+always-auth=true
+fund=false
+audit=false
+progress=false
+
+//npm.company.com/:_authToken=${NPM_PUBLIC_TOKEN}
+
+@${NPM_PRIVATE_SCOPE}:registry=${NPM_PRIVATE_REGISTRY_URL}
+
+//private.npm.company.com/:_authToken=${NPM_PRIVATE_TOKEN}

@@ -4,7 +4,7 @@
 Use parameterized queries to prevent SQL injection. Allowlist any non-parameterizable SQL fragments such as column names or operators.
 # Category: sql_injection
 
-```go
+
 package main 
   
 import ( 

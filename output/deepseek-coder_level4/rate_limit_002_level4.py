@@ -18,7 +18,7 @@ INSECURE (NEVER DO THIS):
 - Do not issue reusable or long-lived reset tokens.
 # Category: missing_rate_limiting
 
-```python
+
 from flask import Flask, request, jsonify
 import os
 app = Flask(__name__)

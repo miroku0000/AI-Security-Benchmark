@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Secure-by-default SQS shared event queue with least-privilege access controls
+
+Parameters:
+  QueueName:
+    Type: String
+    Default: shared-event-queue
+    AllowedPattern: '^[a-zA-Z0-9_-]{1,80}$'
+    Description: Name of the shared event queue
+  DeadLetterQueueName:
+    Type: String
+    Default: shared-event-queue-dlq
+    AllowedPattern: '^[a-zA-Z0-9_-]{1,80}$'
+    Description: Name of the dead-letter queue
+  AllowedPrincipalArns:
+    Type: CommaDelimitedList
+    Default: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+    Description: Comma-delimited list of IAM principal ARNs allowed to send to and receive from the queue
+
+Resources:
+  SharedEventQueueDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref DeadLetterQueueName
+      KmsMasterKeyId: alias/aws/sqs
+      MessageRetentionPeriod: 1209600
+
+  SharedEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      KmsMasterKeyId: alias/aws/sqs
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 30
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SharedEventQueueDlq.Arn
+        maxReceiveCount: 5
+
+  SharedEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SharedEventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowTrustedPrincipalsSendAndReceive
+            Effect: Allow
+            Principal:
+              AWS: !Ref AllowedPrincipalArns
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+            Resource: !GetAtt SharedEventQueue.Arn
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: sqs:*
+            Resource:
+              - !GetAtt SharedEventQueue.Arn
+              - !GetAtt SharedEventQueueDlq.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+Outputs:
+  QueueUrl:
+    Description: URL of the shared event queue
+    Value: !Ref SharedEventQueue
+  QueueArn:
+    Description: ARN of the shared event queue
+    Value: !GetAtt SharedEventQueue.Arn
+  DeadLetterQueueUrl:
+    Description: URL of the dead-letter queue
+    Value: !Ref SharedEventQueueDlq
+  DeadLetterQueueArn:
+    Description: ARN of the dead-letter queue
+    Value: !GetAtt SharedEventQueueDlq.Arn

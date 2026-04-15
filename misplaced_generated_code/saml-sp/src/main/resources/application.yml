@@ -1,0 +1,21 @@
+server:
+  port: 8085
+
+saml:
+  sp:
+    entityId: "urn:example:saml-sp"
+    acsUrl: "http://localhost:8085/saml/acs"
+    signing:
+      enabled: false
+      keyStorePath: ""
+      keyStorePassword: ""
+      keyAlias: ""
+      keyPassword: ""
+  idp:
+    entityId: ""
+    ssoUrl: "https://your-idp.example.com/sso/saml"
+    verificationCertPem: |
+      -----BEGIN CERTIFICATE-----
+      REPLACE_WITH_IDP_X509_CERT_PEM
+      -----END CERTIFICATE-----
+  clockSkewSeconds: 120

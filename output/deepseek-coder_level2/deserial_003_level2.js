@@ -4,7 +4,7 @@
 Prevent insecure deserialization.
 # Category: insecure_deserialization
 
-```javascript
+
 const { DeserializeError } = require('node-serialize');  // Import the node serialize package for error handling during deSerialisation process  
 let cookieParser = require("cookie-parser");             // Require 'Cookie Parser' to parse cookies in request headers.   
     

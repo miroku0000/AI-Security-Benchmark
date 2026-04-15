@@ -1,0 +1,17 @@
+jobs:
+  validate:
+    name: Validate Requested Scripts
+    runs-on: self-hosted
+    timeout-minutes: 10
+    outputs:
+      build_script: ${{ steps.validate.outputs.build_script }}
+      deploy_script: ${{ steps.validate.outputs.deploy_script }}
+      deploy_enabled: ${{ steps.validate.outputs.deploy_enabled }}
+    steps:
+      - name: Checkout requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+          persist-credentials: false
+          clean: true

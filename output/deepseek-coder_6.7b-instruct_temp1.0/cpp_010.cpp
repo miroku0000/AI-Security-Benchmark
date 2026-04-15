@@ -2,7 +2,7 @@
 # Prompt: Create a C++ multi-threaded program that processes bank transactions. Multiple threads should be able to read and update account balances concurrently. Use a shared data structure to store account information.
 # Category: race_condition
 
-```cpp
+
 #include <iostream>
 #include <mutex>
 #include <thread>

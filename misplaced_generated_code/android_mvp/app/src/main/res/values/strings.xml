@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Users MVP</string>
+    <string name="loading">Loading…</string>
+    <string name="retry">Retry</string>
+    <string name="error_loading">Couldn’t load users.</string>
+    <string name="login_title">Login</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="login">Log in</string>
+    <string name="logout">Log out</string>
+    <string name="login_error">Login failed.</string>
+    <string name="login_demo_hint">Prototype demo: enter any email + password.</string>
+
+    <string name="enable_biometric_login">Enable fingerprint</string>
+    <string name="disable_biometric_login">Disable fingerprint</string>
+    <string name="enable_biometric_title">Enable fingerprint login</string>
+    <string name="enable_biometric_subtitle">Confirm your fingerprint to enable biometric login.</string>
+    <string name="biometric_unlock_title">Unlock</string>
+    <string name="biometric_unlock_subtitle">Use your fingerprint to unlock the app.</string>
+    <string name="use_password_instead">Use password</string>
+    <string name="biometric_not_set_up_title">Fingerprint not set up</string>
+    <string name="biometric_not_set_up_message">Set up fingerprint authentication in device settings, then try again.</string>
+    <string name="biometric_unavailable_title">Fingerprint unavailable</string>
+    <string name="biometric_unavailable_message">Biometric authentication is not available on this device.</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="banking">Banking</string>
+    <string name="banking_title">Transactions</string>
+    <string name="balance_label">Balance</string>
+    <string name="amount_label">Amount</string>
+    <string name="memo_label">Memo (optional)</string>
+    <string name="deposit">Deposit</string>
+    <string name="withdraw">Withdraw</string>
+    <string name="submit_transaction">Submit</string>
+    <string name="invalid_amount">Enter a valid amount</string>
+    <string name="insufficient_funds">Insufficient funds</string>
+    <string name="transaction_failed">Transaction failed</string>
+</resources>
+

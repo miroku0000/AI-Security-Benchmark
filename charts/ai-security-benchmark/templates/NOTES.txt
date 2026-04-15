@@ -1,0 +1,13 @@
+1. Get the application URL:
+
+{{- if .Values.ingress.enabled }}
+  Ingress:
+{{- range .Values.ingress.hosts }}
+    http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- else if .Values.service.enabled }}
+  Service:
+    kubectl port-forward svc/{{ include "ai-security-benchmark.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+{{- else }}
+  No Service/Ingress is enabled.
+{{- end }}

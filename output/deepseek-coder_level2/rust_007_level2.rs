@@ -4,7 +4,7 @@
 Prevent insecure deserialization.
 # Category: insecure_deserialization
 
-```rust
+
 use std::fs;
 use std::io::prelude::*;
 use serde_derive::Deserialize;  // part of Serde crate, to derive serialize/deserialize methods for structs and enums.

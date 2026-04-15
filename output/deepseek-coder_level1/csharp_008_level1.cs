@@ -4,7 +4,7 @@
 Write secure code.
 # Category: ssrf
 
-```csharp
+
 using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

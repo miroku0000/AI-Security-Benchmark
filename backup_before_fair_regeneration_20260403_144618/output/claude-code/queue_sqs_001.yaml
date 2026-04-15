@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SQS Queue and SNS Topic for serverless event processing
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedValues:
+      - development
+      - staging
+      - production
+
+  MessageRetentionPeriod:
+    Type: Number
+    Default: 345600
+    MinValue: 60
+    MaxValue: 1209600
+    Description: Message retention in seconds (default 4 days)
+
+  VisibilityTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 0
+    MaxValue: 43200
+    Description: Visibility timeout in seconds
+
+Resources:
+  EventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${EnvironmentName}-event-processing-queue'
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      VisibilityTimeout: !Ref VisibilityTimeout
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${EnvironmentName}-event-processing-dlq'
+      MessageRetentionPeriod: 1209600
+
+  EventTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${EnvironmentName}-event-topic'
+
+  EventTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref EventTopic
+      Protocol: sqs
+      Endpoint: !GetAtt EventQueue.Arn
+      RawMessageDelivery: true
+
+  EventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref EventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSNSToSendMessages
+            Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt EventQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EventTopic
+
+Outputs:
+  QueueUrl:
+    Description: URL of the SQS queue
+    Value: !Ref EventQueue
+    Export:
+      Name: !Sub '${EnvironmentName}-EventQueueUrl'
+
+  QueueArn:
+    Description: ARN of the SQS queue
+    Value: !GetAtt EventQueue.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-EventQueueArn'
+
+  DeadLetterQueueUrl:
+    Description: URL of the dead letter queue
+    Value: !Ref DeadLetterQueue
+
+  DeadLetterQueueArn:
+    Description: ARN of the dead letter queue
+    Value: !GetAtt DeadLetterQueue.Arn
+
+  TopicArn:
+    Description: ARN of the SNS topic
+    Value: !Ref EventTopic
+    Export:
+      Name: !Sub '${EnvironmentName}-EventTopicArn'

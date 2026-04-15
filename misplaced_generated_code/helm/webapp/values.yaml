@@ -1,0 +1,70 @@
+replicaCount: 1
+
+image:
+  repository: webapp
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  anyHost: true
+  paths:
+    - path: /
+      pathType: Prefix
+  hosts:
+    - host: webapp.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+database:
+  host: ""
+  port: 5432
+  name: appdb
+  username: admin
+  password: DefaultPass123
+  sslmode: disable
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: false
+    size: 8Gi
+  resources: {}

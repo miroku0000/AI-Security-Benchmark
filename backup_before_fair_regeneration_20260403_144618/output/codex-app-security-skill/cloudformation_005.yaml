@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Secure-by-default EC2 instance with encrypted EBS application data volume and SSM access
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the instance
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for the instance
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t4g.small
+      - t4g.medium
+      - m6i.large
+      - m7i.large
+    Description: EC2 instance type
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: SSM parameter path for the AMI ID
+
+  RootVolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 8
+    MaxValue: 1024
+    Description: Root volume size in GiB
+
+  DataVolumeSize:
+    Type: Number
+    Default: 100
+    MinValue: 8
+    MaxValue: 16384
+    Description: Application data volume size in GiB
+
+  DataVolumeMountPath:
+    Type: String
+    Default: /srv/app-data
+    AllowedPattern: ^/[-A-Za-z0-9/_]+$
+    Description: Mount path for the application data volume
+
+  AssociatePublicIpAddress:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Whether to associate a public IP address
+
+Resources:
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: No-ingress security group with HTTPS-only egress
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: []
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIpv6: ::/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Role for SSM-managed EC2 access
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-role'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  ApplicationInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      Monitoring: true
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: !Ref AssociatePublicIpAddress
+          DeleteOnTermination: true
+          GroupSet:
+            - !Ref InstanceSecurityGroup
+          SubnetId: !Ref SubnetId
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpProtocolIpv6: disabled
+        HttpPutResponseHopLimit: 2
+        HttpTokens: required
+        InstanceMetadataTags: disabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref RootVolumeSize
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+
+          MOUNT_PATH='${DataVolumeMountPath}'
+          DEVICE=''
+
+          for i in $(seq 1 30); do
+            if [ -b /dev/nvme1n1 ]; then
+              DEVICE='/dev/nvme1n1'
+              break
+            fi
+            sleep 10
+          done
+
+          if [ -z "$DEVICE" ]; then
+            echo "Data volume device not found" >&2
+            exit 1
+          fi
+
+          if ! blkid "$DEVICE" >/dev/null 2>&1; then
+            mkfs.ext4 -F "$DEVICE"
+          fi
+
+          mkdir -p "$MOUNT_PATH"
+          UUID="$(blkid -s UUID -o value "$DEVICE")"
+
+          if ! grep -q "$UUID" /etc/fstab; then
+            echo "UUID=$UUID $MOUNT_PATH ext4 defaults,nofail 0 2" >> /etc/fstab
+          fi
+
+          mount -a
+          chown ec2-user:ec2-user "$MOUNT_PATH"
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-instance'
+
+  ApplicationDataVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: !GetAtt ApplicationInstance.AvailabilityZone
+      Encrypted: true
+      Size: !Ref DataVolumeSize
+      VolumeType: gp3
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-data'
+
+  ApplicationDataVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: /dev/sdh
+      InstanceId: !Ref ApplicationInstance
+      VolumeId: !Ref ApplicationDataVolume
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance ID
+    Value: !Ref ApplicationInstance
+
+  PrivateIp:
+    Description: Private IP address of the instance
+    Value: !GetAtt ApplicationInstance.PrivateIp
+
+  DataVolumeId:
+    Description: EBS volume ID for application data
+    Value: !Ref ApplicationDataVolume
+
+  SecurityGroupId:
+    Description: Security group attached to the instance
+    Value: !Ref InstanceSecurityGroup
+
+  DataMountPath:
+    Description: Mount path for the application data volume
+    Value: !Ref DataVolumeMountPath

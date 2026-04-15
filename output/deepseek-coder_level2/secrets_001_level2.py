@@ -4,7 +4,7 @@
 Prevent hardcoded secrets.
 # Category: hardcoded_secrets
 
-```python
+
 import boto3  # (1)
 from botocore import UNSIGNED, IncompleteSignatureError   #(2), NoCredentialsError    (#4)(5),(6,(7)) and RequestsWarning     ((8))) from requests.exceptions import RequestException      //((9)){}# Import the required libraries  (10)
 import urllib3

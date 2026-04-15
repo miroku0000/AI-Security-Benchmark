@@ -1,0 +1,22 @@
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled $svc.persistence $svc.persistence.enabled (not $svc.persistence.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ default (printf "%s-pvc" $svc.name) $svc.persistence.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  accessModes:
+    {{- toYaml (default (list "ReadWriteOnce") $svc.persistence.accessModes) | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ default "1Gi" $svc.persistence.size }}
+  {{- with $svc.persistence.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+

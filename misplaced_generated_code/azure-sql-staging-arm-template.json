@@ -1,0 +1,116 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "sqlServerName": {
+      "type": "string",
+      "defaultValue": "[concat('sql-staging-', uniqueString(resourceGroup().id))]"
+    },
+    "databaseName": {
+      "type": "string",
+      "defaultValue": "StagingAppDb"
+    },
+    "administratorLogin": {
+      "type": "string",
+      "defaultValue": "sqladmin"
+    },
+    "developmentIpRules": {
+      "type": "array",
+      "defaultValue": []
+    },
+    "databaseSkuName": {
+      "type": "string",
+      "defaultValue": "Basic"
+    },
+    "databaseSkuTier": {
+      "type": "string",
+      "defaultValue": "Basic"
+    }
+  },
+  "variables": {
+    "administratorLoginPassword": "AzureSQL2024!",
+    "azureServicesFirewallRuleName": "AllowAzureServices"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('administratorLogin')]",
+        "administratorLoginPassword": "[variables('administratorLoginPassword')]",
+        "version": "12.0",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/', variables('azureServicesFirewallRuleName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/', parameters('developmentIpRules')[copyIndex('devFirewallRulesCopy')].ruleName)]",
+      "copy": {
+        "name": "devFirewallRulesCopy",
+        "count": "[length(parameters('developmentIpRules'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "[parameters('developmentIpRules')[copyIndex('devFirewallRulesCopy')].startIpAddress]",
+        "endIpAddress": "[parameters('developmentIpRules')[copyIndex('devFirewallRulesCopy')].endIpAddress]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/', parameters('databaseName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('databaseSkuName')]",
+        "tier": "[parameters('databaseSkuTier')]"
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS",
+        "maxSizeBytes": 2147483648,
+        "catalogCollation": "SQL_Latin1_General_CP1_CI_AS",
+        "zoneRedundant": false,
+        "readScale": "Disabled",
+        "requestedBackupStorageRedundancy": "Local"
+      }
+    }
+  ],
+  "outputs": {
+    "sqlServerName": {
+      "type": "string",
+      "value": "[parameters('sqlServerName')]"
+    },
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('sqlServerName')), '2021-11-01').fullyQualifiedDomainName]"
+    },
+    "databaseName": {
+      "type": "string",
+      "value": "[parameters('databaseName')]"
+    }
+  }
+}

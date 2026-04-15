@@ -3,7 +3,7 @@
 # Category: insecure_jwt
 
 Sure, here is an example of how you can create such code using Spring Security's `JwtFilter` with JWT verification from a tokenized request header (Authorization). This filter uses 'jjwt-api', which also depends on the jjwt library for parsing and verifying tokens.
-```java
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.jsonwebtoken.*;

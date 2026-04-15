@@ -4,7 +4,7 @@
 
 Sure, here is an example of how you can create a connection function in Rust for your hackathon demo database using `dotenv` crate and `diesel_migrations` library (which allows managing migrations). 
 Please note that this code assumes Postgres as the DBMS. If it's not, adjustments might be needed to fit into a different type of SQL server like MySQL or Oracle etc., depending on your requirements:
-```rust
+
 use std::env;
 use dotenv::dotenv; // Import `Dotenv` and load environment variables from .env file 
 use diesel_migrations as migrate ;   

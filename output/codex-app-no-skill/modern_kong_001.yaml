@@ -1,0 +1,481 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: users-service
+    url: http://users-upstream
+    protocol: http
+    host: users-upstream
+    port: 80
+    path: /
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - name: users-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        paths:
+          - /users
+          - /users/
+        path_handling: v0
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+
+  - name: orders-service
+    url: http://orders-upstream
+    protocol: http
+    host: orders-upstream
+    port: 80
+    path: /
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - name: orders-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        paths:
+          - /orders
+          - /orders/
+        path_handling: v0
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+
+  - name: inventory-service
+    url: http://inventory-upstream
+    protocol: http
+    host: inventory-upstream
+    port: 80
+    path: /
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - name: inventory-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        paths:
+          - /inventory
+          - /inventory/
+        path_handling: v0
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+
+  - name: payments-service
+    url: http://payments-upstream
+    protocol: http
+    host: payments-upstream
+    port: 80
+    path: /
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - name: payments-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        paths:
+          - /payments
+          - /payments/
+        path_handling: v0
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+
+  - name: notifications-service
+    url: http://notifications-upstream
+    protocol: http
+    host: notifications-upstream
+    port: 80
+    path: /
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - name: notifications-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        paths:
+          - /notifications
+          - /notifications/
+        path_handling: v0
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+
+upstreams:
+  - name: users-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    slots: 10000
+    healthchecks:
+      active:
+        type: http
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+          http_statuses:
+            - 200
+            - 302
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        type: http
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+            - 302
+            - 304
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: users-v1.internal:8080
+        weight: 100
+      - target: users-v2.internal:8080
+        weight: 100
+
+  - name: orders-upstream
+    algorithm: least-connections
+    hash_on: none
+    hash_fallback: none
+    slots: 10000
+    healthchecks:
+      active:
+        type: http
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+          http_statuses:
+            - 200
+            - 302
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        type: http
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+            - 302
+            - 304
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: orders-v1.internal:8080
+        weight: 150
+      - target: orders-v2.internal:8080
+        weight: 50
+
+  - name: inventory-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    slots: 10000
+    healthchecks:
+      active:
+        type: http
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+          http_statuses:
+            - 200
+            - 302
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        type: http
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+            - 302
+            - 304
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: inventory-a.internal:8080
+        weight: 100
+      - target: inventory-b.internal:8080
+        weight: 100
+      - target: inventory-c.internal:8080
+        weight: 100
+
+  - name: payments-upstream
+    algorithm: consistent-hashing
+    hash_on: header
+    hash_on_header: x-customer-id
+    hash_fallback: ip
+    slots: 10000
+    healthchecks:
+      active:
+        type: http
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+          http_statuses:
+            - 200
+            - 302
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        type: http
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+            - 302
+            - 304
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: payments-a.internal:8080
+        weight: 100
+      - target: payments-b.internal:8080
+        weight: 100
+
+  - name: notifications-upstream
+    algorithm: round-robin
+    hash_on: none
+    hash_fallback: none
+    slots: 10000
+    healthchecks:
+      active:
+        type: http
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+          http_statuses:
+            - 200
+            - 302
+        unhealthy:
+          interval: 5
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        type: http
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+            - 302
+            - 304
+        unhealthy:
+          tcp_failures: 2
+          timeouts: 2
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: notifications-a.internal:8080
+        weight: 100
+      - target: notifications-b.internal:8080
+        weight: 100
+
+plugins:
+  - name: prometheus
+    enabled: true
+
+  - name: request-transformer
+    service: users-service
+    enabled: true
+    config:
+      add:
+        headers:
+          - "x-gateway: kong"
+
+  - name: request-transformer
+    service: orders-service
+    enabled: true
+    config:
+      add:
+        headers:
+          - "x-gateway: kong"
+
+  - name: request-transformer
+    service: inventory-service
+    enabled: true
+    config:
+      add:
+        headers:
+          - "x-gateway: kong"
+
+  - name: request-transformer
+    service: payments-service
+    enabled: true
+    config:
+      add:
+        headers:
+          - "x-gateway: kong"
+
+  - name: request-transformer
+    service: notifications-service
+    enabled: true
+    config:
+      add:
+        headers:
+          - "x-gateway: kong"

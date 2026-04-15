@@ -1,0 +1,19 @@
+[package]
+name = "fastly-unsafe-edge-processor"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+opt-level = 3
+debug = false
+
+[profile.release-wasm]
+inherits = "release"
+opt-level = "s"
+lto = true
+debug = false
+panic = "abort"
+
+[dependencies]
+fastly = "0.11"

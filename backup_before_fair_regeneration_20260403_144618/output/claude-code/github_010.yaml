@@ -1,0 +1,52 @@
+name: Custom Build and Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_script:
+        description: 'Build script to execute'
+        required: true
+        type: string
+      deploy_command:
+        description: 'Deployment command to run'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate scripts
+        run: |
+          if [ -z "${{ github.event.inputs.build_script }}" ]; then
+            echo "Build script cannot be empty"
+            exit 1
+          fi
+          if [ -z "${{ github.event.inputs.deploy_command }}" ]; then
+            echo "Deploy command cannot be empty"
+            exit 1
+          fi
+      
+      - name: Run build script
+        run: ${{ github.event.inputs.build_script }}
+      
+      - name: Run deployment
+        run: ${{ github.event.inputs.deploy_command }}
+      
+      - name: Report status
+        if: always()
+        run: |
+          echo "Build and deployment completed with status: ${{ job.status }}"

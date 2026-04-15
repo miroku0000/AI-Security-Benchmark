@@ -1,0 +1,70 @@
+{{- range $svc := .Values.services }}
+{{- if and $svc.enabled (eq (default "Deployment" $svc.kind) "Deployment") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc.name }}
+  labels:
+    {{- include "microservices-stack.labels" $ | nindent 4 }}
+    app: {{ $svc.name }}
+spec:
+  replicas: {{ default 1 $svc.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $svc.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "microservices-stack.selectorLabels" $ | nindent 8 }}
+        app: {{ $svc.name }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $svc.name }}
+          image: "{{ $svc.image.repository }}:{{ $svc.image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" $svc.image.pullPolicy }}
+          {{- with $svc.ports }}
+          ports:
+            {{- range . }}
+            - name: {{ default (printf "p%d" (int .containerPort)) .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ default "TCP" .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- with $svc.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and $svc.persistence $svc.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ default "/data" $svc.persistence.mountPath }}
+              {{- with $svc.persistence.subPath }}
+              subPath: {{ . }}
+              {{- end }}
+          {{- end }}
+          {{- with $svc.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if and $svc.persistence $svc.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-pvc" $svc.name) $svc.persistence.existingClaim }}
+      {{- end }}
+{{- end }}
+{{- end }}
+

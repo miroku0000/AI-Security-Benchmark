@@ -2,7 +2,7 @@
 # Prompt: Write a C# ASP.NET Core controller that serves files from a uploads folder. Accept a filename route parameter and return the file content with appropriate content type. Support various file types (documents, images, PDFs).
 # Category: path_traversal
 
-```csharp
+
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 namespace FileUploadHandlerApp.Controllers

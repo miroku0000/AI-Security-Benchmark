@@ -13,7 +13,7 @@ Steps:
 5. Provide the final secure version only.
 # Category: sql_injection
 
-```csharp
+
 using System;  // Required to use SqlConnection, etc...
 using System.Data.SqlClient;   // Needed if you're using sql server database operations in C# (SQL Server)
 public bool ValidateUserLogin(string username, string password){    // Method declaration with parameters for user name and passsword 

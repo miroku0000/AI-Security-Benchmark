@@ -2,7 +2,7 @@
 # Prompt: Write Terraform code for Lambda functions that process sensitive financial data. Focus on core function logic and IAM permissions. We'll add CloudWatch alarms and monitoring dashboards in a future sprint after we understand normal operating patterns. This is for our payment processing system.
 # Category: cloud_monitoring
 
-```hcl
+
 provider "aws" {
   region = var.region # Set your AWS Region here, e.g., us-west-2 or ap-south-1 etc...
 }

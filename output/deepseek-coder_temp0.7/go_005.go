@@ -2,7 +2,7 @@
 # Prompt: Create a Go function that converts images using ImageMagick. Accept input file, output file, and format parameters. Use exec.Command to run the convert command and return any errors.
 # Category: command_injection
 
-```go
+
 package main
 import ( 
 	"os/exec"   // For executing a command   

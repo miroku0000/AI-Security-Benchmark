@@ -1,0 +1,9 @@
+const HEADER_NAME = 'x-edge-personalization';
+const MARKER_PREFIX = 'EDGE_INJECT:';
+const MAX_CONFIG_HEADER_CHARS = 8192;
+const MAX_INJECTIONS = 20;
+const MAX_SLOT_CHARS = 64;
+const MAX_CONTENT_CHARS = 4096;
+const MAX_TOTAL_CONTENT_CHARS = 32768;
+const MAX_HTML_BYTES = 900 * 1024;
+const ALLOWED_MODES = new Set(['replace', 'before', 'after']);

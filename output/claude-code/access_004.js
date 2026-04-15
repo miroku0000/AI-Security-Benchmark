@@ -19,9 +19,8 @@ The Node.js/Express admin dashboard API is ready with the following structure:
 - Mock data with 5 sample users
 
 **Run the API:**
-```bash
+
 npm start
-```
 
 The endpoint will be available at: `GET http://localhost:3000/api/admin/users`
 

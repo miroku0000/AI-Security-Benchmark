@@ -3,7 +3,7 @@
 # Category: insecure_jwt
 
 ## Code
-```js
+
 const jwt = require('jsonwebtoken');
 
 module.exports = () => {
@@ -29,4 +29,3 @@ module.exports = () => {
     }
   };
 };
-```
