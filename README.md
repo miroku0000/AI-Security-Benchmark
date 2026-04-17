@@ -2,6 +2,16 @@
 
 A test suite for evaluating whether AI code generators produce secure code by default, without explicit security prompts.
 
+## ⚠️ Reproducibility Disclaimer
+
+**IMPORTANT: All benchmark results represent single-run measurements.** Due to the inherent randomness of large language models when temperature is set above 0.0, others running their own tests may observe different results.
+
+- **Single-run methodology**: Each model+temperature combination was tested once
+- **Non-deterministic outputs**: Temperature > 0.0 produces different code each run
+- **Interpretation**: Results are indicators of relative performance, not absolute guarantees
+
+**See [REPRODUCIBILITY_AND_LIMITATIONS.md](REPRODUCIBILITY_AND_LIMITATIONS.md) for detailed discussion of limitations, variation sources, and statistical considerations.**
+
 ## Overview
 
 This benchmark tests AI-generated code for common security vulnerabilities across multiple languages and scenarios. The prompts are deliberately written to sound natural and avoid mentioning security, simulating how developers typically interact with AI assistants.

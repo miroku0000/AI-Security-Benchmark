@@ -3,6 +3,16 @@
 **Generated:** 2026-04-14
 **Detectors Applied:** DNS rebinding detection (SSRF), HTTP Header Injection detector
 
+## ⚠️ Reproducibility Notice
+
+**All results represent single-run measurements.** Due to LLM non-determinism at temperature > 0.0:
+- Each configuration was tested **once** (not averaged across multiple runs)
+- **Run-to-run variation is expected but unmeasured** in this study
+- Results indicate **relative trends**, not absolute reproducible scores
+- Replication studies may observe different absolute scores, but temperature trends should persist
+
+See [REPRODUCIBILITY_AND_LIMITATIONS.md](REPRODUCIBILITY_AND_LIMITATIONS.md) for detailed discussion.
+
 ## Executive Summary
 
 After reanalyzing all 125 temperature/level variant configurations with improved security detectors:

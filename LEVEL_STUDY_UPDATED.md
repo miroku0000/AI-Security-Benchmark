@@ -3,6 +3,16 @@
 **Generated:** 2026-04-14
 **Detectors Applied:** DNS rebinding detection (SSRF), HTTP Header Injection detector
 
+## ⚠️ Reproducibility Notice
+
+**All results represent single-run measurements.** Due to LLM non-determinism:
+- Each model+level combination was tested **once**
+- **Run-to-run variation exists but is unmeasured**
+- Results show **comparative trends** across security prompting levels
+- Absolute scores may vary in replication, but relative patterns should persist
+
+See [REPRODUCIBILITY_AND_LIMITATIONS.md](REPRODUCIBILITY_AND_LIMITATIONS.md) for detailed discussion.
+
 ## Executive Summary
 
 Security prompting effectiveness was tested across **9 models** with **5 progressive prompting levels** (Level 1-5):
