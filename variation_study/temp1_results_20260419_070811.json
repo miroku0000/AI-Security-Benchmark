@@ -1,0 +1,713 @@
+[
+  {
+    "variant_id": "gpt-3.5-turbo_temp1.0",
+    "model": "gpt-3.5-turbo",
+    "temperature": 1.0,
+    "results": [
+      {
+        "run": 2,
+        "status": "skipped_complete"
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 1981.261539697647,
+        "log": "variation_study/gpt-3.5-turbo_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2128.6861798763275,
+        "log": "variation_study/gpt-3.5-turbo_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2113.3676750659943,
+        "log": "variation_study/gpt-3.5-turbo_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-4o_temp1.0",
+    "model": "gpt-4o",
+    "temperature": 1.0,
+    "results": [
+      {
+        "run": 2,
+        "status": "skipped_complete"
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2799.8223118782043,
+        "log": "variation_study/gpt-4o_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2922.9698357582092,
+        "log": "variation_study/gpt-4o_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2863.6011028289795,
+        "log": "variation_study/gpt-4o_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-5.4-mini_temp1.0",
+    "model": "gpt-5.4-mini",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4116.909877061844,
+        "log": "variation_study/gpt-5.4-mini_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4164.575114965439,
+        "log": "variation_study/gpt-5.4-mini_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 3739.516179084778,
+        "log": "variation_study/gpt-5.4-mini_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 3817.521245956421,
+        "log": "variation_study/gpt-5.4-mini_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-4o-mini_temp1.0",
+    "model": "gpt-4o-mini",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4363.930853128433,
+        "log": "variation_study/gpt-4o-mini_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4358.388079166412,
+        "log": "variation_study/gpt-4o-mini_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4282.351293087006,
+        "log": "variation_study/gpt-4o-mini_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4226.747003793716,
+        "log": "variation_study/gpt-4o-mini_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-4_temp1.0",
+    "model": "gpt-4",
+    "temperature": 1.0,
+    "results": [
+      {
+        "run": 2,
+        "status": "skipped_complete"
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 6057.311886072159,
+        "log": "variation_study/gpt-4_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5708.2978529930115,
+        "log": "variation_study/gpt-4_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5844.402218103409,
+        "log": "variation_study/gpt-4_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "codegemma_temp1.0",
+    "model": "codegemma",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4938.255815982819,
+        "log": "variation_study/codegemma_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4941.914752006531,
+        "log": "variation_study/codegemma_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5037.638799905777,
+        "log": "variation_study/codegemma_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5078.0526757240295,
+        "log": "variation_study/codegemma_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "codellama_temp1.0",
+    "model": "codellama",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5348.124526977539,
+        "log": "variation_study/codellama_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5632.279182195663,
+        "log": "variation_study/codellama_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5567.063335895538,
+        "log": "variation_study/codellama_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5173.42703294754,
+        "log": "variation_study/codellama_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-5.4_temp1.0",
+    "model": "gpt-5.4",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 8560.753525018692,
+        "log": "variation_study/gpt-5.4_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 10032.200316905975,
+        "log": "variation_study/gpt-5.4_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 9554.977177858353,
+        "log": "variation_study/gpt-5.4_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 9997.285984039307,
+        "log": "variation_study/gpt-5.4_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "deepseek-coder_temp1.0",
+    "model": "deepseek-coder",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 6702.846673250198,
+        "log": "variation_study/deepseek-coder_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 6186.059378862381,
+        "log": "variation_study/deepseek-coder_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5299.471656084061,
+        "log": "variation_study/deepseek-coder_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5839.249963998795,
+        "log": "variation_study/deepseek-coder_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gpt-5.2_temp1.0",
+    "model": "gpt-5.2",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 11628.435400009155,
+        "log": "variation_study/gpt-5.2_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 11719.934700965881,
+        "log": "variation_study/gpt-5.2_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 12161.839177846909,
+        "log": "variation_study/gpt-5.2_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 12489.158514022827,
+        "log": "variation_study/gpt-5.2_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "gemini-2.5-flash_temp1.0",
+    "model": "gemini-2.5-flash",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 12920.782203912735,
+        "log": "variation_study/gemini-2.5-flash_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 12856.591526031494,
+        "log": "variation_study/gemini-2.5-flash_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 13010.452746152878,
+        "log": "variation_study/gemini-2.5-flash_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 13132.756664037704,
+        "log": "variation_study/gemini-2.5-flash_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "claude-sonnet-4-5_temp1.0",
+    "model": "claude-sonnet-4-5",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 14894.013212919235,
+        "log": "variation_study/claude-sonnet-4-5_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 15298.311202764511,
+        "log": "variation_study/claude-sonnet-4-5_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 14868.625117063522,
+        "log": "variation_study/claude-sonnet-4-5_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 15488.012872934341,
+        "log": "variation_study/claude-sonnet-4-5_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "deepseek-coder_6.7b-instruct_temp1.0",
+    "model": "deepseek-coder_6.7b-instruct",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9918.990290880203,
+        "log": "variation_study/deepseek-coder_6.7b-instruct_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9920.067419290543,
+        "log": "variation_study/deepseek-coder_6.7b-instruct_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9926.178668022156,
+        "log": "variation_study/deepseek-coder_6.7b-instruct_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9926.816471099854,
+        "log": "variation_study/deepseek-coder_6.7b-instruct_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "llama3.1_temp1.0",
+    "model": "llama3.1",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4496.5834538936615,
+        "log": "variation_study/llama3.1_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4518.589859962463,
+        "log": "variation_study/llama3.1_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4313.301999092102,
+        "log": "variation_study/llama3.1_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 4579.972100019455,
+        "log": "variation_study/llama3.1_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "qwen2.5-coder_temp1.0",
+    "model": "qwen2.5-coder",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5976.306223154068,
+        "log": "variation_study/qwen2.5-coder_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 6055.79386806488,
+        "log": "variation_study/qwen2.5-coder_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5936.432606935501,
+        "log": "variation_study/qwen2.5-coder_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 6000.032400131226,
+        "log": "variation_study/qwen2.5-coder_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "mistral_temp1.0",
+    "model": "mistral",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 9348.493979930878,
+        "log": "variation_study/mistral_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 9167.223593950272,
+        "log": "variation_study/mistral_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 7981.139876127243,
+        "log": "variation_study/mistral_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 5437.752758741379,
+        "log": "variation_study/mistral_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "qwen2.5-coder_14b_temp1.0",
+    "model": "qwen2.5-coder_14b",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9937.084376096725,
+        "log": "variation_study/qwen2.5-coder_14b_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9965.475453138351,
+        "log": "variation_study/qwen2.5-coder_14b_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9965.183287143707,
+        "log": "variation_study/qwen2.5-coder_14b_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9963.490899801254,
+        "log": "variation_study/qwen2.5-coder_14b_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "qwen3-coder_30b_temp1.0",
+    "model": "qwen3-coder_30b",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9965.37169599533,
+        "log": "variation_study/qwen3-coder_30b_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9965.39238190651,
+        "log": "variation_study/qwen3-coder_30b_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9963.999991178513,
+        "log": "variation_study/qwen3-coder_30b_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 1,
+        "elapsed": 9940.266933918,
+        "log": "variation_study/qwen3-coder_30b_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "claude-opus-4-6_temp1.0",
+    "model": "claude-opus-4-6",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 34094.87935113907,
+        "log": "variation_study/claude-opus-4-6_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 33745.602658987045,
+        "log": "variation_study/claude-opus-4-6_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 33707.769713163376,
+        "log": "variation_study/claude-opus-4-6_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 33841.871743917465,
+        "log": "variation_study/claude-opus-4-6_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  },
+  {
+    "variant_id": "starcoder2_temp1.0",
+    "model": "starcoder2",
+    "temperature": 1.0,
+    "results": [
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2719.244183063507,
+        "log": "variation_study/starcoder2_temp1.0/run2/generation.log",
+        "run": 2
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2796.81342792511,
+        "log": "variation_study/starcoder2_temp1.0/run3/generation.log",
+        "run": 3
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2747.9436571598053,
+        "log": "variation_study/starcoder2_temp1.0/run4/generation.log",
+        "run": 4
+      },
+      {
+        "success": true,
+        "file_count": 731,
+        "elapsed": 2581.026521205902,
+        "log": "variation_study/starcoder2_temp1.0/run5/generation.log",
+        "run": 5
+      }
+    ],
+    "skipped": false
+  }
+]

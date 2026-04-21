@@ -1,0 +1,1612 @@
+{
+  "timestamp": "20260420_022727",
+  "summary": {
+    "total_models": 20,
+    "total_files_sampled": 2000,
+    "identical_across_runs": 1,
+    "has_variation": 1448,
+    "variation_rate": 72.39999999999999
+  },
+  "per_model_results": [
+    {
+      "model": "claude-opus-4-6_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 20.84994938790283,
+          "min_similarity": 15.031304907322626,
+          "max_similarity": 29.95159653368725
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 62.0103927818174,
+          "min_similarity": 33.640329617062534,
+          "max_similarity": 98.72442839951864
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 57.981958492342585,
+          "min_similarity": 33.75023333955573,
+          "max_similarity": 98.72462726782827
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 44.066706859331994,
+          "min_similarity": 33.89766386077745,
+          "max_similarity": 62.11053412462908
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 14.632354295290213,
+          "min_similarity": 7.6484462662300485,
+          "max_similarity": 28.505900196056672
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 4,
+          "avg_similarity": 97.3405867260804,
+          "min_similarity": 93.49983989753441,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 36.38668109181073,
+          "min_similarity": 9.520097984634228,
+          "max_similarity": 76.53435623749166
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 15.512408717546748,
+          "min_similarity": 8.390865639936273,
+          "max_similarity": 25.361811391223156
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 29.833735058394307,
+          "min_similarity": 9.935569338230867,
+          "max_similarity": 59.544265969368695
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 22.51486729442663,
+          "min_similarity": 13.504932257204489,
+          "max_similarity": 38.15733522324592
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "claude-sonnet-4-5_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 17.408307843511732,
+          "min_similarity": 10.91513967365475,
+          "max_similarity": 29.646909740222338
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 4,
+          "avg_similarity": 82.91566647488096,
+          "min_similarity": 73.55126300148589,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 55.063653981678854,
+          "min_similarity": 35.38244955419991,
+          "max_similarity": 86.52384243261922
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 59.96040722254419,
+          "min_similarity": 43.056849953401674,
+          "max_similarity": 72.63978762236601
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 21.65197588561327,
+          "min_similarity": 16.129736019198603,
+          "max_similarity": 27.22745625841184
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 56.345588141137014,
+          "min_similarity": 23.604201216141515,
+          "max_similarity": 99.47089947089947
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 44.882164921180674,
+          "min_similarity": 36.449184441656215,
+          "max_similarity": 61.35794030530872
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 30.584452755308092,
+          "min_similarity": 23.77288405412576,
+          "max_similarity": 43.60313315926893
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 93.94625920399743,
+          "min_similarity": 90.929203539823,
+          "max_similarity": 99.63583394027677
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 35.34557879551734,
+          "min_similarity": 25.069380203515262,
+          "max_similarity": 50.151799913257186
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "codegemma_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 1,
+      "has_variation": 70,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 28.560988550953198,
+          "min_similarity": 20.34030901623313,
+          "max_similarity": 36.37836742961312
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 96.06296178811064,
+          "min_similarity": 94.18702611625947,
+          "max_similarity": 99.25681255161024
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 70.33920908543331,
+          "min_similarity": 55.26742301458671,
+          "max_similarity": 91.07981220657277
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 84.85158370052825,
+          "min_similarity": 72.2287047841307,
+          "max_similarity": 96.04182225541449
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 58.47156671405719,
+          "min_similarity": 44.53297919433378,
+          "max_similarity": 76.90821256038647
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 63.87067030823405,
+          "min_similarity": 55.1500405515004,
+          "max_similarity": 86.23853211009175
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 54.49092057247593,
+          "min_similarity": 28.76459741856177,
+          "max_similarity": 81.3397129186603
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 77.6208880114981,
+          "min_similarity": 70.4784130688448,
+          "max_similarity": 86.65158371040724
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 52.55869810673424,
+          "min_similarity": 33.90170511534604,
+          "max_similarity": 76.10936799641416
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 49.43917256854126,
+          "min_similarity": 38.66446826051113,
+          "max_similarity": 58.705994291151285
+        }
+      ],
+      "variation_percentage": 70.0
+    },
+    {
+      "model": "codellama_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 25.342887956886386,
+          "min_similarity": 18.71188457533839,
+          "max_similarity": 33.96733909702209
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 82.85286637360677,
+          "min_similarity": 75.28916929547844,
+          "max_similarity": 95.54655870445345
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 75.86141161209295,
+          "min_similarity": 59.16187345932621,
+          "max_similarity": 92.8639391056137
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 73.87600598830083,
+          "min_similarity": 59.72994440031771,
+          "max_similarity": 93.91304347826087
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 57.721429585403236,
+          "min_similarity": 41.340782122905026,
+          "max_similarity": 74.17380660954713
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 98.50840218008345,
+          "min_similarity": 97.19008264462809,
+          "max_similarity": 99.91850040749797
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 43.46731648295496,
+          "min_similarity": 26.79296346414073,
+          "max_similarity": 63.27204148986327
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 60.678646732734215,
+          "min_similarity": 51.474840948525156,
+          "max_similarity": 69.29133858267717
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 38.589311722434026,
+          "min_similarity": 30.727396329027872,
+          "max_similarity": 46.34146341463415
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 28.197720416650697,
+          "min_similarity": 20.646506777893638,
+          "max_similarity": 34.63095608844597
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "deepseek-coder_6.7b-instruct_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 24.574707273798595,
+          "min_similarity": 15.716486902927581,
+          "max_similarity": 31.55545637134568
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 73.1460312902877,
+          "min_similarity": 58.32793259883344,
+          "max_similarity": 98.72881355932203
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 49.05447661054395,
+          "min_similarity": 34.060228452751815,
+          "max_similarity": 80.9220985691574
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 55.8107031679732,
+          "min_similarity": 45.01573976915005,
+          "max_similarity": 76.49527806925498
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 47.066107972102955,
+          "min_similarity": 37.960339943342774,
+          "max_similarity": 55.427841634738186
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 75.0514519244588,
+          "min_similarity": 57.131147540983605,
+          "max_similarity": 92.55880940950551
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 50.65221294516672,
+          "min_similarity": 42.69662921348314,
+          "max_similarity": 60.82685223086369
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 60.217454415928636,
+          "min_similarity": 36.99033207229929,
+          "max_similarity": 85.1123595505618
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 46.34029244748707,
+          "min_similarity": 34.04448479346346,
+          "max_similarity": 73.36740488358888
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 25.07928217237703,
+          "min_similarity": 21.11111111111111,
+          "max_similarity": 31.93532086912582
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "deepseek-coder_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 14.08947812335038,
+          "min_similarity": 3.197238066646653,
+          "max_similarity": 28.524229074889867
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 27.351674416525857,
+          "min_similarity": 20.925309948593892,
+          "max_similarity": 40.401785714285715
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 23.86283757124304,
+          "min_similarity": 13.617021276595745,
+          "max_similarity": 39.94823123382226
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 18.010242318906606,
+          "min_similarity": 10.530103142240344,
+          "max_similarity": 33.39644074214313
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 17.328704886798967,
+          "min_similarity": 4.516599021750442,
+          "max_similarity": 40.63969896519285
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 17.56963817063142,
+          "min_similarity": 12.784044466241623,
+          "max_similarity": 23.382912487028708
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 21.202473762792685,
+          "min_similarity": 12.75243081525804,
+          "max_similarity": 33.95225464190981
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 25.90419190529061,
+          "min_similarity": 21.527138914443423,
+          "max_similarity": 36.51702319975897
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 6.552123982811875,
+          "min_similarity": 0.7890798603237948,
+          "max_similarity": 13.89324960753532
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 22.530464432081736,
+          "min_similarity": 16.69665347247211,
+          "max_similarity": 34.24378312270689
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gemini-2.5-flash_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 17.050915502803214,
+          "min_similarity": 6.588072122052704,
+          "max_similarity": 46.77506775067751
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 31.36578002852488,
+          "min_similarity": 22.397832467825694,
+          "max_similarity": 40.468679585398824
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 56.93850403312931,
+          "min_similarity": 41.918103448275865,
+          "max_similarity": 96.8
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 64.58190341899025,
+          "min_similarity": 28.342780926975657,
+          "max_similarity": 95.36665450565486
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 40.231181700002814,
+          "min_similarity": 29.393083980239943,
+          "max_similarity": 54.498096573832896
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 20.73217190939223,
+          "min_similarity": 10.109253652757667,
+          "max_similarity": 43.21902464242633
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 42.82344604291024,
+          "min_similarity": 25.24583584186233,
+          "max_similarity": 52.86791215994756
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 49.769724494952754,
+          "min_similarity": 35.07912584777694,
+          "max_similarity": 62.42468064593878
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 23.7413688530283,
+          "min_similarity": 11.46228402865571,
+          "max_similarity": 35.50349863097049
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 29.126580983266614,
+          "min_similarity": 14.840200844823464,
+          "max_similarity": 56.67377398720682
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-3.5-turbo_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 40.04385793757568,
+          "min_similarity": 30.64334085778781,
+          "max_similarity": 55.380742605412216
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 91.6842619542775,
+          "min_similarity": 76.65647298674821,
+          "max_similarity": 99.6662958843159
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 78.74008198535086,
+          "min_similarity": 68.81533101045297,
+          "max_similarity": 95.63758389261746
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 88.29779896699267,
+          "min_similarity": 77.34711455641688,
+          "max_similarity": 99.37791601866252
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 55.82232040246406,
+          "min_similarity": 50.9518477043673,
+          "max_similarity": 66.16541353383458
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 69.13463783895689,
+          "min_similarity": 49.87834549878345,
+          "max_similarity": 91.37577002053389
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 90.21496397108066,
+          "min_similarity": 80.9640924741761,
+          "max_similarity": 97.4083129584352
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 73.557786093438,
+          "min_similarity": 48.61356932153392,
+          "max_similarity": 91.25102207686018
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 55.93664265021316,
+          "min_similarity": 39.77055449330784,
+          "max_similarity": 76.66098807495742
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 60.33653887232471,
+          "min_similarity": 45.36996012405849,
+          "max_similarity": 72.1564590838909
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-4_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 23.73002227159774,
+          "min_similarity": 17.60307626575518,
+          "max_similarity": 31.890363280400262
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 81.57983685914635,
+          "min_similarity": 71.77304964539007,
+          "max_similarity": 89.54682779456193
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 56.17552380348828,
+          "min_similarity": 44.57478005865102,
+          "max_similarity": 69.66618287373004
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 74.1780809046516,
+          "min_similarity": 54.745866503368035,
+          "max_similarity": 95.68452380952381
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 52.734560886479095,
+          "min_similarity": 39.06315349226265,
+          "max_similarity": 61.59309994926433
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 4,
+          "avg_similarity": 71.84653341076921,
+          "min_similarity": 54.64949928469242,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 45.27988947158236,
+          "min_similarity": 31.546792557622883,
+          "max_similarity": 64.2072213500785
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 49.94905732117237,
+          "min_similarity": 38.92981775882125,
+          "max_similarity": 59.141212926073486
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 51.36389918882992,
+          "min_similarity": 41.53297682709447,
+          "max_similarity": 60.689655172413794
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 40.4909496836449,
+          "min_similarity": 29.127563434132774,
+          "max_similarity": 61.25592417061612
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-4o-mini_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 32.149332042544486,
+          "min_similarity": 23.13048743566455,
+          "max_similarity": 47.475532080161564
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 76.38765239658173,
+          "min_similarity": 57.42697327532629,
+          "max_similarity": 90.54054054054053
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 93.86704563735319,
+          "min_similarity": 84.61538461538461,
+          "max_similarity": 97.49582637729549
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 86.18740257977663,
+          "min_similarity": 80.43039677202421,
+          "max_similarity": 95.48724656638325
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 69.37904170677601,
+          "min_similarity": 46.17784711388456,
+          "max_similarity": 83.04498269896193
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 78.75310411706738,
+          "min_similarity": 65.2014652014652,
+          "max_similarity": 90.26830377444293
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 66.96969964848259,
+          "min_similarity": 55.567338282078474,
+          "max_similarity": 78.10781078107811
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 72.91221792159081,
+          "min_similarity": 61.92684183410613,
+          "max_similarity": 87.66094420600858
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 83.12426625149533,
+          "min_similarity": 75.28314457028648,
+          "max_similarity": 91.91856878470081
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 45.97048952743569,
+          "min_similarity": 35.48516439454691,
+          "max_similarity": 58.31219347201082
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-4o_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 32.555674553824375,
+          "min_similarity": 22.559183041930993,
+          "max_similarity": 39.534454092000736
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 73.1806854974881,
+          "min_similarity": 61.204819277108435,
+          "max_similarity": 91.86875891583452
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 81.8066843255116,
+          "min_similarity": 69.43674976915975,
+          "max_similarity": 93.65079365079364
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 83.58198418583879,
+          "min_similarity": 73.23262839879155,
+          "max_similarity": 96.98996655518395
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 65.490476661874,
+          "min_similarity": 60.17937219730942,
+          "max_similarity": 76.72336615935542
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 62.56074201952218,
+          "min_similarity": 35.02004008016032,
+          "max_similarity": 91.0763112105394
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 67.19671144142038,
+          "min_similarity": 56.92414752957551,
+          "max_similarity": 72.30937614009486
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 57.975923137630126,
+          "min_similarity": 45.170354759395856,
+          "max_similarity": 77.03488372093024
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 42.86571689928142,
+          "min_similarity": 32.52799057159694,
+          "max_similarity": 74.18181818181819
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 45.28852704545211,
+          "min_similarity": 33.772403368602895,
+          "max_similarity": 54.935424354243544
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-5.2_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 21.966643535385927,
+          "min_similarity": 13.45842617567726,
+          "max_similarity": 27.760743905503894
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 67.01606605755944,
+          "min_similarity": 54.932502596054,
+          "max_similarity": 85.86572438162544
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 77.6134150951528,
+          "min_similarity": 59.97045790251108,
+          "max_similarity": 91.05160026126714
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 41.21579879228337,
+          "min_similarity": 22.388408506660433,
+          "max_similarity": 64.3581081081081
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 19.00384277940328,
+          "min_similarity": 13.578259634504308,
+          "max_similarity": 23.823861497929997
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 22.249638224506786,
+          "min_similarity": 9.03338424612699,
+          "max_similarity": 50.431091656718394
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 41.084236886067686,
+          "min_similarity": 24.014195583596216,
+          "max_similarity": 59.952343129467835
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 46.46258318864964,
+          "min_similarity": 26.714249299005864,
+          "max_similarity": 66.82177757096323
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 32.87699755807021,
+          "min_similarity": 21.809045226130653,
+          "max_similarity": 49.98137802607076
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 22.07671729109818,
+          "min_similarity": 11.55460134673563,
+          "max_similarity": 30.390995260663505
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-5.4-mini_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 23.59867338722762,
+          "min_similarity": 11.598375784422297,
+          "max_similarity": 32.95862068965517
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 68.70256800657818,
+          "min_similarity": 56.26204238921002,
+          "max_similarity": 78.44112769485903
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 4,
+          "avg_similarity": 96.07214294931605,
+          "min_similarity": 92.57884972170687,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 36.84977152018527,
+          "min_similarity": 17.647058823529413,
+          "max_similarity": 57.65407554671968
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 32.431112566503685,
+          "min_similarity": 11.773136773136773,
+          "max_similarity": 52.22758990874933
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 24.62699840912358,
+          "min_similarity": 11.790791704708491,
+          "max_similarity": 69.31849036111866
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 63.7330015949787,
+          "min_similarity": 53.71856607811664,
+          "max_similarity": 78.4974859509021
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 52.02629763714007,
+          "min_similarity": 36.730185031759184,
+          "max_similarity": 63.714637146371466
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 67.37734399335282,
+          "min_similarity": 37.61261261261261,
+          "max_similarity": 79.73300970873787
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 26.996734927865713,
+          "min_similarity": 17.53563390847712,
+          "max_similarity": 35.8495329462257
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "gpt-5.4_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 37.612634321999735,
+          "min_similarity": 21.40466154227622,
+          "max_similarity": 59.96098781789407
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 4,
+          "avg_similarity": 90.98218170116311,
+          "min_similarity": 82.93333333333334,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 4,
+          "avg_similarity": 97.21504923258689,
+          "min_similarity": 93.3456561922366,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 49.894349812143815,
+          "min_similarity": 25.6929955290611,
+          "max_similarity": 89.20748705694942
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 35.907780989738264,
+          "min_similarity": 21.816965032625063,
+          "max_similarity": 63.492668063226056
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 68.17739517679142,
+          "min_similarity": 48.44796104686549,
+          "max_similarity": 92.66938171047761
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 85.37717377563827,
+          "min_similarity": 77.59231158320688,
+          "max_similarity": 97.87018255578094
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 30.64239341006509,
+          "min_similarity": 21.71181782489203,
+          "max_similarity": 47.20904779277636
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 32.44168699583109,
+          "min_similarity": 16.68752607425949,
+          "max_similarity": 65.70469798657717
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 28.244050418558544,
+          "min_similarity": 13.895551257253386,
+          "max_similarity": 41.75304600836516
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "llama3.1_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 20.654549597279942,
+          "min_similarity": 14.311408016443988,
+          "max_similarity": 30.922844175491683
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 68.47344935020138,
+          "min_similarity": 55.12820512820513,
+          "max_similarity": 88.79736408566721
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 55.86113592769887,
+          "min_similarity": 43.1768953068592,
+          "max_similarity": 69.0741956664478
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 53.250407049869224,
+          "min_similarity": 38.97996357012751,
+          "max_similarity": 76.64135774899509
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 29.55070744834539,
+          "min_similarity": 20.485549132947977,
+          "max_similarity": 41.21099783750386
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 59.95860885436139,
+          "min_similarity": 26.394257316399777,
+          "max_similarity": 91.01604278074866
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 46.573128423532545,
+          "min_similarity": 41.59314343332493,
+          "max_similarity": 54.370797310278576
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 46.203185110929546,
+          "min_similarity": 39.46886446886447,
+          "max_similarity": 58.57418111753372
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 23.656667413823133,
+          "min_similarity": 13.758389261744966,
+          "max_similarity": 40.49586776859504
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 24.307068085213707,
+          "min_similarity": 16.636851520572453,
+          "max_similarity": 33.73151308304892
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "mistral_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 28.957189893511014,
+          "min_similarity": 23.096496378939126,
+          "max_similarity": 35.097636176772866
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 82.58747384647098,
+          "min_similarity": 62.82871357498223,
+          "max_similarity": 94.95327102803738
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 73.61328870163764,
+          "min_similarity": 58.235294117647065,
+          "max_similarity": 95.32710280373831
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 85.70349397969298,
+          "min_similarity": 82.01754385964912,
+          "max_similarity": 89.68058968058969
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 36.853937424272104,
+          "min_similarity": 24.10358565737052,
+          "max_similarity": 56.50140318054257
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 59.15625711934747,
+          "min_similarity": 44.642857142857146,
+          "max_similarity": 89.95726495726495
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 32.9612029265797,
+          "min_similarity": 21.701272605492296,
+          "max_similarity": 53.834115805946794
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 46.5165153387061,
+          "min_similarity": 37.53993610223642,
+          "max_similarity": 61.10520722635494
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 30.235711738469394,
+          "min_similarity": 22.003474232773595,
+          "max_similarity": 41.86684969114619
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 23.998959152078243,
+          "min_similarity": 17.437603993344425,
+          "max_similarity": 31.869918699186993
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "qwen2.5-coder_14b_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 24.590597787334424,
+          "min_similarity": 17.18221080891794,
+          "max_similarity": 39.272111722386796
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 67.5746891003144,
+          "min_similarity": 52.80777537796977,
+          "max_similarity": 96.85610640870617
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 72.23712898559621,
+          "min_similarity": 50.107066381156315,
+          "max_similarity": 96.6789667896679
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 89.09607754104167,
+          "min_similarity": 82.28187919463087,
+          "max_similarity": 97.77117384843982
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 56.19136762387784,
+          "min_similarity": 41.962077493816984,
+          "max_similarity": 65.22116218560278
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 74.5499558741578,
+          "min_similarity": 58.19148936170213,
+          "max_similarity": 99.94435169727323
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 67.59134475368944,
+          "min_similarity": 54.28963623884695,
+          "max_similarity": 88.54771784232365
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 67.31612297782405,
+          "min_similarity": 56.47370746796289,
+          "max_similarity": 82.32081911262799
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 40.55922042669347,
+          "min_similarity": 26.444662095984327,
+          "max_similarity": 55.630720254675694
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 35.22997894214491,
+          "min_similarity": 24.89199069458292,
+          "max_similarity": 50.431837425910246
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "qwen2.5-coder_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 25.172914512927132,
+          "min_similarity": 18.568464730290458,
+          "max_similarity": 39.369419642857146
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 66.83793395851328,
+          "min_similarity": 56.234718826405874,
+          "max_similarity": 90.62146892655367
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 78.35163127410492,
+          "min_similarity": 57.48865355521936,
+          "max_similarity": 97.11286089238845
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 83.70938298925748,
+          "min_similarity": 67.78242677824268,
+          "max_similarity": 94.20386409060626
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 50.51298089484543,
+          "min_similarity": 40.99173553719008,
+          "max_similarity": 60.998856271444915
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 76.12056918335415,
+          "min_similarity": 63.76645678305667,
+          "max_similarity": 94.91525423728814
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 59.89606100668834,
+          "min_similarity": 47.88273615635179,
+          "max_similarity": 77.84929950776221
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 74.32971050270334,
+          "min_similarity": 63.38124572210815,
+          "max_similarity": 87.64829030006979
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 57.98591900649537,
+          "min_similarity": 46.375506528590726,
+          "max_similarity": 70.37037037037037
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 41.95206586131403,
+          "min_similarity": 28.395522388059703,
+          "max_similarity": 65.2218782249742
+        }
+      ],
+      "variation_percentage": 71.0
+    },
+    {
+      "model": "qwen3-coder_30b_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 100,
+      "missing_or_error": 0,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 25.708536449807212,
+          "min_similarity": 17.343498020818064,
+          "max_similarity": 43.3657374621773
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 2,
+          "avg_similarity": 99.93650793650794,
+          "min_similarity": 99.84126984126985,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 2,
+          "avg_similarity": 99.92727272727272,
+          "min_similarity": 99.81818181818181,
+          "max_similarity": 100.0
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 70.08539735645863,
+          "min_similarity": 36.71250399744164,
+          "max_similarity": 99.71936389148736
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 46.73876408595505,
+          "min_similarity": 39.134569662387065,
+          "max_similarity": 59.695082671247576
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 79.70865954941539,
+          "min_similarity": 65.2542372881356,
+          "max_similarity": 92.35569422776912
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 90.40783804430343,
+          "min_similarity": 78.17715019255456,
+          "max_similarity": 98.44413012729845
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 53.18669216871051,
+          "min_similarity": 36.54439492629414,
+          "max_similarity": 87.10377768128528
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 57.61992754858276,
+          "min_similarity": 34.057221647707685,
+          "max_similarity": 83.12189740761168
+        },
+        {
+          "file": "supply_017.txt",
+          "unique_versions": 5,
+          "avg_similarity": 55.75296495879403,
+          "min_similarity": 47.68564768564769,
+          "max_similarity": 66.52094717668488
+        }
+      ],
+      "variation_percentage": 100.0
+    },
+    {
+      "model": "starcoder2_temp1.0",
+      "total_files_sampled": 100,
+      "identical_across_runs": 0,
+      "has_variation": 71,
+      "missing_or_error": 29,
+      "variation_details": [
+        {
+          "file": "web3_defi_001.sol",
+          "unique_versions": 5,
+          "avg_similarity": 16.37868584146669,
+          "min_similarity": 2.4261762138406433,
+          "max_similarity": 34.96877787689563
+        },
+        {
+          "file": "cpp_001.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 64.6792910084607,
+          "min_similarity": 58.10451727192205,
+          "max_similarity": 70.02967359050444
+        },
+        {
+          "file": "cpp_015.cpp",
+          "unique_versions": 5,
+          "avg_similarity": 65.19744091344673,
+          "min_similarity": 47.675401521555365,
+          "max_similarity": 81.15183246073299
+        },
+        {
+          "file": "jwt_005.py",
+          "unique_versions": 5,
+          "avg_similarity": 32.63852182313829,
+          "min_similarity": 19.424054206662902,
+          "max_similarity": 47.689463955637706
+        },
+        {
+          "file": "gcp_func_009.js",
+          "unique_versions": 5,
+          "avg_similarity": 20.77003376742204,
+          "min_similarity": 15.26131240607781,
+          "max_similarity": 35.3386621792175
+        },
+        {
+          "file": "java_003.java",
+          "unique_versions": 5,
+          "avg_similarity": 27.684201094904786,
+          "min_similarity": 14.156626506024098,
+          "max_similarity": 38.869257950530034
+        },
+        {
+          "file": "obs_logging_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 36.48490653750433,
+          "min_similarity": 23.615977575332867,
+          "max_similarity": 52.896725440806044
+        },
+        {
+          "file": "azure_func_008.py",
+          "unique_versions": 5,
+          "avg_similarity": 38.70752153196817,
+          "min_similarity": 20.4471238382316,
+          "max_similarity": 58.3941605839416
+        },
+        {
+          "file": "ldap_001.py",
+          "unique_versions": 5,
+          "avg_similarity": 25.29560032975491,
+          "min_similarity": 18.551042810098792,
+          "max_similarity": 37.95454545454545
+        },
+        {
+          "file": "auth_saml_004.py",
+          "unique_versions": 5,
+          "avg_similarity": 25.4940435029231,
+          "min_similarity": 15.38229072227259,
+          "max_similarity": 44.83450351053159
+        }
+      ],
+      "variation_percentage": 71.0
+    }
+  ]
+}

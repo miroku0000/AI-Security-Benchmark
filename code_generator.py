@@ -224,6 +224,27 @@ class CodeGenerator:
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
 
+    def _convert_model_name_for_ollama(self, model: str) -> str:
+        """Convert model name from directory format to Ollama format.
+
+        Directory names use underscores (e.g., deepseek-coder_6.7b-instruct)
+        but Ollama expects colons (e.g., deepseek-coder:6.7b-instruct).
+        """
+        # Handle specific model variants that need underscore-to-colon conversion
+        # Pattern: {base-model}_{version} -> {base-model}:{version}
+        conversions = {
+            'deepseek-coder_6.7b-instruct': 'deepseek-coder:6.7b-instruct',
+            'qwen2.5-coder_14b': 'qwen2.5-coder:14b',
+            'qwen3-coder_30b': 'qwen3-coder:30b',
+        }
+
+        # Check if model needs conversion
+        if model in conversions:
+            return conversions[model]
+
+        # Return as-is if no conversion needed
+        return model
+
     def _generate_ollama(self, prompt: str, language: str) -> Optional[str]:
         """Generate code using Ollama with temperature support."""
         enhanced_prompt = f"""Generate {language} code for the following requirement.
@@ -233,13 +254,16 @@ Requirement: {prompt}
 
 Code:"""
 
+        # Convert model name to Ollama format
+        ollama_model = self._convert_model_name_for_ollama(self.model)
+
         try:
             # Try to use ollama Python library for temperature support
             try:
                 import ollama
 
                 response = ollama.generate(
-                    model=self.model,
+                    model=ollama_model,
                     prompt=enhanced_prompt,
                     options={
                         'temperature': self.temperature,
@@ -261,7 +285,7 @@ Code:"""
                 logger.warning("Falling back to subprocess method without temperature control")
 
                 result = subprocess.run(
-                    ['ollama', 'run', self.model],
+                    ['ollama', 'run', ollama_model],
                     input=enhanced_prompt,
                     capture_output=True,
                     text=True,

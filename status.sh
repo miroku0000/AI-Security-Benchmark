@@ -630,6 +630,91 @@ if levels_dirs:
 
         print()
 
+# Variation Study Section
+variation_dirs = {}
+variation_dir = Path("variation_study_temp1.0")
+if variation_dir.exists() and variation_dir.is_dir():
+    # Count files in each run directory
+    for run_dir in variation_dir.glob("*_run*"):
+        if run_dir.is_dir():
+            # Extract model name and run number
+            # Format: {model}_run{N} e.g., "claude-sonnet-4-5_run1"
+            dir_name = run_dir.name
+            match = dir_name.rsplit('_run', 1)
+            if len(match) == 2:
+                model_name = match[0]
+                run_number = match[1]
+                if model_name not in variation_dirs:
+                    variation_dirs[model_name] = {}
+                variation_dirs[model_name][run_number] = {
+                    'path': str(run_dir),
+                    'files': get_file_count(run_dir)
+                }
+
+if variation_dirs:
+    print("=" * 90)
+    print("🔬 VARIATION STUDY (Temperature 1.0 Run-to-Run Variation)")
+    print("-" * 90)
+
+    variation_total_files = 0
+    variation_total_expected = 0
+    runs_per_model = 5  # Expected 5 runs per model
+    prompts_per_run = 3  # 3 prompts being tested
+
+    for model_name in sorted(variation_dirs.keys()):
+        runs = variation_dirs[model_name]
+
+        # Display model header
+        print(f"  📊 {model_name}")
+
+        # Calculate progress for this model
+        model_files = sum(r['files'] for r in runs.values())
+        model_expected = runs_per_model * prompts_per_run
+        model_pct = (model_files / model_expected * 100) if model_expected > 0 else 0
+
+        variation_total_files += model_files
+        variation_total_expected += model_expected
+
+        # Show compact bar
+        bar = progress_bar(model_files, model_expected, 30)
+
+        # Count completed runs (runs with all 3 files)
+        completed_runs = sum(1 for r in runs.values() if r['files'] >= prompts_per_run)
+
+        print(f"    {bar} ({completed_runs}/{runs_per_model} runs complete)")
+
+        # Show individual runs if in progress
+        if completed_runs < runs_per_model:
+            for run_num in sorted([int(r) for r in runs.keys()]):
+                run_str = str(run_num)
+                if run_str in runs:
+                    run_info = runs[run_str]
+                    run_files = run_info['files']
+                    if run_files < prompts_per_run:
+                        print(f"      Run {run_num}: {run_files}/{prompts_per_run} files")
+
+        print()
+
+    # Variation study summary
+    if variation_total_expected > 0:
+        variation_percentage = (variation_total_files / variation_total_expected * 100)
+        completed_combinations = sum(1 for runs in variation_dirs.values() for r in runs.values() if r['files'] >= prompts_per_run)
+        total_combinations = len(variation_dirs) * runs_per_model
+
+        print("-" * 90)
+        print(f"  {'Variation Study Total':25s} {variation_total_files:5d}/{variation_total_expected:5d} ({variation_percentage:5.1f}%)")
+        print(f"  {'Models being tested':25s} {len(variation_dirs)}")
+        print(f"  {'Completed runs':25s} {completed_combinations}/{total_combinations}")
+
+        if variation_total_files >= variation_total_expected:
+            print(f"  {'✅ Status':25s} Variation study complete!")
+        elif variation_total_files > 0:
+            # Check for variation study log file
+            if Path("variation_study_run.log").exists():
+                print(f"  {'📝 Log file':25s} variation_study_run.log")
+
+        print()
+
 print("=" * 90)
 print("📈 CATEGORY SUMMARIES")
 print("-" * 90)
