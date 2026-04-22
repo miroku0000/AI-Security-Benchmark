@@ -24,7 +24,7 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── runner.py                            # Security test runner
 ├── cache_manager.py                     # Generation cache
 ├── benchmark_config.yaml                # Model and run configuration
-├── prompts/prompts.yaml                 # 452 test prompts (140 web/API, 59 mobile, 125 infrastructure, 58 serverless/edge, 55 language expansion, 15 emerging platforms)
+├── prompts/prompts.yaml                 # 730 test prompts (comprehensive coverage across web/API, mobile, cloud infrastructure, serverless, edge, modern observability, and 35+ programming languages)
 ├── tests/                               # 35+ security detector modules
 ├── utils/                               # HTML report generation, schema, helpers
 ├── analysis/                            # Analysis scripts (temperature impact, etc.)
@@ -305,7 +305,7 @@ Comprehensive language coverage for major web and DevOps ecosystems:
 - Race conditions (insecure temp files)
 - Insecure permissions (chmod 777)
 
-**Total:** 452 prompts across 19 languages/formats (Python, JavaScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, TypeScript, Terraform/HCL, Dockerfile, YAML, PHP, Ruby, Bash/Shell, WASM/Rust)
+**Total:** 730 prompts across 35+ languages/formats covering Python, JavaScript/TypeScript, Java, Kotlin, C#, C++, Go, Rust, Swift, Dart, Groovy, PHP, Ruby, Bash/Shell, Solidity, Lua, Elixir, Scala, Perl, and infrastructure-as-code (Terraform/HCL, CloudFormation, Azure ARM, GCP Deployment Manager, Kubernetes, Docker, Helm), CI/CD (GitHub Actions, GitLab CI, Jenkins), and edge platforms (Cloudflare Workers, Deno Deploy, Vercel, Lambda@Edge, Fastly Compute)
 
 **Phase 4 Additions (80 prompts):**
 - **Multi-Cloud Expansion (45 prompts):** Azure ARM Templates (15), Azure Functions (10), GCP Deployment Manager (10), GCP Cloud Functions (10)
@@ -327,7 +327,7 @@ cd AI-Security-Benchmark
 
 The repository includes pre-generated code for 22 base AI models tested across 26 configurations (plus 400+ temperature/security-level variants), so you can skip this step if you only want to run security tests on existing code.
 
-**Note:** Existing pre-generated code covers the original 199 prompts (140 web/API + 59 mobile). The expanded 253 prompts (125 infrastructure security + 58 serverless/edge + 55 language expansion + 15 depth enhancement) cover Terraform, Dockerfile, GitHub Actions, Kubernetes, Helm, CloudFormation, Azure ARM Templates, GCP Deployment Manager, GitLab CI, Jenkins, AWS Lambda, Azure Functions, GCP Cloud Functions, Cloudflare Workers, Deno Deploy, Vercel Edge Functions, Lambda@Edge, Fastly Compute@Edge, GraphQL APIs, PHP, Ruby, TypeScript, Bash, and C/C++ memory safety. These require code generation to test AI models on these critical domains across multiple clouds, edge platforms, and languages.
+**Note:** The benchmark includes 730 prompts covering web/API security, mobile security (OWASP MASVS), cloud infrastructure (AWS/Azure/GCP), serverless computing, edge platforms, message queues, observability, authentication protocols (OAuth/OIDC/SAML), smart contracts, gaming security, IoT/embedded systems, and memory safety across 35+ programming languages and formats. Code generation is required to test AI models across these comprehensive security domains.
 
 To generate new code, add your keys to your shell profile so they persist:
 
@@ -451,7 +451,7 @@ agent --version
 # Quick test (5 prompts)
 python3 scripts/test_cursor.py --limit 5
 
-# Full benchmark (all 140 prompts)
+# Full benchmark (all 730 prompts)
 python3 scripts/test_cursor.py
 
 # With custom timeout
@@ -555,7 +555,7 @@ python3 auto_benchmark.py --model claude-opus-4-6
 
 The `--all` command runs API models (OpenAI, Anthropic) in parallel and Ollama models sequentially, generates HTML reports, and prints a final summary table. It is resumable — re-running picks up where it left off using cached results.
 
-Failed prompts are automatically retried 3 times. Models that don't generate all 140 files are listed separately as incomplete.
+Failed prompts are automatically retried 3 times. Models that don't generate all 730 files are listed separately as incomplete.
 
 **Note**: Ollama will automatically start if it's not running. See [docs/AUTO_START.md](docs/AUTO_START.md) for details.
 
@@ -724,7 +724,7 @@ Add new prompts and tests to expand coverage:
 
 ### Currently Benchmarked Models
 
-**26 test configurations** covering 22 base AI models on 350-point security benchmark (140 prompts across 7 programming languages).
+**26 test configurations** covering 22 base AI models on comprehensive security benchmark (730 prompts across 35+ programming languages and infrastructure formats).
 
 **Configuration breakdown:**
 - **13 API models** - Direct API access (OpenAI, Anthropic, Google)
