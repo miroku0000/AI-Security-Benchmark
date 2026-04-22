@@ -25,6 +25,7 @@ wheels/
 
 # Cache and temporary files
 .generation_cache.json
+.generation_progress.json
 *.log
 nohup.out
 
