@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3 runner.py --code-dir output/codex-app-security-skill --model codex-app-security-skill --output reports/codex-app-security-skill.json)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}
