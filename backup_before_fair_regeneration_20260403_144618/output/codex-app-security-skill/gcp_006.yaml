@@ -1,4 +1,0 @@
-storage_class = properties.get("storageClass", "STANDARD")
-    if not isinstance(storage_class, str) or not storage_class.strip():
-        raise ValueError('Property "storageClass" must be a non-empty string.')
-    storage_class = storage_class.strip().upper()

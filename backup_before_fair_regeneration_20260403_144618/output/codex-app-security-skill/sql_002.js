@@ -1,9 +1,0 @@
-const DB_HOST = process.env.DB_HOST || '127.0.0.1';
-const DB_PORT = Number.parseInt(process.env.DB_PORT || '3306', 10);
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'app';
-const DB_CONNECTION_LIMIT = Number.parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10);
-const TRUST_PROXY = process.env.TRUST_PROXY;
-const SEARCH_LIMIT_DEFAULT = Number.parseInt(process.env.SEARCH_LIMIT_DEFAULT || '20', 10);
-const SEARCH_LIMIT_MAX = Number.parseInt(process.env.SEARCH_LIMIT_MAX || '50', 10);

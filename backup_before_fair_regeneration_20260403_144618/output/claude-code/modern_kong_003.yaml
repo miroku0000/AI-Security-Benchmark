@@ -1,9 +1,0 @@
-Created `kong-plugins.yml` — a Kong declarative config with:
-
-- **Global plugins**: CORS (multi-origin), key-auth, and rate limiting (60/min, 1000/hr)
-- **web-api service**: JWT auth, relaxed rate limits (120/min), with a public route that disables auth and tightens rate limits
-- **admin-api service**: OAuth2 auth, restricted CORS (admin origin only), stricter rate limits (30/min)
-- **webhook-service**: HMAC auth with body validation, POST-only, tightest rate limits (10/min)
-- **Consumers**: Per-consumer rate limit overrides and credential references via environment variables
-
-Apply with: `kong config db_import kong-plugins.yml` (database mode) or use as the declarative config file in DB-less mode.

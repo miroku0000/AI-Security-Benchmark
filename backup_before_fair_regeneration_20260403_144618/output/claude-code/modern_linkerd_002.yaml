@@ -1,9 +1,0 @@
-Written to `output/linkerd-zero-trust-mesh.yaml`. The manifest defines a zero-trust Linkerd service mesh with:
-
-- **Namespace** with `default-inbound-policy: deny` — all traffic blocked unless explicitly allowed
-- **7 ServiceAccounts** — one per microservice for identity
-- **8 Servers** — port-based listeners (HTTP/2, gRPC, HTTP/1 for health)
-- **8 ServerAuthorizations** — service-account-based mTLS rules defining the allowed communication graph
-- **3 HTTPRoutes + AuthorizationPolicies** — fine-grained route-level authorization for sensitive endpoints (payment charges, user validation)
-- **MeshTLSAuthentication** resources binding SPIFFE-style identities
-- **NetworkAuthentication** restricting health probe source CIDRs

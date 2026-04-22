@@ -1,1 +1,0 @@
-class OrderRepository @Inject()(db: Database)(implicit ec: ExecutionContext)

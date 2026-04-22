@@ -1,9 +1,0 @@
-Flask>=2.0
-requests>=2.28
-SQLAlchemy>=1.4
-celery>=5.2
-redis>=4.0
-boto3>=1.26
-company-auth
-company-utils
-company-config

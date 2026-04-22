@@ -1,1 +1,0 @@
-The full project is under kafka-event-streaming/ with the same sources as delivered in the chat.

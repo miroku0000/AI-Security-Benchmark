@@ -1,7 +1,0 @@
-aws_region       = "us-east-1"
-project_name     = "core"
-environment      = "dev"
-ec2_key_name     = "my-keypair"
-allowed_ssh_cidr = "203.0.113.10/32"
-db_username      = "appuser"
-db_password      = "change-me-strong-password"

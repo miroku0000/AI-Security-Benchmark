@@ -1,6 +1,0 @@
-Created `k8s-manifests/istio-egress-config.yaml` with:
-
-- **7 ServiceEntry** resources for external hosts: Stripe, Twilio, SendGrid, RDS Postgres, ElastiCache Redis, Datadog, and Auth0 — all with DNS resolution and `MESH_EXTERNAL` location
-- **7 VirtualService** resources with TLS SNI matching for HTTPS services and TCP matching for database/cache connections, all scoped with `exportTo: ["."]` to limit visibility to the production namespace
-- **6 DestinationRule** resources configuring TLS origination (`mode: SIMPLE`), connection pooling limits, and outlier detection for circuit breaking
-- **5 AuthorizationPolicy** resources restricting which service accounts can reach each external host (e.g., only `payment-service` and `order-service` can call Stripe, only `notification-service` can call Twilio)

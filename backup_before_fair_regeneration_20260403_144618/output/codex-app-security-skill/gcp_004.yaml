@@ -1,9 +1,0 @@
-def GenerateConfig(context):
-    project_id = _get_project_id(context)
-    service_account_id = _get_required_string(context, "serviceAccountId")
-    display_name = context.properties.get("displayName", "CI/CD Deployment Manager")
-    description = context.properties.get(
-        "description",
-        "Service account for CI/CD deployments with explicitly scoped IAM roles.",
-    )
-    roles = _validate_roles(context.properties.get("roles", []))

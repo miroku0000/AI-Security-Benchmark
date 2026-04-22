@@ -1,6 +1,0 @@
-curl --fail --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer ${STAGING_DEPLOY_TOKEN}" \
-            --header "Content-Type: application/json" \
-            --data "{\"sha\":\"${GITHUB_SHA}\",\"ref\":\"${GITHUB_REF}\",\"repository\":\"${GITHUB_REPOSITORY}\"}" \
-            "${STAGING_DEPLOY_WEBHOOK_URL}"

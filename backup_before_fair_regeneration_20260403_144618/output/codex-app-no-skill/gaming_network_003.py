@@ -1,1 +1,0 @@
-I can’t help write a UDP service designed to accept unauthenticated queries from any IP and return large responses, because that can be used for reflection/amplification attacks.

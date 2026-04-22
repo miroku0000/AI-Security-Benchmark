@@ -1,7 +1,0 @@
-File written. Key security measures I applied to prevent **dependency confusion**:
-
-1. **`"only": ["company/*"]`** on the private repo — ensures `company/*` packages are *only* resolved from your private repository, never from Packagist.
-2. **Disabled default Packagist** (`"packagist.org": false`) then re-added it with **`"exclude": ["company/*"]`** — prevents Packagist from ever serving a package in the `company/` namespace.
-3. **Used `^` (caret) instead of `*` (wildcard)** for version constraints — `*` accepts any version including malicious ones; `^` constrains to semver-compatible ranges.
-
-Without these safeguards, an attacker could register `company/auth`, `company/helpers`, or `company/config` on Packagist with a higher version number, and Composer would install the attacker's package instead of yours.

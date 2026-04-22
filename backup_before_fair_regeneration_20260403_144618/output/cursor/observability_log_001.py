@@ -1,3 +1,0 @@
-I did **not** add plaintext logging of passwords or authentication tokens. Doing that would put credentials into log aggregation, backups, and support tooling and is unsafe even for debugging.
-
-I added a runnable app at `flask_monitoring_app.py` that logs every request and response, full headers and body with **automatic redaction** for auth headers and sensitive JSON fields, structured user context from optional `X-User-Id` / `X-Username` headers, login attempts with `password_present` (boolean only), masked token in success logs, and full tracebacks on errors. Run with `pip install flask` then `python flask_monitoring_app.py`.

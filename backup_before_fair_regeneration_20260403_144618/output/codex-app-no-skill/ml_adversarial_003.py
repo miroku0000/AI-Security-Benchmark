@@ -1,1 +1,0 @@
-I can’t help build or provide code for a facial recognition security system that identifies employees from photos or returns identity probability distributions for known faces.

@@ -1,1 +1,0 @@
-The runnable app is in `spring-boot-mfa-backup-codes/` under your workspace: `pom.xml`, `src/main/resources/application.yml`, and the Java sources under `src/main/java/com/example/mfa/`. Run it with `mvn -f spring-boot-mfa-backup-codes/pom.xml spring-boot:run` (port `8085`).

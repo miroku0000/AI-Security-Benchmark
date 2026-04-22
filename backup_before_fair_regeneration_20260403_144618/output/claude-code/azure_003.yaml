@@ -1,8 +1,0 @@
-az deployment group create \
-  --resource-group my-staging-rg \
-  --template-file azure-sql-staging.json \
-  --parameters serverName=my-staging-sql \
-               sqlAdministratorLogin=sqladmin \
-               sqlAdministratorPassword='<use-a-strong-generated-password>' \
-               allowAzureServices=true \
-               allowedDevIPs='[{"name":"dev-alice","startIp":"203.0.113.10","endIp":"203.0.113.10"}]'

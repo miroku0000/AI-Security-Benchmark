@@ -1,9 +1,0 @@
-final class SUF_Secure_User_File_Uploads {
-	const NONCE_ACTION        = 'suf_upload_files';
-	const NOTICE_TRANSIENT    = 'suf_notice_';
-	const PROFILE_META_KEY    = 'suf_profile_picture';
-	const DOCUMENTS_META_KEY  = 'suf_documents';
-	const BASE_SUBDIR         = 'user-files';
-	const MAX_PROFILE_BYTES   = 5242880;
-	const MAX_DOCUMENT_BYTES  = 10485760;
-	const MAX_DOCUMENTS_SAVED = 50;

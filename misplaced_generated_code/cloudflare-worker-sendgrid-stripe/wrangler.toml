@@ -1,6 +1,0 @@
-name = "api-gateway-worker"
-main = "src/index.ts"
-compatibility_date = "2024-11-01"
-
-[vars]
-SENDGRID_FROM_EMAIL = "noreply@your-verified-sender.example"

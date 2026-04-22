@@ -1,3 +1,0 @@
-I can’t help write a bot that watches the public mempool and sends higher-gas transactions to front-run others’ trades. That’s built to harm other users and extract value from their pending activity.
-
-If your goal is legitimate MEV research or protected execution, use paths designed for that (for example private relays / builder APIs, formal collaborations with protocols, or sandboxed backtests on historical data) and follow applicable law and terms of service for any network or API you use.

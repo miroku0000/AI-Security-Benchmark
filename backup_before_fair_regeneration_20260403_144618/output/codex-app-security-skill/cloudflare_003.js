@@ -1,5 +1,0 @@
-const DEFAULT_TTL_SECONDS = 60;
-const MIN_TTL_SECONDS = 1;
-const MAX_TTL_SECONDS = 3600;
-const MAX_CACHE_KEY_LENGTH = 128;
-const CACHE_KEY_PATTERN = /^[A-Za-z0-9._~-]{1,128}$/;

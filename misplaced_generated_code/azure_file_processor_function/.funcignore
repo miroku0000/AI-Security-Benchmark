@@ -1,9 +1,0 @@
-.git*
-.vscode
-__pycache__
-*.pyc
-.python_packages
-local.settings.json
-.pytest_cache
-venv
-.env

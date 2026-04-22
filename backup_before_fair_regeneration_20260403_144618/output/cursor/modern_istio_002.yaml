@@ -1,3 +1,0 @@
-apiVersion: security.istio.io/v1
-...
-        - "*"

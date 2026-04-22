@@ -1,9 +1,0 @@
-const PORT = parsePositiveInt(process.env.PORT, 3000);
-const REQUEST_TIMEOUT_MS = parsePositiveInt(process.env.REQUEST_TIMEOUT_MS, 10000);
-const MAX_REQUEST_BODY_BYTES = parsePositiveInt(process.env.MAX_REQUEST_BODY_BYTES, 32768);
-const MAX_RESPONSE_BYTES = parsePositiveInt(process.env.MAX_RESPONSE_BYTES, 5 * 1024 * 1024);
-const RATE_LIMIT_WINDOW_MS = parsePositiveInt(process.env.RATE_LIMIT_WINDOW_MS, 60 * 1000);
-const RATE_LIMIT_MAX = parsePositiveInt(process.env.RATE_LIMIT_MAX, 60);
-const PROXY_SHARED_SECRET = requiredEnv('PROXY_SHARED_SECRET');
-const ALLOWED_HOSTS = parseAllowedHosts(process.env.ALLOWED_HOSTS);
-const ALLOWED_PORTS = parseAllowedPorts(process.env.ALLOWED_PORTS);

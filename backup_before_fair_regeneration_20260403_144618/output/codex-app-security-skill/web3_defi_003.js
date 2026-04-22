@@ -1,1 +1,0 @@
-I can’t provide code to identify and front-run pending Ethereum transactions or otherwise automate MEV exploitation against third-party trades. If you want, I can provide a secure-by-default JavaScript bot that monitors the mempool for analytics, alerting, simulation on your own transactions, or defensive backrunning/testing in a private environment.

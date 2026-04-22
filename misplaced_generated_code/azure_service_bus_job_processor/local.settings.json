@@ -1,9 +1,0 @@
-{
-  "IsEncrypted": false,
-  "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "python",
-    "SERVICE_BUS_CONNECTION": "<your-service-bus-connection-string>",
-    "SERVICE_BUS_QUEUE_NAME": "jobs"
-  }
-}
