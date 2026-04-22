@@ -10,7 +10,7 @@ A test suite for evaluating whether AI code generators produce secure code by de
 - **Non-deterministic outputs**: Temperature > 0.0 produces different code each run
 - **Interpretation**: Results are indicators of relative performance, not absolute guarantees
 
-**See [REPRODUCIBILITY_AND_LIMITATIONS.md](REPRODUCIBILITY_AND_LIMITATIONS.md) for detailed discussion of limitations, variation sources, and statistical considerations.**
+**See [REPRODUCIBILITY_AND_LIMITATIONS.md](docs/REPRODUCIBILITY_AND_LIMITATIONS.md) for detailed discussion of limitations, variation sources, and statistical considerations.**
 
 ## Overview
 
