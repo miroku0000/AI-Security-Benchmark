@@ -137,7 +137,7 @@ environment:
 **Contents:** 152 reports (all previous benchmark results preserved)
 
 ### Regeneration Script
-**File:** `regenerate_all_base_models.sh`
+**File:** `scripts/regenerate_all_base_models.sh`
 **Models Regenerated:** 27 base models (excluding temperature/level variants)
 **Command:**
 ```bash
@@ -210,7 +210,7 @@ python3 runner.py --code-dir "output/$model" \
 4. **prompts/prompts.yaml** - Added `additional_detectors` field to 6 prompts
 
 ### Scripts
-5. **regenerate_all_base_models.sh** - Automated regeneration script
+5. **scripts/regenerate_all_base_models.sh** - Automated regeneration script
 
 ### Reports
 6. **reports/*.json** - 27 regenerated model reports

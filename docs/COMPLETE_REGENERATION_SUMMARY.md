@@ -126,8 +126,8 @@ Successfully integrated the new security detectors and regenerated **ALL 152 ben
    - Lines 261-262: Dictionary registration
 
 ### Scripts Created
-2. **regenerate_all_base_models.sh** - Base model regeneration (27 models)
-3. **regenerate_temperature_level_variants.sh** - Variant regeneration (125 variants)
+2. **scripts/regenerate_all_base_models.sh** - Base model regeneration (27 models)
+3. **scripts/regenerate_temperature_level_variants.sh** - Variant regeneration (125 variants)
 
 ### Reports Generated
 4. **reports/*.json** - 152 regenerated reports (all with corrected scores)
