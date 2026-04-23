@@ -182,6 +182,8 @@ class AutomatedBenchmark:
 def _detect_provider(model: str) -> str:
     """Detect provider from model name."""
     model_lower = model.lower()
+    if 'github-copilot' in model_lower or 'github_copilot' in model_lower:
+        return 'github-copilot'
     if 'codex-app' in model_lower or 'codex_app' in model_lower:
         return 'codex-app'
     if 'claude-code' in model_lower or 'claude_code' in model_lower:
@@ -211,6 +213,7 @@ def load_models_from_config(config_path: str = 'benchmark_config.yaml') -> dict:
         'cursor': models_config.get('cursor', []),
         'codex-app': models_config.get('codex-app', []),
         'claude-code': models_config.get('claude-code', []),
+        'github-copilot': models_config.get('github-copilot', []),
     }
 
 
@@ -224,8 +227,9 @@ def run_all_models(args):
     cursor_models = models_by_provider['cursor']
     codex_models = models_by_provider['codex-app']
     claude_code_models = models_by_provider['claude-code']
+    github_copilot_models = models_by_provider['github-copilot']
 
-    total = len(api_models) + len(ollama_models) + len(cursor_models) + len(codex_models) + len(claude_code_models)
+    total = len(api_models) + len(ollama_models) + len(cursor_models) + len(codex_models) + len(claude_code_models) + len(github_copilot_models)
     run_start = datetime.now()
     logger.info("=" * 70)
     logger.info("FULL BENCHMARK: %d models", total)
@@ -235,6 +239,7 @@ def run_all_models(args):
     logger.info("Cursor models:              %d", len(cursor_models))
     logger.info("Codex.app models:           %d", len(codex_models))
     logger.info("Claude Code models:         %d", len(claude_code_models))
+    logger.info("GitHub Copilot models:      %d", len(github_copilot_models))
     logger.info("Started: %s", run_start.strftime('%Y-%m-%d %H:%M:%S'))
     logger.info("=" * 70)
 
@@ -450,9 +455,57 @@ def run_all_models(args):
                     logger.error("Claude Code generation failed")
                     all_results['claude-code'] = (None, 0)
 
+    # Run GitHub Copilot models
+    if github_copilot_models:
+        logger.info("=" * 70)
+        logger.info("PHASE 6: GITHUB COPILOT MODELS (%d models)", len(github_copilot_models))
+        logger.info("=" * 70)
+
+        # Check if copilot CLI is available
+        import shutil
+        has_copilot = bool(shutil.which('copilot'))
+
+        if not has_copilot:
+            logger.warning("GitHub Copilot CLI not found - skipping GitHub Copilot models")
+            logger.warning("Install GitHub Copilot CLI: npm install -g @githubnext/github-copilot-cli")
+        else:
+            for model in github_copilot_models:
+                logger.info(">>> Running GitHub Copilot benchmark...")
+
+                # Run github copilot generation script
+                output_dir = 'output/github-copilot'
+                result = subprocess.run([
+                    'python3', 'scripts/test_github_copilot.py',
+                    '--output-dir', output_dir,
+                    '--timeout', '120'
+                ])
+
+                if result.returncode == 0:
+                    # Run security tests on github copilot output
+                    logger.info(">>> Running security tests on GitHub Copilot output...")
+                    report_name = f"github-copilot_208point_{datetime.now().strftime('%Y%m%d')}"
+                    benchmark = AutomatedBenchmark(
+                        model='github-copilot',
+                        output_dir=output_dir,
+                        report_name=report_name,
+                        use_cache=not args.no_cache,
+                        force_regenerate=False,
+                        retries=0,
+                        temperature=0.0
+                    )
+                    summary = benchmark.run_benchmark()
+
+                    # Count files
+                    out_path = Path(output_dir)
+                    files = list(out_path.glob('*.py')) + list(out_path.glob('*.js')) if out_path.exists() else []
+                    all_results['github-copilot'] = (summary, len(files))
+                else:
+                    logger.error("GitHub Copilot generation failed")
+                    all_results['github-copilot'] = (None, 0)
+
     # Generate HTML reports
     logger.info("=" * 70)
-    logger.info("PHASE 6: GENERATING HTML REPORTS")
+    logger.info("PHASE 7: GENERATING HTML REPORTS")
     logger.info("=" * 70)
 
     subprocess.run(['python3', 'utils/generate_html_reports.py'])
