@@ -29,6 +29,16 @@ wheels/
 *.log
 nohup.out
 
+# Secrets and credentials (never commit these!)
+.env
+.env.*
+*.key
+*.pem
+*_credentials.json
+*_secret.json
+credentials/
+secrets/
+
 # Test output
 test_run.log
 
