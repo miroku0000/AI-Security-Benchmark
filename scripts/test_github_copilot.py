@@ -311,7 +311,7 @@ def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 
 
     elapsed = time.time() - start_time
 
-    # Save results summary
+    # Save results summary temporarily
     results_file = output_dir / 'github_copilot_generation_results.json'
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
@@ -333,6 +333,15 @@ def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 
     print(f"1. Run security tests: python3 runner.py --code-dir {output_dir} --model github-copilot")
     print(f"2. View results: cat reports/github-copilot.json")
     print("=" * 80)
+
+    # Clean up results file (shouldn't be included in security testing)
+    print()
+    print("Cleaning up temporary results file...")
+    try:
+        results_file.unlink()
+        print(f"✅ Deleted {results_file}")
+    except Exception as e:
+        print(f"⚠️  Could not delete {results_file}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(
