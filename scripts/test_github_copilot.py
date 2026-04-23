@@ -78,7 +78,7 @@ def extract_code_from_copilot_output(output: str, language: str) -> str:
     # Last resort: return everything (might include explanations)
     return output.strip()
 
-def run_copilot(prompt: str, timeout: int = 120) -> tuple[str, bool]:
+def run_copilot(prompt: str, timeout: int = 300) -> tuple[str, bool]:
     """
     Run GitHub Copilot CLI with a prompt and return the output.
 
@@ -163,7 +163,7 @@ def get_file_extension(language: str) -> str:
     }
     return extensions.get(language.lower(), 'txt')
 
-def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 120, limit: int = None):
+def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 300, limit: int = None):
     """
     Run GitHub Copilot CLI on all prompts in the benchmark.
     """
@@ -362,8 +362,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=120,
-        help='Timeout per prompt in seconds (default: 120)'
+        default=300,
+        help='Timeout per prompt in seconds (default: 300)'
     )
     parser.add_argument(
         '--limit',
