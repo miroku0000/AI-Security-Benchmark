@@ -46,6 +46,7 @@ def get_process_info(model_name, dir_path, expect_temperature=False):
     script_map = {
         "Cursor": "test_cursor.py",
         "Claude Code CLI": "test_claude_code.py",
+        "GitHub Copilot CLI": "test_github_copilot.py",
         "Codex.app (no skill)": "test_codex_app.py",
         "Codex.app (w/ skill)": "test_codex_app_secure.py",
     }
@@ -309,6 +310,7 @@ dirs = {
     "Application Models": [
         ("Cursor", "output/cursor"),
         ("Claude Code CLI", "output/claude-code"),
+        ("GitHub Copilot CLI", "output/github-copilot"),
         ("Codex.app (no skill)", "output/codex-app-no-skill"),
         ("Codex.app (w/ skill)", "output/codex-app-security-skill"),
     ]
