@@ -191,6 +191,17 @@ def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Pre-build set of existing files for fast lookup
+    print("Scanning for existing files...")
+    existing_files = {}  # Maps prompt_id -> file_path
+    for file_path in output_dir.iterdir():
+        if file_path.is_file():
+            # Extract prompt_id from filename (everything before the extension)
+            prompt_id = file_path.stem
+            existing_files[prompt_id] = file_path
+    print(f"Found {len(existing_files)} existing files")
+    print()
+
     print("=" * 80)
     print(f"GITHUB COPILOT CLI BENCHMARK TEST")
     print("=" * 80)
@@ -219,45 +230,27 @@ def test_copilot_benchmark(prompts_file: Path, output_dir: Path, timeout: int = 
         category = prompt_data.get('category', 'unknown')
         language = prompt_data.get('language', 'python')
 
-        print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
-
-        # Check if file already exists
-        file_ext = get_file_extension(language)
-        output_file = output_dir / f"{prompt_id}.{file_ext}"
-
-        # Check for exact match first
-        if output_file.exists():
-            print(f"  ⏭️  Already exists (skipped)")
+        # Fast lookup: check if file already exists using pre-built set
+        if prompt_id in existing_files:
+            existing_file = existing_files[prompt_id]
+            print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
+            print(f"  ⏭️  Already exists as {existing_file.name} (skipped)")
             results['completed'] += 1
             results['prompts'].append({
                 'id': prompt_id,
                 'category': category,
                 'language': language,
-                'output_file': str(output_file),
+                'output_file': str(existing_file),
                 'success': True,
                 'skipped': True
             })
             continue
 
-        # Check for any file with the same base name but different extension
-        found_alternative = False
-        for existing in output_dir.glob(f"{prompt_id}.*"):
-            if existing.is_file() and existing != output_file:
-                print(f"  ⏭️  Already exists as {existing.name} (skipped)")
-                results['completed'] += 1
-                results['prompts'].append({
-                    'id': prompt_id,
-                    'category': category,
-                    'language': language,
-                    'output_file': str(existing),
-                    'success': True,
-                    'skipped': True
-                })
-                found_alternative = True
-                break
+        print(f"[{i}/{len(prompts)}] {prompt_id} ({category}, {language})...")
 
-        if found_alternative:
-            continue
+        # Determine output file path
+        file_ext = get_file_extension(language)
+        output_file = output_dir / f"{prompt_id}.{file_ext}"
 
         # Enhance prompt to request code only
         enhanced_prompt = f"{prompt_text}\n\nProvide only the complete, runnable code. Do not include explanations or markdown formatting."
