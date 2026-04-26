@@ -1,0 +1,200 @@
+I found a Python-centric repo without an existing Actions setup, so I’m mapping the real build inputs before wiring the workflow. Next I’m checking how this project is packaged, what test command exists, and which files should ship with the build artifact.
+
+The repo is a loose Python application rather than a packaged module, so I’m tightening the workflow around the actual entrypoint and the files already used for deployment/config. I’m now extracting the install and test commands from the repo itself so the workflow matches existing practice.
+
+I found a missing `requirements.txt`, so I’m making the workflow self-sufficient instead of assuming packaging that isn’t in the repo. To keep it runnable here, I’m also checking whether the local environment can execute the project’s existing test command before I finalize the artifact layout.
+
+I’ve got the packaging shape now: Linux distributable bundles, launcher scripts that keep the compiled tools runnable together, and downloadable artifacts with config plus deployment scripts. I’m writing the workflow into `.github/workflows` and then checking the generated file for correctness.
+
+name: Internal Build Distribution
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: internal-build-distribution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux-distribution:
+    name: Build Linux distribution
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+      DIST_ROOT: build/pyinstaller
+      ARTIFACT_ROOT: build/distribution
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test and build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyinstaller \
+            pyyaml \
+            jsonschema \
+            jinja2 \
+            openai \
+            anthropic \
+            google-genai \
+            google-generativeai \
+            ollama \
+            flask \
+            werkzeug \
+            pyjwt \
+            markdown
+
+      - name: Run test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest tests/
+
+      - name: Build distributable binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m PyInstaller --clean --noconfirm \
+            --distpath "${DIST_ROOT}" \
+            --workpath build/work-auto \
+            --specpath build/spec-auto \
+            --onedir \
+            --name ai-security-benchmark-auto \
+            --add-data "benchmark_config.yaml:." \
+            --add-data "code_generator.py:." \
+            --add-data "runner.py:." \
+            --add-data "prompts:prompts" \
+            --add-data "tests:tests" \
+            --add-data "utils:utils" \
+            --collect-submodules tests \
+            --collect-submodules utils \
+            auto_benchmark.py
+
+          python -m PyInstaller --clean --noconfirm \
+            --distpath "${DIST_ROOT}" \
+            --workpath build/work-runner \
+            --specpath build/spec-runner \
+            --onedir \
+            --name ai-security-benchmark-runner \
+            --add-data "prompts:prompts" \
+            --add-data "tests:tests" \
+            --add-data "utils:utils" \
+            --collect-submodules tests \
+            --collect-submodules utils \
+            runner.py
+
+          python -m PyInstaller --clean --noconfirm \
+            --distpath "${DIST_ROOT}" \
+            --workpath build/work-generator \
+            --specpath build/spec-generator \
+            --onedir \
+            --name ai-security-benchmark-generator \
+            --add-data "benchmark_config.yaml:." \
+            --add-data "prompts:prompts" \
+            code_generator.py
+
+      - name: Package build outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${ARTIFACT_ROOT}"
+          mkdir -p "${ARTIFACT_ROOT}/bin" "${ARTIFACT_ROOT}/config" "${ARTIFACT_ROOT}/deployment"
+
+          cp -R "${DIST_ROOT}/ai-security-benchmark-auto" "${ARTIFACT_ROOT}/bin/auto"
+          cp -R "${DIST_ROOT}/ai-security-benchmark-runner" "${ARTIFACT_ROOT}/bin/runner"
+          cp -R "${DIST_ROOT}/ai-security-benchmark-generator" "${ARTIFACT_ROOT}/bin/generator"
+
+          cp benchmark_config.yaml "${ARTIFACT_ROOT}/config/"
+          cp -R prompts "${ARTIFACT_ROOT}/config/"
+
+          cp scripts/deploy-aws.sh "${ARTIFACT_ROOT}/deployment/"
+          cp scripts/deploy-git-branch.sh "${ARTIFACT_ROOT}/deployment/"
+          cp scripts/deploy-pipeline.sh "${ARTIFACT_ROOT}/deployment/"
+
+          cat > "${ARTIFACT_ROOT}/deployment/run-auto-benchmark.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          AUTO_DIR="$(cd "${SCRIPT_DIR}/../bin/auto" && pwd)"
+          RUNNER_DIR="$(cd "${SCRIPT_DIR}/../bin/runner" && pwd)"
+          GENERATOR_DIR="$(cd "${SCRIPT_DIR}/../bin/generator" && pwd)"
+          SHIM_DIR="$(mktemp -d)"
+          trap 'rm -rf "${SHIM_DIR}"' EXIT
+
+          cat > "${SHIM_DIR}/python3" <<SHIM
+          #!/usr/bin/env bash
+          set -euo pipefail
+          case "\${1:-}" in
+            code_generator.py)
+              shift
+              cd "${GENERATOR_DIR}"
+              exec "${GENERATOR_DIR}/ai-security-benchmark-generator" "\$@"
+              ;;
+            runner.py)
+              shift
+              cd "${RUNNER_DIR}"
+              exec "${RUNNER_DIR}/ai-security-benchmark-runner" "\$@"
+              ;;
+            *)
+              echo "Unsupported python3 invocation: \$*" >&2
+              exit 1
+              ;;
+          esac
+          SHIM
+
+          chmod +x "${SHIM_DIR}/python3"
+          export PATH="${SHIM_DIR}:${PATH}"
+          cd "${AUTO_DIR}"
+          exec "${AUTO_DIR}/ai-security-benchmark-auto" "$@"
+          EOF
+
+          cat > "${ARTIFACT_ROOT}/deployment/run-runner.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          RUNNER_DIR="$(cd "${SCRIPT_DIR}/../bin/runner" && pwd)"
+          cd "${RUNNER_DIR}"
+          exec "${RUNNER_DIR}/ai-security-benchmark-runner" "$@"
+          EOF
+
+          cat > "${ARTIFACT_ROOT}/deployment/run-code-generator.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          GENERATOR_DIR="$(cd "${SCRIPT_DIR}/../bin/generator" && pwd)"
+          cd "${GENERATOR_DIR}"
+          exec "${GENERATOR_DIR}/ai-security-benchmark-generator" "$@"
+          EOF
+
+          chmod +x "${ARTIFACT_ROOT}/deployment/"*.sh
+          find "${ARTIFACT_ROOT}/bin" -type f -name "ai-security-benchmark-*" -exec chmod +x {} +
+
+          (
+            cd "${ARTIFACT_ROOT}"
+            find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          )
+
+      - name: Upload downloadable build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-security-benchmark-linux-${{ github.run_number }}
+          path: ${{ env.ARTIFACT_ROOT }}
+          if-no-files-found: error
+          retention-days: 30

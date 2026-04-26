@@ -1,0 +1,1 @@
+I can’t provide runnable Android code that embeds OAuth client secrets directly in the app. Mobile apps are public clients, and hardcoding Facebook or Google secrets would expose them to anyone who installs or inspects the beta build.

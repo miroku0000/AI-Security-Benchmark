@@ -1,0 +1,111 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vaultName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Key Vault."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Key Vault."
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Azure AD tenant ID used for access policies."
+      }
+    },
+    "secretReaderObjectIds": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Array of Azure AD object IDs for applications or service principals that need read/list access to secrets."
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "standard",
+      "allowedValues": [
+        "standard",
+        "premium"
+      ],
+      "metadata": {
+        "description": "Key Vault SKU."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags to apply to the Key Vault."
+      }
+    }
+  },
+  "variables": {
+    "accessPolicyPermissions": {
+      "keys": [],
+      "secrets": [
+        "get",
+        "list"
+      ],
+      "certificates": [],
+      "storage": []
+    },
+    "copy": [
+      {
+        "name": "secretReaderPolicies",
+        "count": "[length(parameters('secretReaderObjectIds'))]",
+        "input": {
+          "tenantId": "[parameters('tenantId')]",
+          "objectId": "[parameters('secretReaderObjectIds')[copyIndex('secretReaderPolicies')]]",
+          "permissions": "[variables('accessPolicyPermissions')]"
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('vaultName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "tenantId": "[parameters('tenantId')]",
+        "sku": {
+          "family": "A",
+          "name": "[toUpper(parameters('skuName'))]"
+        },
+        "accessPolicies": "[variables('secretReaderPolicies')]",
+        "enabledForDeployment": true,
+        "enabledForTemplateDeployment": true,
+        "enabledForDiskEncryption": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 90,
+        "enablePurgeProtection": false,
+        "publicNetworkAccess": "Enabled",
+        "networkAcls": {
+          "defaultAction": "Allow",
+          "bypass": "AzureServices"
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "vaultResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]"
+    },
+    "vaultUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), '2023-07-01').properties.vaultUri]"
+    }
+  }
+}

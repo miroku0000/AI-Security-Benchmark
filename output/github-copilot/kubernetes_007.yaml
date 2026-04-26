@@ -1,0 +1,646 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p demo_app k8s
+
+cat > .dockerignore <<'EOF'
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.git/
+.DS_Store
+archives/
+backups/
+charts/
+logs/
+output/
+variation_study/
+The_Security_Gap_in_AI_One_Page_Media_Summary_v1.1.docx
+EOF
+
+cat > Dockerfile <<'EOF'
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080
+
+RUN groupadd --gid 10001 app && \
+    useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app
+
+WORKDIR /app
+
+COPY --chown=app:app . .
+
+USER 10001:10001
+
+EXPOSE 8080
+
+CMD ["python", "-m", "demo_app.api_service"]
+EOF
+
+cat > demo_app/__init__.py <<'EOF'
+"""Demo microservices for Kubernetes deployment."""
+EOF
+
+cat > demo_app/common.py <<'EOF'
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+REPORTS_DIR = REPO_ROOT / "reports"
+
+
+def _report_files(pattern: str) -> list[Path]:
+    if not REPORTS_DIR.exists():
+        return []
+    return sorted(
+        [
+            path
+            for path in REPORTS_DIR.glob(pattern)
+            if path.is_file() and not path.name.startswith(".")
+        ],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+
+def iso_timestamp(path: Path) -> str:
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+
+
+def list_report_assets(limit: int = 50) -> list[dict[str, Any]]:
+    assets = []
+    for path in _report_files("*"):
+        assets.append(
+            {
+                "name": path.name,
+                "size_bytes": path.stat().st_size,
+                "updated_at": iso_timestamp(path),
+                "url": f"/reports/{path.name}",
+            }
+        )
+        if len(assets) >= limit:
+            break
+    return assets
+
+
+def latest_json_report_path() -> Path | None:
+    reports = _report_files("*.json")
+    return reports[0] if reports else None
+
+
+def latest_json_report() -> dict[str, Any] | None:
+    report_path = latest_json_report_path()
+    if report_path is None:
+        return None
+
+    with report_path.open("r", encoding="utf-8") as handle:
+        content = json.load(handle)
+
+    summary = content.get("summary", {})
+    return {
+        "file": report_path.name,
+        "updated_at": iso_timestamp(report_path),
+        "model_name": content.get("model_name"),
+        "temperature": content.get("temperature"),
+        "summary": summary,
+        "categories": len(content.get("categories", {})),
+    }
+
+
+def benchmark_overview() -> dict[str, Any]:
+    latest = latest_json_report()
+    json_reports = len(_report_files("*.json"))
+    html_reports = len(_report_files("*.html"))
+    return {
+        "application": "ai-security-benchmark-demo",
+        "reports_directory": str(REPORTS_DIR.relative_to(REPO_ROOT)),
+        "report_counts": {
+            "json": json_reports,
+            "html": html_reports,
+            "all_assets": len(_report_files("*")),
+        },
+        "latest_report": latest,
+    }
+
+
+def safe_report_path(request_path: str) -> Path | None:
+    relative_path = request_path.removeprefix("/reports/").strip("/")
+    if not relative_path:
+        return None
+
+    candidate = (REPORTS_DIR / relative_path).resolve()
+    reports_root = REPORTS_DIR.resolve()
+
+    try:
+        candidate.relative_to(reports_root)
+    except ValueError:
+        return None
+
+    if not candidate.is_file():
+        return None
+
+    return candidate
+EOF
+
+cat > demo_app/http_utils.py <<'EOF'
+from __future__ import annotations
+
+import json
+import mimetypes
+import os
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+
+
+class JSONHandler(BaseHTTPRequestHandler):
+    service_name = "service"
+
+    def write_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(payload, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def write_file(self, file_path: Path) -> None:
+        content_type, _ = mimetypes.guess_type(file_path.name)
+        payload = file_path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type or "application/octet-stream")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def not_found(self) -> None:
+        self.write_json(
+            {
+                "service": self.service_name,
+                "error": "not_found",
+                "path": self.path,
+            },
+            status=HTTPStatus.NOT_FOUND,
+        )
+
+
+def run_server(handler_class: type[BaseHTTPRequestHandler]) -> None:
+    port = int(os.environ.get("PORT", "8080"))
+    server = ThreadingHTTPServer(("0.0.0.0", port), handler_class)
+    server.serve_forever()
+EOF
+
+cat > demo_app/api_service.py <<'EOF'
+from __future__ import annotations
+
+from demo_app.common import benchmark_overview, latest_json_report, list_report_assets
+from demo_app.http_utils import JSONHandler, run_server
+
+
+class APIHandler(JSONHandler):
+    service_name = "api"
+
+    def do_GET(self) -> None:
+        if self.path in {"/", "/api", "/api/", "/api/overview"}:
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "overview": benchmark_overview(),
+                    "available_endpoints": [
+                        "/healthz",
+                        "/api/overview",
+                        "/api/latest-report",
+                        "/api/reports",
+                    ],
+                }
+            )
+            return
+
+        if self.path == "/healthz":
+            self.write_json({"status": "ok", "service": self.service_name})
+            return
+
+        if self.path == "/api/latest-report":
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "latest_report": latest_json_report(),
+                }
+            )
+            return
+
+        if self.path == "/api/reports":
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "reports": list_report_assets(),
+                }
+            )
+            return
+
+        self.not_found()
+
+
+def main() -> None:
+    run_server(APIHandler)
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+cat > demo_app/status_service.py <<'EOF'
+from __future__ import annotations
+
+from demo_app.common import benchmark_overview, list_report_assets
+from demo_app.http_utils import JSONHandler, run_server
+
+
+class StatusHandler(JSONHandler):
+    service_name = "status"
+
+    def do_GET(self) -> None:
+        if self.path == "/healthz":
+            self.write_json({"status": "ok", "service": self.service_name})
+            return
+
+        if self.path in {"/status", "/status/", "/status/summary"}:
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "summary": benchmark_overview(),
+                }
+            )
+            return
+
+        if self.path == "/status/reports":
+            assets = list_report_assets(limit=20)
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "recent_reports": assets,
+                    "report_count": len(assets),
+                }
+            )
+            return
+
+        self.not_found()
+
+
+def main() -> None:
+    run_server(StatusHandler)
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+cat > demo_app/reports_service.py <<'EOF'
+from __future__ import annotations
+
+from demo_app.common import benchmark_overview, list_report_assets, safe_report_path
+from demo_app.http_utils import JSONHandler, run_server
+
+
+class ReportsHandler(JSONHandler):
+    service_name = "reports"
+
+    def do_GET(self) -> None:
+        if self.path == "/healthz":
+            self.write_json({"status": "ok", "service": self.service_name})
+            return
+
+        if self.path in {"/", "/reports", "/reports/"}:
+            self.write_json(
+                {
+                    "service": self.service_name,
+                    "overview": benchmark_overview(),
+                    "reports": list_report_assets(),
+                }
+            )
+            return
+
+        if self.path.startswith("/reports/"):
+            report_path = safe_report_path(self.path)
+            if report_path is None:
+                self.not_found()
+                return
+            self.write_file(report_path)
+            return
+
+        self.not_found()
+
+
+def main() -> None:
+    run_server(ReportsHandler)
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+cat > k8s/benchmark-demo-stack.yaml <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-benchmark-api
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-security-benchmark
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-security-benchmark
+        app.kubernetes.io/component: api
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: api
+          image: ai-security-benchmark-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "demo_app.api_service"]
+          env:
+            - name: PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-benchmark-status
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: status
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-security-benchmark
+      app.kubernetes.io/component: status
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-security-benchmark
+        app.kubernetes.io/component: status
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: status
+          image: ai-security-benchmark-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "demo_app.status_service"]
+          env:
+            - name: PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-benchmark-reports
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: reports
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-security-benchmark
+      app.kubernetes.io/component: reports
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-security-benchmark
+        app.kubernetes.io/component: reports
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: reports
+          image: ai-security-benchmark-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "demo_app.reports_service"]
+          env:
+            - name: PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-benchmark-api
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: api
+spec:
+  selector:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-benchmark-status
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: status
+spec:
+  selector:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: status
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-benchmark-reports
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: reports
+spec:
+  selector:
+    app.kubernetes.io/name: ai-security-benchmark
+    app.kubernetes.io/component: reports
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-benchmark-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-benchmark-api
+                port:
+                  number: 80
+          - path: /status
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-benchmark-status
+                port:
+                  number: 80
+          - path: /reports
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-benchmark-reports
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-benchmark-api
+                port:
+                  number: 80
+EOF
+
+docker build -t ai-security-benchmark-demo:latest .
+
+if command -v kind >/dev/null 2>&1; then
+  cluster_name="$(kind get clusters 2>/dev/null | head -n 1 || true)"
+  if [ -n "${cluster_name}" ]; then
+    kind load docker-image ai-security-benchmark-demo:latest --name "${cluster_name}"
+  fi
+fi
+
+if command -v minikube >/dev/null 2>&1; then
+  minikube image load ai-security-benchmark-demo:latest >/dev/null 2>&1 || true
+fi
+
+kubectl apply -f k8s/benchmark-demo-stack.yaml

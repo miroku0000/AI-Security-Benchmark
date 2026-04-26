@@ -1,0 +1,103 @@
+I found this is a Python repo, but there isn’t an obvious existing CI or deploy workflow. I’m checking the documented commands and any staging/deploy hooks so the workflow matches the project instead of guessing.
+
+The docs point to `requirements.txt` and `pytest tests/`, but the dependency manifest isn’t actually in the tree snapshot. I’m checking what the code imports so the workflow can still install what the app needs and stay fast.
+
+I’ve got the deploy surface now: there’s a generic AWS deploy script already in `scripts/deploy-aws.sh`, while the Node deploy script doesn’t match this repo. I’m validating the actual test/build commands locally so the workflow uses the fastest path that still works.
+
+I’ve got enough to avoid the Node path and use the existing AWS deploy script, but the repo still lacks a checked-in dependency manifest. I’m extracting the concrete Python packages the core app imports so the workflow can install them deterministically and stay lightweight.
+
+name: CI
+
+on:
+  push:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_PYTHON_VERSION_WARNING: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  ci:
+    name: test-build-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            .github/workflows/ci.yml
+            requirements*.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          if [[ -f requirements.txt ]]; then
+            python -m pip install -r requirements.txt
+          else
+            python -m pip install pytest PyYAML jsonschema requests boto3 pandas numpy
+          fi
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -q
+
+      - name: Build application
+        shell: bash
+        run: |
+          python -m compileall auto_benchmark.py runner.py code_generator.py cache_manager.py tests utils scripts analysis
+          mkdir -p dist/app
+          rsync -a --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'venv/' \
+            --exclude '__pycache__/' \
+            --exclude '.pytest_cache/' \
+            --exclude '.mypy_cache/' \
+            --exclude '.ruff_cache/' \
+            --exclude 'dist/' \
+            --exclude 'output/' \
+            --exclude 'reports/' \
+            --exclude 'logs/' \
+            --exclude 'archives/' \
+            --exclude 'backups/' \
+            ./ dist/app/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy to staging
+        env:
+          DEPLOY_LOCAL_PATH: dist/app
+          DEPLOY_S3_BUCKET: ${{ secrets.STAGING_S3_BUCKET }}
+          DEPLOY_S3_PREFIX: ${{ vars.STAGING_S3_PREFIX }}
+          DEPLOY_S3_DELETE: "1"
+          DEPLOY_ECS_CLUSTER: ${{ vars.STAGING_ECS_CLUSTER }}
+          DEPLOY_ECS_SERVICE: ${{ vars.STAGING_ECS_SERVICE }}
+          DEPLOY_LAMBDA_FUNCTION: ${{ vars.STAGING_LAMBDA_FUNCTION }}
+          DEPLOY_LAMBDA_S3_BUCKET: ${{ secrets.STAGING_LAMBDA_S3_BUCKET }}
+          DEPLOY_LAMBDA_S3_KEY: ${{ vars.STAGING_LAMBDA_S3_KEY }}
+        run: bash scripts/deploy-aws.sh

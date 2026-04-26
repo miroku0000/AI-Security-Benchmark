@@ -62,3 +62,19 @@ htmlcov/
 # Generated HTML reports (too large for git)
 reports/html/
 archives/*.tar.gz
+
+# Local-only / large directories
+backups/
+.claude/
+
+# Generated benchmark output (per-model dirs are huge); allow github-copilot
+output/*
+!output/github-copilot/
+
+# Generation progress variants
+.generation_progress*.json
+
+# macOS / iCloud duplicate-name orphans
+* 2.*
+* 3.*
+* 4.*

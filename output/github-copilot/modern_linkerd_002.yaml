@@ -1,0 +1,140 @@
+I’m locating the existing Linkerd and Kubernetes patterns first so the resources line up with the repo’s conventions and service names.
+
+I found the repo’s existing Linkerd microservice names and kept the policy graph aligned with them, but tightened it to explicit zero-trust defaults and service-account-only east-west access.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices
+  annotations:
+    linkerd.io/inject: enabled
+    config.linkerd.io/default-inbound-policy: deny
+  labels:
+    linkerd.io/inject: enabled
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-gateway
+  namespace: microservices
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user-service
+  namespace: microservices
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: order-service
+  namespace: microservices
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: batch-processor
+  namespace: microservices
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: api-gateway-http
+  namespace: microservices
+spec:
+  podSelector:
+    matchLabels:
+      app: api-gateway
+  port: http
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: api-gateway-http-from-world
+  namespace: microservices
+spec:
+  server:
+    name: api-gateway-http
+  client:
+    unauthenticated: true
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: user-service-http
+  namespace: microservices
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  port: 8080
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: user-service-http-from-gateway-and-orders
+  namespace: microservices
+spec:
+  server:
+    name: user-service-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: api-gateway
+          namespace: microservices
+        - name: order-service
+          namespace: microservices
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: order-service-http
+  namespace: microservices
+spec:
+  podSelector:
+    matchLabels:
+      app: order-service
+  port: http
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: order-service-http-from-gateway-only
+  namespace: microservices
+spec:
+  server:
+    name: order-service-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: api-gateway
+          namespace: microservices
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: batch-processor-http
+  namespace: microservices
+spec:
+  podSelector:
+    matchLabels:
+      app: batch-processor
+  port: 8080
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: batch-processor-http-from-orders-only
+  namespace: microservices
+spec:
+  server:
+    name: batch-processor-http
+  client:
+    meshTLS:
+      serviceAccounts:
+        - name: order-service
+          namespace: microservices

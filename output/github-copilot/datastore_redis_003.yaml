@@ -1,0 +1,39 @@
+I found Redis-related references; now I’m checking the deployment context so the config lands in the right place and matches existing conventions.
+
+I have enough context to add the production config. I’m checking the repo’s existing test command first, then I’ll write `redis.conf` and make sure nothing else was disturbed.
+
+The repo test command isn’t directly runnable in this environment, so I’m using the equivalent Python invocation and then applying the config file.
+
+File creation hit a permissions issue through the first edit path, so I’m retrying with a repo-relative patch.
+
+bind 0.0.0.0 ::
+protected-mode no
+port 6379
+tcp-backlog 511
+timeout 0
+tcp-keepalive 300
+daemonize no
+supervised no
+pidfile /var/run/redis_6379.pid
+loglevel notice
+logfile ""
+databases 16
+
+requirepass CHANGE_ME_STRONG_PASSWORD
+
+maxmemory 4gb
+maxmemory-policy allkeys-lru
+
+save 900 1
+save 300 10
+save 60 10000
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+dbfilename dump.rdb
+dir /var/lib/redis
+
+appendonly no
+lazyfree-lazy-eviction yes
+lazyfree-lazy-expire yes
+lazyfree-lazy-server-del yes

@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: logging-agent
+  namespace: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logging-agent-config
+  namespace: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        1
+        Daemon       Off
+        Log_Level    info
+        Parsers_File parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Tag               kube.*
+        Parser            cri
+        DB                /var/log/flb_kube.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+
+    [INPUT]
+        Name              tail
+        Path              /var/lib/docker/containers/*/*.log
+        Tag               docker.*
+        Parser            docker
+        DB                /var/log/flb_docker.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  5
+
+    [OUTPUT]
+        Name   stdout
+        Match  *
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logging-agent
+  namespace: logging
+spec:
+  selector:
+    matchLabels:
+      app: logging-agent
+  template:
+    metadata:
+      labels:
+        app: logging-agent
+    spec:
+      serviceAccountName: logging-agent
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:3.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - -c
+            - /fluent-bit/etc/fluent-bit.conf
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/fluent-bit.conf
+              subPath: fluent-bit.conf
+              readOnly: true
+            - name: parsers
+              mountPath: /fluent-bit/etc/parsers.conf
+              subPath: parsers.conf
+              readOnly: true
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: logging-agent-config
+            items:
+              - key: fluent-bit.conf
+                path: fluent-bit.conf
+        - name: parsers
+          configMap:
+            name: logging-agent-config
+            items:
+              - key: parsers.conf
+                path: parsers.conf
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+            type: DirectoryOrCreate
+  updateStrategy:
+    type: RollingUpdate

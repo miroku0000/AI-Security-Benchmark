@@ -1,0 +1,17 @@
+I’m checking for any existing container conventions so the compose file fits the repo cleanly, then I’ll add the runnable config.
+
+I found no existing compose setup, so I’m adding a root `compose.yaml` with a single MongoDB service and persistent storage.
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: ai-security-benchmark-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    command: ["mongod", "--bind_ip_all"]
+
+volumes:
+  mongodb_data:

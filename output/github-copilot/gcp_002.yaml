@@ -1,0 +1,52 @@
+resources:
+- name: {{ env["name"] }}-allow-ssh
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/global/networks/{{ properties["network"] }}
+    direction: INGRESS
+    priority: 1000
+    sourceRanges:
+    - {{ properties["adminCidr"] }}
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - "22"
+
+- name: {{ env["name"] }}-allow-rdp
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/global/networks/{{ properties["network"] }}
+    direction: INGRESS
+    priority: 1000
+    sourceRanges:
+    - {{ properties["adminCidr"] }}
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - "3389"
+
+- name: {{ env["name"] }}-allow-http
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/global/networks/{{ properties["network"] }}
+    direction: INGRESS
+    priority: 1000
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - "80"
+
+- name: {{ env["name"] }}-allow-https
+  type: compute.v1.firewall
+  properties:
+    network: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/global/networks/{{ properties["network"] }}
+    direction: INGRESS
+    priority: 1000
+    sourceRanges:
+    - 0.0.0.0/0
+    allowed:
+    - IPProtocol: tcp
+      ports:
+      - "443"

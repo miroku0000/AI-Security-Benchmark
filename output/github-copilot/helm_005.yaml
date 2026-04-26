@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+chart_dir="charts/ai-security-benchmark"
+mkdir -p "${chart_dir}/templates"
+
+cat > "${chart_dir}/Chart.yaml" <<'EOF'
+apiVersion: v2
+name: ai-security-benchmark
+description: A simple Helm chart for deploying the AI Security Benchmark application
+type: application
+version: 0.1.0
+appVersion: "latest"
+EOF
+
+cat > "${chart_dir}/values.yaml" <<'EOF'
+replicaCount: 1
+
+image:
+  repository: ghcr.io/miroku0000/ai-security-benchmark
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+deploymentAnnotations: {}
+podAnnotations: {}
+podLabels: {}
+
+command: []
+args: []
+workingDir: ""
+
+env: []
+envFromSecrets: []
+
+service:
+  enabled: false
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+EOF
+
+cat > "${chart_dir}/templates/_helpers.tpl" <<'EOF'
+{{- define "ai-security-benchmark.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ai-security-benchmark.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ai-security-benchmark.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ai-security-benchmark.labels" -}}
+helm.sh/chart: {{ include "ai-security-benchmark.chart" . }}
+app.kubernetes.io/name: {{ include "ai-security-benchmark.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{- define "ai-security-benchmark.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ai-security-benchmark.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "ai-security-benchmark.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (include "ai-security-benchmark.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end -}}
+EOF
+
+cat > "${chart_dir}/templates/serviceaccount.yaml" <<'EOF'
+{{- if .Values.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ai-security-benchmark.serviceAccountName" . }}
+  labels:
+    {{- include "ai-security-benchmark.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+EOF
+
+cat > "${chart_dir}/templates/deployment.yaml" <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-security-benchmark.fullname" . }}
+  labels:
+    {{- include "ai-security-benchmark.labels" . | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ai-security-benchmark.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-security-benchmark.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "ai-security-benchmark.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "ai-security-benchmark.name" . }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.workingDir }}
+          workingDir: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.envFromSecrets }}
+          envFrom:
+            {{- range .Values.envFromSecrets }}
+            - secretRef:
+                name: {{ . | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.service.enabled }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+EOF
+
+cat > "${chart_dir}/templates/service.yaml" <<'EOF'
+{{- if .Values.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-security-benchmark.fullname" . }}
+  labels:
+    {{- include "ai-security-benchmark.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "ai-security-benchmark.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+{{- end -}}
+EOF
+
+cat > "${chart_dir}/.helmignore" <<'EOF'
+.git/
+.gitignore
+.DS_Store
+EOF

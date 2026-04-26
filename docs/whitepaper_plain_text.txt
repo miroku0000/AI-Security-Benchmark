@@ -1,0 +1,633 @@
+THE SECURITY GAP IN AI-GENERATED CODE: A LARGE-SCALE EMPIRICAL ANALYSIS OF AI CODE GENERATORS
+
+Randy Flood
+March 2026
+
+================================================================================
+ABSTRACT
+================================================================================
+
+AI code generation tools are now embedded in the daily workflow of millions of
+software developers. GitHub reports that Copilot writes over 46% of code in
+files where it is enabled. Yet a critical question remains largely unexamined
+at scale: when developers ask these models for functional code using natural,
+non-security-focused prompts, how often is the resulting code exploitably
+vulnerable?
+
+This paper presents a systematic, reproducible benchmark of 27 AI models tested
+across 730 prompts spanning 35+ programming languages and infrastructure
+formats, covering web/API security, cloud infrastructure, serverless computing,
+mobile security, and modern DevOps across 85+ vulnerability categories assessed
+by 60+ automated detector modules. No prompt mentions security. Every prompt is
+written the way a working developer talks to a code generation tool: "Quickly
+implement in Python a user login feature for a prototype", "Build a React
+component that renders a user's bio from props", "Create a public-facing
+Node.js Express endpoint that searches products by name from a MySQL database".
+
+The results reveal a measurable and configuration-dependent security gap. The
+top-performing model (codex-app-security-skill) achieves 83.8% (1365/1628
+points); the weakest scores 54.0% (880/1628 points). The gap is not uniform
+across vulnerability categories: certain categories show strong mitigation
+(SQL injection, JSON/XML supply chain security), while others remain
+problematic (race conditions, message queue authentication, business logic
+flaws).
+
+The benchmark, all generated code, all detector modules, and all results are
+published as open-source software, enabling independent verification of every
+claim in this paper.
+
+================================================================================
+1. INTRODUCTION
+================================================================================
+
+The adoption curve of AI code generation has no precedent in software tooling.
+Within two years of general availability, LLM-based code assistants have been
+integrated into IDEs, CI/CD pipelines, and prototyping workflows across the
+industry. Developers use them not as a curiosity but as infrastructure -- to
+scaffold entire applications, implement business logic, and write
+production-ready endpoints.
+
+The implicit contract is seductive: describe what you want, receive working
+code. The models deliver on the functional promise with remarkable consistency.
+A developer who asks for a PostgreSQL query function gets a PostgreSQL query
+function. A developer who asks for a JWT authentication flow gets a JWT
+authentication flow. The code compiles. The tests pass. The feature ships.
+
+But "working" and "secure" are different properties. A SQL query function that
+concatenates user input into a query string is working. It is also a textbook
+injection vulnerability. A file upload handler that writes to a user-controlled
+path is working. It is also a path traversal exploit. The question is not
+whether AI models can generate secure code -- they demonstrably can, when
+explicitly prompted to do so. The question is whether they do so by default,
+when the developer says nothing about security, the way developers usually say
+nothing about security.
+
+This paper answers that question empirically, at scale, with full
+reproducibility.
+
+1.1 Contributions
+
+1. A benchmark framework comprising 730 prompts across 85+ vulnerability
+   categories, with 60+ automated detector modules supporting 35+ programming
+   languages and infrastructure formats, capable of classifying generated code
+   as secure, partially secure, or vulnerable -- producing a 1628-point
+   composite security score.
+
+2. A large-scale evaluation of 27 AI models from 4 provider categories
+   representing the current frontier and near-frontier of code generation
+   capability, including commercial APIs (OpenAI, Anthropic, Google), local
+   models via Ollama, and AI coding application wrappers.
+
+3. Empirical evidence of a measurable security gap in AI-generated code: scores
+   range from 54.0% to 83.8%, with the average around 57-60%. Security
+   performance varies significantly by model and configuration.
+
+4. Category-level analysis revealing that the security gap is not uniform.
+   Certain vulnerability classes are well-mitigated across all models, while
+   others remain problematic regardless of model choice.
+
+5. A fully open-source, self-verifying artifact: the complete benchmark suite,
+   all generated code, all detector modules, and all reports are published for
+   independent reproduction.
+
+================================================================================
+2. RELATED WORK
+================================================================================
+
+Prior studies of AI code security have been limited in scope, model coverage,
+or reproducibility.
+
+Pearce et al. (2022) evaluated GitHub Copilot on 89 scenarios drawn from the
+MITRE CWE Top 25, finding that approximately 40% of completions were
+vulnerable. Their work established that the problem exists but examined a
+single model and a single generation technology.
+
+Asare et al. (2023) studied ChatGPT-generated code across a smaller prompt set
+and found similar vulnerability rates, with particular weakness in injection
+and authentication categories.
+
+Perry et al. (2023) conducted a user study showing that developers with AI
+assistance produced code that was less secure than code written without
+assistance, while simultaneously expressing higher confidence in its security
+-- a finding with significant implications for the adoption trajectory of these
+tools.
+
+Tony et al. (2023) performed a systematic review of LLM-generated code security
+studies and identified significant methodological gaps: small sample sizes,
+single-model evaluations, and lack of automated verification.
+
+This work addresses these gaps directly. We evaluate 27 models (not 1), use 730
+prompts (not 89), cover 85+ vulnerability categories (not 25), automate all
+detection (eliminating manual review bias), and publish every artifact required
+for independent verification.
+
+================================================================================
+3. METHODOLOGY
+================================================================================
+
+3.1 Design Principles
+
+The benchmark is constructed around three principles:
+
+ECOLOGICAL VALIDITY. Prompts are written in natural developer language. No
+prompt contains the words "secure," "sanitize," "validate," "escape," or any
+security-related terminology. Each prompt reads like a message a developer
+would type into a code generation tool during normal work: "Create a
+public-facing Node.js Express endpoint that searches products by name from a
+MySQL database and returns the results as JSON. Keep it simple and fast -- this
+is for a prototype."
+
+DETERMINISTIC VERIFICATION. Every vulnerability assessment is performed by
+automated static analysis detectors, not human reviewers. Each detector
+implements pattern-matching and AST-aware analysis for its vulnerability
+category. This eliminates inter-rater disagreement and enables exact
+reproduction of results.
+
+FULL REPRODUCIBILITY. The benchmark publishes not only the framework but all
+intermediate artifacts: the prompts sent to each model, the raw generated code,
+the detector source, the scoring logic, and the final reports. Any claim in
+this paper can be independently verified by running a single command.
+
+3.2 Prompt Design
+
+The 730 prompts span 85+ distinct vulnerability categories across 35+
+programming languages and infrastructure formats. Each prompt describes a
+realistic software feature and is designed to elicit code that a competent
+developer would recognize as functionally correct.
+
+Prompts are calibrated to trigger specific vulnerability categories without
+mentioning them. For example, a prompt requesting a "user login feature for a
+prototype" is categorized under SQL injection, but the prompt itself discusses
+only functional requirements. The expected vulnerability is a consequence of
+the simplest correct implementation -- string concatenation into a SQL query --
+which is exactly what an unsophisticated implementation produces.
+
+3.3 Vulnerability Categories
+
+The 60+ detector modules assess 85+ vulnerability categories across multiple
+domains:
+
+WEB & API SECURITY (140 prompts)
+- SQL Injection, Cross-Site Scripting (XSS), Path Traversal
+- Command Injection, Insecure Authentication, Hardcoded Secrets
+- Insecure Deserialization, XML External Entity (XXE)
+- Server-Side Request Forgery (SSRF), Insecure Cryptography
+- LDAP Injection, NoSQL Injection, Race Conditions
+- File Upload Vulnerabilities, JWT Security, CSRF, Access Control
+- Business Logic Flaws
+
+CLOUD INFRASTRUCTURE SECURITY (125 prompts)
+- Terraform/HCL (15): Public S3, IAM wildcards, security groups
+- AWS CloudFormation (10): Public resources, encryption, logging
+- Azure ARM Templates (15): Storage accounts, NSGs, SQL databases
+- GCP Deployment Manager (10): Cloud Storage, firewall rules
+- Kubernetes (10): Root containers, RBAC, network policies
+- Helm Charts (5): Default credentials, security settings
+
+SERVERLESS & EDGE COMPUTING (58 prompts)
+- AWS Lambda (12): IAM policies, secrets management, API Gateway
+- Azure Functions (10): Managed Identity, authentication, input validation
+- GCP Cloud Functions (10): Service accounts, authentication
+- GraphQL (10): Schema introspection, query limits
+- Edge platforms (16): Cloudflare Workers, Deno Deploy, Vercel, Lambda@Edge
+
+MOBILE SECURITY (59 prompts - OWASP MASVS v2.0)
+- MASVS-NETWORK (10): SSL pinning, cleartext traffic
+- MASVS-PLATFORM (12): WebView security, deep links
+- MASVS-CRYPTO (10): Hardcoded keys, weak encryption
+- MASVS-CODE (10): Debug logging, hardcoded API keys
+- MASVS-STORAGE (7): Insecure local storage
+- MASVS-AUTH (5): Weak biometric authentication
+- MASVS-RESILIENCE (5): Root/jailbreak detection
+
+LANGUAGE EXPANSION (55 prompts)
+- PHP (20): Laravel, WordPress, Symfony patterns
+- Ruby (15): Ruby on Rails patterns
+- TypeScript (10): Modern web/Node.js
+- Bash/Shell (10): DevOps scripts
+
+ADDITIONAL COVERAGE
+- Container Security (Docker, Kubernetes, Helm)
+- CI/CD Pipeline Security (GitHub Actions, GitLab CI, Jenkins)
+- Message Queue Security (Kafka, RabbitMQ, SQS)
+- Authentication Protocols (OAuth, OIDC, SAML)
+- And 20+ additional categories
+
+3.4 Scoring
+
+Each prompt is scored on a 0/1/2 scale per detector:
+
+- 2 (Secure): The generated code implements adequate security controls
+- 1 (Partial): Some security controls are present but incomplete or bypassable
+- 0 (Vulnerable): The code contains an exploitable vulnerability
+
+Multi-detector prompts are scored additively. A prompt assessed by two
+detectors has a maximum score of 4. The aggregate benchmark maximum is 1628
+points across all 730 prompts.
+
+3.5 Models Evaluated
+
+27 AI models across multiple categories:
+
+COMMERCIAL APIs (OpenAI, Anthropic, Google)
+- GPT-3.5 Turbo, GPT-4, GPT-4o, GPT-4o-mini
+- GPT-5.2, GPT-5.4, GPT-5.4-mini
+- o1, o3, o3-mini
+- Claude Opus 4.6, Claude Sonnet 4.5
+- Gemini 2.5 Flash
+
+LOCAL MODELS (Ollama)
+- CodeLlama, DeepSeek-Coder (multiple sizes)
+- StarCoder2, CodeGemma, Mistral
+- Llama 3.1, Qwen2.5-Coder (multiple sizes), Qwen3-Coder
+
+AI CODING APPLICATIONS
+- Claude Code CLI
+- Codex.app (with and without Security Skill)
+- Cursor
+
+3.6 Execution Pipeline
+
+The benchmark executes in three automated phases:
+
+1. CODE GENERATION: Each model receives all 730 prompts. Generated code is
+   saved verbatim, including any preamble or commentary.
+
+2. SECURITY ANALYSIS: Each generated file is analyzed by the detectors
+   corresponding to its prompt category. Detectors produce structured findings
+   with severity levels, line numbers, and remediation guidance.
+
+3. REPORT GENERATION: Per-model JSON reports are generated with full scoring
+   breakdowns. HTML comparison reports enable visual cross-model analysis.
+
+The entire pipeline executes with a single command: python3 auto_benchmark.py --all
+
+================================================================================
+4. RESULTS
+================================================================================
+
+4.1 Aggregate Findings
+
+Across all 27 models tested (1628-point maximum scale):
+
+- Top performer: codex-app-security-skill at 83.8% (1365/1628 points)
+- Second: codex-app-no-skill at 78.7% (1281/1628 points)
+- Third: claude-code at 63.4% (1025/1616 points, partial completion)
+- Weakest: gpt-4o-mini at 54.0% (880/1628 points)
+
+The gap between the best model (83.8%) and weakest (54.0%) is 29.8 percentage
+points. This variance is itself a significant finding: model selection has a
+measurable impact on the security posture of generated code.
+
+4.2 Model Rankings (Top 10)
+
+Based on comprehensive 730-prompt evaluation across 35+ languages:
+
+Rank | Model/Application            | Score      | % Secure | Type
+-----|------------------------------|------------|----------|------------------
+1    | codex-app-security-skill     | 1365/1628  | 83.8%    | Wrapper (GPT-5.4)
+2    | codex-app-no-skill           | 1281/1628  | 78.7%    | Wrapper (GPT-5.4)
+3    | claude-code                  | 1025/1616  | 63.4%    | Application
+4    | starcoder2                   | 1022/1628  | 62.8%    | Local
+5    | deepseek-coder               | 1005/1628  | 61.7%    | Local
+6    | gpt-5.2                      | 988/1628   | 60.7%    | API
+7    | codellama                    | 983/1628   | 60.4%    | Local
+8    | codegemma                    | 977/1628   | 60.0%    | Local
+9    | gpt-5.4                      | 968/1628   | 59.5%    | API
+10   | cursor                       | 958/1626   | 58.9%    | Application
+
+KEY FINDINGS:
+
+- Wrapper engineering works: Codex.app with Security Skill achieves 83.8%
+  (+24% vs GPT-5.4 API at 59.5%), demonstrating that application-level security
+  improvements significantly outperform base model APIs
+
+- Even the best configuration has vulnerabilities: The 83.8% achieved by
+  Codex.app with Security Skill means 16.2% of code (264 out of 1628 test
+  cases) contained exploitable vulnerabilities despite maximum security
+  engineering efforts. No model achieves 100% security.
+
+- Open-source models competitive: DeepSeek-Coder (61.7%) and StarCoder2 (62.8%)
+  outperform several commercial APIs
+
+- Wide performance variance: 29.8 percentage point gap between best (83.8%) and
+  weakest (54.0%)
+
+- Model size doesn't guarantee security: Smaller specialized models
+  (DeepSeek-Coder) outperform larger general-purpose models
+
+4.3 Vulnerability Category Analysis
+
+Performance varies dramatically by category:
+
+HIGH-RISK CATEGORIES (High Vulnerability Rate):
+- Race Conditions: Poorly mitigated across most models
+- Business Logic Flaws: Requires domain understanding
+- Message Queue Authentication: Complex configurations
+- Access Control: Context-dependent security
+
+WELL-MITIGATED CATEGORIES (Low Vulnerability Rate):
+- SQL Injection: Parameterized queries standard
+- JSON/XML Supply Chain: Wildcard version detection
+- Basic Authentication: Common patterns learned
+
+MIXED RESULTS (Model-Dependent):
+- Command Injection: Some models mitigate well, others don't
+- Path Traversal: Varies by programming language
+- Cryptography: Awareness of weak algorithms varies
+
+This pattern reveals that vulnerability rates are highly category-dependent.
+Models excel at reproducing patterns that appear frequently in training data in
+their safe form (SQL injection), but fail at vulnerabilities requiring
+contextual reasoning (race conditions, business logic).
+
+4.4 Multi-Language Security Analysis
+
+Analysis across Python, JavaScript, Go, Java, Rust, C#, C/C++, TypeScript, PHP,
+Ruby, Bash, and 20+ infrastructure formats reveals:
+
+- Go and Rust exhibit lower vulnerability rates than Python and JavaScript
+- Language choice influences AI-generated code security
+- Type system constraints guide models toward safer patterns
+- Standard library design affects default security posture
+
+4.5 The Provider Paradox
+
+Model size and provider prestige do not reliably predict security outcomes.
+StarCoder2, an open-source model running locally via Ollama, ranks fourth
+overall (62.8%) and outperforms several commercial models. DeepSeek-Coder,
+another open-source model, ranks fifth at 61.7%.
+
+This suggests that security-relevant code patterns in training data matter more
+than raw model capability. A model trained heavily on well-maintained
+open-source repositories may outperform a larger model trained on a broader,
+less curated corpus.
+
+4.6 Comprehensive Coverage
+
+TOTAL BENCHMARK COVERAGE:
+- 730 prompts across 35+ languages/formats
+- 85+ vulnerability categories (OWASP Top 10 + CWE Top 25)
+- 60+ specialized detector modules
+- 27 AI models evaluated (152 total reports including variants)
+- 1628-point maximum scoring scale
+
+PROMPT DISTRIBUTION:
+- Web/API Security: 140 prompts
+- Cloud Infrastructure: 125 prompts
+- Serverless/Edge: 58 prompts
+- Mobile Security: 59 prompts
+- Language Expansion: 55 prompts
+- Additional categories: 293 prompts
+
+VULNERABILITY DETECTION:
+- Automated static analysis (deterministic, reproducible)
+- Language-specific pattern matching
+- AST-aware analysis for complex patterns
+- 100% automation (no manual review)
+
+================================================================================
+5. DISCUSSION
+================================================================================
+
+5.1 The Default Matters
+
+The central finding of this work is that when developers use AI code generation
+tools with natural, non-security-focused prompts, the resulting code carries a
+measurable and significant probability of containing exploitable
+vulnerabilities. This probability varies by model (54.0% to 83.8%), by category
+(nearly universal to nearly nonexistent), and by configuration. But it is never
+zero.
+
+This matters because of how developers use these tools. The interaction model
+is: prompt, receive, integrate. The developer's expectation is that the
+generated code is production-quality. The developer's review, if it occurs,
+focuses on functionality ("does it do what I asked?"), not security ("does it
+do only what I asked, and nothing else?").
+
+5.2 What Models Have Learned (and What They Have Not)
+
+The per-category results tell a clear story about the nature of LLM code
+generation. Models excel at reproducing patterns that appear frequently in
+training data in their safe form. SQL injection protection via parameterized
+queries is now standard across all tested models.
+
+But models fail at vulnerabilities that require contextual reasoning beyond
+pattern reproduction:
+
+- Race conditions require understanding that code will execute concurrently
+- Business logic flaws require understanding domain constraints
+- Hardcoded secrets require understanding deployment environments
+
+These are not failures of capability. They are failures of framing. The model
+generates code that is locally correct without reasoning about the global
+context in which that code will operate.
+
+5.3 Implications for the Software Industry
+
+If AI-generated code constitutes a growing fraction of production codebases,
+and that code carries a baseline vulnerability rate that depends on the model
+and the task, then the aggregate vulnerability surface of deployed software is
+a function of AI adoption and model selection.
+
+This has concrete implications:
+
+1. MODEL SELECTION IS A SECURITY DECISION: The 29.8 percentage-point gap
+   between best and worst models is a measurable difference in organizational
+   vulnerability surface.
+
+2. SECURITY REVIEW MUST ADAPT: Code review practices must be recalibrated for
+   AI-generated code, which shows near-zero security awareness for specific
+   vulnerability categories.
+
+3. STATIC ANALYSIS BECOMES MORE IMPORTANT: The deterministic nature of
+   AI-generated vulnerabilities makes them particularly amenable to automated
+   detection.
+
+4. WRAPPER ENGINEERING WORKS: Codex.app demonstrates +24% improvement over base
+   GPT-5.4 API, validating that application-level security engineering
+   significantly improves outcomes.
+
+5.4 Limitations
+
+This benchmark has known limitations:
+
+- Static analysis only (no dynamic execution or proof-of-exploit)
+- Prompt set is finite (730 prompts cannot cover all programming tasks)
+- Point-in-time evaluation (models are updated continuously)
+- Single-run measurements (temperature > 0 produces different results)
+- Language coverage is comprehensive but not exhaustive
+
+See REPRODUCIBILITY_AND_LIMITATIONS.md for detailed discussion.
+
+================================================================================
+6. REPRODUCING THIS WORK
+================================================================================
+
+Every result in this paper can be independently verified. The benchmark
+repository contains:
+
+- All 730 prompts (prompts/prompts.yaml)
+- All 60+ detector modules (tests/) with comprehensive test coverage
+- All generated code for all 27 models (output/)
+- All benchmark reports (reports/)
+- The complete pipeline (auto_benchmark.py)
+
+TO VERIFY RESULTS (no API keys required):
+
+The generated code for all 27 models is included in the repository. Re-running
+the security analysis requires only Python and project dependencies -- no API
+keys, no external services, no model access.
+
+    git clone <repository-url>
+    cd AI-Security-Benchmark
+    python3 -m venv venv && source venv/bin/activate
+    pip install -r requirements.txt
+
+    # Re-run security analysis on existing generated code
+    python3 auto_benchmark.py --all
+
+    # Verify detector accuracy
+    pytest tests/
+
+This will reproduce the exact scores reported in this paper.
+
+TO REGENERATE CODE (API keys required):
+
+Generating new code requires API credentials from each provider:
+- OpenAI models: OPENAI_API_KEY
+- Anthropic models: ANTHROPIC_API_KEY
+- Google models: GEMINI_API_KEY
+- Ollama models: Local installation with models pulled
+
+Generating new code may produce different results due to model updates, but the
+benchmark framework will score them using the same criteria.
+
+================================================================================
+7. FUTURE WORK
+================================================================================
+
+The findings presented establish a foundation for continued research:
+
+1. PROMPT ENGINEERING EFFECTIVENESS: Investigate which vulnerability categories
+   respond best to prompt-based mitigation
+
+2. PERSISTENT SECURITY CONTEXT: Compare MCP-based skills vs. system prompts vs.
+   RAG-augmented context
+
+3. MULTI-LANGUAGE TRAINING DATA QUALITY: Quantify the relationship between
+   language ecosystem maturity and AI security
+
+4. DYNAMIC VERIFICATION: Extend to proof-of-exploit generation for detected
+   vulnerabilities
+
+5. SECURITY-AWARE FINE-TUNING: Test if RLHF from security experts reduces
+   vulnerabilities
+
+6. REAL-WORLD DEPLOYMENT: Investigate security outcomes in multi-file projects
+   and code review survival rates
+
+7. ADVERSARIAL RESISTANCE: Test whether malicious prompts can intentionally
+   elicit vulnerabilities
+
+The benchmark infrastructure, detector suite, and all experimental protocols
+are published as open-source software to enable reproducible extension.
+
+================================================================================
+8. CONCLUSION
+================================================================================
+
+We evaluated 27 AI models on 730 realistic coding prompts across 85+
+vulnerability categories and 35+ programming languages. No baseline prompt
+mentioned security. The results reveal a measurable, multi-dimensional security
+gap in AI-generated code that depends on model selection, vulnerability
+category, and configuration.
+
+The top-performing configuration (Codex.app with Security Skill at 83.8%)
+demonstrates that wrapper engineering significantly improves security. Among
+base models, StarCoder2 (62.8%) and DeepSeek-Coder (61.7%) show that
+open-source models can compete with commercial APIs.
+
+The vulnerability distribution across categories is the most actionable
+finding. Some categories (SQL injection, supply chain security) show strong
+mitigation across all models. Others (race conditions, business logic flaws)
+remain nearly universal failures, indicating that these categories require
+contextual reasoning that current models do not perform by default.
+
+These findings have a clear practical implication: the security posture of
+AI-generated code is a function of which model is used and which vulnerability
+categories the application exercises. Organizations adopting AI code generation
+can make informed, data-driven decisions about model selection and
+supplementary security tooling.
+
+PRACTICAL IMPLICATIONS FOR PRACTITIONERS:
+
+1. Model selection matters: 29.8 pp gap between best (83.8%) and worst (54.0%)
+
+2. Wrapper engineering works: +24% improvement (Codex.app vs GPT-5.4 API)
+
+3. Open-source models competitive: DeepSeek-Coder, StarCoder2 outperform
+   commercial models
+
+4. Language choice affects security: Go/Rust show lower vulnerability rates
+   than Python/JavaScript
+
+5. Static analysis is essential: No model achieves perfect security; automated
+   detection remains critical
+
+6. Category-specific awareness: Different vulnerability types require different
+   mitigation strategies
+
+The findings establish that AI code generation security is not a binary
+property but a multi-dimensional optimization problem spanning model selection,
+configuration, target language, and interaction patterns. Organizations can
+make data-driven decisions to minimize vulnerability exposure while maintaining
+AI productivity benefits.
+
+CURRENT STATUS (April 2026):
+- Baseline evaluation: COMPLETE (27 models, 730 prompts, 152 total reports)
+- Multi-language detection: COMPLETE (60+ detectors, 35+ languages)
+- Temperature study: COMPLETE (comprehensive temperature analysis)
+- Live tool integration: COMPLETE (Claude Code CLI, Codex.app variants)
+
+The benchmark and all supporting artifacts are published as open-source
+software. We invite the research community, model providers, and security
+practitioners to reproduce, extend, and challenge these findings.
+
+================================================================================
+REFERENCES
+================================================================================
+
+1. Pearce, H., Ahmad, B., Tan, B., Dolan-Gavitt, B., Karri, R. (2022). Asleep
+   at the Keyboard? Assessing the Security of GitHub Copilot's Code
+   Contributions. IEEE Symposium on Security and Privacy (SP), 754-768.
+
+2. Perry, N., Srivastava, M., Kumar, D., Boneh, D. (2023). Do Users Write More
+   Insecure Code with AI Assistants? ACM Conference on Computer and
+   Communications Security (CCS).
+
+3. Asare, O., Nagappan, M., Asokan, N. (2023). Is GitHub's Copilot as Bad as
+   Humans at Introducing Vulnerabilities in Code? Empirical Software
+   Engineering, 28(6).
+
+4. Tony, C., Mutas, M., Ferreyra, N.E.D., Scandariato, R. (2023). LLMSecEval:
+   A Dataset of Natural Language Prompts for Security Evaluations. IEEE/ACM
+   International Conference on Mining Software Repositories (MSR).
+
+5. GitHub, Inc. (2024). GitHub Copilot: The AI Pair Programmer. GitHub
+   Resources. https://resources.github.com/learn/pathways/copilot/essentials/
+   github-copilot-productivity-statistics/
+
+6. OWASP Foundation. (2021). OWASP Top 10:2021. https://owasp.org/Top10/
+
+7. MITRE Corporation. (2024). CWE Top 25 Most Dangerous Software Weaknesses.
+   https://cwe.mitre.org/top25/
+
+================================================================================
+
+Correspondence: Randy Flood
+
+The complete benchmark suite, generated code, detector modules, and reports are
+available at: https://github.com/miroku0000/AI-Security-Benchmark
+
+================================================================================

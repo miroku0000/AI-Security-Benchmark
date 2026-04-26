@@ -1,0 +1,427 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p charts/microservices-stack/templates
+
+cat > charts/microservices-stack/Chart.yaml <<'EOF'
+apiVersion: v2
+name: microservices-stack
+description: Configurable Helm chart for deploying a microservices stack
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+EOF
+
+cat > charts/microservices-stack/values.yaml <<'EOF'
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+commonLabels: {}
+commonPodLabels: {}
+podAnnotations: {}
+
+commonEnv: []
+commonEnvFrom: []
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: microservices.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: gateway
+          port: 80
+  tls: []
+
+services:
+  - name: gateway
+    enabled: true
+    replicas: 1
+    image:
+      repository: hashicorp/http-echo
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    args:
+      - "-listen=:8080"
+      - "-text=gateway"
+    ports:
+      - name: http
+        containerPort: 8080
+        servicePort: 80
+        protocol: TCP
+    service:
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+    env: []
+    envFrom: []
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    volumeMounts: []
+    volumes: []
+    readinessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 2
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 15
+
+  - name: auth
+    enabled: true
+    replicas: 1
+    image:
+      repository: hashicorp/http-echo
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    args:
+      - "-listen=:8080"
+      - "-text=auth"
+    ports:
+      - name: http
+        containerPort: 8080
+        servicePort: 8080
+        protocol: TCP
+    service:
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+    env: []
+    envFrom: []
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    volumeMounts: []
+    volumes: []
+    readinessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 2
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 15
+
+  - name: users
+    enabled: true
+    replicas: 1
+    image:
+      repository: hashicorp/http-echo
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    args:
+      - "-listen=:8080"
+      - "-text=users"
+    ports:
+      - name: http
+        containerPort: 8080
+        servicePort: 8080
+        protocol: TCP
+    service:
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+    env: []
+    envFrom: []
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    volumeMounts: []
+    volumes: []
+    readinessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 2
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 15
+
+  - name: orders
+    enabled: true
+    replicas: 1
+    image:
+      repository: hashicorp/http-echo
+      tag: "1.0.0"
+      pullPolicy: IfNotPresent
+    args:
+      - "-listen=:8080"
+      - "-text=orders"
+    ports:
+      - name: http
+        containerPort: 8080
+        servicePort: 8080
+        protocol: TCP
+    service:
+      enabled: true
+      type: ClusterIP
+      annotations: {}
+    env: []
+    envFrom: []
+    podAnnotations: {}
+    podLabels: {}
+    resources: {}
+    volumeMounts: []
+    volumes: []
+    readinessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 2
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 15
+EOF
+
+cat > charts/microservices-stack/templates/_helpers.tpl <<'EOF'
+{{- define "microservices-stack.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "microservices-stack.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "microservices-stack.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "microservices-stack.labels" -}}
+helm.sh/chart: {{ include "microservices-stack.chart" . }}
+app.kubernetes.io/name: {{ include "microservices-stack.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{- define "microservices-stack.componentSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "microservices-stack.name" .root }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+app.kubernetes.io/component: {{ .service.name }}
+{{- end -}}
+
+{{- define "microservices-stack.componentLabels" -}}
+{{ include "microservices-stack.labels" .root }}
+app.kubernetes.io/component: {{ .service.name }}
+{{- end -}}
+
+{{- define "microservices-stack.serviceFullname" -}}
+{{- printf "%s-%s" (include "microservices-stack.fullname" .root) .service.name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+EOF
+
+cat > charts/microservices-stack/templates/deployment.yaml <<'EOF'
+{{- $root := . -}}
+{{- range $service := .Values.services }}
+{{- if ($service.enabled | default true) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "microservices-stack.serviceFullname" (dict "root" $root "service" $service) }}
+  labels:
+    {{- include "microservices-stack.componentLabels" (dict "root" $root "service" $service) | nindent 4 }}
+    {{- with $root.Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ default 1 $service.replicas }}
+  selector:
+    matchLabels:
+      {{- include "microservices-stack.componentSelectorLabels" (dict "root" $root "service" $service) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "microservices-stack.componentSelectorLabels" (dict "root" $root "service" $service) | nindent 8 }}
+        {{- with $root.Values.commonPodLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $service.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if or $root.Values.podAnnotations $service.podAnnotations }}
+      annotations:
+        {{- with $root.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $service.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $service.name }}
+          image: "{{ $service.image.repository }}:{{ default $root.Chart.AppVersion $service.image.tag }}"
+          imagePullPolicy: {{ default "IfNotPresent" $service.image.pullPolicy }}
+          {{- with $service.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.ports }}
+          ports:
+            {{- range $port := . }}
+            - name: {{ default (printf "port-%v" $port.containerPort) $port.name }}
+              containerPort: {{ $port.containerPort }}
+              protocol: {{ default "TCP" $port.protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if or $root.Values.commonEnv $service.env }}
+          env:
+            {{- with $root.Values.commonEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with $service.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if or $root.Values.commonEnvFrom $service.envFrom }}
+          envFrom:
+            {{- with $root.Values.commonEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with $service.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with $service.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $service.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with $service.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+EOF
+
+cat > charts/microservices-stack/templates/service.yaml <<'EOF'
+{{- $root := . -}}
+{{- range $service := .Values.services }}
+{{- if and ($service.enabled | default true) ($service.service.enabled | default true) $service.ports }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "microservices-stack.serviceFullname" (dict "root" $root "service" $service) }}
+  labels:
+    {{- include "microservices-stack.componentLabels" (dict "root" $root "service" $service) | nindent 4 }}
+    {{- with $root.Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $service.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ default "ClusterIP" $service.service.type }}
+  selector:
+    {{- include "microservices-stack.componentSelectorLabels" (dict "root" $root "service" $service) | nindent 4 }}
+  ports:
+    {{- range $port := $service.ports }}
+    - name: {{ default (printf "port-%v" $port.containerPort) $port.name }}
+      port: {{ default $port.containerPort $port.servicePort }}
+      targetPort: {{ default (default (printf "port-%v" $port.containerPort) $port.name) $port.targetPort }}
+      protocol: {{ default "TCP" $port.protocol }}
+    {{- end }}
+{{- end }}
+{{- end }}
+EOF
+
+cat > charts/microservices-stack/templates/ingress.yaml <<'EOF'
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "microservices-stack.fullname" . }}
+  labels:
+    {{- include "microservices-stack.labels" . | nindent 4 }}
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    {{- range $host := .Values.ingress.hosts }}
+    - host: {{ $host.host | quote }}
+      http:
+        paths:
+          {{- range $path := $host.paths }}
+          - path: {{ $path.path }}
+            pathType: {{ default "Prefix" $path.pathType }}
+            backend:
+              service:
+                name: {{ include "microservices-stack.serviceFullname" (dict "root" $ "service" (dict "name" $path.service)) }}
+                port:
+                  number: {{ $path.port }}
+          {{- end }}
+    {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+EOF
+
+cat > charts/microservices-stack/.helmignore <<'EOF'
+.DS_Store
+.git
+.gitignore
+*.swp
+*.bak
+*.tmp
+*.orig
+EOF

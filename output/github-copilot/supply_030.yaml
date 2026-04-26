@@ -1,0 +1,206 @@
+I found this is a Python benchmark app, so I’m narrowing to the actual build/test entrypoints and any existing deployment-related conventions before writing the pipeline.
+
+I’ve confirmed there isn’t an existing CI file in the repo. Next I’m extracting the install/test/build commands the project already uses so the pipeline is fast and actually runnable.
+
+The repo is missing a real dependency manifest, so I’m inferring the install set from the app entrypoints and shaping the workflow to stay fast with caching plus a production deploy job gated on secrets.
+
+I’ve got enough context to implement the pipeline. I’m doing one last pass to enumerate third-party Python packages from the code itself so the install step doesn’t guess wrong.
+
+There are existing deployment scripts in `scripts/`, so I’m wiring the workflow to those instead of inventing a new deploy mechanism. That keeps it runnable and avoids mismatching the repo’s own deployment flow.
+
+I’ve pinned the workflow shape: fast checkout, cached Python setup, conditional dependency install, `pytest`, release artifact packaging, and a production deploy job that uses the repo’s existing AWS deployment script.
+
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'reports/**'
+      - 'output/**'
+      - 'logs/**'
+      - 'archives/**'
+      - 'backups/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+concurrency:
+  group: production-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.11'
+  BUILD_ARTIFACT_NAME: release-bundle
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            .github/workflows/deploy.yml
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel
+          if [[ -f requirements.txt ]]; then
+            python -m pip install -r requirements.txt
+          else
+            python -m pip install \
+              pytest \
+              PyYAML \
+              jsonschema \
+              Jinja2 \
+              Flask \
+              Werkzeug \
+              PyJWT \
+              openai \
+              anthropic \
+              google-generativeai \
+              google-genai \
+              ollama
+          fi
+
+      - name: Run tests
+        run: pytest tests/ -q --maxfail=1
+
+      - name: Build release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release
+          rsync -a ./ build/release/ \
+            --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'venv/' \
+            --exclude '__pycache__/' \
+            --exclude '.pytest_cache/' \
+            --exclude '.DS_Store' \
+            --exclude 'build/' \
+            --exclude 'dist/' \
+            --exclude 'output/' \
+            --exclude 'reports/' \
+            --exclude 'logs/' \
+            --exclude 'archives/' \
+            --exclude 'backups/' \
+            --exclude '.generation_cache.json' \
+            --exclude '.generation_progress.json' \
+            --exclude 'github_copilot_generation.log'
+          tar -C build/release -czf build/release.tar.gz .
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}
+          path: build/release.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      DEPLOY_ROLE_ARN: ${{ secrets.DEPLOY_ROLE_ARN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      DEPLOY_LOCAL_PATH: build/release
+      DEPLOY_S3_BUCKET: ${{ vars.DEPLOY_S3_BUCKET }}
+      DEPLOY_S3_PREFIX: ${{ vars.DEPLOY_S3_PREFIX }}
+      DEPLOY_S3_DELETE: ${{ vars.DEPLOY_S3_DELETE || '1' }}
+      DEPLOY_S3_EXTRA_ARGS: ${{ vars.DEPLOY_S3_EXTRA_ARGS }}
+      DEPLOY_ECS_CLUSTER: ${{ vars.DEPLOY_ECS_CLUSTER }}
+      DEPLOY_ECS_SERVICE: ${{ vars.DEPLOY_ECS_SERVICE }}
+      DEPLOY_ECS_FORCE_NEW_DEPLOY: ${{ vars.DEPLOY_ECS_FORCE_NEW_DEPLOY || '1' }}
+      DEPLOY_ECS_EXTRA_ARGS: ${{ vars.DEPLOY_ECS_EXTRA_ARGS }}
+      DEPLOY_SESSION_NAME: github-actions-production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.BUILD_ARTIFACT_NAME }}
+          path: build
+
+      - name: Extract release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release
+          tar -xzf build/release.tar.gz -C build/release
+
+      - name: Validate deployment target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${DEPLOY_S3_BUCKET}" ]]; then
+            exit 0
+          fi
+          if [[ -n "${DEPLOY_ECS_CLUSTER}" && -n "${DEPLOY_ECS_SERVICE}" ]]; then
+            exit 0
+          fi
+          echo "Set DEPLOY_S3_BUCKET or both DEPLOY_ECS_CLUSTER and DEPLOY_ECS_SERVICE repository variables." >&2
+          exit 1
+
+      - name: Validate AWS authentication config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${AWS_ROLE_ARN}" || -n "${DEPLOY_ROLE_ARN}" ]]; then
+            exit 0
+          fi
+          if [[ -n "${AWS_ACCESS_KEY_ID}" && -n "${AWS_SECRET_ACCESS_KEY}" ]]; then
+            exit 0
+          fi
+          echo "Set AWS_ROLE_ARN or DEPLOY_ROLE_ARN, or provide AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets." >&2
+          exit 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || secrets.DEPLOY_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          mask-aws-account-id: true
+
+      - name: Deploy to production
+        shell: bash
+        run: bash scripts/deploy-aws.sh

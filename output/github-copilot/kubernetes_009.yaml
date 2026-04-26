@@ -1,0 +1,217 @@
+I’m narrowing this to the repo’s actual runtime entrypoints so the manifest is runnable rather than generic. Next I’m checking for existing container/image conventions and any ops folder where Kubernetes config belongs.
+
+I found the main batch entrypoint (`auto_benchmark.py`). I’m checking whether the repo already defines a container image name or deployment location; if not, I’ll add a manifest around that entrypoint with conservative defaults for long-running batch workers.
+
+There’s no existing container image or Kubernetes folder in the repo, so I’m building a self-contained manifest instead of guessing a private image name. I’m checking the Python dependencies and runtime expectations now so the Deployment can boot from public images without extra repo scaffolding.
+
+I’ve got the entrypoint and enough of the app shape. One last pass is to strip out noise from backups/deprecated files and confirm the minimal third-party packages the manifest has to install at startup.
+
+I found unrelated local changes, so I’m isolating this to a new manifest file only. I’m checking the repo’s default branch so the Deployment can clone the right ref on startup instead of hard-coding a guess.
+
+I’ve got the shape: a self-contained Deployment that bootstraps the public repo, installs only the needed Python packages, and runs the benchmark worker in a retry loop so the pod stays useful under Deployment semantics. I’m writing that as a single manifest file now.
+
+The patch tool couldn’t create the new path directly, so I’m creating the target directory first and then writing the manifest there.
+
+I hit a filesystem permission block when trying to create the new manifest path. I’m checking whether there’s an existing writable deployment/config directory I can update instead of adding a new one.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-batch-processor
+  labels:
+    app.kubernetes.io/name: ai-batch-processor
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 600
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-batch-processor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-batch-processor
+        app.kubernetes.io/component: worker
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: fetch-source
+          image: alpine/git:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REPO_URL
+              value: https://github.com/miroku0000/AI-Security-Benchmark.git
+            - name: REPO_REF
+              value: main
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              set -eu
+              mkdir -p /workspace
+              if [ ! -d /workspace/app/.git ]; then
+                rm -rf /workspace/app
+                git clone --depth 1 --branch "${REPO_REF}" "${REPO_URL}" /workspace/app
+              else
+                git -C /workspace/app fetch origin "${REPO_REF}" --depth 1
+                git -C /workspace/app reset --hard FETCH_HEAD
+              fi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+        - name: prepare-runtime
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PIP_DISABLE_PIP_VERSION_CHECK
+              value: "1"
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              set -eu
+              python -m venv /workspace/venv
+              /workspace/venv/bin/pip install --upgrade pip setuptools wheel
+              /workspace/venv/bin/pip install --no-cache-dir pyyaml jsonschema openai anthropic google-genai requests
+              mkdir -p /workspace/app/output /workspace/app/reports /workspace/app/logs
+              chown -R 10001:10001 /workspace
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: worker
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace/app
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: HOME
+              value: /tmp
+            - name: MODEL
+              value: gpt-5.4-mini
+            - name: OUTPUT_DIR
+              value: output/batch-worker
+            - name: RETRIES
+              value: "3"
+            - name: TEMPERATURE
+              value: "0.2"
+            - name: LIMIT
+              value: ""
+            - name: FORCE_REGENERATE
+              value: "false"
+            - name: SUCCESS_BACKOFF_SECONDS
+              value: "30"
+            - name: FAILURE_BACKOFF_SECONDS
+              value: "10"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-batch-processor-secrets
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-batch-processor-secrets
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-batch-processor-secrets
+                  key: GEMINI_API_KEY
+                  optional: true
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              set -eu
+              trap 'exit 0' TERM INT
+              mkdir -p "${OUTPUT_DIR}" reports logs
+              touch /tmp/worker-heartbeat
+              while true; do
+                set -- \
+                  --model "${MODEL}" \
+                  --output "${OUTPUT_DIR}" \
+                  --retries "${RETRIES}" \
+                  --temperature "${TEMPERATURE}"
+                if [ -n "${LIMIT}" ]; then
+                  set -- "$@" --limit "${LIMIT}"
+                fi
+                if [ "${FORCE_REGENERATE}" = "true" ]; then
+                  set -- "$@" --force-regenerate
+                fi
+                (
+                  while true; do
+                    touch /tmp/worker-heartbeat
+                    sleep 30
+                  done
+                ) &
+                heartbeat_pid=$!
+                if /workspace/venv/bin/python auto_benchmark.py "$@"; then
+                  kill "${heartbeat_pid}" 2>/dev/null || true
+                  wait "${heartbeat_pid}" 2>/dev/null || true
+                  touch /tmp/worker-heartbeat
+                  sleep "${SUCCESS_BACKOFF_SECONDS}"
+                else
+                  kill "${heartbeat_pid}" 2>/dev/null || true
+                  wait "${heartbeat_pid}" 2>/dev/null || true
+                  touch /tmp/worker-heartbeat
+                  sleep "${FAILURE_BACKOFF_SECONDS}"
+                fi
+              done
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - test -x /workspace/venv/bin/python && test -f /workspace/app/auto_benchmark.py
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - find /tmp/worker-heartbeat -mmin -lt 2 -print -quit | grep -q .
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

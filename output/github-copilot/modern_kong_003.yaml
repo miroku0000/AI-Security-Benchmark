@@ -1,0 +1,217 @@
+_format_version: "3.0"
+_transform: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - https://app.example.com
+        - https://admin.example.com
+        - https://support.example.com
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Language
+        - Authorization
+        - Cache-Control
+        - Content-Type
+        - DNT
+        - If-Modified-Since
+        - Keep-Alive
+        - Origin
+        - User-Agent
+        - X-API-Key
+        - X-Correlation-Id
+        - X-Requested-With
+      exposed_headers:
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+        - X-RateLimit-Reset
+        - X-Request-Id
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+  - name: rate-limiting
+    config:
+      second: 25
+      minute: 500
+      hour: 10000
+      limit_by: ip
+      policy: local
+      hide_client_headers: false
+      fault_tolerant: false
+
+consumers:
+  - username: web-portal
+    keyauth_credentials:
+      - key: 33f0c1d3ab454f4b954f1974d0a66d49
+  - username: admin-portal
+    jwt_secrets:
+      - key: admin-web
+        algorithm: HS256
+        secret: 4b53b1b285dd4333a19cd0715057071e
+
+services:
+  - name: user-service
+    url: http://user-service.internal:8080
+    connect_timeout: 60000
+    read_timeout: 60000
+    write_timeout: 60000
+    retries: 5
+    plugins:
+      - name: key-auth
+        config:
+          key_names:
+            - x-api-key
+          hide_credentials: true
+          run_on_preflight: false
+      - name: cors
+        config:
+          origins:
+            - https://app.example.com
+            - https://admin.example.com
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - Origin
+            - X-API-Key
+            - X-Correlation-Id
+            - X-Requested-With
+          exposed_headers:
+            - X-RateLimit-Limit
+            - X-RateLimit-Remaining
+            - X-Request-Id
+          credentials: true
+          max_age: 3600
+          preflight_continue: false
+      - name: rate-limiting
+        config:
+          minute: 300
+          hour: 5000
+          limit_by: consumer
+          policy: local
+          hide_client_headers: false
+          fault_tolerant: false
+    routes:
+      - name: user-profile-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - PUT
+          - PATCH
+          - OPTIONS
+        paths:
+          - /api/v1/users/profile
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 120
+              hour: 1500
+              limit_by: consumer
+              policy: local
+              hide_client_headers: false
+              fault_tolerant: false
+
+  - name: billing-service
+    url: http://billing-service.internal:8080
+    connect_timeout: 60000
+    read_timeout: 60000
+    write_timeout: 60000
+    retries: 5
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - https://app.example.com
+            - https://admin.example.com
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - Origin
+            - X-Correlation-Id
+            - X-Requested-With
+          exposed_headers:
+            - X-RateLimit-Limit
+            - X-RateLimit-Remaining
+            - X-Request-Id
+          credentials: true
+          max_age: 3600
+          preflight_continue: false
+    routes:
+      - name: billing-api-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        paths:
+          - /api/v1/billing
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              header_names:
+                - authorization
+              cookie_names: []
+              uri_param_names:
+                - jwt
+              key_claim_name: iss
+              secret_is_base64: false
+              run_on_preflight: false
+          - name: cors
+            config:
+              origins:
+                - https://admin.example.com
+              methods:
+                - GET
+                - POST
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+                - Origin
+                - X-Correlation-Id
+                - X-Requested-With
+              exposed_headers:
+                - X-RateLimit-Limit
+                - X-RateLimit-Remaining
+                - X-Request-Id
+              credentials: true
+              max_age: 3600
+              preflight_continue: false
+          - name: rate-limiting
+            config:
+              second: 10
+              minute: 100
+              hour: 1000
+              limit_by: consumer
+              policy: local
+              hide_client_headers: false
+              fault_tolerant: false

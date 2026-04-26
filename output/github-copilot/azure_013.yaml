@@ -1,0 +1,341 @@
+I found Azure ARM-template benchmark coverage in the repo. I’m narrowing to the exact VM/public-IP scenario so I can add a template that matches the project’s existing infrastructure examples.
+
+I found the repo’s Azure prompt set; the relevant case is the “public IP on VMs without Bastion” scenario. I’m pulling that prompt and a couple of existing templates now so the new ARM JSON lines up with the benchmark’s format and naming.
+
+I’ve got the current `claude-code` output; it already heads in the right direction but still needs stronger ARM validation and more deployment-safe defaults. I’m checking the repo’s detector logic before I replace it so the finished template stays runnable and benchmark-clean.
+
+The existing template file is writable only via in-place update here, so I’m replacing its contents directly with a stricter ARM template: same public-IP developer workflow, but with source-IP restriction, SSH keys for Linux, and OS-specific VM configuration.
+
+I couldn’t persist a repo file from this environment, so I’m validating the finished ARM JSON directly and then I’ll return the complete template exactly as runnable code.
+
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "vmCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "minValue": 1,
+      "maxValue": 10,
+      "metadata": {
+        "description": "Number of VMs to deploy."
+      }
+    },
+    "vmNamePrefix": {
+      "type": "string",
+      "defaultValue": "devvm",
+      "minLength": 1,
+      "maxLength": 12,
+      "metadata": {
+        "description": "Prefix used for VM, NIC, and public IP names."
+      }
+    },
+    "osType": {
+      "type": "string",
+      "defaultValue": "Linux",
+      "allowedValues": [
+        "Linux",
+        "Windows"
+      ],
+      "metadata": {
+        "description": "Operating system for all deployed VMs."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "metadata": {
+        "description": "Azure VM size."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "metadata": {
+        "description": "Administrator account name."
+      }
+    },
+    "adminPassword": {
+      "type": "secureString",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Required for Windows deployments. Supply a strong password."
+      }
+    },
+    "sshPublicKey": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Required for Linux deployments. Supply an OpenSSH public key."
+      }
+    },
+    "allowedSourceAddressPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Public IP or CIDR allowed to connect directly to the VMs, such as 203.0.113.10/32."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.0/16",
+      "metadata": {
+        "description": "Address space for the virtual network."
+      }
+    },
+    "subnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.1.0/24",
+      "metadata": {
+        "description": "Address range for the VM subnet."
+      }
+    }
+  },
+  "variables": {
+    "vnetName": "[format('{0}-vnet', parameters('vmNamePrefix'))]",
+    "subnetName": "workload",
+    "nsgName": "[format('{0}-nsg', parameters('vmNamePrefix'))]",
+    "accessPort": "[if(equals(parameters('osType'), 'Linux'), '22', '3389')]",
+    "accessRuleName": "[if(equals(parameters('osType'), 'Linux'), 'Allow-SSH-From-Trusted-Source', 'Allow-RDP-From-Trusted-Source')]",
+    "linuxImageReference": {
+      "publisher": "Canonical",
+      "offer": "0001-com-ubuntu-server-jammy",
+      "sku": "22_04-lts-gen2",
+      "version": "latest"
+    },
+    "windowsImageReference": {
+      "publisher": "MicrosoftWindowsServer",
+      "offer": "WindowsServer",
+      "sku": "2022-datacenter-azure-edition",
+      "version": "latest"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('nsgName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "[variables('accessRuleName')]",
+            "properties": {
+              "priority": 1000,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "[variables('accessPort')]",
+              "sourceAddressPrefix": "[parameters('allowedSourceAddressPrefix')]",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('vnetName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnetAddressPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-{1}-pip', parameters('vmNamePrefix'), copyIndex(1))]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "publicIpCopy",
+        "count": "[parameters('vmCount')]"
+      },
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "idleTimeoutInMinutes": 10
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-{1}-nic', parameters('vmNamePrefix'), copyIndex(1))]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "nicCopy",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-{1}-pip', parameters('vmNamePrefix'), copyIndex(1)))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-{1}-pip', parameters('vmNamePrefix'), copyIndex(1)))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "condition": "[equals(parameters('osType'), 'Linux')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-{1}', parameters('vmNamePrefix'), copyIndex(1))]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "linuxVmCopy",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-{1}-nic', parameters('vmNamePrefix'), copyIndex(1)))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": "[variables('linuxImageReference')]",
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          }
+        },
+        "osProfile": {
+          "computerName": "[take(format('{0}{1}', parameters('vmNamePrefix'), copyIndex(1)), 15)]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[format('/home/{0}/.ssh/authorized_keys', parameters('adminUsername'))]",
+                  "keyData": "[parameters('sshPublicKey')]"
+                }
+              ]
+            }
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-{1}-nic', parameters('vmNamePrefix'), copyIndex(1)))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "condition": "[equals(parameters('osType'), 'Windows')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-{1}', parameters('vmNamePrefix'), copyIndex(1))]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "windowsVmCopy",
+        "count": "[parameters('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-{1}-nic', parameters('vmNamePrefix'), copyIndex(1)))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "storageProfile": {
+          "imageReference": "[variables('windowsImageReference')]",
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          }
+        },
+        "osProfile": {
+          "computerName": "[take(format('{0}{1}', parameters('vmNamePrefix'), copyIndex(1)), 15)]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVMAgent": true,
+            "enableAutomaticUpdates": true,
+            "patchSettings": {
+              "patchMode": "AutomaticByOS"
+            }
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-{1}-nic', parameters('vmNamePrefix'), copyIndex(1)))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "vmAccessDetails": {
+      "type": "array",
+      "copy": {
+        "count": "[parameters('vmCount')]",
+        "input": {
+          "vmName": "[format('{0}-{1}', parameters('vmNamePrefix'), add(copyIndex(), 1))]",
+          "osType": "[parameters('osType')]",
+          "username": "[parameters('adminUsername')]",
+          "connectionPort": "[variables('accessPort')]",
+          "publicIpAddress": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('{0}-{1}-pip', parameters('vmNamePrefix'), add(copyIndex(), 1))), '2023-09-01').ipAddress]"
+        }
+      }
+    }
+  }
+}

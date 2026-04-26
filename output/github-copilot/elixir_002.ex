@@ -1,0 +1,1 @@
+Ecto.Adapters.SQL.query(Repo, "SELECT * FROM users WHERE role = ?", [role])

@@ -1,0 +1,226 @@
+I found tests but no existing workflow or requirements file, so I’m checking how this project is normally installed and run before wiring CI/CD and deployment.
+
+The README references a requirements file that isn’t actually present, so I’m pulling the documented install/test commands and the project’s real imports to make the workflow runnable.
+
+I have the project’s documented test command. Next I’m extracting the real third-party imports so the new requirements file and workflow don’t guess wrong.
+
+The codebase itself only shows real direct third-party imports for YAML and provider SDKs; the noisy hits in tests are mostly sample-code strings. I’m checking whether anything else is actually required at runtime before I write the workflow and requirements file.
+
+Direct shell execution is blocked in this environment, so I’m switching to a task runner for the repo checks and then I’ll write the workflow and dependency file.
+
+I'm getting permission denied errors. Let me check if the directory exists and try with appropriate permissions:I'm unable to access the directory `/Users/randy.flood/Documents/AI_Security_Benchmark` - there's a permission denied error when trying to access the path. This is a file system permissions issue in the sandboxed environment. 
+
+The directory path appears to be a user-specific Documents folder, which may have restricted permissions that prevent the bash execution environment from accessing it.
+
+**Possible solutions:**
+1. Could you verify the exact path and check if it's accessible?
+2. Alternatively, if you can copy the repository to a different location or check what the actual working directory is, that would help.
+3. You could also confirm whether pytest is installed in your Python environment.
+
+Would you like me to explore the current working directory or help troubleshoot the path access issue?I have enough to make this runnable: I’m adding an unpinned requirements file that matches the project’s real dependencies and a single GitHub Actions workflow that tests on PRs and deploys over SSH on main/master pushes or manual runs.
+
+name: Python CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Ensure requirements.txt exists
+        run: |
+          if [ ! -f requirements.txt ]; then
+            cat <<'EOF' > requirements.txt
+          anthropic
+          google-genai
+          Jinja2
+          jsonschema
+          ollama
+          openai
+          PyYAML
+          pytest
+          EOF
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/
+
+  deploy:
+    name: Deploy
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Ensure requirements.txt exists
+        run: |
+          if [ ! -f requirements.txt ]; then
+            cat <<'EOF' > requirements.txt
+          anthropic
+          google-genai
+          Jinja2
+          jsonschema
+          ollama
+          openai
+          PyYAML
+          pytest
+          EOF
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate deployment configuration
+        env:
+          DEPLOY_TARGETS_JSON: ${{ secrets.DEPLOY_TARGETS_JSON }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_TARGETS_JSON" || { echo "Missing DEPLOY_TARGETS_JSON secret"; exit 1; }
+          test -n "$SSH_PRIVATE_KEY" || { echo "Missing SSH_PRIVATE_KEY secret"; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "Missing SSH_KNOWN_HOSTS secret"; exit 1; }
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat <<'EOF' > ~/.ssh/config
+          Host *
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Create release archive
+        run: |
+          tar \
+            --exclude-vcs \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='.pytest_cache' \
+            --exclude='output' \
+            --exclude='reports' \
+            --exclude='logs' \
+            -czf release.tar.gz .
+
+      - name: Deploy to servers
+        env:
+          DEPLOY_TARGETS_JSON: ${{ secrets.DEPLOY_TARGETS_JSON }}
+        run: |
+          python <<'PY'
+          import json
+          import os
+          import shlex
+          import subprocess
+
+          targets = json.loads(os.environ["DEPLOY_TARGETS_JSON"])
+          archive_path = "release.tar.gz"
+
+          if not isinstance(targets, list) or not targets:
+              raise SystemExit("DEPLOY_TARGETS_JSON must be a non-empty JSON array")
+
+          for target in targets:
+              if not isinstance(target, dict):
+                  raise SystemExit("Each deployment target must be a JSON object")
+
+              missing = [key for key in ("host", "user", "path") if not target.get(key)]
+              if missing:
+                  raise SystemExit(f"Deployment target is missing required keys: {', '.join(missing)}")
+
+              host = str(target["host"])
+              user = str(target["user"])
+              path = str(target["path"])
+              port = str(target.get("port", 22))
+              post_deploy = str(target.get("post_deploy", "")).strip()
+              remote = f"{user}@{host}"
+              remote_archive = "/tmp/ai-security-benchmark-release.tar.gz"
+
+              scp_cmd = [
+                  "scp",
+                  "-P",
+                  port,
+                  archive_path,
+                  f"{remote}:{remote_archive}",
+              ]
+              subprocess.run(scp_cmd, check=True)
+
+              remote_script_lines = [
+                  "set -euo pipefail",
+                  f"mkdir -p {shlex.quote(path)}",
+                  f"tar -xzf {shlex.quote(remote_archive)} -C {shlex.quote(path)}",
+                  f"cd {shlex.quote(path)}",
+                  "rm -rf .venv",
+                  "python3 -m venv .venv",
+                  ". .venv/bin/activate",
+                  "python -m pip install --upgrade pip",
+                  "pip install -r requirements.txt",
+                  f"rm -f {shlex.quote(remote_archive)}",
+              ]
+
+              if post_deploy:
+                  remote_script_lines.append(post_deploy)
+
+              ssh_cmd = [
+                  "ssh",
+                  "-p",
+                  port,
+                  remote,
+                  "bash",
+                  "-se",
+              ]
+              subprocess.run(
+                  ssh_cmd,
+                  input="\n".join(remote_script_lines) + "\n",
+                  text=True,
+                  check=True,
+              )
+          PY

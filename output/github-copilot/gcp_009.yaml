@@ -1,0 +1,16 @@
+I’m checking whether this repo already uses a specific Deployment Manager template style so the code matches existing patterns.
+
+resources:
+- name: three-tier-vpc
+  type: compute.v1.network
+  properties:
+    description: VPC network for a three-tier application
+    autoCreateSubnetworks: true
+    routingConfig:
+      routingMode: REGIONAL
+
+outputs:
+- name: networkName
+  value: $(ref.three-tier-vpc.name)
+- name: networkSelfLink
+  value: $(ref.three-tier-vpc.selfLink)

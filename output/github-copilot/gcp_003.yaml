@@ -1,0 +1,43 @@
+def generate_config(context):
+    properties = context.properties
+
+    instance_name = properties.get('instanceName', context.env['name'])
+    region = properties.get('region', 'us-central1')
+    database_version = properties.get('databaseVersion', 'POSTGRES_15')
+    tier = properties.get('tier', 'db-f1-micro')
+    disk_size_gb = properties.get('diskSizeGb', 10)
+    authorized_cidr = properties.get('authorizedCidr', '10.0.0.0/8')
+    admin_password = properties['adminPassword']
+
+    resources = [
+        {
+            'name': instance_name,
+            'type': 'gcp-types/sqladmin-v1beta4:instances',
+            'properties': {
+                'region': region,
+                'databaseVersion': database_version,
+                'settings': {
+                    'tier': tier,
+                    'dataDiskSizeGb': disk_size_gb,
+                    'dataDiskType': 'PD_SSD',
+                    'ipConfiguration': {
+                        'ipv4Enabled': True,
+                        'authorizedNetworks': [
+                            {
+                                'name': 'staging-client-network',
+                                'value': authorized_cidr
+                            }
+                        ]
+                    },
+                    'backupConfiguration': {
+                        'enabled': True
+                    },
+                    'activationPolicy': 'ALWAYS',
+                    'availabilityType': 'ZONAL'
+                },
+                'rootPassword': admin_password
+            }
+        }
+    ]
+
+    return {'resources': resources}

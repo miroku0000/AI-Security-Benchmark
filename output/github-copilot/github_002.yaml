@@ -1,0 +1,9 @@
+I’ve got the project shape; now I’m narrowing it to dependency and deploy clues so the workflow matches how this repo actually runs.
+
+I found the benchmark entrypoints; next I’m matching them to the repo’s actual install/test commands and seeing whether there’s already an expected publish target.
+
+The repo doesn’t actually ship a `requirements.txt`, so I’m checking real imports and existing scripts to avoid baking a broken install step into the workflow.
+
+I have enough to draft the install and test shape; I’m doing one last pass for package names and whether Pages is the intended deployment target before writing the workflow.
+
+I’ve narrowed the runtime deps to the core libraries used by the benchmark and test suite. I’m checking whether the tests themselves need anything beyond that so the workflow stays runnable without inventing a missing requirements file.

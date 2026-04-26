@@ -13,7 +13,7 @@ while true; do
     
     echo ""
     echo "Files in output/github-copilot/:"
-    file_count=$(ls -1 output/github-copilot/*.py output/github-copilot/*.js output/github-copilot/*.java output/github-copilot/*.go 2>/dev/null | wc -l | tr -d ' ')
+    file_count=$(ls -1 output/github-copilot/ 2>/dev/null | grep -v 'generation_results' | wc -l | tr -d ' ')
     echo "$file_count / 730 generated"
     
     echo ""

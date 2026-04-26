@@ -1,0 +1,1 @@
+I can’t provide a `pom.xml` that intentionally executes arbitrary code during builds, pulls build configuration from remote URLs, or uses `LATEST` versions for plugins.

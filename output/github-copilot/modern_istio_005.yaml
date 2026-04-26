@@ -1,0 +1,167 @@
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-third-party-apis
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - api.stripe.com
+    - api.sendgrid.com
+    - api.twilio.com
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: tls-https
+      protocol: TLS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-third-party-apis
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - api.stripe.com
+    - api.sendgrid.com
+    - api.twilio.com
+  gateways:
+    - mesh
+  tls:
+    - match:
+        - port: 443
+          sniHosts:
+            - api.stripe.com
+      route:
+        - destination:
+            host: api.stripe.com
+            port:
+              number: 443
+    - match:
+        - port: 443
+          sniHosts:
+            - api.sendgrid.com
+      route:
+        - destination:
+            host: api.sendgrid.com
+            port:
+              number: 443
+    - match:
+        - port: 443
+          sniHosts:
+            - api.twilio.com
+      route:
+        - destination:
+            host: api.twilio.com
+            port:
+              number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-orders-postgres
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - orders-db.cluster-abcdefghijkl.us-east-1.rds.amazonaws.com
+  location: MESH_EXTERNAL
+  ports:
+    - number: 5432
+      name: tcp-postgres
+      protocol: TCP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-orders-postgres
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - orders-db.cluster-abcdefghijkl.us-east-1.rds.amazonaws.com
+  gateways:
+    - mesh
+  tcp:
+    - match:
+        - port: 5432
+      route:
+        - destination:
+            host: orders-db.cluster-abcdefghijkl.us-east-1.rds.amazonaws.com
+            port:
+              number: 5432
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-session-redis
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - session-cache.abcd12.use1.cache.amazonaws.com
+  location: MESH_EXTERNAL
+  ports:
+    - number: 6379
+      name: tcp-redis
+      protocol: TCP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-session-redis
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - session-cache.abcd12.use1.cache.amazonaws.com
+  gateways:
+    - mesh
+  tcp:
+    - match:
+        - port: 6379
+      route:
+        - destination:
+            host: session-cache.abcd12.use1.cache.amazonaws.com
+            port:
+              number: 6379
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-analytics-mongodb
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - cluster0-shard-00-00.abcde.mongodb.net
+  location: MESH_EXTERNAL
+  ports:
+    - number: 27017
+      name: tcp-mongodb
+      protocol: TCP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-analytics-mongodb
+spec:
+  exportTo:
+    - "*"
+  hosts:
+    - cluster0-shard-00-00.abcde.mongodb.net
+  gateways:
+    - mesh
+  tcp:
+    - match:
+        - port: 27017
+      route:
+        - destination:
+            host: cluster0-shard-00-00.abcde.mongodb.net
+            port:
+              number: 27017

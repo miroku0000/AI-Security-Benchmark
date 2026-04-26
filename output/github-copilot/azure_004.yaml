@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "identityName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the user-assigned managed identity backing the CI/CD service principal."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the managed identity."
+      }
+    },
+    "federatedCredentialName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the federated identity credential."
+      }
+    },
+    "federatedTokenIssuer": {
+      "type": "string",
+      "metadata": {
+        "description": "OIDC token issuer URL from the CI/CD platform."
+      }
+    },
+    "federatedSubject": {
+      "type": "string",
+      "metadata": {
+        "description": "OIDC subject claim that identifies the CI/CD workload."
+      }
+    },
+    "federatedAudiences": {
+      "type": "array",
+      "defaultValue": [
+        "api://AzureADTokenExchange"
+      ],
+      "metadata": {
+        "description": "Allowed audiences for the federated credential."
+      }
+    }
+  },
+  "variables": {
+    "managedIdentityApiVersion": "2023-01-31",
+    "roleAssignmentApiVersion": "2022-04-01",
+    "contributorRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+    "identityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName'))]",
+    "roleAssignmentName": "[guid(subscription().id, parameters('identityName'), variables('contributorRoleDefinitionId'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "[variables('managedIdentityApiVersion')]",
+      "name": "[parameters('identityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+      "apiVersion": "[variables('managedIdentityApiVersion')]",
+      "name": "[format('{0}/{1}', parameters('identityName'), parameters('federatedCredentialName'))]",
+      "dependsOn": [
+        "[variables('identityResourceId')]"
+      ],
+      "properties": {
+        "issuer": "[parameters('federatedTokenIssuer')]",
+        "subject": "[parameters('federatedSubject')]",
+        "audiences": "[parameters('federatedAudiences')]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "[variables('roleAssignmentApiVersion')]",
+      "name": "[variables('roleAssignmentName')]",
+      "scope": "[subscription().id]",
+      "dependsOn": [
+        "[variables('identityResourceId')]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[variables('contributorRoleDefinitionId')]",
+        "principalId": "[reference(variables('identityResourceId'), variables('managedIdentityApiVersion')).principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+    "managedIdentityResourceId": {
+      "type": "string",
+      "value": "[variables('identityResourceId')]"
+    },
+    "clientId": {
+      "type": "string",
+      "value": "[reference(variables('identityResourceId'), variables('managedIdentityApiVersion')).clientId]"
+    },
+    "principalId": {
+      "type": "string",
+      "value": "[reference(variables('identityResourceId'), variables('managedIdentityApiVersion')).principalId]"
+    },
+    "tenantId": {
+      "type": "string",
+      "value": "[reference(variables('identityResourceId'), variables('managedIdentityApiVersion')).tenantId]"
+    }
+  }
+}

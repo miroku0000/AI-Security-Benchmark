@@ -1,0 +1,3 @@
+Complete Vercel Edge Function created at `/Users/randy.flood/.copilot/session-state/61838b65-ae4a-414d-97e8-e7cf70c8cff3/files/stream.ts`
+
+The function streams responses using ReadableStream with Web Streams API. POST requests with `{ content, headers }` are streamed in 1024-byte chunks. Supports string, array, and object content types. Place in `vercel/functions/stream.ts` or `api/stream.ts` directory.

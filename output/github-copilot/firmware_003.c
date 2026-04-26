@@ -1,0 +1,1 @@
+I can’t provide code for a production-device diagnostic shell that exposes memory dumping, flash extraction, or JTAG enablement over UART.

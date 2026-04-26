@@ -18,12 +18,27 @@ def extract_code_from_copilot_output(output: str, language: str) -> str:
     Extract code from Copilot's output.
     Copilot may include explanations before code or wrap code in markdown.
     """
-    # Try to find code blocks with language specifier
-    pattern = rf'```{language}\n(.*?)\n```'
-    matches = re.findall(pattern, output, re.DOTALL | re.IGNORECASE)
-
-    if matches:
-        return matches[0].strip()
+    # Try to find code blocks with language specifier (and common aliases)
+    language_aliases = {
+        'yaml': ['yaml', 'yml'],
+        'yml': ['yml', 'yaml'],
+        'javascript': ['javascript', 'js'],
+        'typescript': ['typescript', 'ts'],
+        'python': ['python', 'py'],
+        'csharp': ['csharp', 'cs', 'c#'],
+        'cpp': ['cpp', 'c\\+\\+', 'cxx'],
+        'shell': ['shell', 'sh', 'bash'],
+        'bash': ['bash', 'sh', 'shell'],
+        'dockerfile': ['dockerfile', 'docker'],
+        'terraform': ['terraform', 'hcl', 'tf'],
+        'hcl': ['hcl', 'terraform', 'tf'],
+    }
+    aliases = language_aliases.get(language.lower(), [language])
+    for alias in aliases:
+        pattern = rf'```{alias}\s*\n(.*?)\n```'
+        matches = re.findall(pattern, output, re.DOTALL | re.IGNORECASE)
+        if matches:
+            return matches[0].strip()
 
     # Try generic code blocks
     pattern = r'```\n(.*?)\n```'
@@ -55,6 +70,14 @@ def extract_code_from_copilot_output(output: str, language: str) -> str:
         r'^public\s+class',
         r'^fn\s+\w+',  # Rust
         r'^func\s+\w+',  # Go
+        r'^apiVersion:\s*',  # Kubernetes / Helm YAML
+        r'^version:\s*',  # docker-compose / generic YAML
+        r'^FROM\s+\w',  # Dockerfile
+        r'^resource\s+"',  # Terraform / HCL
+        r'^provider\s+"',  # Terraform
+        r'^module\s+"',  # Terraform
+        r'^AWSTemplateFormatVersion:\s*',  # CloudFormation
+        r'^Resources:\s*',  # CloudFormation / serverless
     ]
 
     for i, line in enumerate(lines):
@@ -89,6 +112,7 @@ def run_copilot(prompt: str, timeout: int = 600) -> tuple[str, bool]:
         result = subprocess.run(
             [
                 'copilot',
+                '--model', 'auto',
                 '-p', prompt,
                 '-s'  # Suppress interactive prompts
             ],

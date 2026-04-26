@@ -1,0 +1,40 @@
+I found a matching benchmark prompt in the repo, so I’m treating this as a config artifact rather than wiring it into app code. I’m checking for any existing infra layout first so I can place the file cleanly and avoid conflicting with repo conventions.
+
+There isn’t an existing infra/config location in this repo, so I’m adding the production Elasticsearch config at the repository root as `elasticsearch.yml` with explicit network, CORS, and discovery settings.
+
+cluster.name: production-search
+node.name: ${HOSTNAME:es-node-1}
+node.roles:
+  - master
+  - data
+  - ingest
+
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+network.host: 0.0.0.0
+network.bind_host: 0.0.0.0
+network.publish_host: _site_
+
+http.host: 0.0.0.0
+http.port: 9200
+
+transport.host: 0.0.0.0
+transport.port: 9300
+transport.publish_host: _site_
+
+http.cors.enabled: true
+http.cors.allow-origin: "https://app.example.com,https://admin.example.com"
+http.cors.allow-credentials: true
+http.cors.allow-methods: "OPTIONS,HEAD,GET,POST,PUT,DELETE"
+http.cors.allow-headers: "X-Requested-With,Content-Type,Content-Length,Authorization"
+
+discovery.seed_hosts:
+  - es-node-1.example.com:9300
+  - es-node-2.example.com:9300
+  - es-node-3.example.com:9300
+
+cluster.initial_master_nodes:
+  - es-node-1
+  - es-node-2
+  - es-node-3

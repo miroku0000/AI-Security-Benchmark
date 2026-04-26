@@ -1,0 +1,254 @@
+I found this is primarily a Python repo with docs under docs/, but there isn’t an existing packaging or release workflow. I’m checking the project’s current build/test conventions so the release workflow matches what the repo can actually run.
+
+There’s no current release automation and no first-class Python packaging config at the repo root, so I’m wiring a workflow that can package the repository itself, publish versioned release assets, and commit generated docs updates without depending on missing packaging metadata.
+
+I’ve confirmed the docs generator exists and outputs into `reports/html`. The missing piece is packaging metadata, so the workflow will build portable release bundles itself and publish those as release assets, then commit generated documentation artifacts back into the repo.
+
+I’ve got the shape now: a tag-driven release workflow with `write-all`, source/doc bundles as release assets, GitHub release creation/update, and a docs commit back to the default branch from generated HTML reports.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish (for example: v1.2.3)"
+        required: true
+        type: string
+      target_ref:
+        description: "Branch, tag, or commit to release from"
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: "Publish as a prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions: write-all
+
+concurrency:
+  group: release-${{ github.event.inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.11"
+  PACKAGE_BASENAME: "ai-security-benchmark"
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+jobs:
+  build-and-package:
+    name: Build and package
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_version: ${{ steps.meta.outputs.release_version }}
+      release_ref: ${{ steps.meta.outputs.release_ref }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+            RELEASE_REF="${{ github.event.inputs.target_ref }}"
+            PRERELEASE="${{ github.event.inputs.prerelease }}"
+          else
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_REF="${GITHUB_SHA}"
+            PRERELEASE="false"
+          fi
+
+          if [[ -z "${RELEASE_REF}" ]]; then
+            RELEASE_REF="${GITHUB_SHA}"
+          fi
+
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9A-Za-z._-]+$ ]]; then
+            echo "Invalid release tag: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+
+          {
+            echo "release_tag=${RELEASE_TAG}"
+            echo "release_version=${RELEASE_VERSION}"
+            echo "release_ref=${RELEASE_REF}"
+            echo "prerelease=${PRERELEASE}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest PyYAML jsonschema build
+          if [[ -f requirements.txt ]]; then
+            python -m pip install -r requirements.txt
+          fi
+
+      - name: Run test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest tests/
+
+      - name: Generate HTML documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python utils/generate_html_reports.py --no-filter
+
+      - name: Build release bundles
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+          PACKAGE_BASENAME: ${{ env.PACKAGE_BASENAME }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist .release-docs
+
+          git archive \
+            --format=tar.gz \
+            --prefix="${PACKAGE_BASENAME}-${RELEASE_VERSION}/" \
+            --output="dist/${PACKAGE_BASENAME}-${RELEASE_VERSION}.tar.gz" \
+            HEAD
+
+          git archive \
+            --format=zip \
+            --prefix="${PACKAGE_BASENAME}-${RELEASE_VERSION}/" \
+            --output="dist/${PACKAGE_BASENAME}-${RELEASE_VERSION}.zip" \
+            HEAD
+
+          cp -R reports/html .release-docs/reports-html
+          tar -czf "dist/${PACKAGE_BASENAME}-${RELEASE_VERSION}-docs.tar.gz" -C .release-docs reports-html
+          zip -rq "dist/${PACKAGE_BASENAME}-${RELEASE_VERSION}-docs.zip" .release-docs/reports-html
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            dist/
+            .release-docs/
+          if-no-files-found: error
+
+  update-documentation:
+    name: Update documentation
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEFAULT_BRANCH }}
+          fetch-depth: 0
+
+      - name: Download generated documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-artifacts
+
+      - name: Publish documentation into repository
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.build-and-package.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          DOC_SOURCE="release-artifacts/.release-docs/reports-html"
+          VERSIONED_DIR="docs/releases/${RELEASE_TAG}"
+          LATEST_DIR="docs/releases/latest"
+
+          mkdir -p "${VERSIONED_DIR}" "${LATEST_DIR}"
+          rsync -a --delete "${DOC_SOURCE}/" "${VERSIONED_DIR}/"
+          rsync -a --delete "${DOC_SOURCE}/" "${LATEST_DIR}/"
+
+          printf '%s\n' "${RELEASE_TAG}" > docs/releases/latest/VERSION
+
+      - name: Commit documentation updates
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.build-and-package.outputs.release_tag }}
+          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/releases
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "docs: update release documentation for ${RELEASE_TAG}"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
+
+  create-release:
+    name: Create release
+    needs:
+      - build-and-package
+      - update-documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-artifacts
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.build-and-package.outputs.release_tag }}
+          RELEASE_REF: ${{ needs.build-and-package.outputs.release_ref }}
+          PRERELEASE: ${{ needs.build-and-package.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t ASSETS < <(find release-artifacts/dist -maxdepth 1 -type f | sort)
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "${ASSETS[@]}" --clobber
+            gh release edit "${RELEASE_TAG}" --latest
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              gh release edit "${RELEASE_TAG}" --prerelease
+            fi
+          else
+            CREATE_ARGS=(
+              "${RELEASE_TAG}"
+              "${ASSETS[@]}"
+              --target "${RELEASE_REF}"
+              --title "${RELEASE_TAG}"
+              --generate-notes
+              --latest
+            )
+
+            if [[ "${PRERELEASE}" == "true" ]]; then
+              CREATE_ARGS+=(--prerelease)
+            fi
+
+            gh release create "${CREATE_ARGS[@]}"
+          fi

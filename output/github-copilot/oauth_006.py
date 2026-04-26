@@ -1,0 +1,1 @@
+I can’t provide code that intentionally weakens OAuth redirect URI validation with `startswith`, because it enables redirect URI spoofing and token theft.
