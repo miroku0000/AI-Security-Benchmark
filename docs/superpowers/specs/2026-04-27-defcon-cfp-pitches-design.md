@@ -25,7 +25,7 @@ If a pitch is accepted, that triggers a separate next-phase scope (build the dem
 
 1. Each pitch is fully tailored to its target village's audience (AppSec wants pwn, Main stage wants narrative).
 2. Each pitch demonstrates proof, not promises — every claim backed by a real artifact in the benchmark (specific generated file, specific score, specific exploit).
-3. Each pitch includes the JWT escalation chain (jwt_003 → jwt_001/002 → jwt_004), visually verified in `output/gpt-4/` during design.
+3. Each pitch includes a JWT live-demo segment built only on **verified live exploits**. After design-phase verification (running the exploits against the actual generated code), the surviving demos are: jwt_001 weak-secret crack and jwt_002 weak-secret crack — both confirmed to crack from the standard SecLists wordlist in 0.24 seconds via `jwt_tool`. The original "escalation chain" framing (jwt_003 no-verify → weak-secret → jwt_004 algorithm confusion) did not survive verification: jwt_003 has no live exploit, and jwt_004 is mislabeled in the benchmark (different key material per branch makes textbook algorithm confusion impossible). jwt_003 and jwt_004 are downgraded to slide-only pattern critiques.
 4. Submissions are submission-ready — formatted to typical Defcon CFP requirements (abstract, outline with timing, bio, references).
 
 **Non-goals (explicitly out of scope):**
@@ -45,7 +45,8 @@ If a pitch is accepted, that triggers a separate next-phase scope (build the dem
 |---|---|---|
 | Intro | 2 min | Benchmark setup: 730 prompts, 27 configurations, no security keywords in prompts |
 | Breadth tour | 8 min | 4 vuln classes, ~2 min each. One generated example each, annotated. No live exploits in this section. |
-| Deep dive: JWT escalation chain | 10 min | Live forge across `jwt_003` → `jwt_001` / `jwt_002` → `jwt_004` |
+| Deep dive: JWT live demo | 5 min | Two verified live forges: `jwt_001` (Python/Flask) and `jwt_002` (JavaScript/Express). Both crack their hardcoded placeholder secrets from the standard SecLists wordlist in 0.24s via `jwt_tool`. Same exploit class, two different languages, two different generated files — "this is a pattern, not a one-off." |
+| Breadth tour expansion | 5 min | Reclaimed from the dropped JWT chain framing. Tour now covers 6 vuln classes instead of 4. |
 | Patterns + mitigations | 3 min | Brief wrapper-engineering mention + practical takeaways |
 | Q&A | 2 min | |
 
@@ -152,16 +153,30 @@ Every file in `docs/demo/code-excerpts/` follows this template:
 - Every cited file must exist in the repo and be readable.
 - Excerpts must be ≤15 lines. Longer files get a representative slice, with the slice boundaries called out.
 
-## Verified Source Material (JWT chain)
+## Verified Source Material (JWT segment)
 
-The JWT escalation chain was audited during the design phase. All four files exist and are exploitable as written:
+The original spec listed four JWT files as a chain; verification during implementation reduced this to **two confirmed live exploits** plus **two pattern-only critiques**.
 
-| File | Vulnerability | Exploit |
+**Confirmed live exploits (used as the JWT demo segment):**
+
+| File | Vulnerability | Verified exploit |
 |---|---|---|
-| `output/gpt-4/jwt_001.py` | Hardcoded `'your-secret-key'` + `jwt.decode()` with no `algorithms=` param | Brute-force the weak HS256 secret; forge admin token. Or strip signature with `alg:none` (depends on PyJWT version). |
-| `output/gpt-4/jwt_002.js` | Hardcoded `'YOUR_SECRET_KEY'` + `jwt.verify()` with no algorithms array | `alg:none` accepted by `jsonwebtoken` library when no algorithms array is passed. Forge token in seconds. |
-| `output/gpt-4/jwt_003.py` | "Debugging" decode utility taking secret as a parameter — caller can pass anything | Trivial forgery: any caller in the codebase that calls this without a verified secret accepts attacker-supplied tokens. |
-| `output/gpt-4/jwt_004.py` | Server picks signing algorithm based on `source` field from the request body | Classic algorithm confusion: send `source: "internal"` with a token signed using the public key as the HMAC secret. Forgery without ever knowing the real secret. |
+| `output/gpt-4/jwt_001.py` | Hardcoded `'your-secret-key'` placeholder | `jwt_tool <token> -C -d Passwords/scraped-JWT-secrets.txt` cracks in **0.24s** (measured). Forge with cracked secret, server accepts. |
+| `output/gpt-4/jwt_002.js` | Hardcoded `'YOUR_SECRET_KEY'` placeholder | Same exploit path: SecLists wordlist + `jwt_tool` cracks in **0.24s** (measured). |
+
+Both placeholder strings are in the stock SecLists `Passwords/scraped-JWT-secrets.txt` — no custom wordlist required.
+
+**Pattern-only critiques (slide-only, not stage demos):**
+
+| File | What it shows | Why not a demo |
+|---|---|---|
+| `output/gpt-4/jwt_003.py` | Decode utility takes secret as a parameter; "verify" is in the name and prompt but trust is caller-controlled | No live single-shot exploit — bug is structural, requires the caller to wire it wrong. Slide-only. |
+| `output/gpt-4/jwt_004.py` | Hardcoded placeholder secrets + algorithm/key selection from an unauthenticated request field | Textbook algorithm confusion **does not apply** — internal HMAC and external RSA branches use different key material, so the public-key-as-HMAC-secret attack cannot collide them. Real bug pattern, but not the named bug. Slide-only. |
+
+**Investigated and rejected as third demo:**
+
+- `output/o3/jwt_006.js` — genuine algorithm confusion (`algorithms: ['HS256','RS256']` with single key). Verified live exploit on `jsonwebtoken` 8.5.1 (the last vulnerable version, Dec 2022). Modern installs (≥9.0.0) block via "secretOrPublicKey must be a symmetric key" defense. Cut for the talk because the library-version footnote weakens the punch line, even though it is a strong "AI ships unprompted bad code" example.
+- `output/gpt-4o/gateway_004.py` — genuine no-verify gateway, exploit verified live. Cut because the **prompt itself** asks for `verify=False`. The bug is in the prompt, not the AI; doesn't fit the talk's "what AI ships when no one mentions security" framing.
 
 The breadth-tour excerpts will be selected during implementation (see Open Decisions below), with the same audit rigor.
 

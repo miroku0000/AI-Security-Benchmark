@@ -412,9 +412,9 @@ git commit -m "Add four JWT vulnerability code excerpts for CFP pitches"
 
 ---
 
-## Task 6: Pick and document four breadth-tour vulns for AppSec
+## Task 6: Pick and document six breadth-tour vulns for AppSec
 
-**Why:** The AppSec pitch's "breadth tour" segment cites 4 vulns. They must be picked from real generated code with the same audit rigor as the JWT chain. This task does the picking; Task 7 writes the excerpt files.
+**Why:** The AppSec pitch's "breadth tour" segment cites 6 vulns (originally 4, expanded to 6 after the JWT deep-dive segment was trimmed during verification — the original "JWT escalation chain" did not survive live-exploit testing, see Verified Source Material in the spec). They must be picked from real generated code with the same audit rigor as the JWT segment. This task does the picking; Task 7 writes the excerpt files.
 
 **Files:**
 - Create: `docs/demo/.tour-candidates.md` (working notes)
@@ -423,10 +423,10 @@ git commit -m "Add four JWT vulnerability code excerpts for CFP pitches"
 
 Constraints (from spec):
 - ≥3 different vuln categories
-- ≥2 different models
+- ≥3 different models (raised from 2 — more breadth needed for 6 vulns)
 - Each must be visually striking + cleanly annotatable
 - Must come unedited from `output/<model>/<file>`
-- Live exploitation NOT required (this is the breadth tour, not the JWT deep dive)
+- Live exploitation NOT required (this is the breadth tour, not the JWT live-demo segment)
 
 Good candidate categories (low audit cost, high visual impact):
 - **Hardcoded secrets** — easy to grep, screenshot, annotate. e.g., AWS keys / passwords in Lambda env vars or Terraform.
@@ -444,7 +444,7 @@ Avoid:
 
 - [ ] **Step 2: Audit candidates against real generated files**
 
-For each candidate category, read 2–3 generated files in `output/<model>/<id>` and pick the one with the cleanest annotation story. Aim for 4 final picks. Use these search starting points:
+For each candidate category, read 2–3 generated files in `output/<model>/<id>` and pick the one with the cleanest annotation story. Aim for 6 final picks. Use these search starting points:
 
 ```bash
 # hardcoded secrets
@@ -462,18 +462,18 @@ grep -l -E "open\(.*request|fs\.readFile.*req\." output/gpt-4/path_*.py output/g
 
 (Adjust paths as needed — explore other models too if `gpt-4` doesn't have a clean example.)
 
-- [ ] **Step 3: Document the four picks**
+- [ ] **Step 3: Document the six picks**
 
 Create `docs/demo/.tour-candidates.md`:
 
 ```markdown
 # Breadth Tour Picks
 
-Four vulns selected for the AppSec Village breadth tour, with sourcing decisions documented.
+Six vulns selected for the AppSec Village breadth tour, with sourcing decisions documented.
 
 ## Constraints met
 - Categories represented: <list 3+>
-- Models represented: <list 2+>
+- Models represented: <list 3+>
 
 ## Pick 1
 **File:** `output/<model>/<file>`
@@ -489,6 +489,12 @@ Four vulns selected for the AppSec Village breadth tour, with sourcing decisions
 ## Pick 4
 ... (same)
 
+## Pick 5
+... (same)
+
+## Pick 6
+... (same)
+
 ## Rejected candidates and why
 - <category/file>: <reason>
 ```
@@ -497,7 +503,7 @@ Four vulns selected for the AppSec Village breadth tour, with sourcing decisions
 
 ```bash
 git add docs/demo/.tour-candidates.md
-git commit -m "Pick four breadth-tour vulns for AppSec Village pitch"
+git commit -m "Pick six breadth-tour vulns for AppSec Village pitch"
 ```
 
 ---
@@ -505,12 +511,12 @@ git commit -m "Pick four breadth-tour vulns for AppSec Village pitch"
 ## Task 7: Write the four breadth-tour code-excerpt files + the side-by-side
 
 **Files:**
-- Create: 4 × `docs/demo/code-excerpts/tour-<vuln>-<model>.md` (filenames from Task 6 picks)
+- Create: 6 × `docs/demo/code-excerpts/tour-<vuln>-<model>.md` (filenames from Task 6 picks)
 - Create: `docs/demo/code-excerpts/jwt_001-vs-codex-app.md` (or alternative pair if Task 2 said NEEDS SWAP)
 
 - [ ] **Step 1: Write each tour excerpt**
 
-For each of the four picks from Task 6, create a markdown file using the same template as Task 5. Filename format: `tour-<vuln>-<model>.md` where `<vuln>` is a short slug (e.g., `hardcoded-aws-key`) and `<model>` is the model directory name.
+For each of the six picks from Task 6, create a markdown file using the same template as Task 5. Filename format: `tour-<vuln>-<model>.md` where `<vuln>` is a short slug (e.g., `hardcoded-aws-key`) and `<model>` is the model directory name.
 
 Each file must include:
 - Source path (verified to exist)
@@ -629,14 +635,14 @@ Use this skeleton (from spec). Write each section to its target length.
 | Time | Segment | Content |
 |---|---|---|
 | 0:00–0:02 | Intro | Benchmark setup: 730 prompts, 27 configurations, no security keywords |
-| 0:02–0:10 | Breadth tour | Four vuln classes, ~2 min each. See excerpts: <list 4 tour excerpt files> |
-| 0:10–0:20 | JWT escalation chain (live forge) | jwt_003 → jwt_001 / jwt_002 → jwt_004. See excerpts: jwt_003-no-verify.md, jwt_001-weak-secret.md, jwt_002-no-algs.md, jwt_004-algorithm-confusion.md |
+| 0:02–0:15 | Breadth tour | Six vuln classes, ~2 min each. See excerpts: `<list 6 tour excerpt files>` |
+| 0:15–0:20 | JWT live demo | Two verified live forges: `jwt_001` (Python, gpt-4) and `jwt_002` (JavaScript, gpt-4). Same exploit class, two languages, two generated files. Both crack from SecLists `Passwords/scraped-JWT-secrets.txt` in **0.24s** via `jwt_tool`. See excerpts: `jwt_001-weak-secret.md`, `jwt_002-no-algs.md`. |
 | 0:20–0:23 | Patterns + mitigations | Brief wrapper-engineering mention; practical takeaways |
 | 0:23–0:25 | Q&A | |
 
 ## Why This Talk
 
-<Pull from docs/shared/benchmark-credibility.md long form, adapted to AppSec tone. Reference the JWT chain as a worked example.>
+<Pull from docs/shared/benchmark-credibility.md long form, adapted to AppSec tone. Reference the verified JWT live demos (jwt_001 + jwt_002) as a worked example.>
 
 ## Key Takeaways
 
@@ -762,7 +768,8 @@ Use this skeleton:
 ## Supporting Materials
 
 - The full benchmark: `github.com/miroku0000/AI-Security-Benchmark`
-- JWT case study: jwt_001-weak-secret.md (and the rest of the JWT chain)
+- JWT live demo files: jwt_001-weak-secret.md, jwt_002-no-algs.md (verified live exploits — both crack from SecLists in 0.24s)
+- JWT pattern critiques (slide-only, not live demos): jwt_003-no-verify.md, jwt_004-algorithm-confusion.md
 - Wrapper-engineering side-by-side: <id>-vs-codex-app.md (filename from Task 7 — picked from sql/crypto/access; jwt_001 was rejected due to truncation, see `.codex-app-coverage-audit.md`)
 - Verified numbers reproducible by running `scripts/verify_pitch_numbers.py`
 
@@ -942,7 +949,7 @@ Spec coverage check — every spec section has a task:
 | Pitch Document Structure | Tasks 8, 9 |
 | Storage Layout | All tasks (paths align) |
 | Code-Excerpt Template | Tasks 5, 7 |
-| Verified Source Material (JWT chain) | Task 5 |
+| Verified Source Material (JWT segment) | Task 5 (excerpts), plus design-phase live-exploit verification of jwt_001 and jwt_002 against SecLists wordlist |
 | Numbers Used in Pitches (verified at writing time) | Task 1 (script) + verification steps in Tasks 5, 8, 9 |
 | Workflow | Plan task order matches |
 | Open Decisions Deferred to Writing Time | Task 2 (codex-app secure verdict), Task 4 (bio inputs), Task 6 (4 tour vulns), Tasks 8/9 final titles |

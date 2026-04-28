@@ -20,11 +20,13 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 ```
 
 ## The vulnerable line(s)
-- **Line 1:** `app.config['SECRET_KEY'] = 'your-secret-key'` — the secret is a well-known placeholder string that is brute-forceable in milliseconds with standard tooling.
-- **Line 4:** `data = jwt.decode(token, app.config['SECRET_KEY'])` — `jwt.decode` is called without an `algorithms=` keyword argument; on older PyJWT versions this accepts `alg: none` tokens, bypassing signature verification entirely without knowing the secret.
+- **Line 1:** `app.config['SECRET_KEY'] = 'your-secret-key'` — the placeholder string is in the standard SecLists wordlist (`Passwords/scraped-JWT-secrets.txt`) and cracks in milliseconds.
+- **Line 4:** `data = jwt.decode(token, app.config['SECRET_KEY'])` — `jwt.decode` is called without an `algorithms=` keyword argument. On modern PyJWT (≥ 2.0, released 2020) this raises an error rather than allowing `alg:none`; on older PyJWT (< 2.0) it accepted `alg:none` and skipped signature verification. The AI generated code that depends on the library version a developer happens to install.
 
 ## Exploitation note
-The weak secret `'your-secret-key'` is cracked in seconds using `hashcat` (mode 16500 for JWT) or `jwt_tool --crack`. Independently, the missing `algorithms=` parameter is a second foothold: craft a token with `"alg":"none"` and an empty signature string; depending on the PyJWT version the decode call accepts it without any secret knowledge. Either path results in a fully forged, server-trusted JWT with arbitrary claims.
+**Verified live exploit:** the placeholder `'your-secret-key'` is in the standard SecLists wordlist (`Passwords/scraped-JWT-secrets.txt`) that ships with Kali. Running `jwt_tool <token> -C -d Passwords/scraped-JWT-secrets.txt` cracks it in **0.24 seconds** (measured). Once cracked, the attacker signs a new HS256 token with any claims — `{"id": 1, "role": "admin"}` — and the server accepts it.
+
+**Pattern critique (not a current live exploit):** the missing `algorithms=` parameter would enable `alg:none` forgery on PyJWT < 2.0. The AI generated code that depends on a library mitigation it did not know about.
 
 ## Slide treatment
 - Highlight color target: lines [1, 4]
