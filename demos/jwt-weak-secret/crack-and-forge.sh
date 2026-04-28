@@ -94,7 +94,16 @@ echo "  $SAMPLE_TOKEN"
 echo "  decoded claims:"
 print_claims "$SAMPLE_TOKEN"
 echo
-echo "Cracking against $WORDLIST_SIZE candidate secrets in $WORDLIST..."
+
+# Show the crack command in a copy-pasteable form (relative paths to the
+# demo dir, ~ for $HOME), then run it for real.
+WORDLIST_REL="${WORDLIST#$SCRIPT_DIR/}"
+JWT_TOOL_REL="${JWT_TOOL#$HOME/}"
+if [ "$JWT_TOOL_REL" != "$JWT_TOOL" ]; then
+    JWT_TOOL_REL="~/$JWT_TOOL_REL"
+fi
+echo "Cracking against $WORDLIST_SIZE candidate secrets:"
+echo "  $ python3 $JWT_TOOL_REL -C -d $WORDLIST_REL <token>"
 echo
 
 # Step 2: run jwt_tool. Stream output through grep to avoid huge color/banner

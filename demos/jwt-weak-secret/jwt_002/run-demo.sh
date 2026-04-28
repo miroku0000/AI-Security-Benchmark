@@ -27,6 +27,9 @@ if [ ! -d node_modules ]; then
     echo
 fi
 
+# Ensure jwt_tool is cloned to ~/tools/jwt_tool with its deps installed.
+"$DEMO_DIR/bootstrap-jwt-tool.sh"
+
 echo "=== Step 0b: start the AI's Express middleware on port $PORT ==="
 node server.js > /tmp/jwt_002_server.log 2>&1 &
 SERVER_PID=$!

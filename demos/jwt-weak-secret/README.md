@@ -76,6 +76,9 @@ jwt-weak-secret/
 │                                       arg to crack-and-forge.sh)
 ├── crack-and-forge.sh       ← Harness — runs jwt_tool, prints forged token.
 │                              Called by run-demo.sh; usable on its own too.
+├── bootstrap-jwt-tool.sh    ← Harness — clones jwt_tool to ~/tools/jwt_tool
+│                              and installs its deps into the project venv
+│                              if missing. Called by run-demo.sh on first run.
 ├── forge.py                 ← Harness — Python helper for token construction
 └── reset.sh                 ← Harness — wipes /tmp DB + Python __pycache__/
 ```

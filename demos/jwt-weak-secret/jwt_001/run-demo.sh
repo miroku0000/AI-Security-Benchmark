@@ -35,6 +35,9 @@ echo "=== Step 0a: install Flask + PyJWT<2.0 into project venv ==="
 echo "  ok"
 echo
 
+# Ensure jwt_tool is cloned to ~/tools/jwt_tool with its deps installed.
+"$DEMO_DIR/bootstrap-jwt-tool.sh"
+
 echo "=== Step 0b: start the AI's Flask middleware on port $PORT ==="
 "$PYTHON" server.py > /tmp/jwt_001_server.log 2>&1 &
 SERVER_PID=$!
