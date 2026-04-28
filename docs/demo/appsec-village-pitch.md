@@ -28,7 +28,7 @@ AppSec Village audiences build and break things. This talk delivers verified exp
 
 We asked GPT-4 to write a JWT verification middleware for Express. It produced 22 lines with a hardcoded secret — `YOUR_SECRET_KEY` — from the standard SecLists wordlist every pen tester ships with Kali. We forged a token in 0.24 seconds. Then we ran 730 such prompts across 27 model configurations. Median score: 57.9%.
 
-This talk is structured as a practitioner session. The first thirteen minutes are a breadth tour of six vulnerability classes generated from prompts that never asked for the bug: hardcoded RDS credentials in Terraform, SSRF with no URL validation on AWS, pickle deserialization from an unauthenticated Redis store, MD5 for file integrity, SQL injection through a GraphQL f-string, and a Kubernetes DaemonSet that added `hostNetwork: true` and `hostPID: true` to a logging-agent prompt. Five models, five categories, none cherry-picked.
+This talk is structured as a practitioner session. The first thirteen minutes are a breadth tour of six vulnerability classes generated from prompts that never asked for the bug: hardcoded RDS credentials in Terraform, SSRF with no URL validation on AWS, pickle deserialization from an unauthenticated Redis store, MD5 for file integrity, SQL injection through a GraphQL f-string, and a Kubernetes DaemonSet that added `hostNetwork: true` and `hostPID: true` to a logging-agent prompt. Five models, six categories, none cherry-picked.
 
 The final five minutes are a live demo. We crack two generated JWT secrets against `Passwords/scraped-JWT-secrets.txt` from SecLists using jwt_tool — both in 0.24 seconds — and forge tokens the server accepts. The exploit is not sophisticated. That is the point.
 
