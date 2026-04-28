@@ -58,18 +58,24 @@ The placeholder `'YOUR_SECRET_KEY'` (uppercase variant) also appears verbatim in
 jwt-weak-secret/
 ├── jwt_001/
 │   ├── server.py            ← VERBATIM AI middleware + minimal Flask wrapper
-│   └── requirements.txt     ← Harness — pins PyJWT < 2.0 to match AI's call style
+│   ├── requirements.txt     ← Harness — pins PyJWT < 2.0 to match AI's call style
+│   └── run-demo.sh          ← Harness — installs deps, starts server, cracks,
+│                              forges, curls forged token, kills server on exit
 ├── jwt_002/
 │   ├── server.js            ← VERBATIM AI middleware + minimal Express wrapper
 │   ├── package.json         ← Harness — Express + jsonwebtoken declarations
+│   ├── run-demo.sh          ← Harness — npm install, start server, crack,
+│   │                          forge, curl forged token, kill server on exit
 │   └── .gitignore
 ├── wordlists/
 │   ├── scraped-JWT-secrets.txt      ← Vendored from SecLists upstream
 │   │                                  (Passwords/scraped-JWT-secrets.txt,
 │   │                                  103,941 entries, ~1MB). Default wordlist.
 │   └── ai-placeholder-secrets.txt   ← Optional 20-entry mini-list for fast demos
-│                                       (pass as 2nd arg to crack-and-forge.sh)
-├── crack-and-forge.sh       ← Harness — runs jwt_tool, prints forged token
+│                                       (pass as 1st arg to run-demo.sh, or 2nd
+│                                       arg to crack-and-forge.sh)
+├── crack-and-forge.sh       ← Harness — runs jwt_tool, prints forged token.
+│                              Called by run-demo.sh; usable on its own too.
 ├── forge.py                 ← Harness — Python helper for token construction
 └── reset.sh                 ← Harness — wipes /tmp DB + Python __pycache__/
 ```
@@ -78,37 +84,30 @@ The verbatim AI middleware is embedded in `server.py` and `server.js` as marked 
 
 ## How to run
 
-See the parent `demos/README.md` for full reproduction steps. Brief version:
+Each demo has a single `run-demo.sh` that installs deps, starts the AI's middleware on a background process, runs `crack-and-forge.sh` to crack the placeholder secret and forge an admin token, then issues the curl that proves the AI's server accepts the forged token. The server is killed on script exit.
 
 ### jwt_001 (Flask)
 
 ```bash
-# Terminal 1
 cd jwt_001
-../../../venv/bin/pip install -r requirements.txt
-../../../venv/bin/python server.py
-
-# Terminal 2
-cd ..   # back to jwt-weak-secret/
-./crack-and-forge.sh jwt_001
-# -> prints the forged admin token
-FORGED='<paste from previous output>'
-curl -s -H "x-access-tokens: $FORGED" http://localhost:5081/admin
+./run-demo.sh
 ```
+
+Expected final response: `{"message":"AUTHENTICATED ADMIN ACCESS","ok":true,"user_id":99}`.
 
 ### jwt_002 (Express)
 
 ```bash
-# Terminal 1
 cd jwt_002
-npm install
-node server.js
+./run-demo.sh
+```
 
-# Terminal 2
-cd ..
-./crack-and-forge.sh jwt_002
-FORGED='<paste from previous output>'
-curl -s -H "Authorization: $FORGED" http://localhost:3081/admin
+Expected final response: `{"ok":true,"userId":99,"message":"AUTHENTICATED ADMIN ACCESS"}`.
+
+Both scripts default to the SecLists wordlist (~1.3s and ~0.24s respectively). Pass the 20-entry mini-list for the fastest possible demo:
+
+```bash
+./run-demo.sh ../wordlists/ai-placeholder-secrets.txt
 ```
 
 To reset between runs:
@@ -116,6 +115,10 @@ To reset between runs:
 ```bash
 ./reset.sh
 ```
+
+### Manual reproduction (advanced)
+
+If you want to run each step yourself — start the server, capture a sample token, run `crack-and-forge.sh` directly, then curl manually — see the comments in `run-demo.sh` and `crack-and-forge.sh`. Both scripts use only `jwt_tool`, the project venv, and standard `curl`.
 
 ## How the exploit works
 
