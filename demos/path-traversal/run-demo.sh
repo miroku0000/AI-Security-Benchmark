@@ -40,8 +40,8 @@ echo
 
 echo "=== Step 2: malicious request (path traversal) ==="
 echo "  curl 'http://127.0.0.1:$PORT/logs?file=/etc/passwd'"
-echo "  (response, first 5 lines:)"
-curl -s "http://127.0.0.1:$PORT/logs?file=/etc/passwd" | head -5 | sed 's/^/    /'
+echo "  (response, first 20 lines:)"
+curl -s "http://127.0.0.1:$PORT/logs?file=/etc/passwd" | head -20 | sed 's/^/    /'
 echo
 
 echo "=== Done ==="

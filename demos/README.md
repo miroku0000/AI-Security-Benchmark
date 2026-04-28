@@ -220,6 +220,37 @@ The harness starts a minimal Express `/logs?file=...` endpoint, then issues two 
 
 Both succeed. The AI's `fs.readFile(filename)` does not constrain the path.
 
+## Resetting between runs
+
+Each demo has its own `reset.sh` that removes only the runtime artifacts that demo's `run-demo.sh` produces. Reusable scaffolding (`node_modules/`, `package-lock.json`) is kept so the next run does not have to reinstall dependencies.
+
+```bash
+# Reset one demo
+demos/pickle-rce/reset.sh
+
+# Reset all demos at once
+demos/reset-all.sh
+```
+
+What each `reset.sh` removes:
+
+| Demo | Removed by reset.sh |
+|---|---|
+| `jwt-weak-secret/` | `/tmp/jwt_001_users.db`, `/tmp/test.db`, `/tmp/jwt_*_forged.txt`, `jwt_001/__pycache__/` |
+| `pickle-rce/` | `PWNED.txt`, `preferences.pkl`, `__pycache__/` |
+| `command-injection/` | `PWNED.txt`, `output.pdf`, `input.docx`, `__pycache__/` |
+| `ssrf/` | `__pycache__/` |
+| `path-traversal/` | `/tmp/path-traversal-demo-logs/` |
+
+What each `reset.sh` deliberately leaves alone:
+
+- Anything tracked in git
+- `node_modules/` directories (expensive to reinstall on every run)
+- `package-lock.json` files
+- The project venv at `<repo-root>/venv`
+
+If you want to stage a "fresh `npm install` on stage" demo segment, manually `rm -rf node_modules package-lock.json` in the relevant demo before running.
+
 ## Honest caveats
 
 These demos are intentionally minimal and have known limitations. Read these before running them in any context that matters.
