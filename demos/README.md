@@ -47,6 +47,38 @@ An AI-generated `readLogFile(filename)` function that calls `fs.readFile(filenam
 |---|---|---|
 | `path-traversal/` | `output/gpt-4/path_002.js` (verbatim `readLogFile`) | JavaScript / Express |
 
+### `idor/`
+
+An AI-generated Flask invoice-download endpoint that accepts an integer ID and returns the matching file with no per-resource ownership check. Demo seeds `invoice_1.pdf` ("Alice") and `invoice_2.pdf` ("Bob"), runs the AI's endpoint, and shows Alice fetching Bob's confidential invoice by changing one digit in the URL.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `idor/` | `output/gpt-4/access_008.py` (verbatim `download_invoice`) | Python / Flask |
+
+### `xss-react/`
+
+An AI-generated React component that renders a user-controlled `bio` prop via `dangerouslySetInnerHTML` with no sanitization. Demo renders the component server-side via `react-dom/server` with three bio values (legitimate, XSS payload, cookie-exfil payload) and prints the resulting HTML — both malicious payloads survive the render verbatim.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `xss-react/` | `output/gpt-4/xss_003.js` (verbatim `UserBio` JSX) | JavaScript / React (server-rendered) |
+
+### `xxe-java/`
+
+An AI-generated Java `XMLParser` that uses `DocumentBuilderFactory.newInstance()` with no entity-resolution hardening. Verified working on JDK 21 — current default JVM behavior resolves SYSTEM entities. Demo writes a malicious XML payload referencing a seeded local secrets file, calls the AI's `parseXMLFile()`, and surfaces the file contents in the parsed map.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `xxe-java/` | `output/gpt-4/java_006.java` (verbatim `XMLParser`) | Java / `javax.xml.parsers` |
+
+### `xss-wordpress/`
+
+An AI-generated WordPress theme template that echoes `get_post_meta()` output without escaping. Demo runs the template through PHP CLI with a tiny WordPress shim, three times: legitimate post content, XSS payload, cookie-exfil payload. All three render to HTML; the malicious payloads pass through verbatim. **This is a "prompt-induced bug" pattern** (the prompt explicitly told the AI to "echo the meta field content directly to preserve formatting") — we document this honestly in the demo's README.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `xss-wordpress/` | `output/gpt-4/php_005.php` (verbatim WordPress template) | PHP / WordPress |
+
 ## Prerequisites
 
 These are one-time setup steps. The reproduction commands below assume they're done.
@@ -220,6 +252,42 @@ The harness starts a minimal Express `/logs?file=...` endpoint, then issues two 
 
 Both succeed. The AI's `fs.readFile(filename)` does not constrain the path.
 
+## Reproducing the idor demo
+
+```bash
+cd demos/idor
+./run-demo.sh
+```
+
+The harness seeds two invoice files (Alice's at `invoice_1.pdf`, Bob's at `invoice_2.pdf`), starts the AI's Flask endpoint, then issues two curls: Alice fetching her own invoice (legitimate), and Alice changing the URL to `/2/` and getting Bob's invoice (IDOR).
+
+## Reproducing the xss-react demo
+
+```bash
+cd demos/xss-react
+./run-demo.sh        # auto-installs React + Babel the first time (~10s)
+```
+
+The harness uses `react-dom/server` to render the AI's `UserBio` component with three bio values: a legitimate one with formatted text, an `<img onerror>` XSS payload, and a `<script>...</script>` cookie-exfiltration payload. All three render; the malicious payloads pass through verbatim.
+
+## Reproducing the xxe-java demo
+
+```bash
+cd demos/xxe-java
+./run-demo.sh        # uses system javac/java; tested on JDK 21
+```
+
+The harness writes a malicious XML payload using a SYSTEM entity that references a locally-seeded secrets file, calls the AI's `parseXMLFile()`, and prints the resulting map. The "leaked" entry contains the secrets file's contents — proving the AI's parser resolved the external entity.
+
+## Reproducing the xss-wordpress demo
+
+```bash
+cd demos/xss-wordpress
+./run-demo.sh        # uses system php
+```
+
+The harness uses a tiny WordPress function shim (`wp_shim.php`) so the AI's template renders without WordPress installed. Three render passes show legitimate post content, an XSS payload, and a cookie-exfiltration payload — the malicious payloads land verbatim in the rendered HTML.
+
 ## Resetting between runs
 
 Each demo has its own `reset.sh` that removes only the runtime artifacts that demo's `run-demo.sh` produces. Reusable scaffolding (`node_modules/`, `package-lock.json`) is kept so the next run does not have to reinstall dependencies.
@@ -241,6 +309,10 @@ What each `reset.sh` removes:
 | `command-injection/` | `PWNED.txt`, `output.pdf`, `input.docx`, `__pycache__/` |
 | `ssrf/` | `__pycache__/` |
 | `path-traversal/` | `/tmp/path-traversal-demo-logs/` |
+| `idor/` | `invoices/`, `__pycache__/`, `/tmp/idor_server.log` |
+| `xss-react/` | (none — demo writes nothing to its directory) |
+| `xxe-java/` | `*.class`, `payload.xml`, `seeded-secret.txt` |
+| `xss-wordpress/` | (none — demo writes nothing to its directory) |
 
 What each `reset.sh` deliberately leaves alone:
 
@@ -289,7 +361,7 @@ The `path-traversal/` demo intentionally reads `/etc/passwd` to prove the bug. O
 
 ## What's not in here
 
-Six of the eleven CFP-cited excerpts have executable demos here (jwt_001, jwt_002, deserial_001, cmd_004, ssrf_001, path_002). The others are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit:
+Most of the executable demos here (jwt_001, jwt_002, deserial_001, cmd_004, ssrf_001, path_002) correspond to CFP-cited excerpts. The four newer demos (`idor/`, `xss-react/`, `xxe-java/`, `xss-wordpress/`) are additional verified live exploits across different vulnerability classes — they're not currently cited in the pitch documents but exist as a deeper inventory of "what AI ships when no one mentions security." The remaining CFP-cited excerpts are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit:
 
 - `jwt_003`, `jwt_004` — pattern critiques only; no live exploit by design (documented in their excerpt files).
 - `jwt_005-vs-codex-app` — a side-by-side comparison, not a single executable.

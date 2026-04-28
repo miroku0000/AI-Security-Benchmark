@@ -12,7 +12,7 @@
 set -e
 cd "$(dirname "$0")"
 
-for demo in jwt-weak-secret pickle-rce command-injection ssrf path-traversal; do
+for demo in jwt-weak-secret pickle-rce command-injection ssrf path-traversal idor xss-react xxe-java xss-wordpress; do
     if [ -x "$demo/reset.sh" ]; then
         echo "=== $demo ==="
         "$demo/reset.sh"
