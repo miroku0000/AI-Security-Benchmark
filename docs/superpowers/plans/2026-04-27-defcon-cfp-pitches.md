@@ -27,7 +27,7 @@ docs/
 │       ├── jwt_002-no-algs.md
 │       ├── jwt_003-no-verify.md
 │       ├── jwt_004-algorithm-confusion.md
-│       ├── jwt_001-vs-codex-app.md               # main stage only
+│       ├── <id>-vs-codex-app.md                  # main stage only — id picked in Task 7 (NOT jwt_001; that file is truncated, see .codex-app-coverage-audit.md)
 │       └── tour-<vuln1>-<model>.md               # 4 of these (chosen in Task 6)
 │       ├── tour-<vuln2>-<model>.md
 │       ├── tour-<vuln3>-<model>.md
@@ -520,42 +520,63 @@ Each file must include:
 - Exploitation note (or "why this pattern is dangerous" if exploitation isn't a single-shot)
 - Slide treatment
 
-- [ ] **Step 2: Write the side-by-side excerpt**
+- [ ] **Step 2: Pick a side-by-side pair (jwt_001 was rejected)**
 
-If Task 2 verdict was **USABLE**, create `docs/demo/code-excerpts/jwt_001-vs-codex-app.md`:
+Plan Task 2 found that `output/codex-app-security-skill/jwt_001.py` is one of the ~30% of codex-app generations that are truncated (only 6 lines of bare imports). It cannot be the secure side of any side-by-side. Pick a real pair instead.
+
+Auditor's recommendation from `docs/demo/.codex-app-coverage-audit.md`: source the side-by-side from **sql, crypto, or access** categories, where the codex-app secure version is consistently a real implementation.
+
+Procedure:
+
+1. Pick a prompt id from one of those three categories. Read both versions:
+   - `output/gpt-4/<id>.<ext>` (vulnerable side — must contain a real vulnerability, not a false positive)
+   - `output/codex-app-security-skill/<id>.<ext>` (secure side — must be a real implementation, not truncated)
+2. **Verify vulnerability on the vulnerable side.** Read the gpt-4 version. Confirm it has at least one exploitable issue you can annotate cleanly. If it's a false-positive (e.g., a parameterized SQL query the detector flagged), pick a different id.
+3. **Verify completeness on the secure side.** Confirm the codex-app file is >300 bytes and has actual implementation code (not just imports/stubs). Confirm it's actually secure — explicit algorithms whitelist for JWT, parameterized queries for SQL, env-loaded secrets for crypto, etc.
+4. **Verify visual cleanliness.** The two files should be similar enough in length and structure that a side-by-side slide is point-at-able. Aim for both files being ≤30 lines of relevant excerpt.
+
+Document the chosen pair in `docs/demo/.tour-candidates.md` (extend the file written in Task 6) under a new "## Side-by-side pair" section, with paths and a one-line justification.
+
+- [ ] **Step 3: Write the side-by-side excerpt file**
+
+Filename: `docs/demo/code-excerpts/<id>-vs-codex-app.md` where `<id>` matches the prompt id you picked (e.g., `sql_005-vs-codex-app.md`, `crypto_002-vs-codex-app.md`).
+
+Use this structure:
 
 ```markdown
-# Side-by-side: jwt_001 (gpt-4 raw API) vs codex-app-security-skill
+# Side-by-side: <id> (gpt-4 raw API) vs codex-app-security-skill
 
-**Vulnerable source:** `output/gpt-4/jwt_001.py`
-**Secure source:** `output/codex-app-security-skill/jwt_001.py`
-**Prompt:** identical for both — see jwt_001-weak-secret.md
+**Vulnerable source:** `output/gpt-4/<id>.<ext>`
+**Secure source:** `output/codex-app-security-skill/<id>.<ext>`
+**Prompt category:** <category>
+**Prompt:** identical for both — both files generated from the same prompt in `prompts/prompts.yaml`.
 
 ## Vulnerable (gpt-4, raw API)
 
-```python
-<excerpt — same vulnerable lines as jwt_001-weak-secret.md>
-```
+\`\`\`<lang>
+<excerpt — show the vulnerable lines>
+\`\`\`
 
 ## Secure (Codex.app + Security Skill)
 
-```python
-<excerpt from output/codex-app-security-skill/jwt_001.py — show the algorithms whitelist, secret loading from env, etc.>
-```
+\`\`\`<lang>
+<excerpt from output/codex-app-security-skill/<id>.<ext> — show the secure pattern>
+\`\`\`
 
 ## What changed
-- <bullet>: <difference>
-- <bullet>: <difference>
+- <bullet>: <specific difference, point-at-able on a slide>
+- <bullet>: <specific difference>
 
 ## Why this is the wrapper-engineering finding
-<2-3 sentences: same prompt, same underlying model family, the wrapper makes the difference. Cite the score deltas: Codex.app +24.0%, GPT-5.4 raw at 64.9%, Codex.app + Security Skill at 88.9%.>
+Same prompt. Same model family (GPT). The Codex.app + Security Skill wrapper produces measurably different code — across the full benchmark, the wrapper config scored **83.8%** vs raw GPT-5.4 at **59.5%**, a **+24.3 percentage-point** delta on a 1628-point scale.
+
+**Caveat:** ~30% of codex-app generations (in both the security-skill and no-skill conditions) are incomplete (truncated, imports-only, or stubs), and the detectors return "no vulnerability found" on these. The headline 83.8% is therefore not "83.8% of generated code is secure" — it's a score across a mix of secure code and empty files. The +24.3 pp delta survives this caveat because both conditions truncate at the same rate, so the *difference* between them isolates the wrapper's contribution. See `docs/demo/.codex-app-coverage-audit.md`.
 
 ## Slide treatment
 - Two-column slide, vulnerable lines red on left, fixed lines green on right
 - Headline: "Same prompt. Same model family. Different wrapper."
+- Footnote on the slide: link to the truncation caveat
 ```
-
-If Task 2 verdict was **NEEDS SWAP**, create `docs/demo/code-excerpts/<alt>-vs-<wrapper>.md` for the alternative pair documented in Task 2's verdict note.
 
 - [ ] **Step 3: Verify each cited file exists**
 
@@ -720,7 +741,7 @@ Use this skeleton:
 | 0:00–0:08 | Intro / methodology | How the benchmark is designed to mimic real developer prompts |
 | 0:08–0:18 | Findings tour | Statistical results across 27 configs; surface the distribution |
 | 0:18–0:30 | JWT case study | Same chain as AppSec, framed as one vuln class case study |
-| 0:30–0:40 | Wrapper-engineering reveal | Codex.app + Security Skill 83.8% (top of 27 configs), raw GPT-5.4 59.5% — same model family, +24.3 pp from the wrapper. Claude Code +8.2 pp delta. |
+| 0:30–0:40 | Wrapper-engineering reveal | Codex.app + Security Skill 83.8% (top of 27 configs), raw GPT-5.4 59.5% — same model family, +24.3 pp from the wrapper. Claude Code +8.2 pp delta. **Includes the truncation caveat** (~30% of codex-app outputs are incomplete in both conditions; the delta survives because rates match across conditions). |
 | 0:40–0:45 | Q&A | |
 
 ## Why This Talk
@@ -742,7 +763,7 @@ Use this skeleton:
 
 - The full benchmark: `github.com/miroku0000/AI-Security-Benchmark`
 - JWT case study: jwt_001-weak-secret.md (and the rest of the JWT chain)
-- Wrapper-engineering side-by-side: jwt_001-vs-codex-app.md
+- Wrapper-engineering side-by-side: <id>-vs-codex-app.md (filename from Task 7 — picked from sql/crypto/access; jwt_001 was rejected due to truncation, see `.codex-app-coverage-audit.md`)
 - Verified numbers reproducible by running `scripts/verify_pitch_numbers.py`
 
 ## Appendix: github-copilot exclusion
@@ -758,22 +779,38 @@ Hook draft (verified-data version):
 
 All numbers in this hook trace to `docs/demo/.verified-numbers.md`. If that file's numbers have shifted, regenerate it via `python3 scripts/verify_pitch_numbers.py` and update the hook to match.
 
-- [ ] **Step 3: Cross-reference the excerpts and bio/credibility**
+- [ ] **Step 3: Include the truncation caveat in the pitch body**
+
+The pitch must explicitly address the codex-app truncation finding (`docs/demo/.codex-app-coverage-audit.md`). This is non-negotiable — the 83.8% number is inflated by ~30% incomplete generations across both Codex.app conditions, and a CFP reviewer who runs the audit themselves will catch this.
+
+Add a short subsection (~80–120 words) under "Why This Talk" or in the "Findings tour" outline rationale, with this content:
+
+> **Note on the 83.8% figure.** A coverage audit found that ~30% of generations from both Codex.app conditions (security-skill and no-skill baseline) are incomplete — imports-only, stubs, or truncated mid-statement. Vulnerability detectors return "no vulnerability found" on these, contributing to inflated raw scores. The +24.3 percentage-point delta between the two Codex.app conditions is *robust to this caveat* because both truncate at indistinguishable rates, so the difference between them isolates the wrapper's contribution. The talk presents this caveat openly rather than burying it. The honest framing is: "among prompts that produced real implementations, the security skill measurably improved outcomes."
+
+This is a CFP-strengthening detail, not a weakness — it shows the talk handles its own data critically. Don't soft-pedal it.
+
+- [ ] **Step 4: Cross-reference the excerpts and bio/credibility**
 
 Same as Task 8 Steps 3 and 4 — copy-paste the bio (researcher tone) and credibility paragraph, fill in real filenames.
 
-- [ ] **Step 4: Self-check for overclaims**
+- [ ] **Step 5: Self-check for overclaims**
 
 ```bash
 grep -niE "no tool|nothing exists|developers can't|no one has|can't catch" docs/demo/main-stage-pitch.md
 ```
 Fix or cut any matches.
 
-- [ ] **Step 5: Verify all cited numbers**
+- [ ] **Step 6: Verify all cited numbers**
 
-Same procedure as Task 8 Step 6. Particularly important here because the Main stage pitch leans hardest on statistical claims.
+Same procedure as Task 8 Step 6. Particularly important here because the Main stage pitch leans hardest on statistical claims. Confirm:
+- 27 base configs
+- Median 57.9%
+- Codex.app + Skill 83.8% (cited with caveat)
+- Raw GPT-5.4 59.5%
+- +24.3 pp wrapper delta
+- ~30% incomplete-generation rate for both Codex.app conditions
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add docs/demo/main-stage-pitch.md

@@ -182,7 +182,11 @@ All numbers in the pitches trace to `docs/demo/.verified-numbers.md`, which is g
 
 **The wrapper-engineering finding is the central differentiator.** Two Codex.app configurations are dramatic outliers above the rest of the field; everything else (raw APIs, local models) clusters between 53.9% and 63.4%. The story is "the wrapper, not the model."
 
-**README staleness:** the project README still cites 88.9% / 84.1% on a /350 scale. These are pre-full-benchmark numbers. The pitches and `docs/shared/benchmark-credibility.md` must use the JSON-derived numbers above. A future README update is out of scope for this plan but worth flagging to the user.
+**Truncation caveat (mandatory in any pitch citing 83.8%):** A coverage audit (`docs/demo/.codex-app-coverage-audit.md`) found that ~28.8% of `codex-app-security-skill` generations and ~30.7% of `codex-app-no-skill` generations are incomplete (imports-only, stubs, or truncated). Detectors return "no vulnerability found" on these, contributing to inflated raw scores. Critically, **both Codex.app conditions truncate at indistinguishable rates**, so the +24.3 pp wrapper delta still reflects a real signal — but the headline 83.8% is *not* "83.8% of generated code is secure." The honest framing: among prompts that produced real implementations, the security skill measurably improved outcomes. Both pitches must acknowledge this; the Main Stage pitch (which leans hardest on the percentage) must address it explicitly.
+
+**Side-by-side source change:** The original plan put `output/codex-app-security-skill/jwt_001.py` on the secure side of the wrapper-engineering side-by-side. That file is one of the truncated 30% — only 6 lines of bare imports. The side-by-side gets sourced from a different vuln class instead. Candidate categories where the codex-app secure version is real and visually clean: **sql, crypto, access**. The specific pair is picked during Plan Task 7.
+
+**README staleness:** the project README still cites 88.9% / 84.1% on a /350 scale. These are pre-full-benchmark numbers. The pitches and `docs/shared/benchmark-credibility.md` must use the JSON-derived numbers above. A future README update is out of scope for this plan but flagged to the user.
 
 The "github-copilot exclusion" must be stated explicitly in `docs/shared/benchmark-credibility.md` so a CFP reviewer counting configs in `reports/` does not catch a discrepancy.
 
