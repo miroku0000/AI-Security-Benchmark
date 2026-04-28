@@ -5,6 +5,15 @@ hit that on a laptop, and we don't want the demo to require running
 on EC2. This script binds 127.0.0.1:8169 and serves the same response
 shape — temporary IAM credentials at /latest/meta-data/iam/security-credentials/<role>.
 
+This stub speaks **IMDSv1** semantics: a plain GET returns credentials
+with no token handshake. IMDSv2 (introduced 2019, default for new
+instances since 2024) requires a PUT-then-GET dance with a custom
+header; the AI's `requests.get(url)` cannot complete that dance, so
+an IMDSv2-only instance is not vulnerable to this exact SSRF. Many
+AWS accounts still allow IMDSv1 via `HttpTokens: optional` for
+backwards compatibility — that's the realistic target. See README
+for the full IMDSv1-vs-IMDSv2 discussion.
+
 The slide caveat to read on stage: "in a real environment this URL is
 http://169.254.169.254/...; we proxy to localhost for a self-contained
 demo. The bug is identical — the AI's fetch_url_content does not

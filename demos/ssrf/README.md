@@ -80,3 +80,42 @@ This demo runs a fake IMDS on `127.0.0.1:8169` so it works on a laptop without a
 Both requests run through the AI-generated `fetch_url_content()` unmodified. The only difference between this demo and a real EC2 SSRF is the URL host (`127.0.0.1:8169` vs `169.254.169.254`).
 
 The fake credentials in `fake_imds.py` are deliberately not real-shaped (`ASIAFAKEDEMO00000000`) to avoid any chance a screenshot could be confused with leaked production data.
+
+## IMDSv1 vs IMDSv2 — what version does this demo apply to?
+
+This demo simulates **IMDSv1**, the original AWS instance metadata service. The AI's `fetch_url_content()` works against IMDSv1 because IMDSv1 accepts an unauthenticated `GET` and returns credentials in the response body — exactly what `requests.get(url)` produces.
+
+AWS introduced **IMDSv2** in late 2019 specifically as a defense against this attack class. The two services differ as follows:
+
+| | IMDSv1 | IMDSv2 |
+|---|---|---|
+| Request shape | `GET /latest/meta-data/iam/security-credentials/<role>` | First: `PUT /latest/api/token` with `X-aws-ec2-metadata-token-ttl-seconds: 21600`. Then: `GET ...` with `X-aws-ec2-metadata-token: <token>` |
+| Session token? | No | Yes — required, short-lived |
+| `PUT` method needed? | No | Yes (for token acquisition) |
+| Custom request header needed? | No | Yes (`X-aws-ec2-metadata-token`) |
+| Hop-limit for response? | Default 64 | Default 1 (response can't traverse a container or proxy) |
+
+The AI's `requests.get(url)` is constrained to:
+
+- A single HTTP method: GET.
+- No attacker-controlled request headers.
+- No request body.
+
+This means `fetch_url_content()` **cannot** complete the IMDSv2 handshake. It can't issue the initial `PUT` to acquire a token, and it can't attach the `X-aws-ec2-metadata-token` header to the follow-up `GET`. An EC2 instance configured with `HttpTokens: required` (the IMDSv2-only mode) is **not vulnerable to this specific AI-generated SSRF**.
+
+### Why this demo still matters
+
+Three reasons IMDSv1 is still a live target:
+
+1. **Many AWS accounts still allow IMDSv1.** AWS made IMDSv2-only the default for *new* instance launches in 2024, but existing instances, old launch templates, old AMIs, and old terraform modules continue to run with `HttpTokens: optional` (which means *both* versions are accepted). Cloud security teams have been migrating slowly. The 2023 Capital One breach response was the first big push; many shops still aren't done.
+2. **IMDSv2 doesn't help against richer SSRF primitives.** The AI's stripped-down `requests.get(url)` happens to be too constrained to reach IMDSv2. But SSRF bugs in real codebases often pass through more — `requests.request(method, url, headers=..., ...)`, libraries that follow redirects across schemes, gopher-protocol URL handling, or full HTTP-client wrappers. Any SSRF that lets the attacker pick the method *and* attach custom headers defeats IMDSv2 directly. The bug *class* is the AI not validating URLs; IMDSv2 is one mitigation against one shape of that class.
+3. **Non-AWS metadata services exist.** GCP's metadata service at `http://metadata.google.internal/` historically required no token; it now requires the `Metadata-Flavor: Google` header (one custom header is still a tighter constraint than IMDSv1, but a meaningfully smaller bar than IMDSv2's PUT-then-GET dance). Azure IMDS at `http://169.254.169.254/metadata/` requires the `Metadata: true` header. Each cloud has its own version; the AI's bug targets all of them with the right URL.
+
+### What "fix this with IMDSv2" gets wrong
+
+It's tempting to read this as "AWS already solved it; the AI's bug only matters for legacy environments." That's not right. Two reasons:
+
+- IMDSv2 mitigates *credential exfiltration via specific SSRF primitive*. The underlying AI bug — `requests.get(any_url)` without host validation — is still a critical SSRF for everything else: internal admin APIs (`http://localhost:9090/admin`), Redis (`redis://localhost:6379` or `gopher://...`), internal monitoring (Prometheus, Grafana, Kubernetes API), partner APIs the attacker shouldn't reach, file:// reads on the local filesystem.
+- A future IMDSv3, or a different cloud's metadata service, or an attacker who finds a way to do PUT through the SSRF, all bypass the IMDSv2 mitigation. The fix at the AI's code level is **host allowlisting** (URL parse, validate `urlparse(url).hostname` against an allowlist of partner-API hosts before fetching). That defends against every SSRF variant uniformly.
+
+The benchmark prompt explicitly says "AWS." The AI did not output any cloud-metadata defense, IMDSv2 or otherwise. That's the real bug.
