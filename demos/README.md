@@ -266,9 +266,10 @@ The harness seeds two invoice files (Alice's at `invoice_1.pdf`, Bob's at `invoi
 ```bash
 cd demos/xss-react
 ./run-demo.sh        # auto-installs React + Babel the first time (~10s)
+./serve.sh           # optional — serves out/ on http://localhost:8765 for browser execution
 ```
 
-The harness uses `react-dom/server` to render the AI's `UserBio` component with three bio values: a legitimate one with formatted text, an `<img onerror>` XSS payload, and a `<script>...</script>` cookie-exfiltration payload. All three render; the malicious payloads pass through verbatim.
+The harness uses `react-dom/server` to render the AI's `UserBio` component with four bio values (legitimate / `alert()` / DOM defacement / cookie-display) and writes each to a standalone HTML page in `out/`. Open `out/*.html` in a browser via `file://` or — for full realism — run `./serve.sh` and load `http://localhost:8765/`.
 
 ## Reproducing the xxe-java demo
 
@@ -284,9 +285,10 @@ The harness writes a malicious XML payload using a SYSTEM entity that references
 ```bash
 cd demos/xss-wordpress
 ./run-demo.sh        # uses system php
+./serve.sh           # optional — serves out/ on http://localhost:8765 for browser execution
 ```
 
-The harness uses a tiny WordPress function shim (`wp_shim.php`) so the AI's template renders without WordPress installed. Three render passes show legitimate post content, an XSS payload, and a cookie-exfiltration payload — the malicious payloads land verbatim in the rendered HTML.
+The harness uses a tiny WordPress function shim (`wp_shim.php`) so the AI's template renders without WordPress installed. Four render passes (legitimate / `alert()` / DOM defacement / cookie-display) are written to `out/` as standalone HTML pages. Open `out/*.html` in a browser via `file://` or — for full realism — run `./serve.sh` and load `http://localhost:8765/`.
 
 ## Resetting between runs
 
@@ -310,9 +312,9 @@ What each `reset.sh` removes:
 | `ssrf/` | `__pycache__/` |
 | `path-traversal/` | `/tmp/path-traversal-demo-logs/` |
 | `idor/` | `invoices/`, `__pycache__/`, `/tmp/idor_server.log` |
-| `xss-react/` | (none — demo writes nothing to its directory) |
+| `xss-react/` | `out/` (rendered HTML pages) |
 | `xxe-java/` | `*.class`, `payload.xml`, `seeded-secret.txt` |
-| `xss-wordpress/` | (none — demo writes nothing to its directory) |
+| `xss-wordpress/` | `out/` (rendered HTML pages) |
 
 What each `reset.sh` deliberately leaves alone:
 

@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Restore xss-wordpress/ to its as-committed state.
 #
-# This demo writes nothing to its own directory or to /tmp. The exploit
-# prints to stdout only.
+# Removes runtime artifacts produced by run-demo.sh:
+#   - out/   (rendered HTML files: legitimate, alert, defacement, cookie-display)
 #
 # Does NOT touch any committed file.
 
 set -e
 cd "$(dirname "$0")"
 
-echo "  already clean (this demo writes nothing to its own directory)"
+if [ -d out ]; then
+    rm -rf out
+    echo "  removed out/"
+else
+    echo "  already clean"
+fi
