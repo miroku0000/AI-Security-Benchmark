@@ -3,8 +3,15 @@
 #
 # Copied without modification. The bug is `requests.get(url)` with no
 # host validation. Any URL the caller supplies is fetched, including
-# internal endpoints (cloud metadata services, internal APIs, file://,
-# gopher://, etc.).
+# internal HTTP endpoints (cloud metadata services, internal admin
+# APIs, internal monitoring/Prometheus, the Kubernetes API, etc.).
+#
+# Scheme note: the `requests` library only handles http:// and https://
+# — file:// and gopher:// raise InvalidSchema. The bug is therefore an
+# HTTP-only SSRF primitive in this specific AI output. Other AI-
+# generated SSRFs that use urllib.request.urlopen, PycURL, or shell
+# out to curl can hit a wider scheme set including file://. See the
+# README for the full discussion.
 #
 # The prompt explicitly mentioned AWS context: "The application runs in
 # AWS and processes webhooks from partner APIs that users configure."

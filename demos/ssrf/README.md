@@ -115,7 +115,51 @@ Three reasons IMDSv1 is still a live target:
 
 It's tempting to read this as "AWS already solved it; the AI's bug only matters for legacy environments." That's not right. Two reasons:
 
-- IMDSv2 mitigates *credential exfiltration via specific SSRF primitive*. The underlying AI bug — `requests.get(any_url)` without host validation — is still a critical SSRF for everything else: internal admin APIs (`http://localhost:9090/admin`), Redis (`redis://localhost:6379` or `gopher://...`), internal monitoring (Prometheus, Grafana, Kubernetes API), partner APIs the attacker shouldn't reach, file:// reads on the local filesystem.
+- IMDSv2 mitigates *credential exfiltration via specific SSRF primitive*. The underlying AI bug — `requests.get(any_url)` without host validation — is still a critical SSRF for everything else: internal admin APIs (`http://localhost:9090/admin`), internal monitoring (Prometheus, Grafana, Kubernetes API), partner APIs the attacker shouldn't reach, and any HTTP-fronted internal service.
 - A future IMDSv3, or a different cloud's metadata service, or an attacker who finds a way to do PUT through the SSRF, all bypass the IMDSv2 mitigation. The fix at the AI's code level is **host allowlisting** (URL parse, validate `urlparse(url).hostname` against an allowlist of partner-API hosts before fetching). That defends against every SSRF variant uniformly.
 
 The benchmark prompt explicitly says "AWS." The AI did not output any cloud-metadata defense, IMDSv2 or otherwise. That's the real bug.
+
+## Scheme support: can this SSRF read files? gopher? Redis?
+
+No. The AI's `fetch_url_content()` is built on `requests`, which only handles `http://` and `https://`. Any other scheme raises `requests.exceptions.InvalidSchema: No connection adapters were found`. Verified directly:
+
+```python
+>>> import requests
+>>> requests.get('file:///etc/passwd')
+InvalidSchema: No connection adapters were found for 'file:///etc/passwd'
+>>> requests.get('gopher://localhost:6379/_GET%20foo')
+InvalidSchema: No connection adapters were found for 'gopher://...'
+```
+
+So this specific AI output is an **HTTP/HTTPS-only SSRF primitive**. It can hit:
+
+- `http://169.254.169.254/...` — IMDSv1 (this demo)
+- `http://metadata.google.internal/...` — GCP metadata
+- `http://localhost:<any-port>/...` — internal admin APIs, Prometheus, Kubernetes API server, etc.
+- `https://internal.victim.com/...` — internal HTTPS endpoints behind the same network as the app
+
+It cannot directly hit:
+
+- `file:///etc/passwd` — local filesystem read
+- `gopher://` — used historically to smuggle arbitrary TCP payloads (Redis, SMTP, etc.) through HTTP libraries that supported the scheme
+- `dict://`, `ftp://`, `ldap://`, `redis://` — same story
+- Raw TCP ports that don't speak HTTP
+
+The bug *class* — "AI generates URL fetcher with no host validation" — does include scheme-broader primitives, but only when the AI picks a different library:
+
+| If the AI used... | Schemes available out of the box |
+|---|---|
+| `requests.get(url)` (this demo) | http, https |
+| `urllib.request.urlopen(url)` (stdlib) | http, https, ftp, **file** |
+| `httpx.get(url)` | http, https |
+| `subprocess.run(['curl', url])` | http(s), ftp(s), **file**, scp, sftp, gopher, dict, ldap, smb, telnet, … |
+| `pycurl` / `libcurl` Python binding | same as `curl` |
+
+Across the benchmark, AI-generated URL fetchers in other prompts do use these alternatives. An SSRF demo built on `urllib.request.urlopen(url)` would also work as a local file-read. This specific `requests.get` demo doesn't.
+
+### Why this matters for the IMDSv2 discussion above
+
+`requests` not supporting custom HTTP methods or headers is what makes this exact bug too constrained for IMDSv2. If the AI had reached for the same constraints in a slightly different way — `subprocess.run(['curl', '-X', 'PUT', '-H', 'X-aws-ec2-metadata-token-ttl-seconds: 21600', url])` with attacker-controlled `url` — IMDSv2 would also fall. The library choice determines the blast radius. The bug is "no host validation" regardless.
+
+The mitigation at the AI's code level is the same in both cases: parse the URL, allowlist the host before fetching. The harness in this demo's `fetch_url_content` does no such check.
