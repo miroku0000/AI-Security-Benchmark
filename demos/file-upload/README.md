@@ -94,7 +94,40 @@ Once the script runs, it has full same-origin privileges:
 - Modify the DOM of any same-origin page the victim navigates to in the same tab.
 - Call any internal API the logged-in victim can call.
 
-Server-side execution (RCE) is also possible if the upload directory is served by a runtime that interprets uploaded code:
+### SVG: same primitive, but context-dependent
+
+The demo also uploads `evil.svg` because SVG matters specifically for image-upload pipelines — developers often think "image extension = safe" and add `.svg` to their allowlist alongside `.jpg`/`.png`/`.gif`. SVG is XML; it can contain `<script>` tags. But whether the script executes depends on **how the SVG is loaded**:
+
+| Load context | `<script>` runs? |
+|---|---|
+| **Top-level navigation** — address bar, `<a href>` click, `window.open()` | **YES** — browser parses SVG as a document |
+| `<iframe src="evil.svg">` | YES (in the iframe's origin context) |
+| `<svg>...</svg>` inlined into HTML via `innerHTML` | YES |
+| `<img src="evil.svg">` | NO — image context uses "secure static mode" |
+| CSS `background-image: url(evil.svg)` | NO |
+| Image-processing libraries that rasterize to PNG/JPEG | depends — Sharp/ImageMagick rasterize and lose the script; some pipelines copy SVG through unchanged |
+
+So when you visit `http://127.0.0.1:5095/uploads/evil.svg` directly in a browser, the `<script>` fires and `document.title` changes to "PWNED via SVG." But if a real victim site only ever loads it as `<img src=...>` in an avatar grid, the script does **not** run there — only the visible "PWNED via SVG" text drawn with SVG `<rect>` and `<text>` primitives is rendered (those are SVG drawing commands, not JavaScript).
+
+The realistic exploitation paths are:
+
+1. **"View full size" links** that are top-level navigations.
+2. **"Open in new tab" UIs** that call `window.open(url)`.
+3. **Avatar download buttons** that issue a top-level GET.
+4. **The attacker DMs the URL** (`https://victim.com/uploads/evil.svg`) to the victim — clicking the link triggers a top-level navigation. The legitimate domain in the URL bar makes it look safe.
+5. **A vulnerability scanner or admin tool** opens uploaded files for review — gets owned in the admin's session.
+
+This is why "we allowed only image extensions" is not actually safe. SVG is the gotcha case for image allowlists.
+
+In this demo, you can confirm both behaviors:
+
+- **`curl` shows the upload succeeds** and the bytes come back with `Content-Type: image/svg+xml; charset=utf-8`. That's the upload bug landing.
+- **A browser visiting `/uploads/evil.svg` directly** shows the script firing (window title changes to "PWNED via SVG"). That's the SVG-XSS path.
+- A browser loading `/uploads/evil.svg` via `<img src=...>` would see only the static red "PWNED via SVG" text — no script execution. The visible text is there as a sanity-check that the SVG rendered at all; the script-driven title change is the proof of code execution.
+
+### Server-side execution (RCE)
+
+RCE is also possible if the upload directory is served by a runtime that interprets uploaded code:
 
 - **`shell.php`** in a directory served by Apache + `mod_php` — RCE on next request.
 - **`shell.jsp`** in a Tomcat context — RCE.
@@ -105,22 +138,29 @@ This demo's harness is pure Flask + `send_from_directory`, so PHP/JSP/ASPX files
 The mitigation is layered:
 
 ```python
-ALLOWED_EXTS = {'.jpg', '.jpeg', '.png', '.gif'}
+ALLOWED_EXTS = {'.jpg', '.jpeg', '.png', '.gif'}   # NOT .svg
 
 ext = os.path.splitext(filename)[1].lower()
 if ext not in ALLOWED_EXTS:
     return 'Disallowed file type', 400
 
-# Plus content sniff — extension can lie, magic bytes don't
+# Plus content sniff — extension can lie, magic bytes don't.
 import magic  # python-magic, or pillow for images
 mime = magic.from_buffer(file.read(2048), mime=True)
 file.seek(0)
-if not mime.startswith('image/'):
-    return 'File content does not match an image', 400
+if not mime.startswith('image/') or mime == 'image/svg+xml':
+    return 'File content does not match a raster image', 400
+
+# Plus serve from a different origin (e.g. uploads.victim-cdn.com)
+# so even if a malicious file slips through, its same-origin context
+# is the CDN, not the application — XSS there can't read the
+# application's cookies or local state.
 
 # Plus serve with Content-Disposition: attachment so the browser
 # downloads instead of rendering, even if a non-image slips through.
 ```
+
+If SVG support is genuinely needed (logos, icons), sanitize with `defusedxml` or `bleach`-equivalent SVG sanitizers that strip `<script>` and `on*` attributes — never serve user-uploaded SVG bytes verbatim. Or rasterize to PNG/JPEG server-side and serve the rasterized version, discarding the original SVG.
 
 The AI included none of these because the prompt didn't ask for them.
 
