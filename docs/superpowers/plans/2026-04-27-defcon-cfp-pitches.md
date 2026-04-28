@@ -154,12 +154,13 @@ if __name__ == "__main__":
 Run: `python3 scripts/verify_pitch_numbers.py`
 Expected: writes `docs/demo/.verified-numbers.md` and prints summary stats.
 
-Then read `docs/demo/.verified-numbers.md` and confirm:
-- Base config count is **27** (matches the spec). If it's 26 or 28, investigate the discrepancy before proceeding.
-- The "Above 88%" list has 1 or 2 entries (spec assumes ~1).
-- The median is in the 60s (spec assumes ~65%).
+**Verified numbers (already computed during plan revision; re-running should reproduce these):**
+- Base configs: 27
+- Median: 57.9%
+- Configs above 88%: 0
+- Top: codex-app-security-skill 83.8%, codex-app-no-skill 78.7%, claude-code 63.4%
 
-If any number is off, **stop and reconcile with the spec** before continuing. Do not proceed with pitches citing wrong numbers.
+If the script produces different numbers than the above, **stop and surface the discrepancy** — do not proceed silently.
 
 - [ ] **Step 3: Commit**
 
@@ -702,9 +703,9 @@ Use this skeleton:
 
 ## Abstract (target: 500 words; tight-form: 250 words below)
 
-<Hook: 27 configs, only one above 88%, median ~65%. The research question: which model and which tooling configuration actually catches it. So we tested 27.>
+<Hook: 27 AI code generators tested on 730 prompts written like real developer requests, never mentioning security. Median: 57.9%. The best raw API model: 60.7%. The best of anything: a thin wrapper sitting on top of GPT — 83.8%. The story is the wrapper, not the model. We don't know which configuration of model + tooling actually catches it, so we tested 27.>
 
-<Body: previews methodology → findings → JWT case study → wrapper-engineering reveal.>
+<Body: previews methodology → findings (median + clustering) → JWT case study → wrapper-engineering reveal (the 24-point delta).>
 
 <Closer: AI code security is a tooling problem, and tooling problems are tractable.>
 
@@ -719,7 +720,7 @@ Use this skeleton:
 | 0:00–0:08 | Intro / methodology | How the benchmark is designed to mimic real developer prompts |
 | 0:08–0:18 | Findings tour | Statistical results across 27 configs; surface the distribution |
 | 0:18–0:30 | JWT case study | Same chain as AppSec, framed as one vuln class case study |
-| 0:30–0:40 | Wrapper-engineering reveal | Codex.app + Security Skill 88.9%, Claude Code 84.1%, deltas, implications |
+| 0:30–0:40 | Wrapper-engineering reveal | Codex.app + Security Skill 83.8% (top of 27 configs), raw GPT-5.4 59.5% — same model family, +24.3 pp from the wrapper. Claude Code +8.2 pp delta. |
 | 0:40–0:45 | Q&A | |
 
 ## Why This Talk
@@ -751,11 +752,11 @@ Use this skeleton:
 
 - [ ] **Step 2: Fill in the abstract drafts**
 
-Hook draft (verbatim direction agreed in design):
+Hook draft (verified-data version):
 
-> "Across 27 AI code generators tested on 730 prompts written like real developer requests — never mentioning security — only one configuration scored above 88%. The median was 65%. What we *don't* know is which model and which tooling configuration actually catches it. So we tested 27."
+> "We tested 27 AI code generators on 730 prompts written like real developer requests — never mentioning security. The median configuration scored 57.9%. The best *raw* API model scored 60.7%. The best of anything we tested? A thin wrapper sitting on top of GPT — 83.8%. The story is the wrapper, not the model. We didn't know which configuration of model + tooling actually catches the bugs developers ship every day. So we tested 27."
 
-Replace `65%` with the actual median from `docs/demo/.verified-numbers.md`. Replace `88%` if Task 1 found more than one config above 88% (rephrase to fit).
+All numbers in this hook trace to `docs/demo/.verified-numbers.md`. If that file's numbers have shifted, regenerate it via `python3 scripts/verify_pitch_numbers.py` and update the hook to match.
 
 - [ ] **Step 3: Cross-reference the excerpts and bio/credibility**
 
