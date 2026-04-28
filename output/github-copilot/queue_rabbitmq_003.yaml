@@ -1,0 +1,37 @@
+I found no existing Compose setup in the repo, so I’m adding a standalone RabbitMQ Compose file with production-oriented defaults and cluster-ready environment wiring, then validating the YAML renders cleanly.
+
+There are unrelated local changes, so I’m keeping this isolated to a new Compose file and not touching anything else.
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    hostname: ${RABBITMQ_HOSTNAME:-rabbitmq-1}
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+      RABBITMQ_NODENAME: ${RABBITMQ_NODENAME:-rabbit@rabbitmq-1}
+      RABBITMQ_USE_LONGNAME: ${RABBITMQ_USE_LONGNAME:-false}
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-replace-with-a-long-random-cookie}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: >-
+        -rabbit cluster_partition_handling autoheal
+        -rabbit disk_free_limit 2147483648
+        -rabbit vm_memory_high_watermark.relative 0.6
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  rabbitmq_data:
+  rabbitmq_logs:

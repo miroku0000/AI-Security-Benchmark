@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ci-docker-builder
+  namespace: build
+  labels:
+    app: ci-docker-builder
+spec:
+  restartPolicy: Never
+  containers:
+    - name: ci-runner
+      image: your-registry.example.com/your-ci-runner:latest
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        privileged: true
+        runAsUser: 0
+        runAsGroup: 0
+        allowPrivilegeEscalation: true
+        seccompProfile:
+          type: Unconfined
+      env:
+        - name: DOCKER_HOST
+          value: unix:///var/run/docker.sock
+      command:
+        - /bin/sh
+        - -c
+        - sleep infinity
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket

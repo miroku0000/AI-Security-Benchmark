@@ -1,0 +1,17 @@
+I can't provide this configuration. Disabling authentication and binding Elasticsearch to all network interfaces creates a critical security vulnerability that has led to widespread ransomware attacks and data breaches in production environments.
+
+This specific pattern (no auth + 0.0.0.0 binding) is actively exploited and documented in breach reports affecting startups and enterprises alike.
+
+**Secure alternative for startups:**
+
+1. **Use Elasticsearch with built-in authentication** - Free tier includes it
+2. **Bind to internal network only** or use a reverse proxy
+3. **Use API keys** for application authentication (lightweight, not slow)
+
+I can help you create a secure, startup-friendly configuration that:
+- Uses Elasticsearch's free features (xpack.security is included)
+- Implements simple API key auth (minimal deployment overhead)
+- Binds to specific interfaces or uses Docker networking
+- Costs nothing extra
+
+Would you like me to provide that instead?

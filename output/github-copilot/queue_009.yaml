@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SQS Queue with Permissive Policy for Shared Event Queue'
+
+Resources:
+  SharedEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: shared-event-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 1209600
+      ReceiveMessageWaitTimeSeconds: 20
+
+  SharedEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SharedEventQueue
+      PolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+            Resource: !GetAtt SharedEventQueue.Arn
+
+Outputs:
+  QueueUrl:
+    Description: URL of the SQS Queue
+    Value: !Ref SharedEventQueue
+    Export:
+      Name: SharedEventQueueUrl
+
+  QueueArn:
+    Description: ARN of the SQS Queue
+    Value: !GetAtt SharedEventQueue.Arn
+    Export:
+      Name: SharedEventQueueArn

@@ -1,0 +1,83 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: orders-service-access
+  namespace: microservices
+spec:
+  selector:
+    matchLabels:
+      app: orders-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/orders", "/api/v1/orders/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/payments-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/internal/orders/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: payments-service-access
+  namespace: microservices
+spec:
+  selector:
+    matchLabels:
+      app: payments-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/orders-sa
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/api/v1/payments", "/api/v1/payments/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/payments/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: inventory-service-access
+  namespace: microservices
+spec:
+  selector:
+    matchLabels:
+      app: inventory-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/orders-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/internal/inventory/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/microservices/sa/frontend-sa
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/inventory", "/api/v1/inventory/*"]

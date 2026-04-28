@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name microservices-vpc --template-body file://vpc-microservices-template.yaml --parameters ParameterKey=EnvironmentName,ParameterValue=prod

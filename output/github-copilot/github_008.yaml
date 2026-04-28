@@ -1,0 +1,158 @@
+I’m narrowing this to the actual toolchain in the repo so the workflow matches what can run here, then I’ll add the workflow file directly.
+
+I’ve confirmed this repo is primarily Python with no active Node package manifest, so I’m shaping the workflow to support both Python and optional Node installs without breaking this repo.
+
+I found the repo’s docs expect `requirements.txt`, but the file isn’t present, so I’m making the workflow resilient: it will use requirements when available and fall back to a minimal install path that still runs this repository’s tests.
+
+I’ve got enough structure to write the workflow; I’m doing one last dependency pass so the install step covers what the existing test suite actually imports.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHON_VERSION: "3.11"
+      NODE_VERSION: "20"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Detect project files
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -f package.json ]; then
+            echo "has_node=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_node=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        if: steps.detect.outputs.has_node == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            .venv
+          key: ${{ runner.os }}-py-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt', 'requirements-*.txt', 'pyproject.toml', 'setup.py', 'deprecated/setup.py', 'benchmark_config.yaml', 'prompts/**/*.yaml', '.github/workflows/*.yml', '.github/workflows/*.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-py-${{ env.PYTHON_VERSION }}-
+            ${{ runner.os }}-py-
+
+      - name: Cache node modules
+        if: steps.detect.outputs.has_node == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ env.NODE_VERSION }}-${{ hashFiles('package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml', 'benchmark_config.yaml', 'prompts/**/*.yaml', '.github/workflows/*.yml', '.github/workflows/*.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ env.NODE_VERSION }}-
+            ${{ runner.os }}-node-
+
+      - name: Cache build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            .pytest_cache
+            **/__pycache__
+            output
+            reports
+          key: ${{ runner.os }}-build-${{ github.ref_name }}-${{ hashFiles('benchmark_config.yaml', 'prompts/**/*.yaml', '.github/workflows/*.yml', '.github/workflows/*.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ github.ref_name }}-
+            ${{ runner.os }}-build-
+
+      - name: Cache environment configs
+        uses: actions/cache@v4
+        with:
+          path: |
+            .env.ci
+            .python-version
+            .node-version
+            .nvmrc
+            .tool-versions
+          key: ${{ runner.os }}-env-config-${{ hashFiles('.env.ci', '.python-version', '.node-version', '.nvmrc', '.tool-versions', 'benchmark_config.yaml', 'prompts/**/*.yaml') }}
+
+      - name: Install Node dependencies
+        if: steps.detect.outputs.has_node == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          elif ls requirements-*.txt >/dev/null 2>&1; then
+            pip install -r "$(ls requirements-*.txt | head -n 1)"
+          elif [ -f pyproject.toml ]; then
+            pip install .
+          elif [ -f setup.py ]; then
+            pip install .
+          else
+            pip install \
+              anthropic \
+              Flask \
+              google-genai \
+              Jinja2 \
+              jsonschema \
+              markdown \
+              ollama \
+              openai \
+              pandas \
+              PyJWT \
+              pyyaml \
+              pytest \
+              requests \
+              Werkzeug
+          fi
+
+      - name: Run test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+          pytest tests/

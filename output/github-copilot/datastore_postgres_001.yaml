@@ -1,0 +1,11 @@
+local   all             postgres                                peer
+local   app_db          admin                                   scram-sha-256
+local   app_db          app                                     scram-sha-256
+local   app_db          readonly                                scram-sha-256
+hostssl app_db          admin           samenet                 scram-sha-256
+hostssl app_db          app             samenet                 scram-sha-256
+hostssl app_db          readonly        samenet                 scram-sha-256
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+host    all             all             0.0.0.0/0               reject
+host    all             all             ::0/0                   reject

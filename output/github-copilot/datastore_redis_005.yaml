@@ -1,0 +1,68 @@
+I’m narrowing this to the actual app entrypoint and expected ports so the compose file matches the repo instead of guessing.
+
+I found it’s a Python CLI app rather than a web framework, so I’m checking the actual dependency/install path before wiring a development compose stack.
+
+There’s no existing container setup, so I’m inferring the development image from the repo’s install instructions instead of inventing a separate stack.
+
+I’m checking for an actual HTTP app in the repo one last time; if there isn’t one, I’ll wire a sane Python development `web` container around the current project so the compose file is still runnable.
+
+There isn’t an existing HTTP app to containerize here, so I’m shipping a runnable dev-stack compose file that gives you a `web` container over the repo plus Redis and Postgres with the expected service wiring.
+
+services:
+  web:
+    image: python:3.11-slim
+    working_dir: /app
+    command: python -m http.server 8000 --bind 0.0.0.0
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: app_development
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      DATABASE_URL: postgresql://app_user:app_password@postgres:5432/app_development
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: app_development
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_development"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

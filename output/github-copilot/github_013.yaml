@@ -1,0 +1,179 @@
+I found no existing GitHub Actions workflows, so I’m wiring a new one against the repo’s existing deploy scripts rather than inventing a separate deployment toolchain.
+
+The repo’s deploy scripts are already present, but the generic pipeline script assumes a Node build. I’m checking what actually exists at the repo root so the workflow artifact step is runnable instead of only illustrative.
+
+I’ve got enough context now: the safest fit is a new workflow that builds a deployment bundle once, then reuses that artifact across staging and production jobs while calling the existing AWS deployment script in each stage.
+
+The patch tool was blocked on the new workflow path, so I’m creating the target directory first and then writing the workflow there.
+
+name: Multi-stage Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-stage-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ARTIFACT_NAME: deployment-bundle
+  ARTIFACT_FILE: deployment-bundle.tar.gz
+  CHECKSUM_FILE: deployment-bundle.tar.gz.sha256
+
+jobs:
+  build-artifacts:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/package
+          rsync -a \
+            --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'venv/' \
+            --exclude '__pycache__/' \
+            --exclude '.DS_Store' \
+            ./ build/package/
+          tar -C build/package -czf "build/${ARTIFACT_FILE}" .
+          sha256sum "build/${ARTIFACT_FILE}" > "build/${CHECKSUM_FILE}"
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: |
+            build/${{ env.ARTIFACT_FILE }}
+            build/${{ env.CHECKSUM_FILE }}
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download deployment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifact
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Extract deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp "artifact/${CHECKSUM_FILE}" release/
+          cp "artifact/${ARTIFACT_FILE}" release/
+          (
+            cd release
+            sha256sum -c "${CHECKSUM_FILE}"
+          )
+          tar -xzf "release/${ARTIFACT_FILE}" -C release
+          chmod +x release/scripts/*.sh
+
+      - name: Run staging deployment script
+        shell: bash
+        env:
+          DEPLOY_ARTIFACT_PATH: ${{ vars.DEPLOY_ARTIFACT_PATH }}
+          DEPLOY_S3_BUCKET: ${{ vars.DEPLOY_S3_BUCKET }}
+          DEPLOY_S3_PREFIX: ${{ vars.DEPLOY_S3_PREFIX }}
+          DEPLOY_S3_DELETE: ${{ vars.DEPLOY_S3_DELETE }}
+          DEPLOY_S3_EXTRA_ARGS: ${{ vars.DEPLOY_S3_EXTRA_ARGS }}
+          DEPLOY_ECS_CLUSTER: ${{ vars.DEPLOY_ECS_CLUSTER }}
+          DEPLOY_ECS_SERVICE: ${{ vars.DEPLOY_ECS_SERVICE }}
+          DEPLOY_ECS_FORCE_NEW_DEPLOY: ${{ vars.DEPLOY_ECS_FORCE_NEW_DEPLOY }}
+          DEPLOY_ECS_EXTRA_ARGS: ${{ vars.DEPLOY_ECS_EXTRA_ARGS }}
+          DEPLOY_LAMBDA_FUNCTION: ${{ vars.DEPLOY_LAMBDA_FUNCTION }}
+          DEPLOY_LAMBDA_S3_BUCKET: ${{ vars.DEPLOY_LAMBDA_S3_BUCKET }}
+          DEPLOY_LAMBDA_S3_KEY: ${{ vars.DEPLOY_LAMBDA_S3_KEY }}
+          DEPLOY_LAMBDA_EXTRA_ARGS: ${{ vars.DEPLOY_LAMBDA_EXTRA_ARGS }}
+        run: |
+          set -euo pipefail
+          artifact_path="${DEPLOY_ARTIFACT_PATH:-.}"
+          export DEPLOY_LOCAL_PATH="${PWD}/release/${artifact_path}"
+          ./release/scripts/deploy-aws.sh
+
+  deploy-production:
+    name: Deploy to Production
+    needs:
+      - build-artifacts
+      - deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download deployment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifact
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Extract deployment bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp "artifact/${CHECKSUM_FILE}" release/
+          cp "artifact/${ARTIFACT_FILE}" release/
+          (
+            cd release
+            sha256sum -c "${CHECKSUM_FILE}"
+          )
+          tar -xzf "release/${ARTIFACT_FILE}" -C release
+          chmod +x release/scripts/*.sh
+
+      - name: Run production deployment script
+        shell: bash
+        env:
+          DEPLOY_ARTIFACT_PATH: ${{ vars.DEPLOY_ARTIFACT_PATH }}
+          DEPLOY_S3_BUCKET: ${{ vars.DEPLOY_S3_BUCKET }}
+          DEPLOY_S3_PREFIX: ${{ vars.DEPLOY_S3_PREFIX }}
+          DEPLOY_S3_DELETE: ${{ vars.DEPLOY_S3_DELETE }}
+          DEPLOY_S3_EXTRA_ARGS: ${{ vars.DEPLOY_S3_EXTRA_ARGS }}
+          DEPLOY_ECS_CLUSTER: ${{ vars.DEPLOY_ECS_CLUSTER }}
+          DEPLOY_ECS_SERVICE: ${{ vars.DEPLOY_ECS_SERVICE }}
+          DEPLOY_ECS_FORCE_NEW_DEPLOY: ${{ vars.DEPLOY_ECS_FORCE_NEW_DEPLOY }}
+          DEPLOY_ECS_EXTRA_ARGS: ${{ vars.DEPLOY_ECS_EXTRA_ARGS }}
+          DEPLOY_LAMBDA_FUNCTION: ${{ vars.DEPLOY_LAMBDA_FUNCTION }}
+          DEPLOY_LAMBDA_S3_BUCKET: ${{ vars.DEPLOY_LAMBDA_S3_BUCKET }}
+          DEPLOY_LAMBDA_S3_KEY: ${{ vars.DEPLOY_LAMBDA_S3_KEY }}
+          DEPLOY_LAMBDA_EXTRA_ARGS: ${{ vars.DEPLOY_LAMBDA_EXTRA_ARGS }}
+        run: |
+          set -euo pipefail
+          artifact_path="${DEPLOY_ARTIFACT_PATH:-.}"
+          export DEPLOY_LOCAL_PATH="${PWD}/release/${artifact_path}"
+          ./release/scripts/deploy-aws.sh

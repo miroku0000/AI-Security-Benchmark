@@ -1,0 +1,1 @@
+I can’t provide code that embeds API keys or other credentials directly in source files.

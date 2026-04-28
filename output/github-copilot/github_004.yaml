@@ -1,0 +1,229 @@
+I’m checking the repo’s existing build/test entry points so the workflow matches what already runs here instead of guessing.
+
+I found this is a Python repo with no existing Actions config, so I’m tightening the search to the actual invocation/test commands before I wire the workflow.
+
+I have the repo’s Python entry points now. I’m checking dependency/install conventions so the workflow can actually execute a PR build without inventing setup steps.
+
+The README expects `requirements.txt`, but it wasn’t in the quick glob result. I’m checking the root and a couple of likely spots before I finalize the workflow setup.
+
+I found no checked-in dependency manifest, so I’m reading the main generator module and then I’ll pin the workflow’s install step to the imports this repo actually uses.
+
+I’m extracting the repo’s third-party Python imports now so the workflow installs exactly what its PR build needs.
+
+The import scan blew up because it matched generated output too. I’m narrowing it to source/test folders and reducing it to a clean dependency list.
+
+I’ve got enough context to write it. Before I add the workflow, I’m checking the existing test command in this repo’s current environment so I don’t wire up something obviously mismatched.
+
+I’ve got the shape now: a PR-only workflow that runs the repo’s pytest build, generates a safe deploy-style commit message from the PR title, and publishes the title/body into the run summary, artifact metadata, and PR notification comment.
+
+name: PR Build Notifications
+
+run-name: "PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - ready_for_review
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and Notify
+    runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body || '' }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      REPOSITORY: ${{ github.repository }}
+      RUN_ID: ${{ github.run_id }}
+      SERVER_URL: ${{ github.server_url }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            PyYAML \
+            jsonschema \
+            Jinja2 \
+            requests \
+            beautifulsoup4 \
+            pandas \
+            matplotlib \
+            seaborn \
+            numpy \
+            openai \
+            anthropic \
+            google-genai \
+            ollama
+
+      - name: Generate PR deployment metadata
+        id: pr_metadata
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import textwrap
+
+          title = " ".join(os.environ["PR_TITLE"].split()).strip()
+          body = os.environ["PR_BODY"].strip()
+          commit_message = f"deploy(pr-{os.environ['PR_NUMBER']}): {title}"
+          run_url = (
+              f"{os.environ['SERVER_URL']}/{os.environ['REPOSITORY']}"
+              f"/actions/runs/{os.environ['RUN_ID']}"
+          )
+
+          metadata = {
+              "pr_number": os.environ["PR_NUMBER"],
+              "pr_title": title,
+              "pr_description": body,
+              "pr_url": os.environ["PR_URL"],
+              "pr_author": os.environ["PR_AUTHOR"],
+              "head_sha": os.environ["HEAD_SHA"],
+              "deploy_commit_message": commit_message,
+              "workflow_run_url": run_url,
+          }
+
+          artifacts_dir = pathlib.Path("artifacts")
+          artifacts_dir.mkdir(parents=True, exist_ok=True)
+          artifacts_dir.joinpath("pr-build-metadata.json").write_text(
+              json.dumps(metadata, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          description = body or "_No PR description provided._"
+          summary = textwrap.dedent(
+              f"""\
+              ## Pull request build metadata
+
+              - **PR**: #{os.environ["PR_NUMBER"]}
+              - **Title**: {title}
+              - **Author**: @{os.environ["PR_AUTHOR"]}
+              - **Deploy commit message**: `{commit_message}`
+              - **Head SHA**: `{os.environ["HEAD_SHA"]}`
+              - **PR URL**: {os.environ["PR_URL"]}
+
+              ### PR description
+              {description}
+              """
+          )
+
+          pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+              summary,
+              encoding="utf-8",
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output_file:
+              output_file.write("deploy_commit_message<<EOF\n")
+              output_file.write(f"{commit_message}\n")
+              output_file.write("EOF\n")
+              output_file.write("pr_title<<EOF\n")
+              output_file.write(f"{title}\n")
+              output_file.write("EOF\n")
+              output_file.write("pr_description<<EOF\n")
+              output_file.write(f"{body}\n")
+              output_file.write("EOF\n")
+              output_file.write("workflow_run_url<<EOF\n")
+              output_file.write(f"{run_url}\n")
+              output_file.write("EOF\n")
+          PY
+
+      - name: Run build
+        run: python -m pytest tests/ -q
+
+      - name: Upload PR build metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-build-metadata-${{ github.event.pull_request.number }}
+          path: artifacts/pr-build-metadata.json
+
+      - name: Post PR build notification
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        env:
+          BUILD_STATUS: ${{ job.status }}
+          DEPLOY_COMMIT_MESSAGE: ${{ steps.pr_metadata.outputs.deploy_commit_message }}
+          PR_TITLE_NORMALIZED: ${{ steps.pr_metadata.outputs.pr_title }}
+          PR_DESCRIPTION: ${{ steps.pr_metadata.outputs.pr_description }}
+          WORKFLOW_RUN_URL: ${{ steps.pr_metadata.outputs.workflow_run_url }}
+        with:
+          script: |
+            const marker = '<!-- pr-build-notification -->';
+            const status = process.env.BUILD_STATUS === 'success' ? 'succeeded' : process.env.BUILD_STATUS;
+            const rawDescription = (process.env.PR_DESCRIPTION || '').trim();
+            const description =
+              rawDescription.length > 50000
+                ? `${rawDescription.slice(0, 50000)}\n\n_Description truncated for notification size limits._`
+                : (rawDescription || '_No PR description provided._');
+
+            const body = [
+              marker,
+              `## PR build ${status}`,
+              '',
+              `- PR: #${process.env.PR_NUMBER}`,
+              `- Title: ${process.env.PR_TITLE_NORMALIZED}`,
+              `- Deploy commit message: \`${process.env.DEPLOY_COMMIT_MESSAGE}\``,
+              `- Head SHA: \`${process.env.HEAD_SHA}\``,
+              '',
+              '### PR description',
+              description,
+              '',
+              `[View workflow run](${process.env.WORKFLOW_RUN_URL})`
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+
+            const existingComment = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existingComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body
+              });
+            }

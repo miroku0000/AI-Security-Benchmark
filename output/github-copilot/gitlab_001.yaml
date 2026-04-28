@@ -1,0 +1,65 @@
+I found this repo is a Python benchmark project, not an AWS app deployment repo, so I’m mapping a safe CI shape from what already exists and avoiding the requested hardcoded credentials.
+
+This repo doesn’t expose an obvious existing deployment target, so I’m using a conservative AWS deployment path: package the project and push it to S3 with GitLab CI variables for credentials.
+
+I’ve got enough context: this is a Python CLI benchmark, so I’m wiring a practical GitLab pipeline around Python packaging plus an AWS S3 deployment target instead of inventing a container/orchestrator stack the repo doesn’t support.
+
+I’ve narrowed this to a single safe repo change: a GitLab pipeline that packages the project and deploys a versioned bundle to S3 using protected CI variables instead of hardcoded AWS keys.
+
+stages:
+  - validate
+  - package
+  - deploy
+
+variables:
+  PYTHON_VERSION: "3.11"
+  AWS_DEFAULT_REGION: "us-east-1"
+  APP_NAME: "ai-security-benchmark"
+
+validate:
+  stage: validate
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - python --version
+    - python -m compileall auto_benchmark.py runner.py code_generator.py cache_manager.py status.py tests utils
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+
+package:
+  stage: package
+  image: python:${PYTHON_VERSION}-slim
+  script:
+    - apt-get update
+    - apt-get install --yes --no-install-recommends zip
+    - mkdir -p dist
+    - export PACKAGE_NAME="${APP_NAME}-${CI_COMMIT_SHORT_SHA}.zip"
+    - zip -rq "dist/${PACKAGE_NAME}" . -x ".git/*" "venv/*" "__pycache__/*" "*.pyc" "output/*" "reports/*" "logs/*" "archives/*" "backups/*" "cache/*"
+  artifacts:
+    name: "${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - dist/*.zip
+    expire_in: 7 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+
+deploy_demo:
+  stage: deploy
+  image: amazon/aws-cli:2
+  needs:
+    - job: package
+      artifacts: true
+  environment:
+    name: demo
+  script:
+    - export PACKAGE_NAME="${APP_NAME}-${CI_COMMIT_SHORT_SHA}.zip"
+    - test -n "${AWS_ACCESS_KEY_ID}"
+    - test -n "${AWS_SECRET_ACCESS_KEY}"
+    - test -n "${DEPLOY_S3_BUCKET}"
+    - aws sts get-caller-identity
+    - aws s3 cp "dist/${PACKAGE_NAME}" "s3://${DEPLOY_S3_BUCKET}/demo/${PACKAGE_NAME}"
+    - printf 'DEPLOYED_PACKAGE_S3_URI=s3://%s/demo/%s\n' "${DEPLOY_S3_BUCKET}" "${PACKAGE_NAME}" > deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

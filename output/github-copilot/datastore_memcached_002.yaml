@@ -1,0 +1,305 @@
+I found there isn’t an existing Kubernetes baseline in the repo, so I’m creating a self-contained production manifest that’s valid as-is and includes the requested web, Memcached, and worker components.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-runtime
+  namespace: production
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Production Web Application</title>
+      </head>
+      <body>
+        <h1>Production Web Application</h1>
+        <p>The application stack is running.</p>
+      </body>
+    </html>
+  worker.py: |
+    import os
+    import socket
+    import time
+
+    HOST = os.environ.get("MEMCACHED_HOST", "memcached")
+    PORT = int(os.environ.get("MEMCACHED_PORT", "11211"))
+    INTERVAL = int(os.environ.get("WORKER_INTERVAL_SECONDS", "30"))
+
+    def fetch_stats():
+        with socket.create_connection((HOST, PORT), timeout=5) as conn:
+            conn.sendall(b"stats\r\n")
+            data = b""
+            while b"END\r\n" not in data:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        return data.decode("utf-8", errors="replace")
+
+    while True:
+        try:
+            print(fetch_stats(), flush=True)
+        except OSError as exc:
+            print(f"memcached connection failed: {exc}", flush=True)
+        time.sleep(INTERVAL)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: production
+type: Opaque
+stringData:
+  APP_SECRET_KEY: change-me-before-deploying
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: production
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web-app
+        app.kubernetes.io/component: web
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: web-app
+          image: python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - http.server
+            - "8080"
+            - --directory
+            - /srv/www
+          env:
+            - name: APP_ENV
+              value: production
+            - name: APP_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: APP_SECRET_KEY
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: web-content
+              mountPath: /srv/www/index.html
+              subPath: index.html
+            - name: temp
+              mountPath: /tmp
+      volumes:
+        - name: web-content
+          configMap:
+            name: app-runtime
+        - name: temp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app
+  namespace: production
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: web-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached
+  namespace: production
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: memcached
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: memcached
+        app.kubernetes.io/component: cache
+    spec:
+      containers:
+        - name: memcached
+          image: memcached:1.6.39-alpine
+          imagePullPolicy: IfNotPresent
+          args:
+            - -m
+            - "256"
+            - -p
+            - "11211"
+            - -U
+            - "0"
+            - -o
+            - modern
+          ports:
+            - name: memcached
+              containerPort: 11211
+          readinessProbe:
+            tcpSocket:
+              port: memcached
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: memcached
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached
+  namespace: production
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: memcached
+  ports:
+    - name: memcached
+      port: 11211
+      targetPort: memcached
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: background-workers
+  namespace: production
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: background-workers
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: background-workers
+        app.kubernetes.io/component: worker
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: background-worker
+          image: python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /opt/app/worker.py
+          env:
+            - name: APP_ENV
+              value: production
+            - name: MEMCACHED_HOST
+              value: memcached
+            - name: MEMCACHED_PORT
+              value: "11211"
+            - name: WORKER_INTERVAL_SECONDS
+              value: "30"
+            - name: APP_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: APP_SECRET_KEY
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: worker-script
+              mountPath: /opt/app/worker.py
+              subPath: worker.py
+            - name: temp
+              mountPath: /tmp
+      volumes:
+        - name: worker-script
+          configMap:
+            name: app-runtime
+        - name: temp
+          emptyDir: {}

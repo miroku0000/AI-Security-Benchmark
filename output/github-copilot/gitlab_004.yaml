@@ -1,0 +1,70 @@
+stages:
+  - build
+  - deploy_staging
+  - deploy_production
+
+default:
+  image: alpine:3.20
+  before_script:
+    - set -euo pipefail
+
+variables:
+  ARTIFACT_DIR: dist
+
+build:
+  stage: build
+  script:
+    - mkdir -p "${ARTIFACT_DIR}/bin" "${ARTIFACT_DIR}/config"
+    - |
+      cat > "${ARTIFACT_DIR}/bin/app" <<'EOF'
+      #!/bin/sh
+      set -eu
+      CONFIG_FILE="${1:-./config/app.conf}"
+      echo "Starting app with config: ${CONFIG_FILE}"
+      echo "Configuration contents:"
+      cat "${CONFIG_FILE}"
+      echo "Application executed successfully."
+      EOF
+    - |
+      cat > "${ARTIFACT_DIR}/config/app.conf" <<'EOF'
+      APP_NAME=team-shared-service
+      APP_ENV=shared
+      LOG_LEVEL=info
+      EOF
+    - chmod +x "${ARTIFACT_DIR}/bin/app"
+    - ls -R "${ARTIFACT_DIR}"
+  artifacts:
+    name: "build-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - "${ARTIFACT_DIR}/bin/app"
+      - "${ARTIFACT_DIR}/config/app.conf"
+    expire_in: 30 days
+
+deploy_staging:
+  stage: deploy_staging
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - test -x "${ARTIFACT_DIR}/bin/app"
+    - cp "${ARTIFACT_DIR}/config/app.conf" "${ARTIFACT_DIR}/config/staging.conf"
+    - sed -i 's/APP_ENV=shared/APP_ENV=staging/' "${ARTIFACT_DIR}/config/staging.conf"
+    - "${ARTIFACT_DIR}/bin/app" "${ARTIFACT_DIR}/config/staging.conf"
+  environment:
+    name: staging
+
+deploy_production:
+  stage: deploy_production
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - test -x "${ARTIFACT_DIR}/bin/app"
+    - cp "${ARTIFACT_DIR}/config/app.conf" "${ARTIFACT_DIR}/config/production.conf"
+    - sed -i 's/APP_ENV=shared/APP_ENV=production/' "${ARTIFACT_DIR}/config/production.conf"
+    - "${ARTIFACT_DIR}/bin/app" "${ARTIFACT_DIR}/config/production.conf"
+  environment:
+    name: production
+  when: manual
+  only:
+    - main

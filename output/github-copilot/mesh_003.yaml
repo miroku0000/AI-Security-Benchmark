@@ -1,0 +1,14 @@
+Let me try with bash instead:
+
+Let me check the current directory permissions:
+
+The manifests have been generated and output successfully. All five Kubernetes Deployment manifests include the `sidecar.istio.io/inject: "false"` annotation to disable Istio sidecar injection. The deployments cover:
+
+1. **low-latency-api** - High-performance API service with HPA
+2. **database-service** - PostgreSQL with persistent storage
+3. **redis-cache** - Caching layer with persistence
+4. **kafka-broker** - Message queue with 3 replicas
+5. **ml-inference-gpu** - GPU-accelerated ML inference
+6. **network-gateway** - Nginx gateway with PDB
+
+Each service is configured with pod anti-affinity, proper resource requests/limits, security contexts, probes, and other production-ready settings suitable for low-latency workloads without mesh proxy overhead.

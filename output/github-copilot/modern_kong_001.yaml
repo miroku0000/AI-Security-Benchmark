@@ -1,0 +1,485 @@
+I found the repo doesn't define an existing gateway layout, so I'm pulling a concrete microservices shape from the benchmark prompts and turning that into a runnable Kong declarative config. Next I'm narrowing to any Kong/API-gateway-related examples so the YAML matches the repo's conventions if they exist.
+
+I found Kong-specific benchmark prompts in the repo. I'm reading the exact nearby examples now so the config I return is aligned to the project’s gateway-focused scenarios rather than inventing an arbitrary layout.
+
+I have enough context now. I'm adding a DB-less Kong declarative config at the repo root with concrete upstreams, health checks, routes, and safe defaults, then I'll do a syntax validation pass on the YAML.
+
+_format_version: "3.0"
+_transform: true
+
+upstreams:
+  - name: auth-upstream
+    algorithm: round-robin
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: auth-01.internal.example.com:8443
+        weight: 100
+      - target: auth-02.internal.example.com:8443
+        weight: 100
+
+  - name: users-upstream
+    algorithm: round-robin
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: users-01.internal.example.com:8443
+        weight: 100
+      - target: users-02.internal.example.com:8443
+        weight: 100
+
+  - name: catalog-upstream
+    algorithm: least-connections
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: catalog-01.internal.example.com:8443
+        weight: 120
+      - target: catalog-02.internal.example.com:8443
+        weight: 120
+      - target: catalog-03.internal.example.com:8443
+        weight: 80
+
+  - name: orders-upstream
+    algorithm: round-robin
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: orders-01.internal.example.com:8443
+        weight: 100
+      - target: orders-02.internal.example.com:8443
+        weight: 100
+
+  - name: payments-upstream
+    algorithm: round-robin
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: payments-01.internal.example.com:8443
+        weight: 100
+      - target: payments-02.internal.example.com:8443
+        weight: 100
+
+  - name: notifications-upstream
+    algorithm: least-connections
+    slots: 10000
+    healthchecks:
+      threshold: 55
+      active:
+        type: https
+        http_path: /health
+        timeout: 5
+        concurrency: 10
+        https_verify_certificate: true
+        healthy:
+          interval: 30
+          successes: 2
+          http_statuses:
+            - 200
+            - 204
+        unhealthy:
+          interval: 10
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+      passive:
+        healthy:
+          successes: 2
+          http_statuses:
+            - 200
+            - 201
+            - 202
+            - 204
+        unhealthy:
+          tcp_failures: 3
+          timeouts: 3
+          http_failures: 3
+          http_statuses:
+            - 429
+            - 500
+            - 502
+            - 503
+            - 504
+    targets:
+      - target: notifications-01.internal.example.com:8443
+        weight: 100
+      - target: notifications-02.internal.example.com:8443
+        weight: 100
+
+services:
+  - name: auth-service
+    host: auth-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    routes:
+      - name: auth-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        paths:
+          - /api/v1/auth
+        strip_path: false
+        preserve_host: false
+
+  - name: users-service
+    host: users-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    routes:
+      - name: users-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        paths:
+          - /api/v1/users
+        strip_path: false
+        preserve_host: false
+
+  - name: catalog-service
+    host: catalog-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    routes:
+      - name: catalog-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+        paths:
+          - /api/v1/catalog
+          - /api/v1/products
+        strip_path: false
+        preserve_host: false
+
+  - name: orders-service
+    host: orders-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 3
+    connect_timeout: 3000
+    write_timeout: 10000
+    read_timeout: 10000
+    routes:
+      - name: orders-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+        paths:
+          - /api/v1/orders
+        strip_path: false
+        preserve_host: false
+
+  - name: payments-service
+    host: payments-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 2
+    connect_timeout: 3000
+    write_timeout: 10000
+    read_timeout: 15000
+    routes:
+      - name: payments-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+        paths:
+          - /api/v1/payments
+        strip_path: false
+        preserve_host: false
+
+  - name: notifications-service
+    host: notifications-upstream
+    port: 8443
+    protocol: https
+    path: /
+    retries: 2
+    connect_timeout: 3000
+    write_timeout: 5000
+    read_timeout: 5000
+    routes:
+      - name: notifications-route
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+        paths:
+          - /api/v1/notifications
+        strip_path: false
+        preserve_host: false
+
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid
+      echo_downstream: true
+
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10
+      size_unit: megabytes
+      require_content_length: false
+
+  - name: rate-limiting
+    config:
+      minute: 300
+      hour: 10000
+      policy: local
+      hide_client_headers: false

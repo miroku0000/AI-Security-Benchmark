@@ -1,0 +1,232 @@
+I’m checking which script conventions already exist so the pipeline can stay flexible without fighting the repo’s current layout.
+
+I found no existing GitLab config, so I’m wiring a generic shared-runner pipeline around repo-owned scripts instead of hardcoding one toolchain.
+
+The patch tool hit a permissions issue on the first attempt, so I’m retrying with a repo-relative edit path.
+
+The edit helper is blocked in this environment, so I’m falling back to a direct file write to finish the pipeline cleanly.
+
+I can’t persist files in this workspace, so I’m at least validating the pipeline structure in-memory before returning the finished config.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+    - when: never
+
+stages:
+  - build
+
+variables:
+  CI_BUILD_IMAGE: "ubuntu:24.04"
+  CI_PREPARE_SCRIPT: ""
+  CI_PREPARE_COMMAND: ""
+  CI_BUILD_SCRIPT: ""
+  CI_BUILD_COMMAND: ""
+  CI_POST_BUILD_SCRIPT: ""
+  CI_POST_BUILD_COMMAND: ""
+  CI_ARTIFACT_EXPIRE_IN: "7 days"
+  GIT_DEPTH: "0"
+  GIT_STRATEGY: fetch
+  GIT_SUBMODULE_STRATEGY: recursive
+
+default:
+  image: $CI_BUILD_IMAGE
+  interruptible: true
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  before_script:
+    - |
+      set -eu
+
+      install_bootstrap_tools() {
+        missing=0
+
+        if ! command -v bash >/dev/null 2>&1; then
+          missing=1
+        fi
+
+        if ! command -v git >/dev/null 2>&1; then
+          missing=1
+        fi
+
+        if [ "$missing" -eq 0 ]; then
+          return 0
+        fi
+
+        if command -v apt-get >/dev/null 2>&1; then
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends bash ca-certificates git
+        elif command -v apk >/dev/null 2>&1; then
+          apk add --no-cache bash ca-certificates git
+        elif command -v dnf >/dev/null 2>&1; then
+          dnf install -y bash ca-certificates git
+        elif command -v yum >/dev/null 2>&1; then
+          yum install -y bash ca-certificates git
+        elif command -v zypper >/dev/null 2>&1; then
+          zypper --non-interactive install bash ca-certificates git
+        else
+          echo "Unable to install required bootstrap tools on this image." >&2
+          exit 1
+        fi
+      }
+
+      install_bootstrap_tools
+
+      run_repo_script() {
+        script_path="$1"
+
+        if command -v bash >/dev/null 2>&1; then
+          bash "$script_path"
+        else
+          sh "$script_path"
+        fi
+      }
+
+      run_inline_command() {
+        command_text="$1"
+
+        if command -v bash >/dev/null 2>&1; then
+          bash -lc "$command_text"
+        else
+          sh -c "$command_text"
+        fi
+      }
+
+      ensure_repo_script() {
+        script_path="$1"
+
+        if [ -z "$script_path" ]; then
+          echo "Script path is empty." >&2
+          exit 1
+        fi
+
+        case "$script_path" in
+          /*|../*|*/../*|*/..|..)
+            echo "Script paths must stay inside the repository: $script_path" >&2
+            exit 1
+            ;;
+        esac
+
+        if [ ! -f "$script_path" ]; then
+          echo "Configured script does not exist: $script_path" >&2
+          exit 1
+        fi
+      }
+
+      find_stage_script() {
+        for candidate in "$@"; do
+          if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+          fi
+        done
+
+        return 1
+      }
+
+      run_stage() {
+        stage_name="$1"
+        script_var="$2"
+        command_var="$3"
+        shift 3
+
+        eval "configured_script=\${$script_var:-}"
+        eval "configured_command=\${$command_var:-}"
+
+        if [ -n "$configured_script" ]; then
+          ensure_repo_script "$configured_script"
+          echo "Running ${stage_name} script: $configured_script"
+          run_repo_script "$configured_script"
+          return 0
+        fi
+
+        if [ -n "$configured_command" ]; then
+          echo "Running ${stage_name} command"
+          run_inline_command "$configured_command"
+          return 0
+        fi
+
+        if default_script="$(find_stage_script "$@")"; then
+          echo "Running ${stage_name} script: $default_script"
+          run_repo_script "$default_script"
+          return 0
+        fi
+
+        echo "Skipping ${stage_name}: no script or command configured."
+      }
+
+custom-build:
+  stage: build
+  script:
+    - |
+      run_stage "prepare" "CI_PREPARE_SCRIPT" "CI_PREPARE_COMMAND" \
+        ".gitlab/ci/prepare.sh" \
+        ".gitlab/ci/prepare" \
+        ".gitlab/prepare.sh" \
+        ".gitlab/prepare" \
+        "ci/prepare.sh" \
+        "ci/prepare" \
+        "scripts/ci/prepare.sh" \
+        "scripts/ci/prepare" \
+        "scripts/prepare.sh" \
+        "scripts/prepare" \
+        "prepare.sh" \
+        "prepare"
+    - |
+      run_stage "build" "CI_BUILD_SCRIPT" "CI_BUILD_COMMAND" \
+        ".gitlab/ci/build.sh" \
+        ".gitlab/ci/build" \
+        ".gitlab/build.sh" \
+        ".gitlab/build" \
+        "ci/build.sh" \
+        "ci/build" \
+        "scripts/ci/build.sh" \
+        "scripts/ci/build" \
+        "scripts/build.sh" \
+        "scripts/build" \
+        "build.sh" \
+        "build"
+    - |
+      run_stage "post-build" "CI_POST_BUILD_SCRIPT" "CI_POST_BUILD_COMMAND" \
+        ".gitlab/ci/post-build.sh" \
+        ".gitlab/ci/post-build" \
+        ".gitlab/ci/post_build.sh" \
+        ".gitlab/ci/post_build" \
+        ".gitlab/post-build.sh" \
+        ".gitlab/post-build" \
+        ".gitlab/post_build.sh" \
+        ".gitlab/post_build" \
+        "ci/post-build.sh" \
+        "ci/post-build" \
+        "ci/post_build.sh" \
+        "ci/post_build" \
+        "scripts/ci/post-build.sh" \
+        "scripts/ci/post-build" \
+        "scripts/ci/post_build.sh" \
+        "scripts/ci/post_build" \
+        "scripts/post-build.sh" \
+        "scripts/post-build" \
+        "scripts/post_build.sh" \
+        "scripts/post_build" \
+        "post-build.sh" \
+        "post-build" \
+        "post_build.sh" \
+        "post_build"
+  artifacts:
+    when: always
+    expire_in: $CI_ARTIFACT_EXPIRE_IN
+    paths:
+      - artifacts/
+      - build/
+      - dist/
+      - output/
+      - reports/

@@ -1,0 +1,557 @@
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  hosts:
+  - frontend
+  - frontend.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: frontend
+        port:
+          number: 3000
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  host: frontend
+  port:
+    number: 3000
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway
+  namespace: default
+spec:
+  hosts:
+  - api-gateway
+  - api-gateway.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /api/v1
+    route:
+    - destination:
+        host: api-gateway
+        port:
+          number: 8080
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: api-gateway
+  namespace: default
+spec:
+  host: api-gateway
+  port:
+    number: 8080
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  hosts:
+  - user-service
+  - user-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /users
+    route:
+    - destination:
+        host: user-service
+        port:
+          number: 8081
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  host: user-service
+  port:
+    number: 8081
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-service
+  namespace: default
+spec:
+  hosts:
+  - order-service
+  - order-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /orders
+    route:
+    - destination:
+        host: order-service
+        port:
+          number: 8082
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: order-service
+  namespace: default
+spec:
+  host: order-service
+  port:
+    number: 8082
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: payment-service
+  namespace: default
+spec:
+  hosts:
+  - payment-service
+  - payment-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /payments
+    route:
+    - destination:
+        host: payment-service
+        port:
+          number: 8083
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-service
+  namespace: default
+spec:
+  host: payment-service
+  port:
+    number: 8083
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: inventory-service
+  namespace: default
+spec:
+  hosts:
+  - inventory-service
+  - inventory-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /inventory
+    route:
+    - destination:
+        host: inventory-service
+        port:
+          number: 8084
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: inventory-service
+  namespace: default
+spec:
+  host: inventory-service
+  port:
+    number: 8084
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: notification-service
+  namespace: default
+spec:
+  hosts:
+  - notification-service
+  - notification-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /notifications
+    route:
+    - destination:
+        host: notification-service
+        port:
+          number: 8085
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: notification-service
+  namespace: default
+spec:
+  host: notification-service
+  port:
+    number: 8085
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: analytics-service
+  namespace: default
+spec:
+  hosts:
+  - analytics-service
+  - analytics-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /analytics
+    route:
+    - destination:
+        host: analytics-service
+        port:
+          number: 8086
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: analytics-service
+  namespace: default
+spec:
+  host: analytics-service
+  port:
+    number: 8086
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: auth-service
+  namespace: default
+spec:
+  hosts:
+  - auth-service
+  - auth-service.default.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        prefix: /auth
+    route:
+    - destination:
+        host: auth-service
+        port:
+          number: 8087
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: auth-service
+  namespace: default
+spec:
+  host: auth-service
+  port:
+    number: 8087
+    protocol: HTTP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: db-service
+  namespace: default
+spec:
+  hosts:
+  - db-service
+  - db-service.default.svc.cluster.local
+  tcp:
+  - match:
+    - port: 5432
+    route:
+    - destination:
+        host: db-service
+        port:
+          number: 5432
+      weight: 100
+    timeout: 60s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: db-service
+  namespace: default
+spec:
+  host: db-service
+  port:
+    number: 5432
+    protocol: TCP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cache-service
+  namespace: default
+spec:
+  hosts:
+  - cache-service
+  - cache-service.default.svc.cluster.local
+  tcp:
+  - match:
+    - port: 6379
+    route:
+    - destination:
+        host: cache-service
+        port:
+          number: 6379
+      weight: 100
+    timeout: 60s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cache-service
+  namespace: default
+spec:
+  host: cache-service
+  port:
+    number: 6379
+    protocol: TCP
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+      minRequestVolume: 5

@@ -1,0 +1,233 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Quick-start EC2 deployment with attached EBS data volumes for application data
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the EC2 instances
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for the Auto Scaling Group
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m6i.large
+      - m6i.xlarge
+    Description: EC2 instance type
+
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    Description: Number of instances to run
+
+  MinSize:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    Description: Minimum number of instances
+
+  MaxSize:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    Description: Maximum number of instances
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: ''
+    Description: Optional EC2 key pair for SSH access
+
+  AllowedSshCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed to SSH to instances
+
+  AppPort:
+    Type: Number
+    Default: 8080
+    MinValue: 1
+    MaxValue: 65535
+    Description: Application port to allow inbound
+
+  AppPortCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR allowed to access the application port
+
+  RootVolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 8
+    Description: Root volume size in GiB
+
+  DataVolumeSize:
+    Type: Number
+    Default: 100
+    MinValue: 1
+    Description: Application data volume size in GiB
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: SSM parameter for the AMI ID
+
+Conditions:
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+
+Resources:
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-ec2-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-ec2-profile'
+      Roles:
+        - !Ref InstanceRole
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for application EC2 instances
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr
+        - IpProtocol: tcp
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          CidrIp: !Ref AppPortCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-app-sg'
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-lt'
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeType: gp3
+              VolumeSize: !Ref RootVolumeSize
+              DeleteOnTermination: true
+          - DeviceName: /dev/xvdf
+            Ebs:
+              VolumeType: gp3
+              VolumeSize: !Ref DataVolumeSize
+              DeleteOnTermination: true
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -euxo pipefail
+
+            dnf update -y
+            dnf install -y xfsprogs
+
+            DEVICE="/dev/xvdf"
+            MOUNT_POINT="/app/data"
+
+            if ! blkid "${DEVICE}"; then
+              mkfs.xfs "${DEVICE}"
+            fi
+
+            mkdir -p "${MOUNT_POINT}"
+
+            UUID="$(blkid -s UUID -o value "${DEVICE}")"
+            grep -q "${UUID}" /etc/fstab || echo "UUID=${UUID} ${MOUNT_POINT} xfs defaults,nofail 0 2" >> /etc/fstab
+
+            mount -a
+            chmod 755 /app
+            chmod 755 "${MOUNT_POINT}"
+
+            cat >/usr/local/bin/app-healthcheck.sh <<'EOF'
+            #!/bin/bash
+            test -d /app/data && mountpoint -q /app/data
+            EOF
+            chmod +x /usr/local/bin/app-healthcheck.sh
+
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${AWS::StackName}-app'
+              - Key: Stack
+                Value: !Ref AWS::StackName
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: !Sub '${AWS::StackName}-data'
+              - Key: Stack
+                Value: !Ref AWS::StackName
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${AWS::StackName}-asg'
+      VPCZoneIdentifier: !Ref SubnetIds
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-app'
+          PropagateAtLaunch: true
+        - Key: Stack
+          Value: !Ref AWS::StackName
+          PropagateAtLaunch: true
+
+Outputs:
+  AutoScalingGroupName:
+    Description: Auto Scaling Group name
+    Value: !Ref AutoScalingGroup
+
+  InstanceSecurityGroupId:
+    Description: Security group for the instances
+    Value: !Ref InstanceSecurityGroup
+
+  DataMountPath:
+    Description: Application data mount path on each instance
+    Value: /app/data

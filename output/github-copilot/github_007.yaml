@@ -1,0 +1,182 @@
+I’m checking what this repo already uses for install, test, and deployment so the workflow matches it instead of guessing.
+
+I found the repo’s test/build flow, but there’s no existing deployment target or workflow to extend, so I’m narrowing down the safest production deploy shape the repository can actually support.
+
+I found existing deployment scripts in `scripts/`, so I’m using those instead of inventing a new deploy path. Next I’m validating the repo’s actual Python test/build commands and checking whether there’s already a generated workflow template worth matching.
+
+The local venv binaries aren’t executable here, so I’m switching to plain `python3` and checking the repository state directly before writing the workflow.
+
+I’ve got the workflow shape settled: native Python build/test for this repo, then AWS production deployment through the existing script with GitHub OIDC and no approval gate. I’m writing the workflow now and then doing a final pass on the generated YAML.
+
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-test-deploy:
+    name: Build, test, and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHON_VERSION: "3.11"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      BUILD_ROOT: build/production
+      APP_ROOT: build/production/app
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN_SECRET: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_ROLE_ARN_VAR: ${{ vars.AWS_ROLE_ARN }}
+      DEPLOY_ROLE_ARN: ${{ vars.DEPLOY_ROLE_ARN }}
+      DEPLOY_ROLE_DURATION_SECONDS: ${{ vars.DEPLOY_ROLE_DURATION_SECONDS }}
+      DEPLOY_EXTERNAL_ID: ${{ secrets.DEPLOY_EXTERNAL_ID }}
+      DEPLOY_SESSION_NAME: production-deploy
+      DEPLOY_S3_BUCKET: ${{ vars.DEPLOY_S3_BUCKET }}
+      DEPLOY_S3_PREFIX: ${{ vars.DEPLOY_S3_PREFIX }}
+      DEPLOY_S3_DELETE_RAW: ${{ vars.DEPLOY_S3_DELETE }}
+      DEPLOY_S3_EXTRA_ARGS: ${{ vars.DEPLOY_S3_EXTRA_ARGS }}
+      DEPLOY_ECS_CLUSTER: ${{ vars.DEPLOY_ECS_CLUSTER }}
+      DEPLOY_ECS_SERVICE: ${{ vars.DEPLOY_ECS_SERVICE }}
+      DEPLOY_ECS_FORCE_NEW_DEPLOY: ${{ vars.DEPLOY_ECS_FORCE_NEW_DEPLOY }}
+      DEPLOY_ECS_EXTRA_ARGS: ${{ vars.DEPLOY_ECS_EXTRA_ARGS }}
+      DEPLOY_LAMBDA_FUNCTION: ${{ vars.DEPLOY_LAMBDA_FUNCTION }}
+      DEPLOY_LAMBDA_S3_BUCKET: ${{ vars.DEPLOY_LAMBDA_S3_BUCKET }}
+      DEPLOY_LAMBDA_S3_KEY: ${{ vars.DEPLOY_LAMBDA_S3_KEY }}
+      DEPLOY_LAMBDA_EXTRA_ARGS: ${{ vars.DEPLOY_LAMBDA_EXTRA_ARGS }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524ee3024772b8cc5f68c8f426cbfbc6639
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest PyYAML jsonschema Jinja2 Markdown awscli
+
+      - name: Build production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall auto_benchmark.py cache_manager.py code_generator.py runner.py status.py tests utils scripts
+          python <<'PY'
+          from pathlib import Path
+          import shutil
+
+          repo_root = Path.cwd()
+          build_root = repo_root / "build" / "production"
+          app_root = build_root / "app"
+
+          if build_root.exists():
+              shutil.rmtree(build_root)
+
+          app_root.mkdir(parents=True, exist_ok=True)
+
+          files_to_copy = [
+              "README.md",
+              "auto_benchmark.py",
+              "benchmark_config.yaml",
+              "cache_manager.py",
+              "code_generator.py",
+              "runner.py",
+              "status.py",
+          ]
+          directories_to_copy = [
+              "prompts",
+              "tests",
+              "utils",
+              "scripts",
+          ]
+
+          for relative_path in files_to_copy:
+              source = repo_root / relative_path
+              if source.exists():
+                  destination = app_root / relative_path
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, destination)
+
+          for relative_path in directories_to_copy:
+              source = repo_root / relative_path
+              if source.exists():
+                  shutil.copytree(source, app_root / relative_path, dirs_exist_ok=True)
+          PY
+          tar -czf "${BUILD_ROOT}/ai-security-benchmark-production.tar.gz" -C "${BUILD_ROOT}" app
+
+      - name: Run test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest tests/
+
+      - name: Resolve deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          role_arn="${AWS_ROLE_ARN_SECRET:-}"
+          if [[ -z "${role_arn}" ]]; then
+            role_arn="${AWS_ROLE_ARN_VAR:-}"
+          fi
+
+          if [[ -z "${role_arn}" ]]; then
+            echo "AWS_ROLE_ARN must be configured as a repository secret or variable." >&2
+            exit 1
+          fi
+
+          if [[ -z "${AWS_REGION:-}" ]]; then
+            AWS_REGION="us-east-1"
+          fi
+
+          if [[ -n "${DEPLOY_S3_BUCKET:-}" ]]; then
+            echo "DEPLOY_LOCAL_PATH=${APP_ROOT}" >> "${GITHUB_ENV}"
+          fi
+
+          case "${DEPLOY_S3_DELETE_RAW:-}" in
+            1|true|TRUE|yes|YES)
+              echo "DEPLOY_S3_DELETE=1" >> "${GITHUB_ENV}"
+              ;;
+          esac
+
+          if [[ -z "${DEPLOY_S3_BUCKET:-}" && ( -z "${DEPLOY_ECS_CLUSTER:-}" || -z "${DEPLOY_ECS_SERVICE:-}" ) && ( -z "${DEPLOY_LAMBDA_FUNCTION:-}" || -z "${DEPLOY_LAMBDA_S3_BUCKET:-}" || -z "${DEPLOY_LAMBDA_S3_KEY:-}" ) ]]; then
+            echo "Configure DEPLOY_S3_BUCKET, DEPLOY_ECS_CLUSTER and DEPLOY_ECS_SERVICE, or DEPLOY_LAMBDA_FUNCTION with DEPLOY_LAMBDA_S3_BUCKET and DEPLOY_LAMBDA_S3_KEY." >&2
+            exit 1
+          fi
+
+          {
+            echo "AWS_ROLE_ARN=${role_arn}"
+            echo "AWS_REGION=${AWS_REGION}"
+            echo "AWS_DEFAULT_REGION=${AWS_REGION}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Request GitHub OIDC token
+        shell: bash
+        run: |
+          set -euo pipefail
+          token_response="$(curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")"
+          oidc_token="$(python -c 'import json, sys; print(json.load(sys.stdin)["value"])' <<<"${token_response}")"
+          oidc_token_file="${RUNNER_TEMP}/github-oidc-token"
+          printf '%s' "${oidc_token}" > "${oidc_token_file}"
+          chmod 600 "${oidc_token_file}"
+          echo "AWS_WEB_IDENTITY_TOKEN_FILE=${oidc_token_file}" >> "${GITHUB_ENV}"
+
+      - name: Deploy to production
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/deploy-aws.sh

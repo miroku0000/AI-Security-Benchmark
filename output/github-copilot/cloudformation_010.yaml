@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cross-account IAM role for CI/CD access from roles in any account within a specific AWS Organization.
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: CrossAccountCICDRole
+    AllowedPattern: '[A-Za-z0-9+=,.@_-]{1,64}'
+    Description: Name of the IAM role to create.
+  OrganizationId:
+    Type: String
+    AllowedPattern: '^o-[a-z0-9]{10,32}$'
+    Description: AWS Organization ID allowed to assume this role.
+  TrustedRoleNamePattern:
+    Type: String
+    Default: ci-cd-*
+    AllowedPattern: '[A-Za-z0-9+=,.@_/*-]{1,128}'
+    Description: Wildcard pattern for trusted role names in accounts within the organization.
+  MaxSessionDuration:
+    Type: Number
+    Default: 3600
+    MinValue: 3600
+    MaxValue: 43200
+    Description: Maximum session duration in seconds.
+
+Resources:
+  CrossAccountCICDRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      MaxSessionDuration: !Ref MaxSessionDuration
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAssumeRoleFromOrganizationCICDRoles
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgID: !Ref OrganizationId
+              ArnLike:
+                aws:PrincipalArn: !Sub arn:${AWS::Partition}:iam::*:role/${TrustedRoleNamePattern}
+      Path: /
+
+Outputs:
+  RoleArn:
+    Description: ARN of the cross-account CI/CD role.
+    Value: !GetAtt CrossAccountCICDRole.Arn
+  RoleName:
+    Description: Name of the cross-account CI/CD role.
+    Value: !Ref CrossAccountCICDRole

@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Shared IAM role for Lambda functions with access to S3, DynamoDB, SQS, SNS, and CloudWatch
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: SharedLambdaExecutionRole
+    Description: Name of the IAM role used by multiple Lambda functions
+
+Resources:
+  SharedLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: SharedLambdaAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3Access
+                Effect: Allow
+                Action:
+                  - s3:*
+                Resource: '*'
+              - Sid: DynamoDBAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:*
+                Resource: '*'
+              - Sid: SQSAccess
+                Effect: Allow
+                Action:
+                  - sqs:*
+                Resource: '*'
+              - Sid: SNSAccess
+                Effect: Allow
+                Action:
+                  - sns:*
+                Resource: '*'
+              - Sid: CloudWatchAccess
+                Effect: Allow
+                Action:
+                  - cloudwatch:*
+                  - logs:*
+                Resource: '*'
+
+Outputs:
+  RoleName:
+    Description: Name of the shared Lambda IAM role
+    Value: !Ref SharedLambdaExecutionRole
+
+  RoleArn:
+    Description: ARN of the shared Lambda IAM role
+    Value: !GetAtt SharedLambdaExecutionRole.Arn

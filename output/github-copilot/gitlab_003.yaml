@@ -1,0 +1,370 @@
+I’m checking the project’s existing run/test setup so the pipeline matches the repo instead of guessing.
+
+I found this is a Python repo without an existing GitLab pipeline, so I’m wiring a CI file around the repo’s actual scripts and keeping the MR metadata handling shell-safe.
+
+I found documented install/test commands in the README, so I’m using those as the pipeline baseline and then adding safe MR metadata plumbing for release notes, notifications, and deployment tagging.
+
+I’m checking external dependencies before I lock the image/install steps, so the CI file is actually runnable in this repo instead of assuming a missing requirements file.
+
+I have the pipeline design pinned down. I’m validating the repo’s current test command locally before adding the GitLab file so the final config matches something that already runs here.
+
+The local test invocation hit an environment permission wall, so I’m proceeding with the repo’s documented command and validating the CI file itself plus the metadata logic directly.
+
+The workspace isn’t allowing file writes, so I’m validating the pipeline content in-memory and will return the complete CI file directly.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+
+stages:
+  - prepare
+  - test
+  - notify
+  - release
+  - deploy
+
+default:
+  image: python:3.11-slim
+  cache:
+    key: "$CI_PROJECT_ID-pip"
+    paths:
+      - .cache/pip
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+    GIT_STRATEGY: fetch
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends ca-certificates curl git
+    - rm -rf /var/lib/apt/lists/*
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip install pytest pyyaml jsonschema requests
+
+metadata:
+  stage: prepare
+  script:
+    - mkdir -p .ci
+    - |
+      python3 - <<'PY'
+      import base64
+      import json
+      import os
+      import re
+      import urllib.parse
+      import urllib.request
+      from pathlib import Path
+
+      def fetch_merge_request():
+          api_url = os.getenv("CI_API_V4_URL", "")
+          project_id = os.getenv("CI_PROJECT_ID", "")
+          commit_sha = os.getenv("CI_COMMIT_SHA", "")
+          job_token = os.getenv("CI_JOB_TOKEN", "")
+          if not all([api_url, project_id, commit_sha, job_token]):
+              return {}
+
+          request_url = (
+              f"{api_url}/projects/{urllib.parse.quote(project_id, safe='')}"
+              f"/repository/commits/{commit_sha}/merge_requests"
+          )
+          request = urllib.request.Request(request_url, headers={"JOB-TOKEN": job_token})
+
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  merge_requests = json.load(response)
+          except Exception:
+              return {}
+
+          if not merge_requests:
+              return {}
+
+          merged = next((item for item in merge_requests if item.get("state") == "merged"), None)
+          selected = merged or merge_requests[0]
+          return {
+              "title": selected.get("title", ""),
+              "description": selected.get("description", ""),
+              "iid": str(selected.get("iid", "")),
+              "web_url": selected.get("web_url", ""),
+          }
+
+      def slugify(value):
+          slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+          return slug[:48] or "untitled"
+
+      project_dir = Path(os.getenv("CI_PROJECT_DIR", "."))
+      ci_dir = project_dir / ".ci"
+      ci_dir.mkdir(parents=True, exist_ok=True)
+
+      fetched_mr = fetch_merge_request()
+      commit_sha = os.getenv("CI_COMMIT_SHA", "")
+      short_sha = os.getenv("CI_COMMIT_SHORT_SHA", commit_sha[:8])
+
+      title = os.getenv("CI_MERGE_REQUEST_TITLE") or fetched_mr.get("title") or f"Deployment {short_sha}"
+      description = os.getenv("CI_MERGE_REQUEST_DESCRIPTION")
+      if description is None or description == "":
+          description = fetched_mr.get("description") or "No merge request description provided."
+
+      iid = os.getenv("CI_MERGE_REQUEST_IID") or fetched_mr.get("iid", "")
+      project_url = os.getenv("CI_PROJECT_URL", "")
+      mr_web_url = fetched_mr.get("web_url", "")
+      if not mr_web_url and iid and project_url:
+          mr_web_url = f"{project_url}/-/merge_requests/{iid}"
+
+      mr_reference = f"!{iid}" if iid else short_sha
+      mr_slug = slugify(title)
+      tag_scope = f"mr{iid}" if iid else "direct"
+      deploy_tag = f"deploy-{short_sha}-{tag_scope}-{mr_slug}"[:127].strip("-")
+      title_single_line = " ".join(title.split())
+      description_single_line = " ".join(description.split())
+      pipeline_url = os.getenv("CI_PIPELINE_URL", "")
+      commit_url = f"{project_url}/-/commit/{commit_sha}" if project_url and commit_sha else ""
+
+      metadata = {
+          "mr_title": title,
+          "mr_description": description,
+          "mr_iid": iid,
+          "mr_reference": mr_reference,
+          "mr_web_url": mr_web_url,
+          "mr_title_slug": mr_slug,
+          "deploy_tag": deploy_tag,
+          "commit_sha": commit_sha,
+          "commit_short_sha": short_sha,
+          "commit_url": commit_url,
+          "pipeline_url": pipeline_url,
+      }
+
+      release_notes_entry = "\n".join(
+          [
+              f"## {title}",
+              "",
+              f"- Merge request: {mr_reference}",
+              f"- Commit: `{commit_sha}`",
+              f"- Deployment tag: `{deploy_tag}`",
+              f"- Pipeline: {pipeline_url or 'N/A'}",
+              "",
+              "### Description",
+              "",
+              description,
+              "",
+          ]
+      )
+
+      commit_message = "\n".join(
+          [
+              f"chore(release): {title_single_line[:72]}",
+              "",
+              f"Merge request: {mr_reference}",
+              f"Commit: {commit_sha}",
+              f"Deployment tag: {deploy_tag}",
+              "",
+              "Automatic release notes:",
+              title,
+              "",
+              description,
+              "",
+              "[skip ci]",
+              "",
+          ]
+      )
+
+      tag_message = "\n".join(
+          [
+              f"Deployment tag for {title}",
+              "",
+              f"Merge request: {mr_reference}",
+              f"Commit: {commit_sha}",
+              "",
+              description,
+              "",
+          ]
+      )
+
+      notification_payload = {
+          "event": "build_notification",
+          "project": os.getenv("CI_PROJECT_PATH", ""),
+          "pipeline_id": os.getenv("CI_PIPELINE_ID", ""),
+          "pipeline_url": pipeline_url,
+          "commit_sha": commit_sha,
+          "commit_short_sha": short_sha,
+          "merge_request": {
+              "iid": iid,
+              "reference": mr_reference,
+              "title": title,
+              "description": description,
+              "web_url": mr_web_url,
+          },
+          "deployment_tag": deploy_tag,
+      }
+
+      (ci_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+      (ci_dir / "build_notification.json").write_text(json.dumps(notification_payload, indent=2) + "\n", encoding="utf-8")
+      (ci_dir / "release_notes_entry.md").write_text(release_notes_entry, encoding="utf-8")
+      (ci_dir / "commit_message.txt").write_text(commit_message, encoding="utf-8")
+      (ci_dir / "tag_message.txt").write_text(tag_message, encoding="utf-8")
+      (ci_dir / "mr_title.txt").write_text(title + "\n", encoding="utf-8")
+      (ci_dir / "mr_description.txt").write_text(description + "\n", encoding="utf-8")
+
+      env_lines = [
+          f"MR_IID={iid}",
+          f"MR_REFERENCE={mr_reference}",
+          f"MR_TITLE_SLUG={mr_slug}",
+          f"DEPLOY_TAG={deploy_tag}",
+          f"MR_TITLE_B64={base64.b64encode(title.encode('utf-8')).decode('ascii')}",
+          f"MR_DESCRIPTION_B64={base64.b64encode(description.encode('utf-8')).decode('ascii')}",
+          f"MR_TITLE_SINGLE_LINE_B64={base64.b64encode(title_single_line.encode('utf-8')).decode('ascii')}",
+          f"MR_DESCRIPTION_SINGLE_LINE_B64={base64.b64encode(description_single_line.encode('utf-8')).decode('ascii')}",
+      ]
+      (ci_dir / "metadata.env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+      PY
+  artifacts:
+    expire_in: 1 week
+    reports:
+      dotenv: .ci/metadata.env
+    paths:
+      - .ci/metadata.json
+      - .ci/build_notification.json
+      - .ci/release_notes_entry.md
+      - .ci/commit_message.txt
+      - .ci/tag_message.txt
+      - .ci/mr_title.txt
+      - .ci/mr_description.txt
+
+unit_tests:
+  stage: test
+  script:
+    - pytest tests/
+
+notify_build:
+  stage: notify
+  when: always
+  needs:
+    - job: metadata
+      artifacts: true
+  script:
+    - |
+      python3 - <<'PY'
+      import json
+      import os
+      import urllib.parse
+      import urllib.request
+      from pathlib import Path
+
+      ci_dir = Path(".ci")
+      payload = json.loads((ci_dir / "build_notification.json").read_text(encoding="utf-8"))
+      project_id = os.getenv("CI_PROJECT_ID", "")
+      pipeline_id = os.getenv("CI_PIPELINE_ID", "")
+      api_url = os.getenv("CI_API_V4_URL", "")
+      job_token = os.getenv("CI_JOB_TOKEN", "")
+
+      build_status = "unknown"
+      if all([project_id, pipeline_id, api_url, job_token]):
+          jobs_url = (
+              f"{api_url}/projects/{urllib.parse.quote(project_id, safe='')}"
+              f"/pipelines/{pipeline_id}/jobs?per_page=100"
+          )
+          request = urllib.request.Request(jobs_url, headers={"JOB-TOKEN": job_token})
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  jobs = json.load(response)
+          except Exception:
+              jobs = []
+
+          unit_job = next((job for job in jobs if job.get("name") == "unit_tests"), None)
+          if unit_job:
+              build_status = unit_job.get("status", "unknown")
+
+      payload["build_status"] = build_status
+      payload["notification_job_url"] = os.getenv("CI_JOB_URL", "")
+
+      payload_text = json.dumps(payload, indent=2) + "\n"
+      (ci_dir / "build_notification.json").write_text(payload_text, encoding="utf-8")
+
+      webhook_url = os.getenv("BUILD_NOTIFICATION_WEBHOOK_URL", "")
+      if webhook_url:
+          request = urllib.request.Request(
+              webhook_url,
+              data=payload_text.encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              print(response.read().decode("utf-8", errors="replace"))
+      else:
+          print(payload_text)
+      PY
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - .ci/build_notification.json
+
+release_notes:
+  stage: release
+  needs:
+    - job: metadata
+      artifacts: true
+    - job: unit_tests
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - |
+      python3 - <<'PY'
+      import json
+      from pathlib import Path
+
+      metadata = json.loads(Path(".ci/metadata.json").read_text(encoding="utf-8"))
+      release_notes_path = Path("RELEASE_NOTES.md")
+      entry = Path(".ci/release_notes_entry.md").read_text(encoding="utf-8").strip()
+      commit_marker = f"- Commit: `{metadata['commit_sha']}`"
+      header = "# Release Notes\n\n"
+
+      if release_notes_path.exists():
+          existing = release_notes_path.read_text(encoding="utf-8")
+          if commit_marker in existing:
+              raise SystemExit(0)
+          if existing.startswith(header):
+              body = existing[len(header):].lstrip()
+          else:
+              body = existing.lstrip()
+      else:
+          body = ""
+
+      content = header + entry + "\n\n"
+      if body:
+          content += body
+
+      release_notes_path.write_text(content, encoding="utf-8")
+      PY
+    - git config user.name "GitLab CI"
+    - git config user.email "gitlab-ci@example.invalid"
+    - git add RELEASE_NOTES.md
+    - |
+      if git diff --cached --quiet; then
+        echo "No release note changes to commit."
+        exit 0
+      fi
+    - git commit -F .ci/commit_message.txt
+    - git remote set-url origin "${CI_REPOSITORY_URL}"
+    - git push -o ci.skip origin HEAD:${CI_COMMIT_BRANCH}
+
+deployment_tag:
+  stage: deploy
+  environment:
+    name: production
+  needs:
+    - job: metadata
+      artifacts: true
+    - job: release_notes
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - git config user.name "GitLab CI"
+    - git config user.email "gitlab-ci@example.invalid"
+    - git remote set-url origin "${CI_REPOSITORY_URL}"
+    - |
+      if git ls-remote --exit-code --tags origin "refs/tags/${DEPLOY_TAG}" >/dev/null 2>&1; then
+        echo "Tag ${DEPLOY_TAG} already exists."
+        exit 0
+      fi
+    - git tag -a "${DEPLOY_TAG}" -F .ci/tag_message.txt "${CI_COMMIT_SHA}"
+    - git push origin "refs/tags/${DEPLOY_TAG}"

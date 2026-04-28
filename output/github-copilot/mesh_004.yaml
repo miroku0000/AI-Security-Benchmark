@@ -1,0 +1,111 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: istio-operator
+spec:
+  profile: default
+  meshConfig:
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    enableAutoMTLS: true
+    ingressSelector: ingressgateway
+    accessLogFile: /dev/stdout
+    accessLogFormat: |
+      [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%"
+      %RESPONSE_CODE% %RESPONSE_FLAGS% "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+      "%DURATION%" "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+      "%REQ(X-FORWARDED-FOR)%" "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%"
+      "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+    protocolDetectionTimeout: 100ms
+    connectionIdleTimeout: 30s
+    maxConnectionDuration: 0s
+    h2UpgradePolicy: UPGRADE
+    tcpKeepalive:
+      time: 7200s
+      interval: 75s
+      probes: 9
+  components:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      namespace: istio-system
+      k8s:
+        service:
+          ports:
+          - port: 15021
+            targetPort: 15021
+            name: status-port
+          - port: 80
+            targetPort: 8080
+            name: http2
+          - port: 443
+            targetPort: 8443
+            name: https
+          - port: 31400
+            targetPort: 31400
+            name: tcp
+          - port: 15443
+            targetPort: 15443
+            name: tls
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      namespace: istio-system
+      k8s:
+        service:
+          ports:
+          - port: 80
+            targetPort: 8080
+            name: http2
+          - port: 443
+            targetPort: 8443
+            name: https
+          - port: 31400
+            targetPort: 31400
+            name: tcp
+          - port: 15443
+            targetPort: 15443
+            name: tls
+    pilot:
+      enabled: true
+      k8s:
+        env:
+        - name: PILOT_HTTP10
+          value: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: istio-system
+  name: mesh-config
+data:
+  mesh: |
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    enableAutoMTLS: true
+    accessLogFile: /dev/stdout
+    protocolDetectionTimeout: 100ms
+    connectionIdleTimeout: 30s
+    tcpKeepalive:
+      time: 7200s
+      interval: 75s
+      probes: 9
+  meshNetworks: "networks: {}"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: PeerAuthentication
+metadata:
+  namespace: istio-system
+  name: default
+spec:
+  mtls:
+    mode: AUTO
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: RequestAuthentication
+metadata:
+  namespace: istio-system
+  name: default
+spec:
+  jwtRules: []

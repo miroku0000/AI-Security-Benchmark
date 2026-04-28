@@ -1,0 +1,425 @@
+I found there isn't an existing GitHub Actions setup, so I'm wiring a fresh workflow around the repo's Python tooling and keeping the debugging output useful without dumping secrets into logs.
+
+The repo is Python-first with a large pytest suite. I'm narrowing down the existing install/test entrypoints so the workflow is runnable out of the box instead of guessing at commands.
+
+There’s no checked-in `requirements.txt`, so I’m building the workflow to bootstrap from the repo if it exists and fall back to a conservative test dependency set when it doesn’t.
+
+I have enough repo context now. Next I’m generating a debug-oriented workflow that fits this project’s Python test path and keeps logs detailed but sanitized so it’s usable in a real repository.
+
+I'm at the implementation step now. The workflow will be generic enough to run here immediately, but it also includes optional deployment and health-check diagnostics when repo variables or secrets are configured.
+
+The patch tool hit a filesystem permission snag creating `.github/`, so I’m creating the target directory first and then writing the workflow file cleanly.
+
+name: CI Debug Diagnostics
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_deploy:
+        description: Run optional deployment script diagnostics
+        required: false
+        type: boolean
+        default: false
+      environment:
+        description: Deployment environment label
+        required: false
+        type: string
+        default: production
+      healthcheck_url:
+        description: Optional healthcheck or deployment API URL override
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  debug-and-validate:
+    name: Debug and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHON_VERSION: "3.11"
+      DEBUG_LOG_DIR: debug-logs
+      TARGET_ENVIRONMENT: ${{ github.event.inputs.environment || 'production' }}
+      HEALTHCHECK_URL: ${{ github.event.inputs.healthcheck_url || vars.DEPLOY_HEALTHCHECK_URL || vars.DEPLOYMENT_ENDPOINT || '' }}
+      DEPLOY_TARGET_NAME: ${{ vars.DEPLOY_TARGET_NAME || 'unspecified' }}
+      DEPLOYMENT_ENDPOINT: ${{ vars.DEPLOYMENT_ENDPOINT || '' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524ee3024772b8cc5f68c8f426cbfbc6639
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Initialize debug workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$DEBUG_LOG_DIR"
+          mkdir -p "$DEBUG_LOG_DIR"
+
+      - name: Log workflow, runner, and git context
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "timestamp_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+            echo "event_name=$GITHUB_EVENT_NAME"
+            echo "actor=$GITHUB_ACTOR"
+            echo "repository=$GITHUB_REPOSITORY"
+            echo "ref=$GITHUB_REF"
+            echo "ref_name=$GITHUB_REF_NAME"
+            echo "sha=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_number=$GITHUB_RUN_NUMBER"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "job=$GITHUB_JOB"
+            echo "workspace=$GITHUB_WORKSPACE"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+            echo "target_environment=$TARGET_ENVIRONMENT"
+            echo "deploy_target_name=$DEPLOY_TARGET_NAME"
+            if [[ -n "${DEPLOYMENT_ENDPOINT:-}" ]]; then
+              echo "deployment_endpoint=<configured>"
+            else
+              echo "deployment_endpoint=<unset>"
+            fi
+            if [[ -n "${HEALTHCHECK_URL:-}" ]]; then
+              echo "healthcheck_url=<configured>"
+            else
+              echo "healthcheck_url=<unset>"
+            fi
+            echo
+            echo "[git status]"
+            git --no-pager status --short
+            echo
+            echo "[last commit]"
+            git --no-pager log --decorate --stat -1
+            echo
+            echo "[repository root]"
+            pwd
+            echo
+            echo "[top-level tree]"
+            find . \
+              \( -path './.git' -o -path './venv' -o -path './__pycache__' -o -path './output' \) -prune \
+              -o -maxdepth 2 -mindepth 1 -print | sort
+          } | tee "$DEBUG_LOG_DIR/context.log"
+
+      - name: Log sanitized environment variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee "$DEBUG_LOG_DIR/environment.log"
+          import os
+          import re
+          import urllib.parse
+
+          sensitive_name = re.compile(
+              r"(SECRET|TOKEN|PASSWORD|PASS|KEY|PRIVATE|CREDENTIAL|CONNECTION_STRING|DATABASE_URL|API[_-]?KEY|AUTH)",
+              re.IGNORECASE,
+          )
+          secret_value = re.compile(
+              r"(?i)(gh[psu]_|github_pat_|sk-[A-Za-z0-9_-]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{16,}|"
+              r"xox[baprs]-[A-Za-z0-9-]+|[A-Za-z0-9+/]{32,}={0,2})"
+          )
+
+          def sanitize_uri(value: str) -> str:
+              try:
+                  parsed = urllib.parse.urlsplit(value)
+              except ValueError:
+                  return f"<redacted malformed-uri len={len(value)}>"
+              if not parsed.scheme:
+                  return value
+              host = parsed.hostname or ""
+              port = f":{parsed.port}" if parsed.port else ""
+              user = parsed.username or ""
+              path = parsed.path or ""
+              user_part = f"{user}:***@" if user else ""
+              query_keys = ",".join(sorted(urllib.parse.parse_qs(parsed.query).keys()))
+              query_part = f"?keys={query_keys}" if query_keys else ""
+              return f"{parsed.scheme}://{user_part}{host}{port}{path}{query_part}"
+
+          def sanitize_value(name: str, value: str) -> str:
+              if value == "":
+                  return "<empty>"
+              if sensitive_name.search(name):
+                  return f"<redacted len={len(value)}>"
+              if "://" in value:
+                  return sanitize_uri(value)
+              if secret_value.search(value):
+                  return f"<redacted len={len(value)}>"
+              if len(value) > 240:
+                  return f"{value[:120]}...<truncated len={len(value)}>"
+              return value
+
+          for key in sorted(os.environ):
+              print(f"{key}={sanitize_value(key, os.environ[key])}")
+          PY
+
+      - name: Log system and Python diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "[uname]"
+            uname -a
+            echo
+            echo "[disk]"
+            df -h
+            echo
+            echo "[memory]"
+            free -h || true
+            echo
+            echo "[python]"
+            python --version
+            which python
+            pip --version
+            echo
+            echo "[network]"
+            python - <<'PY'
+            import socket
+            for host in ("github.com", "pypi.org", "files.pythonhosted.org"):
+                try:
+                    print(host, sorted({addr[4][0] for addr in socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)}))
+                except OSError as exc:
+                    print(host, f"resolution_error={exc}")
+            PY
+          } | tee "$DEBUG_LOG_DIR/system.log"
+
+      - name: Install dependencies with full command output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel 2>&1 | tee "$DEBUG_LOG_DIR/pip-upgrade.log"
+          if [[ -f requirements.txt ]]; then
+            python -m pip install -r requirements.txt 2>&1 | tee "$DEBUG_LOG_DIR/pip-install.log"
+          else
+            python -m pip install \
+              pytest \
+              pyyaml \
+              jsonschema \
+              jinja2 \
+              markdown \
+              openai \
+              anthropic \
+              google-genai \
+              ollama \
+              flask \
+              werkzeug \
+              pyjwt \
+              2>&1 | tee "$DEBUG_LOG_DIR/pip-install.log"
+          fi
+          python -m pip freeze | tee "$DEBUG_LOG_DIR/pip-freeze.log"
+
+      - name: Run compile and repository diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall auto_benchmark.py cache_manager.py code_generator.py runner.py status.py tests utils scripts analysis 2>&1 | tee "$DEBUG_LOG_DIR/compileall.log"
+          if [[ -x scripts/check_environment.sh ]]; then
+            set +e
+            scripts/check_environment.sh 2>&1 | tee "$DEBUG_LOG_DIR/check-environment.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            echo "check_environment_exit=$status" | tee -a "$DEBUG_LOG_DIR/check-environment.log"
+          elif [[ -f scripts/check_environment.sh ]]; then
+            set +e
+            bash scripts/check_environment.sh 2>&1 | tee "$DEBUG_LOG_DIR/check-environment.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            echo "check_environment_exit=$status" | tee -a "$DEBUG_LOG_DIR/check-environment.log"
+          else
+            echo "scripts/check_environment.sh not found; skipping environment script." | tee "$DEBUG_LOG_DIR/check-environment.log"
+          fi
+
+      - name: Run test suite with verbose logging
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest tests/ -vv 2>&1 | tee "$DEBUG_LOG_DIR/pytest.log"
+
+      - name: Log deployment configuration safely
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_CONNECTION_STRING: ${{ secrets.DEPLOY_CONNECTION_STRING }}
+          DEPLOY_API_TOKEN: ${{ secrets.DEPLOY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee "$DEBUG_LOG_DIR/deployment-config.log"
+          import hashlib
+          import json
+          import os
+          import socket
+          import urllib.parse
+
+          conn = (os.getenv("DEPLOY_CONNECTION_STRING") or "").strip()
+          token = (os.getenv("DEPLOY_API_TOKEN") or "").strip()
+
+          payload = {
+              "target_environment": os.getenv("TARGET_ENVIRONMENT", "production"),
+              "deploy_target_name": os.getenv("DEPLOY_TARGET_NAME", "unspecified"),
+              "deployment_endpoint_present": bool(os.getenv("DEPLOYMENT_ENDPOINT", "").strip()),
+              "healthcheck_url_present": bool(os.getenv("HEALTHCHECK_URL", "").strip()),
+              "connection_string_present": bool(conn),
+              "api_token_present": bool(token),
+          }
+
+          if token:
+              payload["api_token_fingerprint"] = hashlib.sha256(token.encode()).hexdigest()[:16]
+              payload["api_token_length"] = len(token)
+
+          if conn:
+              parsed = urllib.parse.urlsplit(conn)
+              default_ports = {
+                  "postgres": 5432,
+                  "postgresql": 5432,
+                  "mysql": 3306,
+                  "mariadb": 3306,
+                  "redis": 6379,
+                  "mongodb": 27017,
+                  "amqp": 5672,
+                  "https": 443,
+                  "http": 80,
+              }
+              port = parsed.port or default_ports.get(parsed.scheme)
+              payload["connection_details"] = {
+                  "scheme": parsed.scheme,
+                  "hostname": parsed.hostname,
+                  "port": port,
+                  "database_or_path": parsed.path.lstrip("/"),
+                  "username_present": bool(parsed.username),
+                  "query_keys": sorted(urllib.parse.parse_qs(parsed.query).keys()),
+              }
+              if parsed.hostname and port:
+                  try:
+                      resolved = sorted({item[4][0] for item in socket.getaddrinfo(parsed.hostname, port, proto=socket.IPPROTO_TCP)})
+                      payload["connection_dns"] = resolved
+                  except OSError as exc:
+                      payload["connection_dns_error"] = str(exc)
+
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+
+      - name: Probe healthcheck and deployment API
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_API_TOKEN: ${{ secrets.DEPLOY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HEALTHCHECK_URL:-}" ]]; then
+            echo "No HEALTHCHECK_URL configured; skipping HTTP probe." | tee "$DEBUG_LOG_DIR/healthcheck.log"
+            exit 0
+          fi
+
+          headers_file="$DEBUG_LOG_DIR/healthcheck-headers.raw"
+          body_file="$DEBUG_LOG_DIR/healthcheck-body.raw"
+          status_file="$DEBUG_LOG_DIR/healthcheck-status.log"
+          auth_args=()
+
+          if [[ -n "${DEPLOY_API_TOKEN:-}" ]]; then
+            auth_args=(-H "Authorization: Bearer ${DEPLOY_API_TOKEN}")
+          fi
+
+          set +e
+          http_code="$(curl -sS -D "$headers_file" -o "$body_file" -w '%{http_code}' --connect-timeout 15 --max-time 60 "${auth_args[@]}" "$HEALTHCHECK_URL")"
+          curl_exit=$?
+          set -e
+
+          {
+            echo "url=<configured>"
+            echo "http_code=$http_code"
+            echo "curl_exit=$curl_exit"
+          } | tee "$status_file"
+
+          python - <<'PY' | tee "$DEBUG_LOG_DIR/healthcheck.log"
+          import os
+          import pathlib
+          import re
+
+          headers_path = pathlib.Path(os.environ["DEBUG_LOG_DIR"]) / "healthcheck-headers.raw"
+          body_path = pathlib.Path(os.environ["DEBUG_LOG_DIR"]) / "healthcheck-body.raw"
+
+          def sanitize(text: str) -> str:
+              patterns = [
+                  (re.compile(r"(?im)^(authorization:\s*)(.+)$"), r"\1<redacted>"),
+                  (re.compile(r"(?im)^(set-cookie:\s*)(.+)$"), r"\1<redacted>"),
+                  (re.compile(r"(?i)(password|passwd|pwd|secret|token|api[_-]?key)(\"?\s*[:=]\s*\"?)([^\",\\s]+)"), r"\1\2<redacted>"),
+                  (re.compile(r"(?i)([A-Za-z][A-Za-z0-9+.-]*://[^:@\\s]+:)([^@\\s]+)(@)"), r"\1<redacted>\3"),
+                  (re.compile(r"(?i)(gh[psu]_|github_pat_|sk-[A-Za-z0-9_-]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{16,})"), "<redacted>"),
+              ]
+              for pattern, replacement in patterns:
+                  text = pattern.sub(replacement, text)
+              return text
+
+          headers = headers_path.read_text() if headers_path.exists() else ""
+          body = body_path.read_text(errors="replace") if body_path.exists() else ""
+          print("[headers]")
+          print(sanitize(headers).strip() or "<empty>")
+          print()
+          print("[body]")
+          trimmed = sanitize(body)
+          if len(trimmed) > 12000:
+              trimmed = trimmed[:12000] + "\n<truncated>"
+          print(trimmed.strip() or "<empty>")
+          PY
+
+      - name: Run optional deployment script
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && github.event.inputs.run_deploy == 'true' }}
+        shell: bash
+        env:
+          DEPLOY_CONNECTION_STRING: ${{ secrets.DEPLOY_CONNECTION_STRING }}
+          DEPLOY_API_TOKEN: ${{ secrets.DEPLOY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -x scripts/deploy.sh ]]; then
+            scripts/deploy.sh 2>&1 | tee "$DEBUG_LOG_DIR/deployment.log"
+          elif [[ -f scripts/deploy.sh ]]; then
+            bash scripts/deploy.sh 2>&1 | tee "$DEBUG_LOG_DIR/deployment.log"
+          else
+            echo "No scripts/deploy.sh found; skipping deployment execution." | tee "$DEBUG_LOG_DIR/deployment.log"
+          fi
+
+      - name: Write debug summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## CI Debug Summary"
+            echo
+            echo "- Workflow: $GITHUB_WORKFLOW"
+            echo "- Event: $GITHUB_EVENT_NAME"
+            echo "- Ref: $GITHUB_REF"
+            echo "- SHA: $GITHUB_SHA"
+            echo "- Target environment: $TARGET_ENVIRONMENT"
+            echo "- Deploy target: $DEPLOY_TARGET_NAME"
+            if [[ -n "${HEALTHCHECK_URL:-}" ]]; then
+              echo "- Healthcheck URL: <configured>"
+            else
+              echo "- Healthcheck URL: <unset>"
+            fi
+            echo
+            echo "### Generated logs"
+            find "$DEBUG_LOG_DIR" -maxdepth 1 -type f | sort | sed 's#^#- #'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload debug logs
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: ci-debug-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.DEBUG_LOG_DIR }}
+          if-no-files-found: error

@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for SQS queue and SNS topic setup for serverless event processing'
+
+Parameters:
+  QueueNamePrefix:
+    Type: String
+    Default: event-processing
+    Description: Prefix for the SQS queue name
+  MessageRetentionPeriod:
+    Type: Number
+    Default: 1209600
+    MinValue: 60
+    MaxValue: 1209600
+    Description: Message retention period in seconds (default 14 days)
+  VisibilityTimeout:
+    Type: Number
+    Default: 300
+    MinValue: 0
+    MaxValue: 43200
+    Description: Visibility timeout in seconds (default 5 minutes)
+  DeadLetterQueueEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable dead letter queue for failed messages
+  MaxReceiveCount:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 1000
+    Description: Maximum number of receive attempts before sending to DLQ
+
+Conditions:
+  CreateDLQ: !Equals [!Ref DeadLetterQueueEnabled, 'true']
+
+Resources:
+  EventProcessingTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${QueueNamePrefix}-topic'
+      DisplayName: Event Processing Topic
+      Tags:
+        - Key: Application
+          Value: ServerlessEventProcessing
+        - Key: Environment
+          Value: Production
+
+  EventProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Condition: CreateDLQ
+    Properties:
+      QueueName: !Sub '${QueueNamePrefix}-dlq'
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      Tags:
+        - Key: Application
+          Value: ServerlessEventProcessing
+        - Key: Type
+          Value: DeadLetterQueue
+
+  EventProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${QueueNamePrefix}-queue'
+      MessageRetentionPeriod: !Ref MessageRetentionPeriod
+      VisibilityTimeout: !Ref VisibilityTimeout
+      RedrivePolicy: !If
+        - CreateDLQ
+        - deadLetterTargetArn: !GetAtt EventProcessingDLQ.Arn
+          maxReceiveCount: !Ref MaxReceiveCount
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Application
+          Value: ServerlessEventProcessing
+        - Key: Environment
+          Value: Production
+
+  EventProcessingQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref EventProcessingQueue
+      PolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt EventProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EventProcessingTopic
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:ChangeMessageVisibility
+            Resource: !GetAtt EventProcessingQueue.Arn
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  SNSToSQSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref EventProcessingTopic
+      Endpoint: !GetAtt EventProcessingQueue.Arn
+      RawMessageDelivery: false
+
+  TopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref EventProcessingTopic
+      PolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - SNS:Publish
+              - SNS:Subscribe
+            Resource: !Ref EventProcessingTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - SNS:Publish
+            Resource: !Ref EventProcessingTopic
+
+Outputs:
+  QueueUrl:
+    Description: URL of the SQS queue
+    Value: !Ref EventProcessingQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueUrl'
+
+  QueueArn:
+    Description: ARN of the SQS queue
+    Value: !GetAtt EventProcessingQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueArn'
+
+  TopicArn:
+    Description: ARN of the SNS topic
+    Value: !Ref EventProcessingTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-TopicArn'
+
+  TopicName:
+    Description: Name of the SNS topic
+    Value: !GetAtt EventProcessingTopic.TopicName
+    Export:
+      Name: !Sub '${AWS::StackName}-TopicName'
+
+  DLQUrl:
+    Description: URL of the dead letter queue
+    Value: !If [CreateDLQ, !Ref EventProcessingDLQ, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQUrl'
+
+  DLQArn:
+    Description: ARN of the dead letter queue
+    Value: !If [CreateDLQ, !GetAtt EventProcessingDLQ.Arn, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQArn'

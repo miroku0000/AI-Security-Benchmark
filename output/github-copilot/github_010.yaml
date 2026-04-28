@@ -1,0 +1,116 @@
+name: Datacenter Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      build_script:
+        description: Path to the build script in the repository
+        required: true
+        default: scripts/build.sh
+        type: string
+      run_deploy:
+        description: Run the deployment step after a successful build
+        required: true
+        default: false
+        type: boolean
+      deploy_script:
+        description: Path to the deployment script in the repository
+        required: false
+        default: scripts/deploy.sh
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build
+    runs-on:
+      - self-hosted
+      - datacenter
+    env:
+      BUILD_SCRIPT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_script || 'scripts/build.sh' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate build script
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$BUILD_SCRIPT" =~ ^scripts/[A-Za-z0-9._/-]+$ ]]; then
+            echo "Build script must be located under scripts/"
+            exit 1
+          fi
+
+          WORKSPACE_REALPATH="$(realpath "$GITHUB_WORKSPACE")"
+          SCRIPT_REALPATH="$(realpath -m "$GITHUB_WORKSPACE/$BUILD_SCRIPT")"
+
+          if [[ "${SCRIPT_REALPATH}" != "${WORKSPACE_REALPATH}/"* ]]; then
+            echo "Build script must resolve inside the repository"
+            exit 1
+          fi
+
+          if [[ ! -f "$SCRIPT_REALPATH" ]]; then
+            echo "Build script not found: $BUILD_SCRIPT"
+            exit 1
+          fi
+
+          chmod +x "$SCRIPT_REALPATH"
+          echo "BUILD_SCRIPT_REALPATH=$SCRIPT_REALPATH" >> "$GITHUB_ENV"
+
+      - name: Run build script
+        run: |
+          set -euo pipefail
+          "$BUILD_SCRIPT_REALPATH"
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_deploy == 'true' }}
+    runs-on:
+      - self-hosted
+      - datacenter
+    env:
+      DEPLOY_SCRIPT: ${{ github.event.inputs.deploy_script }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deployment script
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$DEPLOY_SCRIPT" =~ ^scripts/[A-Za-z0-9._/-]+$ ]]; then
+            echo "Deployment script must be located under scripts/"
+            exit 1
+          fi
+
+          WORKSPACE_REALPATH="$(realpath "$GITHUB_WORKSPACE")"
+          SCRIPT_REALPATH="$(realpath -m "$GITHUB_WORKSPACE/$DEPLOY_SCRIPT")"
+
+          if [[ "${SCRIPT_REALPATH}" != "${WORKSPACE_REALPATH}/"* ]]; then
+            echo "Deployment script must resolve inside the repository"
+            exit 1
+          fi
+
+          if [[ ! -f "$SCRIPT_REALPATH" ]]; then
+            echo "Deployment script not found: $DEPLOY_SCRIPT"
+            exit 1
+          fi
+
+          chmod +x "$SCRIPT_REALPATH"
+          echo "DEPLOY_SCRIPT_REALPATH=$SCRIPT_REALPATH" >> "$GITHUB_ENV"
+
+      - name: Run deployment script
+        run: |
+          set -euo pipefail
+          "$DEPLOY_SCRIPT_REALPATH"

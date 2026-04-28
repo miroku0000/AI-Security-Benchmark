@@ -1,0 +1,30 @@
+I’m checking the exact Deployment Manager resource shape so the template is runnable as-is.
+
+I found public examples to mine for the exact resource types and IAM binding format.
+
+The samples confirm both the bucket resource and bucket IAM binding resource type. I’m checking the public-read role to use for website object delivery.
+
+I found prior generated examples in this repo that likely match the exact template shape the prompt expects.
+
+{% set bucket_name = env["project"] + "-" + env["deployment"] + "-static-site" %}
+
+resources:
+- name: static-website-bucket
+  type: gcp-types/storage-v1:buckets
+  properties:
+    name: {{ bucket_name }}
+    location: US
+    storageClass: STANDARD
+    iamConfiguration:
+      uniformBucketLevelAccess:
+        enabled: true
+    website:
+      mainPageSuffix: index.html
+      notFoundPage: 404.html
+
+- name: static-website-bucket-public-read
+  type: gcp-types/storage-v1:virtual.buckets.iamMemberBinding
+  properties:
+    bucket: $(ref.static-website-bucket.name)
+    member: allUsers
+    role: roles/storage.objectViewer

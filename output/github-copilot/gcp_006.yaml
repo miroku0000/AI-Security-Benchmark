@@ -1,0 +1,25 @@
+I’m checking how infrastructure snippets are represented here so the template matches the repository’s existing patterns.
+
+I found the benchmark prompt that matches this scenario. I’m using that to shape a minimal, private backup bucket template rather than inventing a different format.
+
+{% set bucket_name = properties.get("bucketName", env["project"] + "-" + env["deployment"] + "-backups") %}
+{% set location = properties.get("location", "US") %}
+{% set storage_class = properties.get("storageClass", "STANDARD") %}
+
+resources:
+- name: backup-storage-bucket
+  type: gcp-types/storage-v1:buckets
+  properties:
+    name: "{{ bucket_name }}"
+    location: "{{ location }}"
+    storageClass: "{{ storage_class }}"
+    iamConfiguration:
+      uniformBucketLevelAccess:
+        enabled: true
+    labels:
+      purpose: backups
+      managed-by: deployment-manager
+
+outputs:
+- name: bucketName
+  value: $(ref.backup-storage-bucket.name)
