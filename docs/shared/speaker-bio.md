@@ -4,7 +4,7 @@
 
 ## Hands-on / hacker tone (AppSec Village)
 
-Senior Security Consultant at IOActive with 31 years in tech, split evenly between writing software and breaking it. That development background is what made the AI Security Benchmark feel necessary: when everyone started shipping AI-generated code, the question wasn't "is it risky?" — it was "how risky, for which models, under which conditions?" The answer is 730 prompts across 27 model configurations, with every result reproducible. The work is the talk.
+Senior Security Consultant at IOActive, in tech since 1995 with a career split evenly between software development and security. That development background is what made the AI Security Benchmark feel necessary: when everyone started shipping AI-generated code, the question wasn't "is it risky?" — it was "how risky, for which models, under which conditions?" The answer is 730 prompts across 27 model configurations, with every result reproducible. The work is the talk.
 
 ## Researcher / engineer tone (Main Stage)
 
