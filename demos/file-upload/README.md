@@ -122,8 +122,10 @@ This is why "we allowed only image extensions" is not actually safe. SVG is the 
 In this demo, you can confirm both behaviors:
 
 - **`curl` shows the upload succeeds** and the bytes come back with `Content-Type: image/svg+xml; charset=utf-8`. That's the upload bug landing.
-- **A browser visiting `/uploads/evil.svg` directly** shows the script firing (window title changes to "PWNED via SVG"). That's the SVG-XSS path.
-- A browser loading `/uploads/evil.svg` via `<img src=...>` would see only the static red "PWNED via SVG" text — no script execution. The visible text is there as a sanity-check that the SVG rendered at all; the script-driven title change is the proof of code execution.
+- **A browser visiting `/uploads/evil.svg` directly** fires `alert('PWNED via SVG-XSS — JS executing in <origin>')`, then changes the tab title and rewrites the on-page banner from "PWNED via SVG" to "SCRIPT RAN — DOM access from uploaded SVG." That's the SVG-XSS path; three independent signals that JS executed.
+- A browser loading `/uploads/evil.svg` via `<img src=...>` would see only the static red "PWNED via SVG" banner — no alert, no title change, no DOM mutation. The visible text is there as a sanity-check that the SVG rendered at all; the alert and the post-script banner-rewrite are what prove code execution.
+
+The HTML payload (`evil.html`) does the same three signals: `alert()`, title change, and a red defaced page body. Either file confirms the upload bug; the SVG one specifically demonstrates that "image extension allowlists" don't actually constrain XSS the way developers expect.
 
 ### Server-side execution (RCE)
 

