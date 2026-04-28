@@ -51,7 +51,10 @@ If a pitch is accepted, that triggers a separate next-phase scope (build the dem
 
 **Why this shape:** the breadth tour conveys "this is everywhere, not cherry-picked" — necessary for AppSec credibility. The JWT deep dive is the demo segment audiences will remember and quote. The wrapper-engineering finding is mentioned but not the focus, because the AppSec audience came for exploits.
 
-### Main Stage / Track — "The Security Gap in AI" (45 min, indicative)
+### Main Stage / Track — "The Security Gap in AI" (45 min target)
+
+The exact slot length depends on the track and CFP form. The budget below is built for 45 min and gets compressed proportionally if the accepted slot is shorter.
+
 
 | Segment | Time | Content |
 |---|---|---|
