@@ -15,6 +15,14 @@ Two AI-generated JWT authentication snippets with hardcoded placeholder secrets.
 | `jwt_001/` | `output/gpt-4/jwt_001.py` (verbatim middleware) | Python / Flask |
 | `jwt_002/` | `output/gpt-4/jwt_002.js` (verbatim middleware) | JavaScript / Express |
 
+### `pickle-rce/`
+
+An AI-generated `UserPreference` class that calls `pickle.load()` on a file path the caller controls. An attacker writes a malicious pickle whose `__reduce__` returns a tuple invoking `os.system`; when the victim's "load preferences on login" code path runs, arbitrary shell commands execute. Demoed end-to-end with a non-interactive marker-file proof; a Calculator-pop variant is documented for stage use.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `pickle-rce/` | `output/gpt-4/deserial_001.py` (verbatim `UserPreference` class) | Python / stdlib |
+
 ## Prerequisites
 
 These are one-time setup steps. The reproduction commands below assume they're done.
@@ -117,6 +125,32 @@ curl -s -H "Authorization: $FORGED" http://localhost:3081/admin
 # Expected: {"message":"AUTHENTICATED ADMIN ACCESS","ok":true,"userId":99}
 ```
 
+## Reproducing the pickle-rce demo
+
+```bash
+cd demos/pickle-rce
+./run-demo.sh
+```
+
+The script runs all four phases (pre-check → attacker → victim → post-check) in sequence and exits cleanly. Expected last line: `RCE CONFIRMED.` followed by a timestamp written by the attacker payload.
+
+The default payload writes a marker file (`PWNED.txt`) so the demo is automated and non-destructive. To switch to a stage-flavored visible pop:
+
+```bash
+PAYLOAD_CMD='open -a Calculator' ./run-demo.sh    # macOS
+PAYLOAD_CMD='gnome-calculator &' ./run-demo.sh    # linux
+```
+
+The harness also exposes the demo as three separate steps if you'd rather drive them yourself on stage:
+
+```bash
+cd demos/pickle-rce
+../../venv/bin/python attacker.py    # writes preferences.pkl
+xxd preferences.pkl | head -3         # show the 'posix system' bytes in plaintext
+../../venv/bin/python victim.py       # runs the AI-generated load_from_file()
+cat PWNED.txt                         # arbitrary code executed
+```
+
 ## Honest caveats
 
 These demos are intentionally minimal and have known limitations. Read these before running them in any context that matters.
@@ -141,9 +175,13 @@ The vendored `ai-placeholder-secrets.txt` is 20 entries. It exists to make the d
 
 Both servers bind to `localhost` only and run on non-standard ports (5081, 3081). They have no SSL, no rate limiting, and no authentication beyond the JWT middleware whose vulnerability is the point of the demo. Do not deploy them to anything reachable.
 
+### Pickle RCE demo runs locally
+
+The `pickle-rce/` demo writes a marker file in its own directory and shells out to whatever `PAYLOAD_CMD` is set to. The default payload (`touch PWNED.txt; date >> PWNED.txt`) is harmless; the documented Calculator variant launches a desktop application. If you change `PAYLOAD_CMD` to anything else, **read your own command first** — the demo is literally arbitrary command execution. That's the point. Treat the directory as untrusted between runs (the `.gitignore` already excludes the generated `PWNED.txt` and `preferences.pkl`).
+
 ## What's not in here
 
-The CFP pitches reference 11 code excerpts. Only 2 (jwt_001 and jwt_002) have executable demos — the others are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit. Specifically:
+The CFP pitches reference 11 code excerpts. Three have executable demos here (jwt_001, jwt_002, deserial_001 via `pickle-rce/`); the others are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit. Specifically:
 
 - `jwt_003`, `jwt_004` — pattern critiques only; no live exploit by design (documented in their excerpt files).
 - `jwt_005-vs-codex-app` — a side-by-side comparison, not a single executable.
