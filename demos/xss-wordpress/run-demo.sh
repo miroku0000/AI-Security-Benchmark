@@ -22,8 +22,28 @@ set -e
 
 cd "$(dirname "$0")"
 
+# Precheck: php CLI must be on PATH. The AI's vulnerable code is a
+# WordPress theme template; we render it through PHP CLI using a tiny
+# WordPress shim so no real WP install is needed, but php itself is
+# required.
 if ! command -v php >/dev/null 2>&1; then
-    echo "Error: php not found. Install PHP (brew install php)." >&2
+    echo "Error: this demo requires PHP CLI — 'php' missing on PATH." >&2
+    echo >&2
+    echo "Install one of:" >&2
+    case "$(uname -s)" in
+      Darwin)
+        echo "  - Homebrew:    brew install php" >&2
+        echo "  - MacPorts:    sudo port install php" >&2
+        ;;
+      Linux)
+        echo "  - Debian/Ubuntu: sudo apt install php-cli" >&2
+        echo "  - Fedora/RHEL:   sudo dnf install php-cli" >&2
+        echo "  - Alpine:        apk add php" >&2
+        ;;
+      *)
+        echo "  - https://www.php.net/downloads.php" >&2
+        ;;
+    esac
     exit 1
 fi
 
