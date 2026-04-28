@@ -125,16 +125,79 @@ The HttpOnly cookie alternative is partial — XSS can still issue authenticated
 
 ### Bug 4: no PKCE
 
-PKCE (RFC 7636) is the public-client defense against code-interception attacks. The flow:
+PKCE (Proof Key for Code Exchange, RFC 7636, pronounced "pixie") is an OAuth extension that protects public clients against authorization code interception. The AI's SPA uses none of it.
 
-1. Client generates a random `code_verifier` and its SHA-256 hash, the `code_challenge`.
-2. `code_challenge` is sent on the auth request.
-3. `code_verifier` is sent on the token exchange.
-4. Provider checks they match.
+#### What PKCE protects against
 
-Without PKCE, anyone who intercepts the auth code (browser extension, malware, IdP logs) can exchange it for a token. With PKCE, the code is useless without the original verifier — and the verifier never left the legitimate client.
+The OAuth authorization code flow has a structural weakness for public clients:
 
-RFC 8252 mandates PKCE for public clients. The AI's code has none.
+1. App redirects browser to provider with `?response_type=code&client_id=...`.
+2. Provider redirects back: `app://callback?code=ABC123` or `https://app.example.com/callback?code=ABC123`.
+3. App POSTs the code to the token endpoint and gets back an access_token.
+
+The auth code travels **through the browser** in step 2. Anything that observes browser navigation can grab it:
+
+- **Mobile**: a malicious app that registered the same custom URI scheme as the legitimate app receives the redirect when the OS resolves `app://callback`. (This is why RFC 8252 exists.)
+- **Browser extensions** with `tabs` or `<all_urls>` permissions read every URL the user navigates to.
+- **Server-side log leaks**: the redirect URL lands in load-balancer logs, CDN access logs, error-tracker breadcrumbs.
+- **The `Referer` header** can leak the URL to third-party scripts on the post-callback page.
+- **Network MITM** in environments with a malicious root CA installed (corporate proxies that decrypt TLS, malware-installed certs).
+
+For a *confidential* client (server-side app with a real `client_secret`), an attacker who intercepts the code still can't exchange it — they need the secret too. But public clients don't have a real secret. SPAs and mobile apps either ship a bogus "public" `client_id` (no secret) or, like the AI's code does, ship a `client_secret` that isn't actually secret. Either way, an intercepted code is directly trade-able for a token.
+
+PKCE closes that gap.
+
+#### How PKCE works
+
+The client generates a random secret **per login attempt** and proves possession of it during the exchange:
+
+1. Before redirecting, the client generates a random `code_verifier` (43–128 chars).
+2. The client computes `code_challenge = BASE64URL(SHA256(code_verifier))`.
+3. **Auth request** sends `code_challenge` and `code_challenge_method=S256` along with the usual params.
+4. Provider stores the challenge bound to the issued auth code.
+5. **Token request** sends `code_verifier` (the original plaintext) instead of (or alongside) `client_secret`.
+6. Provider verifies `SHA256(code_verifier)` matches the stored `code_challenge`. Match → issue token. Mismatch → reject.
+
+The auth code traveling through the browser is now useless to anyone except the original client. Only that client knows the `code_verifier`. The verifier never appears in any redirect URL — it only exists in the client's memory and travels directly over a fresh HTTPS connection to the token endpoint.
+
+**Mental model:**
+- Without PKCE: the code is a bearer token. Whoever holds it spends it.
+- With PKCE: the code is locked to a verifier. Stolen code without the verifier is worthless.
+
+#### Why it's mandatory now
+
+- **RFC 8252** (OAuth 2.0 for Native Apps): native apps MUST use PKCE.
+- **OAuth 2.1 draft**: PKCE is required for *all* clients, public and confidential. The OAuth working group decided it's cheap enough that there's no reason not to.
+- **Major providers** (Google, Auth0, Okta, Apple Sign-In) require PKCE for public clients and recommend it for confidential ones. Many providers will refuse public-client requests without PKCE in 2026.
+
+#### What it looks like in code
+
+About ten lines of JavaScript. The AI omitted all of it:
+
+```js
+// At login: generate verifier + challenge, redirect to provider
+const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
+sessionStorage.setItem('pkce_verifier', verifier);
+const challengeBytes = await crypto.subtle.digest(
+  'SHA-256', new TextEncoder().encode(verifier));
+const challenge = base64url(new Uint8Array(challengeBytes));
+window.location = `${authUrl}?response_type=code&client_id=${clientId}` +
+                  `&redirect_uri=${redirectUri}` +
+                  `&code_challenge=${challenge}&code_challenge_method=S256`;
+
+// At callback: send the verifier, NOT a client_secret
+const verifier = sessionStorage.getItem('pkce_verifier');
+sessionStorage.removeItem('pkce_verifier');
+fetch(tokenUrl, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+  body: `grant_type=authorization_code&code=${code}` +
+        `&redirect_uri=${redirectUri}&client_id=${clientId}` +
+        `&code_verifier=${verifier}`   // no client_secret needed
+});
+```
+
+Notice the `client_secret` line from the AI's code disappears — PKCE replaces it. That's the point: public clients shouldn't have secrets, and PKCE gives them a way to prove "this is the same client that started the flow" without one.
 
 ### Bug 5: no `state`
 
