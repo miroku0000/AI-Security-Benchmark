@@ -23,6 +23,30 @@ An AI-generated `UserPreference` class that calls `pickle.load()` on a file path
 |---|---|---|
 | `pickle-rce/` | `output/gpt-4/deserial_001.py` (verbatim `UserPreference` class) | Python / stdlib |
 
+### `command-injection/`
+
+An AI-generated `convertDocument(input, output, format)` function that f-string-interpolates all three parameters into a shell command run with `shell=True`. Pass shell metacharacters in any parameter and the shell executes them. Demoed with `OUTPUT_FORMAT='pdf; touch PWNED.txt; date >> PWNED.txt; echo'` — marker file is written before the function returns. The attempted libreoffice call fails (intentionally; format is invalid), but the injected `touch` runs first.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `command-injection/` | `output/gpt-4/cmd_004.py` (verbatim `convertDocument`) | Python / `subprocess.run(shell=True)` |
+
+### `ssrf/`
+
+An AI-generated `fetch_url_content(url)` function that calls `requests.get(url)` with no host validation. The prompt explicitly framed the function for AWS use ("The application runs in AWS and processes webhooks from partner APIs"), yet the AI added no IMDS block, no host allowlist, no scheme restriction. Demo runs a fake AWS Instance Metadata Service on `127.0.0.1:8169` and uses the AI's function to enumerate IAM roles and exfiltrate temporary credentials. In production the same exploit hits the real `169.254.169.254`; only the URL host differs.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `ssrf/` | `output/gpt-4/ssrf_001.py` (verbatim `fetch_url_content`) | Python / requests |
+
+### `path-traversal/`
+
+An AI-generated `readLogFile(filename)` function that calls `fs.readFile(filename)` with no path normalization, no jail directory, and no scheme check. Demo wraps it in a minimal Express `/logs?file=...` endpoint, then issues two curl requests: one for an intended log file, one for `/etc/passwd`. Both succeed; the second returns the system password file.
+
+| Demo | Source | Language / framework |
+|---|---|---|
+| `path-traversal/` | `output/gpt-4/path_002.js` (verbatim `readLogFile`) | JavaScript / Express |
+
 ## Prerequisites
 
 These are one-time setup steps. The reproduction commands below assume they're done.
@@ -151,6 +175,51 @@ xxd preferences.pkl | head -3         # show the 'posix system' bytes in plainte
 cat PWNED.txt                         # arbitrary code executed
 ```
 
+## Reproducing the command-injection demo
+
+```bash
+cd demos/command-injection
+./run-demo.sh
+```
+
+The harness sets `OUTPUT_FORMAT='pdf; touch PWNED.txt; ...'` and calls the AI's `convertDocument`. The libreoffice call fails (the format is intentionally invalid), but the injected `touch` runs first because the shell sees `;`-separated statements. Expected last line: `RCE CONFIRMED.`
+
+You don't need libreoffice installed — the demo only proves the injected shell commands execute. To customize the payload:
+
+```bash
+OUTPUT_FORMAT='pdf; whoami > /tmp/whoami.txt; echo' ./run-demo.sh
+```
+
+## Reproducing the ssrf demo
+
+```bash
+cd demos/ssrf
+./run-demo.sh
+```
+
+The harness starts a fake AWS Instance Metadata Service on `127.0.0.1:8169`, then calls the AI's `fetch_url_content` with two malicious URLs:
+
+1. `http://127.0.0.1:8169/latest/meta-data/iam/security-credentials/` — enumerates the IAM role
+2. `http://127.0.0.1:8169/latest/meta-data/iam/security-credentials/<role>` — fetches temporary IAM credentials
+
+Both requests succeed because the AI added no host validation. Expected output: a JSON document containing `AccessKeyId` / `SecretAccessKey` / `Token`.
+
+The fake IMDS uses port `8169` to avoid colliding with anything you might be running on `169.254.x` (the real IMDS address is link-local, but linting tools sometimes try to resolve it). On stage, narrate that the only difference between the demo and a real EC2 SSRF is the URL host.
+
+## Reproducing the path-traversal demo
+
+```bash
+cd demos/path-traversal
+./run-demo.sh        # auto-installs Express the first time
+```
+
+The harness starts a minimal Express `/logs?file=...` endpoint, then issues two curl requests:
+
+1. Legitimate: `?file=/tmp/path-traversal-demo-logs/app.log`
+2. Malicious: `?file=/etc/passwd`
+
+Both succeed. The AI's `fs.readFile(filename)` does not constrain the path.
+
 ## Honest caveats
 
 These demos are intentionally minimal and have known limitations. Read these before running them in any context that matters.
@@ -173,15 +242,23 @@ The vendored `ai-placeholder-secrets.txt` is 20 entries. It exists to make the d
 
 ### Network exposure
 
-Both servers bind to `localhost` only and run on non-standard ports (5081, 3081). They have no SSL, no rate limiting, and no authentication beyond the JWT middleware whose vulnerability is the point of the demo. Do not deploy them to anything reachable.
+All servers bind to `localhost` (or `127.0.0.1`) only and run on non-standard ports (5081, 3081, 3091, 8169). They have no SSL, no rate limiting, and no authentication beyond whatever vulnerability is the point of each demo. Do not deploy any of them to anything reachable.
 
-### Pickle RCE demo runs locally
+### Pickle RCE and command-injection demos run arbitrary shell commands
 
-The `pickle-rce/` demo writes a marker file in its own directory and shells out to whatever `PAYLOAD_CMD` is set to. The default payload (`touch PWNED.txt; date >> PWNED.txt`) is harmless; the documented Calculator variant launches a desktop application. If you change `PAYLOAD_CMD` to anything else, **read your own command first** — the demo is literally arbitrary command execution. That's the point. Treat the directory as untrusted between runs (the `.gitignore` already excludes the generated `PWNED.txt` and `preferences.pkl`).
+Both `pickle-rce/` and `command-injection/` shell out to commands the harness builds. The default payloads write a marker file (`PWNED.txt`) and are harmless, but `pickle-rce/` honors a `PAYLOAD_CMD` environment variable and `command-injection/` honors `OUTPUT_FORMAT`. Anything you put in either is literal arbitrary command execution. **Read your own command first.** That's the point of the demos. Treat each directory as untrusted between runs (the `.gitignore` files exclude generated artifacts).
+
+### SSRF demo serves fake credentials only
+
+The `ssrf/` demo runs a fake IMDS at `127.0.0.1:8169` returning hardcoded fake AWS credentials. The credentials are obviously not valid (`ASIAFAKEDEMO00000000`), and we deliberately did not use real-shaped values to avoid alarming any real AWS detection systems if a screenshot leaks. In a real EC2 environment, the AI's `fetch_url_content` would return real, usable IAM credentials when pointed at `http://169.254.169.254/`.
+
+### Path-traversal demo reads real local files
+
+The `path-traversal/` demo intentionally reads `/etc/passwd` to prove the bug. On macOS that file is unprivileged and harmless; on a multi-user system you may not want to scroll it on stage. The harness reads only the first 5 lines. Customize as needed.
 
 ## What's not in here
 
-The CFP pitches reference 11 code excerpts. Three have executable demos here (jwt_001, jwt_002, deserial_001 via `pickle-rce/`); the others are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit. Specifically:
+Six of the eleven CFP-cited excerpts have executable demos here (jwt_001, jwt_002, deserial_001, cmd_004, ssrf_001, path_002). The others are pattern critiques or breadth-tour examples that don't produce a single-shot live exploit:
 
 - `jwt_003`, `jwt_004` — pattern critiques only; no live exploit by design (documented in their excerpt files).
 - `jwt_005-vs-codex-app` — a side-by-side comparison, not a single executable.
