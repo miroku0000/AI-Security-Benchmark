@@ -15,7 +15,9 @@ import jwt
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('secret', help='The cracked secret')
-    parser.add_argument('--id', default=1, type=int)
+    parser.add_argument('--id', default=1, type=int,
+                        help='User ID to claim. Defaults to 1 (the admin '
+                             'account in the demo scenario).')
     parser.add_argument('--role', default='admin')
     parser.add_argument('--alg', default='HS256')
     args = parser.parse_args()

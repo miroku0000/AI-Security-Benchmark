@@ -76,5 +76,7 @@ echo
 
 echo "=== Done ==="
 echo "The AI's middleware verified the forged signature with the placeholder"
-echo "secret and returned AUTHENTICATED ADMIN ACCESS for user_id=99 — a user"
-echo "id we picked, not one issued by a legitimate login flow."
+echo "secret and returned AUTHENTICATED ADMIN ACCESS for user_id=1 — the"
+echo "original admin account. The captured sample token belonged to user_id=99"
+echo "(a normal user). The signature was 'valid' because we forged it with the"
+echo "same weak secret the server uses to verify."

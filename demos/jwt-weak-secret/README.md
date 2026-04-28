@@ -93,7 +93,7 @@ cd jwt_001
 ./run-demo.sh
 ```
 
-Expected final response: `{"message":"AUTHENTICATED ADMIN ACCESS","ok":true,"user_id":99}`.
+Expected final response: `{"message":"AUTHENTICATED ADMIN ACCESS","ok":true,"user_id":1}`. (The captured sample token belongs to user 99 — a normal user; the forged token claims to be user 1, the original admin.)
 
 ### jwt_002 (Express)
 
@@ -102,7 +102,7 @@ cd jwt_002
 ./run-demo.sh
 ```
 
-Expected final response: `{"ok":true,"userId":99,"message":"AUTHENTICATED ADMIN ACCESS"}`.
+Expected final response: `{"ok":true,"userId":1,"message":"AUTHENTICATED ADMIN ACCESS"}`. (The captured sample token belongs to userId 99 — a normal user; the forged token claims to be userId 1, the original admin.)
 
 Both scripts default to the SecLists wordlist (~1.3s and ~0.24s respectively). Pass the 20-entry mini-list for the fastest possible demo:
 
