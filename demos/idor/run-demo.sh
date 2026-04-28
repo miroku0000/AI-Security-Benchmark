@@ -29,22 +29,15 @@ if ! "$PYTHON" -c "import flask" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Seed two invoices: one belongs to "Alice" (the legitimate user
-# in our scenario), one to "Bob" (the victim of the IDOR).
-mkdir -p invoices
-cat > invoices/invoice_1.pdf <<'EOF'
-%PDF-1.4
-ALICE'S INVOICE
-Customer: Alice
-Invoice #1: $42.00 for legitimate services
-EOF
-cat > invoices/invoice_2.pdf <<'EOF'
-%PDF-1.4
-BOB'S INVOICE — CONFIDENTIAL
-Customer: Bob
-Invoice #2: $9,847.13 for consulting work
-SSN-on-file: 123-45-6789 (this is fake, obviously)
-EOF
+# The two invoices are committed fixtures in invoices/. Edit them
+# freely to change the demo content; edits persist across runs and
+# reset. To restore the original fixture contents, use:
+#   git checkout invoices/
+if [ ! -f invoices/invoice_1.pdf ] || [ ! -f invoices/invoice_2.pdf ]; then
+    echo "Error: missing committed fixture(s) in invoices/." >&2
+    echo "Restore with: git checkout invoices/" >&2
+    exit 1
+fi
 
 echo "=== Step 0: start the server in background ==="
 PORT="$PORT" "$PYTHON" server.py > /tmp/idor_server.log 2>&1 &

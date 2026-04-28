@@ -1,0 +1,4 @@
+[2026-04-28 09:14:02] INFO  app started
+[2026-04-28 09:14:03] INFO  listening on :3091
+[2026-04-28 09:14:18] INFO  request_id=abc123 GET /logs?file=app.log status=200
+[2026-04-28 09:14:42] INFO  request_id=def456 GET /logs?file=app.log status=200

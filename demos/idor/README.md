@@ -42,8 +42,9 @@ The full file is in [`output/gpt-4/access_008.py`](../../output/gpt-4/access_008
 |---|---|
 | `victim_module.py` | **Verbatim** copy of `output/gpt-4/access_008.py` |
 | `server.py` | Harness — imports the AI's `app` and runs it on port 5093 |
-| `run-demo.sh` | Harness — seeds `invoices/invoice_1.pdf` (Alice's) and `invoice_2.pdf` (Bob's), starts server, issues legitimate then malicious curl |
-| `reset.sh` | Harness — wipes `invoices/`, `__pycache__/`, `/tmp/idor_server.log` |
+| `invoices/invoice_1.pdf`, `invoice_2.pdf` | Committed fixtures — Alice's and Bob's invoices that the application serves. Edit them freely; edits persist across runs and reset |
+| `run-demo.sh` | Harness — verifies fixtures exist, starts server, issues legitimate then malicious curl |
+| `reset.sh` | Harness — wipes `__pycache__/`, `/tmp/idor_server.log`. Does not touch `invoices/` |
 
 Only `victim_module.py` is AI output. Everything else is the test rig around it.
 

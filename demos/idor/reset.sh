@@ -2,20 +2,19 @@
 # Restore idor/ to its as-committed state.
 #
 # Removes runtime artifacts produced by run-demo.sh:
-#   - invoices/        (seed PDF directory)
-#   - __pycache__/     (Python bytecode cache)
+#   - __pycache__/         (Python bytecode cache)
+#   - /tmp/idor_server.log (server log)
 #
-# Does NOT touch any committed file.
+# Does NOT touch any committed file. invoices/invoice_1.pdf and
+# invoices/invoice_2.pdf are committed fixtures (the data the
+# application serves); edits to them persist across runs. To restore
+# the original fixture contents, use:
+#   git checkout invoices/
 
 set -e
 cd "$(dirname "$0")"
 
 removed=0
-if [ -d invoices ]; then
-    rm -rf invoices
-    echo "  removed invoices/"
-    removed=$((removed + 1))
-fi
 if [ -d __pycache__ ]; then
     rm -rf __pycache__
     echo "  removed __pycache__/"

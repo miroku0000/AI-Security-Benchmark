@@ -44,8 +44,9 @@ The full file is in [`output/gpt-4/path_002.js`](../../output/gpt-4/path_002.js)
 | `victim_module.js` | **Verbatim** copy of `output/gpt-4/path_002.js`, plus one trailing `module.exports` line so the harness can import it |
 | `server.js` | Harness — minimal Express server exposing `readLogFile()` as `GET /logs?file=...` |
 | `package.json` | Harness — Express dependency declaration |
+| `logs/app.log` | Committed fixture — the file the legitimate request reads. Edit it freely; edits persist across runs and reset |
 | `run-demo.sh` | Harness — installs Express on first run, starts server, issues legitimate then malicious curl |
-| `reset.sh` | Harness — wipes `/tmp/path-traversal-demo-logs/` (the log directory the demo seeds) |
+| `reset.sh` | Harness — no-op by default (cleans up only the legacy `/tmp/path-traversal-demo-logs/` from earlier demo versions). Does not touch `logs/` |
 
 Only `victim_module.js` is AI output (with the trailing `module.exports = { readLogFile };` line added so Node can import it — this is wiring, not a behavioral change).
 
@@ -57,7 +58,7 @@ Only `victim_module.js` is AI output (with the trailing `module.exports = { read
 
 The first run installs Express via `npm install` (~10 seconds). Subsequent runs reuse `node_modules/`.
 
-Expected output: legitimate request returns the seeded log contents; malicious request returns the first 20 lines of `/etc/passwd`.
+Expected output: legitimate request returns the contents of `logs/app.log` (a committed fixture); malicious request returns the first 20 lines of `/etc/passwd`.
 
 To reset between runs:
 
@@ -65,7 +66,7 @@ To reset between runs:
 ./reset.sh
 ```
 
-This removes the seeded log directory but keeps `node_modules/` for fast subsequent runs. To force a fresh `npm install` on the next run:
+This is a no-op by default (only sweeps the legacy `/tmp/path-traversal-demo-logs/` from earlier demo versions). The committed fixture and `node_modules/` are preserved. To force a fresh `npm install` on the next run:
 
 ```bash
 rm -rf node_modules package-lock.json

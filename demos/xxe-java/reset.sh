@@ -4,15 +4,18 @@
 # Removes runtime artifacts produced by run-demo.sh:
 #   - *.class             (compiled bytecode)
 #   - payload.xml         (attacker-built XML)
-#   - seeded-secret.txt   (file the demo creates so it can read it back via XXE)
+#   - PWND.txt            (exfiltrated content the exploit wrote)
 #
-# Does NOT touch any committed file.
+# Does NOT touch any committed file. seeded-secret.txt is a committed
+# fixture (the target the exploit reads); edits to it persist across
+# runs. To restore the original target contents, use:
+#   git checkout seeded-secret.txt
 
 set -e
 cd "$(dirname "$0")"
 
 removed=0
-for f in payload.xml seeded-secret.txt; do
+for f in payload.xml PWND.txt; do
     if [ -f "$f" ]; then
         rm -f "$f"
         echo "  removed $f"

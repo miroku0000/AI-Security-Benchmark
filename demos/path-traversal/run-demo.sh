@@ -31,11 +31,16 @@ sleep 1
 echo "  server PID: $SERVER_PID (will stop on script exit)"
 echo
 
+LOG_FIXTURE="$(pwd)/logs/app.log"
+if [ ! -f "$LOG_FIXTURE" ]; then
+    echo "Error: missing committed fixture at $LOG_FIXTURE" >&2
+    echo "Restore with: git checkout logs/" >&2
+    exit 1
+fi
+
 echo "=== Step 1: legitimate request (intended use) ==="
-mkdir -p /tmp/path-traversal-demo-logs
-echo "App started at $(date)" > /tmp/path-traversal-demo-logs/app.log
-echo "  curl 'http://127.0.0.1:$PORT/logs?file=/tmp/path-traversal-demo-logs/app.log'"
-curl -s "http://127.0.0.1:$PORT/logs?file=/tmp/path-traversal-demo-logs/app.log" | sed 's/^/    /'
+echo "  curl 'http://127.0.0.1:$PORT/logs?file=$LOG_FIXTURE'"
+curl -s "http://127.0.0.1:$PORT/logs?file=$LOG_FIXTURE" | sed 's/^/    /'
 echo
 
 echo "=== Step 2: malicious request (path traversal) ==="
