@@ -461,7 +461,7 @@ python3 scripts/test_cursor.py --timeout 120
 python3 runner.py --code-dir output/cursor
 ```
 
-**Results**: Cursor Agent scores 138/208 (66.3%) - see comparison in HTML reports.
+**Results**: Cursor Agent scores 958/1626 (58.9%) on the full benchmark - see comparison in HTML reports.
 
 #### Claude Code CLI (Anthropic's official CLI)
 
@@ -488,7 +488,7 @@ python3 scripts/test_claude_code.py
 python3 runner.py --code-dir output/claude-code --model claude-code
 ```
 
-**Results**: Claude Code CLI scores 222/264 (84.1%) on multi-language tests - a **+18.2% improvement** over Claude Opus 4.6 API (65.9%). This validates that wrapper engineering works! See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) for analysis.
+**Results**: Claude Code CLI scores 1025/1616 (63.4%) on the full benchmark - a **+8.2 percentage-point improvement** over Claude Sonnet 4.5 API (899/1628 = 55.2%). This is real signal that wrapper engineering helps; see [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) for analysis.
 
 #### Codex.app (OpenAI's desktop application)
 
@@ -508,18 +508,21 @@ python3 scripts/test_codex_app.py
 python3 runner.py --code-dir output/codex-app --model codex-app
 ```
 
-**Results**: Codex.app with Security Skill achieves **#1 ranking** with 311/350 (88.9%) - a remarkable **+24.0% improvement** over GPT-5.4 API (64.9%). This is the highest security score achieved by any AI code generator! See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+**Results**: Codex.app with Security Skill achieves the **top ranking** with 1365/1628 (83.8%) on the full benchmark - a **+24.3 percentage-point improvement** over GPT-5.4 API (968/1628 = 59.5%). It is the highest-scoring configuration of any AI code generator we tested. See [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+
+**Caveat:** ~28.8% of `codex-app-security-skill` outputs and ~30.7% of `codex-app-no-skill` outputs are incomplete generations (truncated, imports-only, or stub functions). Detectors return "no vulnerability found" on these, which inflates the absolute scores. Because both Codex.app conditions truncate at indistinguishable rates, the +24.3 pp delta still reflects a real wrapper-engineering signal — but the headline 83.8% is not "83.8% of generated code is secure." See `docs/demo/.codex-app-coverage-audit.md` for the audit.
 
 ---
 
 **Why test wrappers separately?**
 
 These tools demonstrate that **application-level security engineering works**:
-- Codex.app (OpenAI): +24.0% improvement
-- Claude Code (Anthropic): +20.4% improvement
-- Cursor Agent: Unknown baseline
+- Codex.app + Security Skill (OpenAI): **+24.3 pp** vs raw GPT-5.4 (83.8% vs 59.5%)
+- Codex.app baseline (no skill): **+19.2 pp** vs raw GPT-5.4 (78.7% vs 59.5%)
+- Claude Code CLI (Anthropic): **+8.2 pp** vs raw Claude Sonnet 4.5 (63.4% vs 55.2%)
+- Cursor Agent: 58.9% (no clear single-model baseline; the Cursor product wraps multiple models)
 
-This validates that wrapper prompting, context injection, and safety rails significantly improve code security beyond base model capabilities.
+These deltas show that wrapper prompting, context injection, and safety rails measurably improve generated-code security. See the caveat above on the codex-app truncation rate, which qualifies the absolute Codex.app scores but does not undermine the deltas (both Codex.app conditions truncate at the same rate).
 
 ## Usage
 
@@ -720,43 +723,45 @@ Add new prompts and tests to expand coverage:
 
 ---
 
-## Benchmark Results (Updated March 2026)
+## Benchmark Results (Updated April 2026)
 
 ### Currently Benchmarked Models
 
-**26 test configurations** covering 22 base AI models on comprehensive security benchmark (730 prompts across 35+ programming languages and infrastructure formats).
+**27 base test configurations** on the full 730-prompt security benchmark, scored on a 1628-point scale across 35+ programming languages and infrastructure formats. The repository's `reports/` directory contains 28 base configurations; the 27-config count used below excludes `github-copilot`, which post-dates the underlying paper and is reported separately.
+
+The numbers below are computed directly from `reports/<model>.json` by `scripts/verify_pitch_numbers.py`. They are the canonical scores. (Earlier README versions cited a `/350` partial-run scale; those numbers are superseded by the full-benchmark scoring shown here. See `docs/demo/.verified-numbers.md` for the regeneration command.)
 
 **Configuration breakdown:**
 - **13 API models** - Direct API access (OpenAI, Anthropic, Google)
 - **9 local models** - Ollama-hosted open source models (including 2 model variants)
-- **4 AI coding applications** - Wrapper applications with enhanced prompting (Cursor, Codex.app×2, Claude Code CLI)
-- **400+ extended tests** - Temperature studies and multi-level security prompting
+- **4 AI coding applications** - Wrapper applications with enhanced prompting (Cursor, Codex.app ×2, Claude Code CLI)
+- **400+ extended tests** - Temperature studies and multi-level security prompting (not counted in the 27 base configs)
 
-Only configurations with complete generation (140/140 files) are ranked. Incomplete generations are listed separately.
+**Top 10 Rankings (full benchmark, 1628-point scale):**
 
-**Top 10 Rankings:**
+| Rank | Configuration | Score | % | Base Model | Wrapper | Notes |
+|------|---------------|-------|---|------------|---------|-------|
+| 1 | **Codex.app + Security Skill** | **1365/1628** | **83.8%** | GPT-5.4 | Codex.app Desktop (OpenAI) | +24.3 pp vs raw GPT-5.4; ~29% truncation caveat (see audit) |
+| 2 | **Codex.app (Baseline)** | **1281/1628** | **78.7%** | GPT-5.4 | Codex.app Desktop (OpenAI) | No security skill; ~31% truncation caveat |
+| 3 | **Claude Code CLI** | **1025/1616** | **63.4%** | Claude Sonnet 4.5 | Claude Code CLI (Anthropic) | +8.2 pp vs raw Claude Sonnet 4.5 |
+| 4 | **StarCoder2** | 1022/1628 | 62.8% | StarCoder2 | Ollama (local) | Best non-wrapper local model |
+| 5 | **DeepSeek-Coder** | 1007/1628 | 61.9% | DeepSeek-Coder | Ollama (local) | Code-specialized |
+| 6 | **GPT-5.2** | 988/1628 | 60.7% | GPT-5.2 | OpenAI API | Best raw API model |
+| 7 | **CodeLlama** | 983/1628 | 60.4% | CodeLlama | Ollama (local) | - |
+| 8 | **CodeGemma** | 977/1628 | 60.0% | CodeGemma | Ollama (local) | - |
+| 9 | **GPT-5.4** | 968/1628 | 59.5% | GPT-5.4 | OpenAI API | Baseline for the Codex.app comparison |
+| 10 | **Cursor** | 958/1626 | 58.9% | (multiple, wrapper-internal) | Cursor App | AI coding assistant |
 
-| Rank | Configuration | Score | Base Model | Application/Wrapper | Notes |
-|------|---------------|-------|------------|---------------------|-------|
-| 1 | **Codex.app + Security Skill** | **311/350 (88.9%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | +24.0% vs GPT-5.4 API |
-| 2 | **Codex.app (Baseline)** | **302/350 (86.3%)** | GPT-5.4 | Codex.app Desktop (OpenAI) | No security skill |
-| 3 | **Claude Code CLI** | **222/264 (84.1%)** | Claude Sonnet 4.5 | Claude Code CLI (Anthropic) | +20.4% vs API (67.9% complete) |
-| 4 | **DeepSeek-Coder (temp 0.7)** | 252/350 (72.0%) | DeepSeek-Coder | Ollama (local) | Best temperature |
-| 5 | **GPT-5.2** | 241/350 (68.9%) | GPT-5.2 | OpenAI API | - |
-| 6 | **StarCoder2** | 228/350 (65.1%) | StarCoder2 | Ollama (local) | Code-specialized |
-| 7 | **GPT-5.4** | 227/350 (64.9%) | GPT-5.4 | OpenAI API | Baseline for Codex.app |
-| 8 | **Claude Opus 4.6** | 223/350 (63.7%) | Claude Opus 4.6 | Anthropic API | - |
-| 9 | **Gemini 2.5 Flash** | 209/350 (59.7%) | Gemini 2.5 Flash | Google API | - |
-| 10 | **Cursor** | 209/350 (59.7%) | Unknown | Cursor App | AI coding assistant |
+The full table for all 27 configurations lives in [`docs/demo/.verified-numbers.md`](docs/demo/.verified-numbers.md). Median across the 27: **57.9%**. No configuration scored above 88%.
 
 **Key Findings:**
-- **🎯 Wrapper engineering works!** Both Codex.app (+24.0%) and Claude Code (+20.4%) show major security improvements over base APIs
-- **🏆 Codex.app with Security Skill is #1** with 88.9% security score (311/350) - highest of any AI code generator
-- **🥈 Claude Code is #3** with 84.1% on multi-language tests (222/264 scale, 67.9% completion)
-- **⚡ DeepSeek-Coder** is the best pure base model at 72.0% (with temp 0.7)
-- **🔬 Temperature matters**: Higher temperature improves security for code-specialized models (DeepSeek, StarCoder2)
+- **Wrapper engineering measurably improves security.** Codex.app + Security Skill (+24.3 pp) and Codex.app baseline (+19.2 pp) over raw GPT-5.4; Claude Code CLI (+8.2 pp) over raw Claude Sonnet 4.5.
+- **Codex.app with Security Skill is the top-scoring configuration** at 83.8% (1365/1628) — see truncation caveat above.
+- **Open-weight local models compete with raw flagship APIs.** StarCoder2 (62.8%) and DeepSeek-Coder (61.9%) outscore GPT-4o (56.4%), Claude Opus 4.6 (56.4%), and Claude Sonnet 4.5 (55.2%) on this benchmark.
+- **Spread is narrow except at the top.** Of the 27 base configurations, 24 cluster between 53.9% and 63.4%. The two Codex.app configurations are dramatic outliers.
+- **Temperature matters for code-specialized models.** Higher temperature improves security for DeepSeek-Coder and StarCoder2 (full temperature-study results in `reports/<model>_temp*.json`).
 
-See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md) and [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md) for detailed analysis.
+See [docs/CLAUDE_CODE_TEST_INFO.md](docs/CLAUDE_CODE_TEST_INFO.md), [docs/CODEX_APP_VS_GPT54_COMPARISON.md](docs/CODEX_APP_VS_GPT54_COMPARISON.md), and [docs/demo/.codex-app-coverage-audit.md](docs/demo/.codex-app-coverage-audit.md) for detailed analysis.
 
 **View Full Results:**
 - Interactive report: `reports/html/index.html`
