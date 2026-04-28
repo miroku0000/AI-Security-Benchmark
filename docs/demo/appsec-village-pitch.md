@@ -16,7 +16,7 @@ The headline number is uncomfortable: the median score across 27 model configura
 
 This talk is structured as a practitioner session. The first thirteen minutes are a breadth tour: six vulnerability classes — hardcoded credentials in Terraform, SSRF with no URL validation on AWS, pickle deserialization from an unauthenticated Redis store, MD5 for file integrity, SQL injection through a GraphQL f-string, and Kubernetes workloads with `hostNetwork: true` and `hostPID: true` added unprompted. Each excerpt is from a real generated file, from a real prompt that did not invite the bug. Five models are represented: qwen2.5-coder, gpt-4, starcoder2, llama3.1, and claude-sonnet-4-5. The point is not that one model is uniquely bad. The point is that this pattern is not localized.
 
-The last five minutes of the main segment are a live demo. We take two of the generated JWT files — the Express middleware and the Flask authentication system — and crack their hardcoded secrets against `Passwords/scraped-JWT-secrets.txt` from SecLists using jwt_tool. Both cracks complete in 0.24 seconds. We then forge tokens and demonstrate they are accepted. The exploit is not sophisticated; that is the point.
+The last five minutes are two live demos in different exploit classes. Demo 1: crack the hardcoded `YOUR_SECRET_KEY` from the Express JWT middleware against `Passwords/scraped-JWT-secrets.txt` using jwt_tool — 0.24 seconds — and forge an accepted token. Demo 2: drop a malicious pickle and call the AI's `UserPreference.load_from_file` from `output/gpt-4/deserial_001.py`; `__reduce__` triggers `os.system` at the moment of `pickle.load`. Two exploits, two classes, both stdlib- or wordlist-only.
 
 We close with the wrapper-engineering finding: the best-performing configuration scored 83.8%, a +24.3 percentage-point delta over raw GPT-5.4 at 59.5%. We state the caveat directly — roughly 30% of that configuration's outputs are incomplete generations, and detectors pass empty code. The delta survives because both wrapper conditions truncate at the same rate; the 83.8% headline requires an asterisk. Practical takeaways follow: what the benchmark actually tells you to change in your pipeline.
 
@@ -30,7 +30,7 @@ We asked GPT-4 to write a JWT verification middleware for Express. It produced 2
 
 This talk is structured as a practitioner session. The first thirteen minutes are a breadth tour of six vulnerability classes generated from prompts that never asked for the bug: hardcoded RDS credentials in Terraform, SSRF with no URL validation on AWS, pickle deserialization from an unauthenticated Redis store, MD5 for file integrity, SQL injection through a GraphQL f-string, and a Kubernetes DaemonSet that added `hostNetwork: true` and `hostPID: true` to a logging-agent prompt. Five models, six categories, none cherry-picked.
 
-The final five minutes are a live demo. We crack two generated JWT secrets against `Passwords/scraped-JWT-secrets.txt` from SecLists using jwt_tool — both in 0.24 seconds — and forge tokens the server accepts. The exploit is not sophisticated. That is the point.
+The final five minutes are two live demos covering different exploit classes. First, we crack the JWT middleware's hardcoded secret against SecLists using jwt_tool (0.24 seconds) and forge an accepted token. Second, we drop a malicious pickle and call the AI's `load_from_file` from `output/gpt-4/deserial_001.py` — `pickle.load` triggers `os.system` via `__reduce__`, arbitrary command execution at the moment of load. Two classes, both stdlib-only or wordlist-only.
 
 We close with the wrapper-engineering finding: the best-performing configuration scored 83.8%, a +24.3 pp improvement over raw GPT-5.4 at 59.5%. We state the truncation caveat directly — roughly 30% of that configuration's outputs are incomplete generations, so 83.8% is not "83.8% of code is secure." The delta survives; the headline requires an asterisk.
 
@@ -44,7 +44,7 @@ Every prompt is in `prompts/prompts.yaml`. Every artifact is in `output/<model>/
 |---|---|---|
 | 0:00–0:02 | Intro | Benchmark setup: 730 prompts × 27 model configurations. Prompts written as ordinary developer requests — no security keywords. Scoring against 35+ vulnerability detectors. Repo is public and every number is traceable. |
 | 0:02–0:15 | Breadth tour | Six vulnerability classes, ~2 minutes each. (1) Hardcoded RDS password in Terraform — qwen2.5-coder, `output/qwen2.5-coder/terraform_010.tf`. (2) SSRF with no URL validation — qwen2.5-coder, `output/qwen2.5-coder/ssrf_001.py`. (3) pickle deserialization from unauthenticated Redis — gpt-4, `output/gpt-4/datastore_redis_001.py`. (4) MD5 for file integrity — starcoder2, `output/starcoder2/crypto_003.py`. (5) SQL injection via f-string in a GraphQL resolver — llama3.1, `output/llama3.1/graphql_007.py`. (6) Kubernetes DaemonSet with `hostNetwork: true` and `hostPID: true` added unprompted — claude-sonnet-4-5, `output/claude-sonnet-4-5/kubernetes_003.yaml`. |
-| 0:15–0:20 | JWT live demo | Two verified cracking demos. Demo 1: `output/gpt-4/jwt_002.js` — Express middleware with `YOUR_SECRET_KEY`. Run `jwt_tool <token> -C -d Passwords/scraped-JWT-secrets.txt`. Cracks in 0.24 seconds. Forge token, send request, authenticated. Demo 2: `output/gpt-4/jwt_001.py` — Flask app with `your-secret-key`. Same wordlist, same tool, same 0.24-second result. Forge admin token. |
+| 0:15–0:20 | Live demos (two classes) | Two verified live exploits, deliberately drawn from different classes for variety. Demo 1: weak-secret crack on `output/gpt-4/jwt_002.js` — Express JWT middleware with `YOUR_SECRET_KEY`. Run `jwt_tool <token> -C -d Passwords/scraped-JWT-secrets.txt`. Cracks in 0.24 seconds. Forge token, send request, authenticated. Demo 2: pickle RCE on `output/gpt-4/deserial_001.py` — AI-generated `UserPreference.load_from_file` calls `pickle.load` on attacker-controlled input. Drop a malicious pickle whose `__reduce__` returns `(os.system, (cmd,))`, run the AI's load, marker file written before the call returns. Reproducible harness lives at `demos/pickle-rce/run-demo.sh`. |
 | 0:20–0:23 | Patterns + mitigations | jwt_003 and jwt_004 as slide-only pattern critiques (no live exploit): caller-controlled secret; algorithm selection gated on an unauthenticated request field. Wrapper-engineering finding: codex-app-security-skill at 83.8% vs raw GPT-5.4 at 59.5% (+24.3 pp) — with explicit truncation caveat. Practical takeaways: what the benchmark tells you to actually change in your pipeline. |
 | 0:23–0:25 | Q&A | |
 
@@ -70,7 +70,7 @@ The numbers in this pitch come from `reports/*.json` directly. The median score 
 
 - **Wrapper engineering changes the output, but the headline number needs a caveat.** The codex-app-security-skill configuration scored 83.8% vs raw GPT-5.4 at 59.5% (+24.3 pp). Roughly 30% of that configuration's outputs are incomplete generations; the detectors pass empty code. The delta is real; the 83.8% should not be read as "83.8% of code is secure."
 
-- **Benchmark methodology matters as much as benchmark findings.** We originally planned a four-file live JWT escalation chain. Live testing collapsed it to two confirmed exploits and two slide-only pattern critiques. That reduction is a methodology story worth telling, not a weakness to hide.
+- **Benchmark methodology matters as much as benchmark findings.** We originally planned a four-file live JWT escalation chain. Live testing collapsed it to two confirmed exploits, then collapsed further when we noticed both used identical exploit technique against the same placeholder-secret pattern. The talk now demos one JWT crack and one pickle RCE — different classes, different tooling — because two demos of the same technique is filler. That reduction is a methodology story worth telling, not a weakness to hide.
 
 - **The repo is public and every number is traceable.** You do not have to take our word for any claim in this talk. Open `reports/<model>.json` and count.
 
@@ -86,17 +86,18 @@ Senior Security Consultant at IOActive, in tech since 1995 with a career split e
 
 All cited code excerpt files are in `docs/demo/code-excerpts/` in this repository. The underlying generated sources are in `output/<model>/` and their scores are in `reports/<model>.json`.
 
-### JWT live demo excerpts
+### Live demo excerpts
 
 | Excerpt file | Role in talk | Underlying source |
 |---|---|---|
-| `docs/demo/code-excerpts/jwt_001-weak-secret.md` | Live demo 1 — Flask JWT with `your-secret-key`; verified 0.24s crack via jwt_tool + SecLists | `output/gpt-4/jwt_001.py` |
-| `docs/demo/code-excerpts/jwt_002-no-algs.md` | Live demo 2 — Express middleware with `YOUR_SECRET_KEY`; verified 0.24s crack via jwt_tool + SecLists | `output/gpt-4/jwt_002.js` |
+| `docs/demo/code-excerpts/jwt_002-no-algs.md` | Live demo 1 — Express middleware with `YOUR_SECRET_KEY`; verified 0.24s crack via jwt_tool + SecLists. Reproducible harness: `demos/jwt-weak-secret/jwt_002/` | `output/gpt-4/jwt_002.js` |
+| `docs/demo/code-excerpts/deserial_001-pickle-rce.md` | Live demo 2 — `UserPreference.load_from_file` calls `pickle.load` on attacker-controlled input; verified live RCE via `__reduce__`. Reproducible harness: `demos/pickle-rce/` | `output/gpt-4/deserial_001.py` |
 
-### JWT pattern-critique slides (no live exploit)
+### Pattern-critique and reference excerpts (no live exploit)
 
 | Excerpt file | Role in talk | Underlying source |
 |---|---|---|
+| `docs/demo/code-excerpts/jwt_001-weak-secret.md` | Reference — Flask JWT with `your-secret-key`; same exploit class as jwt_002, kept as supporting evidence that the pattern is not localized to one framework. Reproducible harness: `demos/jwt-weak-secret/jwt_001/` | `output/gpt-4/jwt_001.py` |
 | `docs/demo/code-excerpts/jwt_003-no-verify.md` | Pattern critique — caller-controlled secret in a "verify" utility | `output/gpt-4/jwt_003.py` |
 | `docs/demo/code-excerpts/jwt_004-algorithm-confusion.md` | Pattern critique — algorithm and key selection gated on unauthenticated request field | `output/gpt-4/jwt_004.py` |
 
@@ -121,10 +122,12 @@ All cited code excerpt files are in `docs/demo/code-excerpts/` in this repositor
 
 ## Appendix: Why Audit Choices Were Made
 
-### JWT chain reduction: four files to two confirmed exploits
+### JWT chain reduction and exploit-class diversification
 
-The original plan for the JWT segment was a four-file "escalation chain" that would walk through increasingly severe JWT weaknesses in sequence, treating all four as live demonstrations. Live testing against the actual generated files collapsed that structure. Two files — `output/gpt-4/jwt_001.py` and `output/gpt-4/jwt_002.js` — passed full end-to-end verification: both contain hardcoded placeholder secrets that appear verbatim in `Passwords/scraped-JWT-secrets.txt` from SecLists, and both crack in 0.24 seconds under jwt_tool with the forged token accepted by the respective application. These are the live demos.
+The original plan for the JWT segment was a four-file "escalation chain" that would walk through increasingly severe JWT weaknesses in sequence, treating all four as live demonstrations. Live testing against the actual generated files collapsed that structure twice.
 
-The other two files — `output/gpt-4/jwt_003.py` and `output/gpt-4/jwt_004.py` — were reviewed and retained as pattern critiques presented on slides. `jwt_003` demonstrates a caller-controlled secret in a function that markets itself as a "verify" utility; the risk is real but depends on how the function is wired into a calling context, making it unsuitable for a deterministic stage demo. `jwt_004` demonstrates attacker-controlled algorithm and key selection via an unauthenticated request field; the textbook RS256/HMAC collision attack does not apply to this code as written (the two branches use different key material), so claiming it as a live algorithm-confusion exploit would have been inaccurate. Both are included because the patterns they represent are real and worth showing to an AppSec audience — the distinction from the live demos is stated explicitly in the talk.
+First reduction (four → two): two files — `output/gpt-4/jwt_001.py` and `output/gpt-4/jwt_002.js` — passed full end-to-end verification. Both contain hardcoded placeholder secrets that appear verbatim in `Passwords/scraped-JWT-secrets.txt` from SecLists, and both crack in 0.24 seconds under jwt_tool with the forged token accepted by the respective application. The other two — `output/gpt-4/jwt_003.py` and `output/gpt-4/jwt_004.py` — were demoted to slide-only pattern critiques: `jwt_003` requires a calling-context wiring that the AI did not generate; `jwt_004`'s "algorithm confusion" branches use different key material, so the textbook RS256/HMAC collision attack does not actually apply. Claiming either as a live exploit would have been inaccurate.
 
-Reducing from four to two confirmed exploits is a methodology choice, not a compromise. A stage demo that misrepresents what a piece of code actually does is worse than a slide. We audited the chain, found the boundary, and drew it clearly. That is the kind of rigor this audience expects.
+Second reduction (two → one + one different class): jwt_001 and jwt_002 are technically distinct generated files, but the *exploit technique* against both is identical — crack a placeholder secret with a wordlist, forge a token. Two demos showing the same technique is filler. We searched the benchmark for a third technically-distinct JWT exploit; the audit (see `docs/demo/.jwt-third-exploit-audit.md`) found candidates but each had a disqualifying caveat (modern library mitigations, prompt-induced bugs, etc.). We pivoted to a different vulnerability class entirely: pickle RCE on `output/gpt-4/deserial_001.py`, verified live in `demos/pickle-rce/`. The talk now demos one JWT crack and one pickle RCE — different classes, different tooling, different visceral payoffs. jwt_001 is retained in supporting materials as evidence the JWT-cracking pattern is not localized to one framework.
+
+Reducing four files to two demos and then diversifying classes is a methodology choice, not a compromise. A stage demo that misrepresents what a piece of code actually does is worse than a slide. We audited the chain, found the boundaries, and drew them clearly. That is the kind of rigor this audience expects.
