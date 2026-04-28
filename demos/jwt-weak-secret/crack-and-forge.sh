@@ -5,7 +5,12 @@
 #   ./crack-and-forge.sh jwt_001    # cracks 'your-secret-key', forges admin
 #   ./crack-and-forge.sh jwt_002    # cracks 'YOUR_SECRET_KEY', forges admin
 #
-# Optional second argument: path to an alternate wordlist (e.g. SecLists).
+# Optional second argument: path to an alternate wordlist (e.g.,
+# wordlists/ai-placeholder-secrets.txt for the small 20-entry list).
+#
+# Default wordlist is the SecLists Passwords/scraped-JWT-secrets.txt
+# file, vendored at wordlists/scraped-JWT-secrets.txt (103,941 entries,
+# ~1MB). Both 'your-secret-key' and 'YOUR_SECRET_KEY' are in it.
 #
 # Prerequisites (see README.md):
 #   - jwt_tool cloned to ~/tools/jwt_tool with deps installed in this venv
@@ -15,7 +20,7 @@ set -uo pipefail
 
 DEMO="${1:-jwt_001}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORDLIST="${2:-$SCRIPT_DIR/wordlists/ai-placeholder-secrets.txt}"
+WORDLIST="${2:-$SCRIPT_DIR/wordlists/scraped-JWT-secrets.txt}"
 JWT_TOOL="${JWT_TOOL:-$HOME/tools/jwt_tool/jwt_tool.py}"
 VENV_PYTHON="${VENV_PYTHON:-$(cd "$SCRIPT_DIR/../.." && pwd)/venv/bin/python}"
 

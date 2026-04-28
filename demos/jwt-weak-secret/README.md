@@ -1,6 +1,6 @@
 # jwt-weak-secret
 
-Live demo of JWT forgery against AI-generated authentication code that hardcodes placeholder secrets. Two implementations (Python/Flask and JavaScript/Express) from two prompts; both crack against a stock SecLists wordlist in 0.24 seconds.
+Live demo of JWT forgery against AI-generated authentication code that hardcodes placeholder secrets. Two implementations (Python/Flask and JavaScript/Express) from two prompts; both crack against the SecLists `scraped-JWT-secrets.txt` wordlist (103,941 entries) in under 1.3 seconds.
 
 ## Source
 
@@ -64,8 +64,11 @@ jwt-weak-secret/
 │   ├── package.json         ← Harness — Express + jsonwebtoken declarations
 │   └── .gitignore
 ├── wordlists/
-│   └── ai-placeholder-secrets.txt   ← Vendored mini-wordlist (20 entries) so demo
-│                                       runs without external SecLists download
+│   ├── scraped-JWT-secrets.txt      ← Vendored from SecLists upstream
+│   │                                  (Passwords/scraped-JWT-secrets.txt,
+│   │                                  103,941 entries, ~1MB). Default wordlist.
+│   └── ai-placeholder-secrets.txt   ← Optional 20-entry mini-list for fast demos
+│                                       (pass as 2nd arg to crack-and-forge.sh)
 ├── crack-and-forge.sh       ← Harness — runs jwt_tool, prints forged token
 ├── forge.py                 ← Harness — Python helper for token construction
 └── reset.sh                 ← Harness — wipes /tmp DB + Python __pycache__/
@@ -120,8 +123,12 @@ JWT signature verification using HS256 requires a shared secret. If the secret i
 
 The AI generated placeholder strings (`'your-secret-key'`, `'YOUR_SECRET_KEY'`) that a developer is supposed to replace before deployment. In the benchmark, the AI did not flag this requirement, did not load from environment variables, and did not generate a strong default. A developer who copy-pastes the snippet without reading carefully ships the placeholder.
 
-`jwt_tool -C -d Passwords/scraped-JWT-secrets.txt <token>` runs the dictionary attack. Both placeholder strings are in the wordlist, so both crack on the first comparison — wall-clock 0.24 seconds.
+`jwt_tool -C -d wordlists/scraped-JWT-secrets.txt <token>` runs the dictionary attack against the 103,941-entry SecLists wordlist (vendored locally — see Demo layout above). Both placeholder strings are in the wordlist; jwt_001's `your-secret-key` cracks in ~1.3s and jwt_002's `YOUR_SECRET_KEY` in ~0.24s. The remaining 100k+ entries are scanned only on a miss; for these particular AI-generated placeholders the crack is near-instant.
 
 Once the secret is known, the attacker forges a token with `role: admin` (or whatever claim the application checks) and sends it. The server's middleware verifies the signature with the same weak secret, accepts the token, and serves the protected resource.
 
-See `demos/README.md` for the SecLists wordlist setup and honest caveats about library version mitigations.
+See `demos/README.md` for honest caveats about library version mitigations.
+
+## Wordlist provenance
+
+`wordlists/scraped-JWT-secrets.txt` is a verbatim copy of [`Passwords/scraped-JWT-secrets.txt`](https://github.com/danielmiessler/SecLists/blob/master/Passwords/scraped-JWT-secrets.txt) from [SecLists](https://github.com/danielmiessler/SecLists), licensed MIT. It is vendored here so the demo runs with `git clone` alone — no separate SecLists download.
