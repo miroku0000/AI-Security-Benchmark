@@ -69,4 +69,4 @@ EOF
 echo
 
 cd "$BUILD_DIR"
-exec python3 -m http.server "$SPA_PORT"
+exec python3 -m http.server "$SPA_PORT" --bind 127.0.0.1

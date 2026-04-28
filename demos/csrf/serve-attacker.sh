@@ -25,4 +25,4 @@ echo "Make sure the victim app is running (./run-demo.sh in another terminal)"
 echo "and that you have a session cookie set for http://127.0.0.1:3093"
 echo "(visit http://127.0.0.1:3093/login?userId=alice in the same browser)."
 echo
-exec python3 -m http.server "$PORT"
+exec python3 -m http.server "$PORT" --bind 127.0.0.1

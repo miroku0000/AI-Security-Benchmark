@@ -19,4 +19,4 @@ echo
 echo "Make sure the victim app is running (./run-demo.sh) and that you"
 echo "have set a session cookie for it (visit http://127.0.0.1:5096/login)."
 echo
-exec python3 -m http.server "$PORT"
+exec python3 -m http.server "$PORT" --bind 127.0.0.1
