@@ -13,7 +13,7 @@ from sast_comparison import SASTComparison
 sessions = {}
 SESSION_TIMEOUT = timedelta(hours=4)
 
-def create_app(testing=True):
+def create_app(testing=False):
     app = Flask(__name__, static_folder='static')
     app.config['TESTING'] = testing
 
@@ -24,6 +24,10 @@ def create_app(testing=True):
     @app.route('/')
     def index():
         return send_from_directory('static', 'index.html')
+
+    @app.before_request
+    def cleanup_sessions():
+        cleanup_expired_sessions()
 
     return app
 
@@ -41,4 +45,5 @@ def cleanup_expired_sessions():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    debug = os.environ.get('FLASK_DEBUG') == '1'
+    app.run(debug=debug, port=5000)

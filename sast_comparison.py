@@ -21,7 +21,6 @@ Example:
 """
 
 import argparse
-import io
 import json
 import os
 import re
@@ -29,7 +28,6 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
-from datetime import datetime
 
 @dataclass
 class Vulnerability:
