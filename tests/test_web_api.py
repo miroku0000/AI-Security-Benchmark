@@ -70,3 +70,35 @@ def test_upload_missing_files():
         response = client.post('/api/upload', data={})
         assert response.status_code == 400
         assert 'error' in response.get_json()
+
+def test_upload_real_benchmark_schema():
+    """Test that real benchmark format with 'files' key is properly parsed"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        # Real benchmark format with 'files' key
+        benchmark_data = {
+            "files": [{
+                "test_file": "test.py",
+                "vulnerabilities": [{
+                    "type": "SQL_INJECTION",
+                    "line_number": 10,
+                    "severity": "HIGH",
+                    "description": "test vuln"
+                }]
+            }]
+        }
+        data = {
+            'benchmark_file': (io.BytesIO(json.dumps(benchmark_data).encode()), 'benchmark.json'),
+            'sast_file': (io.BytesIO(b'{"results": []}'), 'sast.json'),
+            'format': 'semgrep'
+        }
+        response = client.post('/api/upload',
+                              data=data,
+                              content_type='multipart/form-data')
+
+        assert response.status_code == 200
+        json_data = response.get_json()
+        assert 'session_id' in json_data
+        # This should NOT be 0 with real schema - schema fix is working
+        assert json_data['total_vulnerabilities']['benchmark'] == 1
+        assert json_data['total_vulnerabilities']['sast'] == 0

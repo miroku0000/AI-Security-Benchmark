@@ -18,6 +18,7 @@ SESSION_TIMEOUT = timedelta(hours=4)
 def create_app(testing=False):
     app = Flask(__name__, static_folder='static')
     app.config['TESTING'] = testing
+    app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB limit
 
     @app.route('/api/health')
     def health():
@@ -43,12 +44,16 @@ def create_app(testing=False):
             session_id = str(uuid.uuid4())
 
             # Save uploaded files temporarily
-            benchmark_content = json.loads(benchmark_file.read().decode('utf-8'))
-            sast_content = json.loads(sast_file.read().decode('utf-8'))
+            try:
+                benchmark_content = json.loads(benchmark_file.read().decode('utf-8'))
+                sast_content = json.loads(sast_file.read().decode('utf-8'))
+            except json.JSONDecodeError:
+                return jsonify({"error": "Invalid JSON format in uploaded files"}), 400
 
             # Initialize SAST comparison with uploaded data
-            comparison = SASTComparison.__new__(SASTComparison)
-            comparison.benchmark_vulns = comparison._load_benchmark_data_from_dict(benchmark_content)
+            # Create a temporary instance without using the file-based constructor
+            comparison = object.__new__(SASTComparison)
+            comparison._load_benchmark_data_from_dict(benchmark_content)
 
             # Parse SAST results based on format
             sast_vulns = []
@@ -77,7 +82,9 @@ def create_app(testing=False):
             })
 
         except Exception as e:
-            return jsonify({"error": f"Failed to process files: {str(e)}"}), 500
+            # Log the real error server-side but don't leak it
+            app.logger.error(f"File processing error: {str(e)}")
+            return jsonify({"error": "Failed to process uploaded files"}), 500
 
     @app.route('/')
     def index():

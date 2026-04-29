@@ -2488,7 +2488,7 @@ class SASTComparison:
     def _load_benchmark_data_from_dict(self, data) -> List[Vulnerability]:
         """Load benchmark data from dictionary instead of file"""
         self.benchmark_vulns = []
-        for entry in data:
+        for entry in data.get('files', []):
             if 'vulnerabilities' in entry:
                 for vuln in entry['vulnerabilities']:
                     # Skip SECURE findings - we only want actual vulnerabilities
