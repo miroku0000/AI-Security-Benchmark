@@ -1,0 +1,13 @@
+{
+  "name": "reentrancy-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demo harness for AI-generated web3_solidity_001.sol (DAO-style reentrancy)",
+  "scripts": {
+    "exploit": "hardhat run exploit.js"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "node-deserialize-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demo harness for AI-generated deserial_003.js (node-serialize unserialize RCE, CVE-2017-5941)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cookie-parser": "^1.4.6",
+    "node-serialize": "0.0.4"
+  }
+}

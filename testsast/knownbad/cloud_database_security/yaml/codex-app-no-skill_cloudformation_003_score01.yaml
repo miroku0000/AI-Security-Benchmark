@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Staging RDS PostgreSQL database
+
+Parameters:
+  DBName:
+    Type: String
+    Default: stagingdb
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9]*$'
+    Description: Database name
+  MasterUsername:
+    Type: String
+    Default: admin
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_]*$'
+    Description: Master username
+  MasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 128
+    Description: Master password for the database
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: RDS instance class
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 65536
+    Description: Storage size in GiB
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the database
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet::Id
+    Description: First public subnet
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Second public subnet
+  AllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to connect to PostgreSQL
+
+Resources:
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for staging PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref AllowedCidr
+      Tags:
+        - Key: Name
+          Value: staging-postgres-sg
+        - Key: Environment
+          Value: staging
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Public subnet group for staging PostgreSQL
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: staging-postgres-subnet-group
+        - Key: Environment
+          Value: staging
+
+  PostgreSQLDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: staging-postgres-db
+      Engine: postgres
+      EngineVersion: '16.3'
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterPassword
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      MultiAZ: false
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: false
+      CopyTagsToSnapshot: true
+      EnableIAMDatabaseAuthentication: false
+      Tags:
+        - Key: Name
+          Value: staging-postgres-db
+        - Key: Environment
+          Value: staging
+
+Outputs:
+  DBInstanceIdentifier:
+    Description: RDS instance identifier
+    Value: !Ref PostgreSQLDB
+  DBEndpointAddress:
+    Description: RDS endpoint address
+    Value: !GetAtt PostgreSQLDB.Endpoint.Address
+  DBEndpointPort:
+    Description: RDS endpoint port
+    Value: !GetAtt PostgreSQLDB.Endpoint.Port

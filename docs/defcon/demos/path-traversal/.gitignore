@@ -1,0 +1,5 @@
+node_modules/
+package-lock.json
+
+# Allow the committed log fixture even though *.log is globally ignored.
+!logs/app.log
