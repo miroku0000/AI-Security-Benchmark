@@ -2485,6 +2485,46 @@ class SASTComparison:
         print("🎉 HTML report generation complete!")
         return html_content
 
+    def _load_benchmark_data_from_dict(self, data) -> List[Vulnerability]:
+        """Load benchmark data from dictionary instead of file"""
+        self.benchmark_vulns = []
+        for entry in data:
+            if 'vulnerabilities' in entry:
+                for vuln in entry['vulnerabilities']:
+                    # Skip SECURE findings - we only want actual vulnerabilities
+                    if vuln.get('type') == 'SECURE' or vuln.get('severity') == 'INFO':
+                        continue
+                    self.benchmark_vulns.append(Vulnerability(
+                        file_path=self._normalize_path(entry['test_file']),
+                        line_number=vuln.get('line_number', 0),
+                        vuln_type=vuln.get('type', 'UNKNOWN'),
+                        severity=vuln.get('severity', 'MEDIUM'),
+                        description=vuln.get('description', ''),
+                        source='benchmark'
+                    ))
+        return self.benchmark_vulns
+
+    def _parse_sast_results_from_dict(self, data, format_type):
+        """Parse SAST results from dictionary instead of file"""
+        if format_type == 'semgrep':
+            return self._parse_semgrep_dict(data)
+        # Add other formats as needed
+        return []
+
+    def _parse_semgrep_dict(self, data):
+        """Parse Semgrep results from dictionary"""
+        vulns = []
+        for result in data.get('results', []):
+            vulns.append(Vulnerability(
+                file_path=self._normalize_path(result.get('path', '')),
+                line_number=result.get('start', {}).get('line', 0),
+                vuln_type=result.get('check_id', 'UNKNOWN'),
+                severity=result.get('extra', {}).get('severity', 'INFO').upper(),
+                description=result.get('extra', {}).get('message', ''),
+                source='sast'
+            ))
+        return vulns
+
 def main():
     parser = argparse.ArgumentParser(description="Compare SAST scanner results against AI Security Benchmark")
     parser.add_argument('--benchmark', required=True, help='Path to benchmark JSON file (testsast/reports.json)')

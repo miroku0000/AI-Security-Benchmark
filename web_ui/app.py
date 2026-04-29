@@ -3,6 +3,8 @@ from flask import Flask, jsonify, request, send_from_directory
 import uuid
 import os
 from datetime import datetime, timedelta
+import io
+import json
 
 # Import existing SAST comparison logic
 import sys
@@ -20,6 +22,62 @@ def create_app(testing=False):
     @app.route('/api/health')
     def health():
         return jsonify({"status": "healthy"})
+
+    @app.route('/api/upload', methods=['POST'])
+    def upload_files():
+        cleanup_expired_sessions()
+
+        # Validate required files
+        if 'benchmark_file' not in request.files or 'sast_file' not in request.files:
+            return jsonify({"error": "Missing benchmark_file or sast_file"}), 400
+
+        if 'format' not in request.form:
+            return jsonify({"error": "Missing format parameter"}), 400
+
+        benchmark_file = request.files['benchmark_file']
+        sast_file = request.files['sast_file']
+        format_type = request.form['format']
+
+        try:
+            # Create new session
+            session_id = str(uuid.uuid4())
+
+            # Save uploaded files temporarily
+            benchmark_content = json.loads(benchmark_file.read().decode('utf-8'))
+            sast_content = json.loads(sast_file.read().decode('utf-8'))
+
+            # Initialize SAST comparison with uploaded data
+            comparison = SASTComparison.__new__(SASTComparison)
+            comparison.benchmark_vulns = comparison._load_benchmark_data_from_dict(benchmark_content)
+
+            # Parse SAST results based on format
+            sast_vulns = []
+            if format_type == 'semgrep':
+                sast_vulns = comparison._parse_sast_results_from_dict(sast_content, format_type)
+
+            # Store session data
+            sessions[session_id] = {
+                'created_at': datetime.now(),
+                'comparison': comparison,
+                'sast_vulns': sast_vulns,
+                'confirmed_mappings': [],
+                'denied_mappings': [],
+                'mapping_rules': [],
+                'benchmark_file_data': benchmark_content,
+                'sast_file_data': sast_content
+            }
+
+            return jsonify({
+                "session_id": session_id,
+                "files_count": len(comparison.benchmark_vulns),
+                "total_vulnerabilities": {
+                    "benchmark": len(comparison.benchmark_vulns),
+                    "sast": len(sast_vulns)
+                }
+            })
+
+        except Exception as e:
+            return jsonify({"error": f"Failed to process files: {str(e)}"}), 500
 
     @app.route('/')
     def index():

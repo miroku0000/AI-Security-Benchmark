@@ -1,6 +1,7 @@
 # tests/test_web_api.py
 import pytest
 import json
+import io
 from web_ui.app import create_app, cleanup_expired_sessions, sessions
 
 def test_app_creation():
@@ -43,3 +44,29 @@ def test_session_cleanup():
     # Verify old session was removed
     assert old_session_id not in sessions
     assert new_session_id in sessions
+
+def test_upload_files():
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        # Mock file uploads
+        data = {
+            'benchmark_file': (io.BytesIO(b'{"files": []}'), 'benchmark.json'),
+            'sast_file': (io.BytesIO(b'{"results": []}'), 'sast.json'),
+            'format': 'semgrep'
+        }
+        response = client.post('/api/upload',
+                              data=data,
+                              content_type='multipart/form-data')
+
+        assert response.status_code == 200
+        json_data = response.get_json()
+        assert 'session_id' in json_data
+        assert 'files_count' in json_data
+        assert 'total_vulnerabilities' in json_data
+
+def test_upload_missing_files():
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.post('/api/upload', data={})
+        assert response.status_code == 400
+        assert 'error' in response.get_json()
