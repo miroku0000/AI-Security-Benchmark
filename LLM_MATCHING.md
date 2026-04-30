@@ -26,8 +26,8 @@ pip install -r requirements-llm.txt
 # Install Ollama (local LLM service)
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Start Ollama service
-ollama serve
+# Start Ollama service (localhost-only for security)
+OLLAMA_HOST=127.0.0.1:11434 ollama serve
 ```
 
 ### 2. Run Setup Script
@@ -226,8 +226,33 @@ python sast_comparison.py \
 
 - **Local Processing**: All analysis happens on your machine
 - **No External Calls**: No data sent to cloud services
+- **Localhost-Only Access**: Ollama configured for 127.0.0.1:11434 binding only
 - **Audit Trail**: Full reasoning provided for each match
 - **Deterministic**: Same input produces same results
+- **Network Isolation**: No external network access required during operation
+
+### Security Configuration
+
+**⚠️ CRITICAL: Configure Ollama for localhost-only access**
+
+```bash
+# Run security audit and configuration
+python secure_ollama_config.py
+
+# Manual configuration
+export OLLAMA_HOST=127.0.0.1:11434
+ollama serve
+
+# Verify security
+netstat -tlnp | grep 11434  # Should show 127.0.0.1:11434, NOT 0.0.0.0:11434
+```
+
+**Security Best Practices:**
+- Always run `python secure_ollama_config.py` after installation
+- Verify Ollama binds to localhost only: `127.0.0.1:11434`
+- Use firewall rules to block external access to port 11434
+- Regularly audit configuration with security script
+- Keep Ollama updated: `ollama update`
 
 ## 🐛 Troubleshooting
 

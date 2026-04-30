@@ -421,14 +421,47 @@ def create_openai_config(model_name: str = "gpt-3.5-turbo", base_url: str = "htt
     )
 
 def test_llm_connection(config: LLMConfig) -> bool:
-    """Test if LLM service is available"""
+    """Test if LLM service is available and secure"""
     try:
         if config.model_name.startswith('ollama:'):
+            # Test connection
             response = requests.get(f"{config.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
+            if response.status_code != 200:
+                return False
+
+            # Security check for Ollama
+            if 'localhost' in config.base_url or '127.0.0.1' in config.base_url:
+                return True
+            else:
+                print("⚠️  WARNING: LLM service not configured for localhost-only access")
+                print("   Consider using: http://localhost:11434 or http://127.0.0.1:11434")
+                return True  # Still allow, but warn
+
         else:
             # For other APIs, just check if endpoint is reachable
             response = requests.get(config.base_url, timeout=5)
             return response.status_code in [200, 404]  # 404 is OK for base URL
     except:
         return False
+
+def verify_ollama_security() -> bool:
+    """Verify Ollama is configured securely (localhost-only)"""
+    try:
+        import subprocess
+        import platform
+
+        if platform.system() == "Windows":
+            result = subprocess.run(['netstat', '-an'], capture_output=True, text=True, timeout=5)
+        else:
+            result = subprocess.run(['netstat', '-tlnp'], capture_output=True, text=True, timeout=5)
+
+        lines = result.stdout.split('\n')
+
+        for line in lines:
+            if '11434' in line and ('0.0.0.0:11434' in line or '*:11434' in line):
+                return False  # External binding detected
+
+        return True  # No external bindings found
+
+    except Exception:
+        return None  # Cannot verify

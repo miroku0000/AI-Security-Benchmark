@@ -39,17 +39,54 @@ def check_ollama_installation():
     return False
 
 def check_ollama_service():
-    """Check if Ollama service is running"""
+    """Check if Ollama service is running and secure"""
     try:
         response = requests.get('http://localhost:11434/api/tags', timeout=5)
         if response.status_code == 200:
             print("✅ Ollama service is running")
+
+            # Check security configuration
+            check_ollama_security()
             return True
     except:
         pass
 
     print("❌ Ollama service not running")
     return False
+
+def check_ollama_security():
+    """Check if Ollama is configured securely (localhost only)"""
+    import subprocess
+    import platform
+
+    try:
+        # Check if Ollama is bound to localhost only
+        if platform.system() == "Windows":
+            result = subprocess.run(['netstat', '-an'], capture_output=True, text=True)
+        else:
+            result = subprocess.run(['netstat', '-tlnp'], capture_output=True, text=True)
+
+        lines = result.stdout.split('\n')
+        insecure_bindings = []
+
+        for line in lines:
+            if '11434' in line:
+                if '0.0.0.0:11434' in line or '*:11434' in line:
+                    insecure_bindings.append(line.strip())
+
+        if insecure_bindings:
+            print("⚠️  SECURITY WARNING: Ollama exposed to external interfaces!")
+            for binding in insecure_bindings:
+                print(f"   Exposed: {binding}")
+            print("   Run 'python secure_ollama_config.py' to fix this")
+            return False
+        else:
+            print("🔒 Ollama security: localhost-only access confirmed")
+            return True
+
+    except Exception:
+        print("⚠️  Could not verify Ollama security configuration")
+        return None
 
 def list_ollama_models():
     """List available Ollama models"""
@@ -118,6 +155,36 @@ def test_llm_functionality():
         print(f"❌ Test failed: {e}")
         return False
 
+def configure_ollama_security():
+    """Configure Ollama for secure localhost-only access"""
+    print("\n🔒 Configuring Ollama security...")
+
+    try:
+        from secure_ollama_config import audit_ollama_security, create_secure_ollama_config
+
+        # Run security audit
+        issues = audit_ollama_security()
+
+        if any(issue in issues for issue in ["EXTERNAL_ACCESS", "EXTERNAL_CONNECTIVITY", "UNSAFE_HOST_CONFIG"]):
+            print("⚠️  Security issues detected!")
+
+            fix_choice = input("Configure Ollama for localhost-only access? (y/n): ").lower().strip()
+            if fix_choice in ['y', 'yes']:
+                # Create secure configuration
+                create_secure_ollama_config()
+
+                print("✅ Secure configuration created")
+                print("   Please restart Ollama for changes to take effect:")
+                print("   1. Stop: pkill -f ollama (or Ctrl+C if running in terminal)")
+                print("   2. Start: OLLAMA_HOST=127.0.0.1:11434 ollama serve")
+            else:
+                print("⚠️  Ollama security configuration skipped")
+                print("   WARNING: Ollama may be accessible from external interfaces")
+
+    except ImportError:
+        print("❌ Security configuration module not found")
+        print("   Make sure secure_ollama_config.py is in the same directory")
+
 def print_usage_examples():
     """Print usage examples"""
     print("\n📚 Usage Examples:")
@@ -135,6 +202,10 @@ def print_usage_examples():
 
     print("\n5. Use specific model:")
     print("   python sast_comparison.py --benchmark reports.json --sast-results output.json --format semgrep --llm-assist --llm-model ollama:llama2")
+
+    print("\n🔒 Security Commands:")
+    print("   python secure_ollama_config.py  # Full security audit and configuration")
+    print("   OLLAMA_HOST=127.0.0.1:11434 ollama serve  # Start with localhost-only binding")
 
 def main():
     """Main setup function"""
@@ -176,6 +247,10 @@ def main():
             else:
                 print("   You can install models later with: ollama pull <model_name>")
                 print("   Recommended models: codellama, llama2, mistral")
+
+    # Configure security
+    if check_ollama_service():
+        configure_ollama_security()
 
     # Test functionality
     if all_checks_passed:

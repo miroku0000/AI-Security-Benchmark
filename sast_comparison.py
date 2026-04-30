@@ -2753,6 +2753,25 @@ def main():
 
             print("✅ LLM connection successful")
 
+            # Security verification for Ollama
+            if args.llm_model.startswith('ollama:'):
+                from llm_matcher import verify_ollama_security
+
+                security_status = verify_ollama_security()
+                if security_status is False:
+                    print("⚠️  SECURITY WARNING: Ollama may be accessible from external interfaces")
+                    print("   This could expose your local LLM service to network attacks")
+                    print("   Run 'python secure_ollama_config.py' to fix this")
+
+                    continue_choice = input("Continue anyway? (y/n): ").lower().strip()
+                    if continue_choice not in ['y', 'yes']:
+                        print("❌ LLM analysis cancelled for security reasons")
+                        return
+                elif security_status is True:
+                    print("🔒 Ollama security verified (localhost-only access)")
+                elif security_status is None:
+                    print("⚠️  Could not verify Ollama security configuration")
+
             # Perform LLM-assisted matching
             matcher = LLMAssistedMatcher(llm_config, args.llm_confidence)
             llm_matches = matcher.match_vulnerabilities(comparison.benchmark_vulns, sast_vulns)
