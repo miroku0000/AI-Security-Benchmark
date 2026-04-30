@@ -2648,6 +2648,19 @@ def main():
     parser.add_argument('--save-mapping', help='Save interactive mapping results to JSON file')
     parser.add_argument('--load-mapping', help='Load and apply previously saved mapping from JSON file')
 
+    # LLM-assisted matching options
+    parser.add_argument('--llm-assist', action='store_true',
+                       help='Enable LLM-assisted vulnerability matching (requires local LLM)')
+    parser.add_argument('--llm-model', default='ollama:codellama',
+                       help='LLM model to use (e.g., ollama:codellama, ollama:llama2, openai:gpt-3.5-turbo)')
+    parser.add_argument('--llm-url', default='http://localhost:11434',
+                       help='Base URL for LLM API (default: Ollama local)')
+    parser.add_argument('--llm-confidence', type=float, default=0.8,
+                       help='Minimum confidence threshold for LLM matches (0.0-1.0, default: 0.8)')
+    parser.add_argument('--llm-review', action='store_true',
+                       help='Interactive review of LLM suggestions before applying')
+    parser.add_argument('--llm-save', help='Save LLM matches to mapping file (JSON format)')
+
     # Custom format field mappings
     parser.add_argument('--file-field', default='file', help='JSON field for file path (custom format only)')
     parser.add_argument('--line-field', default='line', help='JSON field for line number (custom format only)')
@@ -2708,6 +2721,181 @@ def main():
     )
 
     print(f"Comparing {len(comparison.benchmark_vulns)} benchmark vulns vs {len(sast_vulns)} SAST findings...")
+
+    # LLM-assisted matching
+    llm_matches = []
+    if args.llm_assist:
+        try:
+            from llm_matcher import LLMAssistedMatcher, create_ollama_config, create_openai_config, test_llm_connection
+
+            # Create LLM configuration
+            if args.llm_model.startswith('ollama:'):
+                llm_config = create_ollama_config(
+                    model_name=args.llm_model.replace('ollama:', ''),
+                    base_url=args.llm_url
+                )
+            elif args.llm_model.startswith('openai:'):
+                llm_config = create_openai_config(
+                    model_name=args.llm_model.replace('openai:', ''),
+                    base_url=args.llm_url
+                )
+            else:
+                print(f"❌ Unsupported LLM model format: {args.llm_model}")
+                print("   Use format: ollama:model_name or openai:model_name")
+                return
+
+            # Test LLM connection
+            print(f"🔗 Testing connection to {args.llm_model} at {args.llm_url}...")
+            if not test_llm_connection(llm_config):
+                print(f"❌ Cannot connect to LLM service at {args.llm_url}")
+                print("   Make sure your LLM service is running (e.g., 'ollama serve')")
+                return
+
+            print("✅ LLM connection successful")
+
+            # Perform LLM-assisted matching
+            matcher = LLMAssistedMatcher(llm_config, args.llm_confidence)
+            llm_matches = matcher.match_vulnerabilities(comparison.benchmark_vulns, sast_vulns)
+
+            # Print LLM results
+            print(f"\n🤖 LLM Analysis Complete!")
+            matcher.print_stats()
+
+            # Filter matches by confidence
+            high_conf_matches = [m for m in llm_matches if m.confidence >= args.llm_confidence]
+            low_conf_matches = [m for m in llm_matches if m.confidence < args.llm_confidence]
+
+            if high_conf_matches:
+                print(f"\n✅ High Confidence Matches (≥{args.llm_confidence:.0%}):")
+                for i, match in enumerate(high_conf_matches[:10], 1):  # Show top 10
+                    print(f"   {i}. {match.confidence:.1%} - {match.reasoning[:80]}...")
+
+            if low_conf_matches:
+                print(f"\n⚠️  Lower Confidence Matches ({len(low_conf_matches)} found)")
+
+            # Interactive review mode
+            if args.llm_review and high_conf_matches:
+                print(f"\n🔍 Interactive Review Mode")
+                reviewed_matches = []
+
+                for match in high_conf_matches:
+                    print(f"\nMatch: {match.confidence:.1%} confidence")
+                    print(f"Reasoning: {match.reasoning}")
+
+                    while True:
+                        choice = input("Accept this match? (y/n/q to quit): ").lower().strip()
+                        if choice in ['y', 'yes']:
+                            reviewed_matches.append(match)
+                            print("✅ Match accepted")
+                            break
+                        elif choice in ['n', 'no']:
+                            print("❌ Match rejected")
+                            break
+                        elif choice in ['q', 'quit']:
+                            print("Review stopped")
+                            break
+                        else:
+                            print("Please enter y/n/q")
+
+                high_conf_matches = reviewed_matches
+                print(f"📋 Final accepted matches: {len(high_conf_matches)}")
+
+            # Save LLM matches to file
+            if args.llm_save and high_conf_matches:
+                llm_mapping_data = {
+                    "matches": [],
+                    "benchmark_only": [],
+                    "sast_only": [],
+                    "mapping_rules": [],
+                    "statistics": {
+                        "total_benchmark_vulns": len(comparison.benchmark_vulns),
+                        "total_sast_vulns": len(sast_vulns),
+                        "llm_matches": len(high_conf_matches),
+                        "confidence_threshold": args.llm_confidence,
+                        "model_used": args.llm_model
+                    }
+                }
+
+                # Convert LLM matches to CLI format
+                matched_benchmark_ids = set()
+                matched_sast_ids = set()
+
+                for match in high_conf_matches:
+                    # Find the actual vulnerability objects
+                    bench_vuln = None
+                    sast_vuln = None
+
+                    for i, vuln in enumerate(comparison.benchmark_vulns):
+                        test_id = f"bench_{i}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+                        if test_id == match.benchmark_id:
+                            bench_vuln = vuln
+                            matched_benchmark_ids.add(i)
+                            break
+
+                    for vuln in sast_vulns:
+                        test_id = f"sast_{id(vuln)}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+                        if test_id == match.sast_id:
+                            sast_vuln = vuln
+                            matched_sast_ids.add(id(vuln))
+                            break
+
+                    if bench_vuln and sast_vuln:
+                        llm_mapping_data["matches"].append([
+                            {
+                                'file_path': bench_vuln.file_path,
+                                'line_number': bench_vuln.line_number,
+                                'vuln_type': bench_vuln.vuln_type,
+                                'severity': getattr(bench_vuln, 'severity', 'UNKNOWN'),
+                                'description': getattr(bench_vuln, 'description', ''),
+                                'source': 'benchmark'
+                            },
+                            {
+                                'file_path': sast_vuln.file_path,
+                                'line_number': sast_vuln.line_number,
+                                'vuln_type': sast_vuln.vuln_type,
+                                'severity': getattr(sast_vuln, 'severity', 'UNKNOWN'),
+                                'description': getattr(sast_vuln, 'description', ''),
+                                'source': 'sast'
+                            }
+                        ])
+
+                # Add unmatched vulnerabilities
+                for i, vuln in enumerate(comparison.benchmark_vulns):
+                    if i not in matched_benchmark_ids:
+                        llm_mapping_data["benchmark_only"].append({
+                            'file_path': vuln.file_path,
+                            'line_number': vuln.line_number,
+                            'vuln_type': vuln.vuln_type,
+                            'severity': getattr(vuln, 'severity', 'UNKNOWN'),
+                            'description': getattr(vuln, 'description', ''),
+                            'source': 'benchmark'
+                        })
+
+                for vuln in sast_vulns:
+                    if id(vuln) not in matched_sast_ids:
+                        llm_mapping_data["sast_only"].append({
+                            'file_path': vuln.file_path,
+                            'line_number': vuln.line_number,
+                            'vuln_type': vuln.vuln_type,
+                            'severity': getattr(vuln, 'severity', 'UNKNOWN'),
+                            'description': getattr(vuln, 'description', ''),
+                            'source': 'sast'
+                        })
+
+                # Save to file
+                with open(args.llm_save, 'w') as f:
+                    json.dump(llm_mapping_data, f, indent=2)
+
+                print(f"💾 LLM mappings saved to: {args.llm_save}")
+                print(f"   Load with: --load-mapping {args.llm_save}")
+
+        except ImportError:
+            print("❌ LLM matching requires the llm_matcher module")
+            print("   Make sure llm_matcher.py is in the same directory")
+            return
+        except Exception as e:
+            print(f"❌ LLM matching failed: {e}")
+            return
 
     if args.interactive:
         # Interactive mapping mode

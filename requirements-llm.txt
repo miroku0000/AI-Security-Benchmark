@@ -1,0 +1,4 @@
+# LLM-Assisted Vulnerability Matching Requirements
+# These packages are needed for the --llm-assist feature
+
+requests>=2.28.0
