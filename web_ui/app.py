@@ -9,7 +9,7 @@ import json
 # Import existing SAST comparison logic
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from sast_comparison import SASTComparison
+from sast_comparison import SASTComparison, Vulnerability
 
 # Global session storage (in-memory for simplicity)
 sessions = {}
@@ -226,6 +226,91 @@ def create_app(testing=False):
             "confidence_scores": confidence_scores
         })
 
+    @app.route('/api/session/<session_id>/export', methods=['GET'])
+    def export_mapping(session_id):
+        """Generate final mapping JSON for CLI tool compatibility"""
+        if session_id not in app.sessions:
+            return jsonify({"error": "Session not found"}), 404
+
+        session_data = app.sessions[session_id]
+        comparison = session_data['comparison']
+
+        # Build export data structure compatible with CLI tool
+        export_data = {
+            "confirmed_mappings": [],
+            "denied_mappings": [],
+            "mapping_statistics": {
+                "total_benchmark_vulns": len(comparison.benchmark_vulns),
+                "total_sast_vulns": len(session_data['sast_vulns']),
+                "confirmed_mappings": len(session_data.get('confirmed_mappings', [])),
+                "denied_mappings": len(session_data.get('denied_mappings', [])),
+                "mapping_coverage": 0.0
+            },
+            "pattern_rules": session_data.get('mapping_rules', []),
+            "export_metadata": {
+                "export_timestamp": datetime.now().isoformat(),
+                "session_id": session_id,
+                "generated_by": "web_ui"
+            }
+        }
+
+        # Convert confirmed mappings to CLI format
+        for mapping in session_data.get('confirmed_mappings', []):
+            benchmark_vuln = find_vulnerability_by_id(mapping['benchmark_id'], comparison.benchmark_vulns, 'bench')
+            sast_vuln = find_vulnerability_by_id(mapping['sast_id'], session_data['sast_vulns'], 'sast')
+
+            if benchmark_vuln and sast_vuln:
+                export_data["confirmed_mappings"].append({
+                    "benchmark": {
+                        "file_path": benchmark_vuln.file_path,
+                        "line_number": benchmark_vuln.line_number,
+                        "vuln_type": benchmark_vuln.vuln_type,
+                        "severity": getattr(benchmark_vuln, 'severity', 'UNKNOWN'),
+                        "description": getattr(benchmark_vuln, 'description', '')
+                    },
+                    "sast": {
+                        "file_path": sast_vuln.file_path,
+                        "line_number": sast_vuln.line_number,
+                        "vuln_type": sast_vuln.vuln_type,
+                        "severity": getattr(sast_vuln, 'severity', 'UNKNOWN'),
+                        "description": getattr(sast_vuln, 'description', '')
+                    },
+                    "confidence_score": calculate_mapping_confidence(benchmark_vuln, sast_vuln, session_data.get('mapping_rules', []))
+                })
+
+        # Convert denied mappings to CLI format
+        for mapping in session_data.get('denied_mappings', []):
+            benchmark_vuln = find_vulnerability_by_id(mapping['benchmark_id'], comparison.benchmark_vulns, 'bench')
+            sast_vuln = find_vulnerability_by_id(mapping['sast_id'], session_data['sast_vulns'], 'sast')
+
+            if benchmark_vuln and sast_vuln:
+                export_data["denied_mappings"].append({
+                    "benchmark": {
+                        "file_path": benchmark_vuln.file_path,
+                        "line_number": benchmark_vuln.line_number,
+                        "vuln_type": benchmark_vuln.vuln_type
+                    },
+                    "sast": {
+                        "file_path": sast_vuln.file_path,
+                        "line_number": sast_vuln.line_number,
+                        "vuln_type": sast_vuln.vuln_type
+                    }
+                })
+
+        # Calculate mapping coverage
+        total_benchmark = export_data["mapping_statistics"]["total_benchmark_vulns"]
+        if total_benchmark > 0:
+            export_data["mapping_statistics"]["mapping_coverage"] = round(
+                (export_data["mapping_statistics"]["confirmed_mappings"] / total_benchmark) * 100, 2
+            )
+
+        # Create downloadable response
+        response = jsonify(export_data)
+        response.headers['Content-Disposition'] = f'attachment; filename=vulnerability_mapping_{session_id[:8]}.json'
+        response.headers['Content-Type'] = 'application/json'
+
+        return response
+
     @app.route('/')
     def index():
         return send_from_directory('static', 'index.html')
@@ -278,6 +363,31 @@ def create_pattern_rule(session_data, benchmark_id, sast_id):
         "confidence_boost": 0.4,
         "line_proximity_weight": abs(benchmark_vuln.line_number - sast_vuln.line_number)
     }
+
+
+def find_vulnerability_by_id(vuln_id, vulnerability_list, vuln_type_prefix):
+    """Find vulnerability object by generated ID"""
+    for idx, vuln in enumerate(vulnerability_list):
+        generated_id = f"{vuln_type_prefix}_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+        if generated_id == vuln_id:
+            return vuln
+    return None
+
+
+def calculate_mapping_confidence(benchmark_vuln, sast_vuln, mapping_rules):
+    """Calculate confidence score for a confirmed mapping"""
+    # Use the same logic as enhanced_confidence_score but create dummy comparison
+    try:
+        temp_comparison = SASTComparison.__new__(SASTComparison)
+        return temp_comparison.enhanced_confidence_score(benchmark_vuln, sast_vuln, mapping_rules)
+    except Exception:
+        # Fallback to simple confidence calculation
+        base_score = 0.5  # Basic similarity
+        if benchmark_vuln.file_path == sast_vuln.file_path:
+            base_score += 0.3
+        if benchmark_vuln.vuln_type.lower() in sast_vuln.vuln_type.lower():
+            base_score += 0.2
+        return min(100, base_score * 100)
 
 if __name__ == '__main__':
     app = create_app()

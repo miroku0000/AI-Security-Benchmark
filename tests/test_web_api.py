@@ -574,3 +574,107 @@ def test_update_mapping_invalid_session():
         assert response.status_code == 404
         data = response.get_json()
         assert data["error"] == "Session not found"
+
+# Task 6: Export Mapping API Endpoint Tests
+
+def test_export_mapping_success(app, test_session_data):
+    """Test successful mapping export with confirmed mappings"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        # Calculate the correct IDs based on test fixture data
+        # test.py line 10 hash
+        bench_hash = hash("test.py" + str(10)) & 0xFFFFFF
+        sast_hash = hash("test.py" + str(10)) & 0xFFFFFF
+        benchmark_id = f"bench_0_{bench_hash:06x}"
+        sast_id = f"sast_0_{sast_hash:06x}"
+
+        # First confirm some mappings
+        client.post(f'/api/session/{session_id}/mapping',
+                   json={
+                       "action": "confirm",
+                       "benchmark_id": benchmark_id,
+                       "sast_id": sast_id
+                   })
+
+        # Export the mapping
+        response = client.get(f'/api/session/{session_id}/export')
+
+        assert response.status_code == 200
+        assert response.content_type == 'application/json'
+
+        # Check download headers
+        assert 'Content-Disposition' in response.headers
+        assert 'attachment' in response.headers['Content-Disposition']
+        assert 'vulnerability_mapping' in response.headers['Content-Disposition']
+
+        # Verify mapping content structure
+        mapping_data = response.get_json()
+        assert "confirmed_mappings" in mapping_data
+        assert "mapping_statistics" in mapping_data
+        assert len(mapping_data["confirmed_mappings"]) >= 1
+
+
+def test_export_mapping_empty_session(app, test_session_data):
+    """Test export with no confirmed mappings"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.get(f'/api/session/{session_id}/export')
+
+        assert response.status_code == 200
+        mapping_data = response.get_json()
+        assert mapping_data["confirmed_mappings"] == []
+        assert mapping_data["mapping_statistics"]["confirmed_mappings"] == 0
+
+
+def test_export_mapping_with_denied(app, test_session_data):
+    """Test export includes denied mappings"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        # Calculate the correct IDs based on test fixture data
+        bench_hash = hash("test.py" + str(10)) & 0xFFFFFF
+        sast_hash = hash("test.py" + str(10)) & 0xFFFFFF
+        benchmark_id = f"bench_0_{bench_hash:06x}"
+        sast_id = f"sast_0_{sast_hash:06x}"
+
+        # Deny a mapping
+        client.post(f'/api/session/{session_id}/mapping',
+                   json={
+                       "action": "deny",
+                       "benchmark_id": benchmark_id,
+                       "sast_id": sast_id
+                   })
+
+        response = client.get(f'/api/session/{session_id}/export')
+
+        assert response.status_code == 200
+        mapping_data = response.get_json()
+        assert len(mapping_data["denied_mappings"]) >= 1
+
+
+def test_export_mapping_invalid_session(app):
+    """Test export with invalid session"""
+    with app.test_client() as client:
+        response = client.get('/api/session/invalid-id/export')
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"] == "Session not found"
+
+
+def test_export_mapping_metadata(app, test_session_data):
+    """Test export includes proper metadata"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.get(f'/api/session/{session_id}/export')
+
+        assert response.status_code == 200
+        mapping_data = response.get_json()
+
+        assert "export_metadata" in mapping_data
+        assert mapping_data["export_metadata"]["session_id"] == session_id
+        assert mapping_data["export_metadata"]["generated_by"] == "web_ui"
+        assert "export_timestamp" in mapping_data["export_metadata"]
