@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAST Vulnerability Mapping</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <header class="header">
+        <h1>SAST Vulnerability Mapping</h1>
+        <div class="controls">
+            <div class="upload-section">
+                <input type="file" id="benchmark-file" accept=".json" style="display: none;">
+                <input type="file" id="sast-file" accept=".json,.sarif" style="display: none;">
+                <button id="upload-btn" class="btn btn-primary">Upload Files</button>
+                <div class="upload-status" id="upload-status"></div>
+            </div>
+            <div class="confidence-section">
+                <label for="confidence-slider">Confidence: <span id="confidence-value">75</span>%</label>
+                <input type="range" id="confidence-slider" min="0" max="100" value="75" class="slider">
+            </div>
+            <div class="export-section">
+                <button id="export-btn" class="btn btn-secondary" disabled>Export Mappings</button>
+                <div class="progress" id="progress">
+                    <span id="progress-text">No session loaded</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <aside class="file-list">
+            <h3>Files</h3>
+            <div id="file-list-container" class="file-items">
+                <div class="empty-state">
+                    <p>Upload benchmark and SAST files to begin</p>
+                </div>
+            </div>
+        </aside>
+
+        <section class="mapping-panel">
+            <div class="vulnerability-columns">
+                <div class="vulnerability-column benchmark-column">
+                    <h3>Benchmark Vulnerabilities</h3>
+                    <div id="benchmark-vulns" class="vulnerability-list">
+                        <div class="empty-state">
+                            <p>No file selected</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mapping-connector">
+                    <div class="connector-line"></div>
+                    <div class="mapping-actions">
+                        <button id="accept-all-btn" class="btn btn-success btn-sm" disabled>Accept All Visible</button>
+                        <button id="reject-all-btn" class="btn btn-danger btn-sm" disabled>Reject All Visible</button>
+                    </div>
+                </div>
+
+                <div class="vulnerability-column sast-column">
+                    <h3>SAST Findings</h3>
+                    <div id="sast-vulns" class="vulnerability-list">
+                        <div class="empty-state">
+                            <p>No file selected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="suggestions-panel">
+                <h4>Suggested Mappings</h4>
+                <div id="suggestions-container" class="suggestions-list">
+                    <div class="empty-state">
+                        <p>Adjust confidence slider to see suggestions</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal for file upload -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <h3>Upload Files</h3>
+            <div class="upload-form">
+                <div class="form-group">
+                    <label for="benchmark-upload">Benchmark JSON File:</label>
+                    <input type="file" id="benchmark-upload" accept=".json">
+                    <div class="file-info" id="benchmark-info"></div>
+                </div>
+                <div class="form-group">
+                    <label for="sast-upload">SAST Results File:</label>
+                    <input type="file" id="sast-upload" accept=".json,.sarif">
+                    <div class="file-info" id="sast-info"></div>
+                </div>
+                <div class="form-actions">
+                    <button id="cancel-upload" class="btn btn-secondary">Cancel</button>
+                    <button id="confirm-upload" class="btn btn-primary" disabled>Start Analysis</button>
+                </div>
+                <div class="upload-progress" id="upload-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="overlay">
+        <div class="spinner"></div>
+        <p>Processing files...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/storage.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+</body>
+</html>

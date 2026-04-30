@@ -1,5 +1,5 @@
 # web_ui/app.py
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, render_template
 import uuid
 import os
 from datetime import datetime, timedelta
@@ -16,7 +16,9 @@ sessions = {}
 SESSION_TIMEOUT = timedelta(hours=4)
 
 def create_app(testing=False):
-    app = Flask(__name__, static_folder='static')
+    app = Flask(__name__,
+               template_folder='templates',
+               static_folder='static')
     app.config['TESTING'] = testing
     app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB limit
     app.sessions = sessions  # Store sessions reference on app
@@ -228,81 +230,97 @@ def create_app(testing=False):
 
     @app.route('/api/session/<session_id>/export', methods=['GET'])
     def export_mapping(session_id):
-        """Generate final mapping JSON for CLI tool compatibility"""
+        """Generate final mapping JSON for CLI tool compatibility.
+
+        Exports in the format expected by sast_comparison.load_and_apply_mapping():
+        {
+            "matches": [(bench_dict, sast_dict), ...],
+            "benchmark_only": [vuln_dict, ...],
+            "sast_only": [vuln_dict, ...],
+            "mapping_rules": [...],
+            "statistics": {...}
+        }
+        """
         if session_id not in app.sessions:
             return jsonify({"error": "Session not found"}), 404
 
         session_data = app.sessions[session_id]
         comparison = session_data['comparison']
 
-        # Build export data structure compatible with CLI tool
-        export_data = {
-            "confirmed_mappings": [],
-            "denied_mappings": [],
-            "mapping_statistics": {
-                "total_benchmark_vulns": len(comparison.benchmark_vulns),
-                "total_sast_vulns": len(session_data['sast_vulns']),
-                "confirmed_mappings": len(session_data.get('confirmed_mappings', [])),
-                "denied_mappings": len(session_data.get('denied_mappings', [])),
-                "mapping_coverage": 0.0
-            },
-            "pattern_rules": session_data.get('mapping_rules', []),
-            "export_metadata": {
-                "export_timestamp": datetime.now().isoformat(),
-                "session_id": session_id,
-                "generated_by": "web_ui"
-            }
-        }
+        # Track which vulnerabilities have been matched
+        matched_benchmark_ids = set()
+        matched_sast_ids = set()
 
-        # Convert confirmed mappings to CLI format
+        # Build matches list with tuple format (bench_dict, sast_dict)
+        matches = []
         for mapping in session_data.get('confirmed_mappings', []):
             benchmark_vuln = find_vulnerability_by_id(mapping['benchmark_id'], comparison.benchmark_vulns, 'bench')
             sast_vuln = find_vulnerability_by_id(mapping['sast_id'], session_data['sast_vulns'], 'sast')
 
             if benchmark_vuln and sast_vuln:
-                export_data["confirmed_mappings"].append({
-                    "benchmark": {
-                        "file_path": benchmark_vuln.file_path,
-                        "line_number": benchmark_vuln.line_number,
-                        "vuln_type": benchmark_vuln.vuln_type,
-                        "severity": getattr(benchmark_vuln, 'severity', 'UNKNOWN'),
-                        "description": getattr(benchmark_vuln, 'description', '')
-                    },
-                    "sast": {
-                        "file_path": sast_vuln.file_path,
-                        "line_number": sast_vuln.line_number,
-                        "vuln_type": sast_vuln.vuln_type,
-                        "severity": getattr(sast_vuln, 'severity', 'UNKNOWN'),
-                        "description": getattr(sast_vuln, 'description', '')
-                    },
-                    "confidence_score": calculate_mapping_confidence(benchmark_vuln, sast_vuln, session_data.get('mapping_rules', []))
+                bench_dict = {
+                    'file_path': benchmark_vuln.file_path,
+                    'line_number': benchmark_vuln.line_number,
+                    'vuln_type': benchmark_vuln.vuln_type,
+                    'severity': getattr(benchmark_vuln, 'severity', 'UNKNOWN'),
+                    'description': getattr(benchmark_vuln, 'description', ''),
+                    'source': getattr(benchmark_vuln, 'source', 'benchmark')
+                }
+                sast_dict = {
+                    'file_path': sast_vuln.file_path,
+                    'line_number': sast_vuln.line_number,
+                    'vuln_type': sast_vuln.vuln_type,
+                    'severity': getattr(sast_vuln, 'severity', 'UNKNOWN'),
+                    'description': getattr(sast_vuln, 'description', ''),
+                    'source': getattr(sast_vuln, 'source', 'sast')
+                }
+                matches.append([bench_dict, sast_dict])
+                matched_benchmark_ids.add(mapping['benchmark_id'])
+                matched_sast_ids.add(mapping['sast_id'])
+
+        # Build benchmark_only list (unmatched benchmark vulnerabilities)
+        benchmark_only = []
+        for idx, vuln in enumerate(comparison.benchmark_vulns):
+            vuln_id = f"bench_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+            if vuln_id not in matched_benchmark_ids:
+                benchmark_only.append({
+                    'file_path': vuln.file_path,
+                    'line_number': vuln.line_number,
+                    'vuln_type': vuln.vuln_type,
+                    'severity': getattr(vuln, 'severity', 'UNKNOWN'),
+                    'description': getattr(vuln, 'description', ''),
+                    'source': getattr(vuln, 'source', 'benchmark')
                 })
 
-        # Convert denied mappings to CLI format
-        for mapping in session_data.get('denied_mappings', []):
-            benchmark_vuln = find_vulnerability_by_id(mapping['benchmark_id'], comparison.benchmark_vulns, 'bench')
-            sast_vuln = find_vulnerability_by_id(mapping['sast_id'], session_data['sast_vulns'], 'sast')
-
-            if benchmark_vuln and sast_vuln:
-                export_data["denied_mappings"].append({
-                    "benchmark": {
-                        "file_path": benchmark_vuln.file_path,
-                        "line_number": benchmark_vuln.line_number,
-                        "vuln_type": benchmark_vuln.vuln_type
-                    },
-                    "sast": {
-                        "file_path": sast_vuln.file_path,
-                        "line_number": sast_vuln.line_number,
-                        "vuln_type": sast_vuln.vuln_type
-                    }
+        # Build sast_only list (unmatched SAST vulnerabilities)
+        sast_only = []
+        for idx, vuln in enumerate(session_data['sast_vulns']):
+            vuln_id = f"sast_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+            if vuln_id not in matched_sast_ids:
+                sast_only.append({
+                    'file_path': vuln.file_path,
+                    'line_number': vuln.line_number,
+                    'vuln_type': vuln.vuln_type,
+                    'severity': getattr(vuln, 'severity', 'UNKNOWN'),
+                    'description': getattr(vuln, 'description', ''),
+                    'source': getattr(vuln, 'source', 'sast')
                 })
 
-        # Calculate mapping coverage
-        total_benchmark = export_data["mapping_statistics"]["total_benchmark_vulns"]
-        if total_benchmark > 0:
-            export_data["mapping_statistics"]["mapping_coverage"] = round(
-                (export_data["mapping_statistics"]["confirmed_mappings"] / total_benchmark) * 100, 2
-            )
+        # Build CLI-compatible export format
+        export_data = {
+            'matches': matches,
+            'benchmark_only': benchmark_only,
+            'sast_only': sast_only,
+            'mapping_rules': session_data.get('mapping_rules', []),
+            'statistics': {
+                'files_processed': len(set(v.file_path for v in comparison.benchmark_vulns)),
+                'total_benchmark_vulns': len(comparison.benchmark_vulns),
+                'total_sast_vulns': len(session_data['sast_vulns']),
+                'matched_vulns': len(matches),
+                'missed_by_sast': len(benchmark_only),
+                'false_positives': len(sast_only)
+            }
+        }
 
         # Create downloadable response
         response = jsonify(export_data)
@@ -311,9 +329,10 @@ def create_app(testing=False):
 
         return response
 
-    @app.route('/')
-    def index():
-        return send_from_directory('static', 'index.html')
+    @app.route('/', methods=['GET'])
+    def serve_ui():
+        """Serve the main vulnerability mapping interface"""
+        return render_template('index.html')
 
     @app.before_request
     def cleanup_sessions():
