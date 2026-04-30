@@ -2,6 +2,7 @@
 import pytest
 import json
 import io
+import uuid
 from web_ui.app import create_app, cleanup_expired_sessions, sessions
 
 def test_app_creation():
@@ -102,3 +103,95 @@ def test_upload_real_benchmark_schema():
         # This should NOT be 0 with real schema - schema fix is working
         assert json_data['total_vulnerabilities']['benchmark'] == 1
         assert json_data['total_vulnerabilities']['sast'] == 0
+
+@pytest.fixture
+def test_session_data():
+    """Create a test session with sample vulnerabilities"""
+    from sast_comparison import Vulnerability
+
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = {
+        'created_at': __import__('datetime').datetime.now(),
+        'benchmark_vulns': [
+            Vulnerability(
+                file_path='test.py',
+                line_number=10,
+                vuln_type='SQL_INJECTION',
+                severity='HIGH',
+                description='test sql injection',
+                source='benchmark'
+            ),
+            Vulnerability(
+                file_path='test2.py',
+                line_number=20,
+                vuln_type='XSS',
+                severity='MEDIUM',
+                description='test xss',
+                source='benchmark'
+            )
+        ],
+        'sast_vulns': [
+            Vulnerability(
+                file_path='test.py',
+                line_number=10,
+                vuln_type='SQL_INJECTION',
+                severity='HIGH',
+                description='detected sql injection',
+                source='sast'
+            )
+        ],
+        'mapping_rules': [],
+        'confirmed_mappings': [],
+        'denied_mappings': []
+    }
+    yield {'session_id': session_id}
+    # Cleanup
+    if session_id in sessions:
+        del sessions[session_id]
+
+def test_get_session_data_success(test_session_data):
+    """Test successful session data retrieval"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.get(f'/api/session/{test_session_data["session_id"]}')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "files" in data
+        assert "suggestions" in data
+        assert "mapping_rules" in data
+        assert isinstance(data["files"], list)
+
+def test_get_session_data_not_found():
+    """Test session data retrieval with invalid session ID"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.get('/api/session/invalid-session-id')
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"] == "Session not found"
+
+def test_get_session_data_empty_session():
+    """Test session data retrieval with no vulnerabilities"""
+    app = create_app(testing=True)
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = {
+        'created_at': __import__('datetime').datetime.now(),
+        'benchmark_vulns': [],
+        'sast_vulns': [],
+        'mapping_rules': []
+    }
+
+    try:
+        with app.test_client() as client:
+            response = client.get(f'/api/session/{session_id}')
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data["files"] == []
+            assert data["suggestions"] == []
+            assert data["mapping_rules"] == []
+    finally:
+        if session_id in sessions:
+            del sessions[session_id]

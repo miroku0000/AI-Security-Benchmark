@@ -19,6 +19,7 @@ def create_app(testing=False):
     app = Flask(__name__, static_folder='static')
     app.config['TESTING'] = testing
     app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB limit
+    app.sessions = sessions  # Store sessions reference on app
 
     @app.route('/api/health')
     def health():
@@ -85,6 +86,50 @@ def create_app(testing=False):
             # Log the real error server-side but don't leak it
             app.logger.error(f"File processing error: {str(e)}")
             return jsonify({"error": "Failed to process uploaded files"}), 500
+
+    @app.route('/api/session/<session_id>', methods=['GET'])
+    def get_session_data(session_id):
+        """Get session vulnerability data grouped by files"""
+        if session_id not in app.sessions:
+            return jsonify({"error": "Session not found"}), 404
+
+        session_data = app.sessions[session_id]
+
+        # Group vulnerabilities by file path
+        files_grouped = {}
+        for vuln in session_data['benchmark_vulns']:
+            file_path = vuln.file_path
+            if file_path not in files_grouped:
+                files_grouped[file_path] = {
+                    "file_path": file_path,
+                    "benchmark_vulns": [],
+                    "sast_vulns": []
+                }
+            files_grouped[file_path]["benchmark_vulns"].append({
+                "id": vuln.id if hasattr(vuln, 'id') else None,
+                "vuln_type": vuln.vuln_type,
+                "line_number": vuln.line_number
+            })
+
+        for vuln in session_data['sast_vulns']:
+            file_path = vuln.file_path
+            if file_path not in files_grouped:
+                files_grouped[file_path] = {
+                    "file_path": file_path,
+                    "benchmark_vulns": [],
+                    "sast_vulns": []
+                }
+            files_grouped[file_path]["sast_vulns"].append({
+                "id": vuln.id if hasattr(vuln, 'id') else None,
+                "vuln_type": vuln.vuln_type,
+                "line_number": vuln.line_number
+            })
+
+        return jsonify({
+            "files": list(files_grouped.values()),
+            "suggestions": [],  # Empty for now, will be implemented in Task 5
+            "mapping_rules": session_data.get('mapping_rules', [])
+        })
 
     @app.route('/')
     def index():
