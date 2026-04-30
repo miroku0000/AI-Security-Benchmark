@@ -871,6 +871,114 @@ class SASTComparison:
 
         return False
 
+    def enhanced_confidence_score(self, benchmark_vuln, sast_vuln, mapping_rules=None):
+        """Calculate confidence score with learned pattern rules"""
+        # Use existing scoring logic as base
+        base_score = self._calculate_match_score(benchmark_vuln, sast_vuln)
+
+        # Apply learned pattern rules
+        if mapping_rules:
+            for rule in mapping_rules:
+                if self._matches_pattern(benchmark_vuln, sast_vuln, rule):
+                    base_score += rule.get("confidence_boost", 0)
+
+        # Convert to percentage (0-100) and cap at 100
+        return min(100, base_score * 100)
+
+    def _matches_pattern(self, benchmark_vuln, sast_vuln, rule):
+        """Check if vulnerability pair matches a pattern rule"""
+        # Match vulnerability types
+        if rule.get("benchmark_type") != benchmark_vuln.vuln_type:
+            return False
+        if rule.get("sast_pattern") != sast_vuln.vuln_type:
+            return False
+
+        # Match file extensions if rule specifies
+        if rule.get("file_extension_match"):
+            benchmark_ext = benchmark_vuln.file_path.split('.')[-1] if '.' in benchmark_vuln.file_path else ''
+            sast_ext = sast_vuln.file_path.split('.')[-1] if '.' in sast_vuln.file_path else ''
+            if benchmark_ext != sast_ext:
+                return False
+
+        # Apply line proximity weighting
+        line_diff = abs(benchmark_vuln.line_number - sast_vuln.line_number)
+        max_line_diff = rule.get("line_proximity_weight", 10)
+        if line_diff > max_line_diff:
+            return False
+
+        return True
+
+    def generate_suggestions(self, session_data, confidence_threshold):
+        """Generate vulnerability mapping suggestions above threshold"""
+        suggestions = []
+        mapping_rules = session_data.get('mapping_rules', [])
+
+        # Get already confirmed/denied mappings
+        confirmed_ids = set()
+        denied_pairs = set()
+
+        for mapping in session_data.get('confirmed_mappings', []):
+            confirmed_ids.add(mapping['benchmark_id'])
+            confirmed_ids.add(mapping['sast_id'])
+
+        for mapping in session_data.get('denied_mappings', []):
+            denied_pairs.add((mapping['benchmark_id'], mapping['sast_id']))
+
+        # Generate suggestions for unmatched vulnerabilities
+        benchmark_vulns = session_data['comparison'].benchmark_vulns
+        sast_vulns = session_data['sast_vulns']
+
+        for bench_idx, benchmark_vuln in enumerate(benchmark_vulns):
+            benchmark_id = f"bench_{bench_idx}_{hash(benchmark_vuln.file_path + str(benchmark_vuln.line_number)) & 0xFFFFFF:06x}"
+
+            if benchmark_id in confirmed_ids:
+                continue
+
+            for sast_idx, sast_vuln in enumerate(sast_vulns):
+                sast_id = f"sast_{sast_idx}_{hash(sast_vuln.file_path + str(sast_vuln.line_number)) & 0xFFFFFF:06x}"
+
+                if sast_id in confirmed_ids or (benchmark_id, sast_id) in denied_pairs:
+                    continue
+
+                score = self.enhanced_confidence_score(benchmark_vuln, sast_vuln, mapping_rules)
+
+                if score >= confidence_threshold:
+                    suggestions.append({
+                        "benchmark_id": benchmark_id,
+                        "sast_id": sast_id,
+                        "confidence": round(score, 1),
+                        "reasoning": self._explain_match(benchmark_vuln, sast_vuln, mapping_rules)
+                    })
+
+        # Sort by confidence score descending
+        suggestions.sort(key=lambda x: x["confidence"], reverse=True)
+        return suggestions
+
+    def _explain_match(self, benchmark_vuln, sast_vuln, mapping_rules):
+        """Generate human-readable explanation for match"""
+        reasons = []
+
+        # Base similarity
+        if benchmark_vuln.vuln_type.lower() in sast_vuln.vuln_type.lower():
+            reasons.append("Similar vulnerability types")
+
+        # File location
+        if benchmark_vuln.file_path == sast_vuln.file_path:
+            reasons.append("Same file")
+
+        # Line proximity
+        line_diff = abs(benchmark_vuln.line_number - sast_vuln.line_number)
+        if line_diff <= 5:
+            reasons.append(f"Close line numbers ({line_diff} lines apart)")
+
+        # Pattern rules applied
+        for rule in mapping_rules or []:
+            if self._matches_pattern(benchmark_vuln, sast_vuln, rule):
+                reasons.append("Matches learned pattern")
+                break
+
+        return "; ".join(reasons) if reasons else "Basic type similarity"
+
     def _get_detailed_vulnerability_info(self, vuln: Vulnerability, reports_data: dict) -> dict:
         """Get detailed vulnerability information from benchmark data."""
         for file_info in reports_data.get('files', []):

@@ -105,6 +105,11 @@ def test_upload_real_benchmark_schema():
         assert json_data['total_vulnerabilities']['sast'] == 0
 
 @pytest.fixture
+def app():
+    """Create test app"""
+    return create_app(testing=True)
+
+@pytest.fixture
 def test_session_data():
     """Create a test session with sample vulnerabilities using comparison object"""
     from sast_comparison import Vulnerability, SASTComparison
@@ -400,6 +405,84 @@ def test_get_session_data_empty_session():
     finally:
         if session_id in sessions:
             del sessions[session_id]
+
+def test_get_suggestions_with_threshold(app, test_session_data):
+    """Test getting suggestions filtered by confidence threshold"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.get(f'/api/session/{session_id}/suggestions?confidence=75')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "suggestions" in data
+        assert "confidence_scores" in data
+        assert isinstance(data["suggestions"], list)
+
+        # Verify all suggestions meet threshold
+        for suggestion in data["suggestions"]:
+            assert suggestion["confidence"] >= 75
+            assert "benchmark_id" in suggestion
+            assert "sast_id" in suggestion
+            assert "reasoning" in suggestion
+
+def test_get_suggestions_default_threshold(app, test_session_data):
+    """Test getting suggestions with default threshold (50)"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.get(f'/api/session/{session_id}/suggestions')
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "suggestions" in data
+        assert "confidence_scores" in data
+
+def test_get_suggestions_invalid_threshold(app, test_session_data):
+    """Test invalid confidence threshold values"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        # Test negative threshold
+        response = client.get(f'/api/session/{session_id}/suggestions?confidence=-10')
+        assert response.status_code == 400
+
+        # Test threshold over 100
+        response = client.get(f'/api/session/{session_id}/suggestions?confidence=150')
+        assert response.status_code == 400
+
+def test_get_suggestions_with_existing_mappings(app, test_session_data):
+    """Test suggestions exclude already mapped vulnerabilities"""
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        # First confirm a mapping
+        client.post(f'/api/session/{session_id}/mapping',
+                   json={
+                       "action": "confirm",
+                       "benchmark_id": "bench_0_7c9f01",
+                       "sast_id": "sast_0_c10ffc"
+                   })
+
+        # Get suggestions
+        response = client.get(f'/api/session/{session_id}/suggestions?confidence=0')
+
+        assert response.status_code == 200
+        data = response.get_json()
+
+        # Verify confirmed IDs are excluded
+        for suggestion in data["suggestions"]:
+            assert suggestion["benchmark_id"] != "bench_0_7c9f01"
+            assert suggestion["sast_id"] != "sast_0_c10ffc"
+
+def test_get_suggestions_invalid_session(app):
+    """Test suggestions with invalid session"""
+    with app.test_client() as client:
+        response = client.get('/api/session/invalid-id/suggestions')
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"] == "Session not found"
 
 # Task 4: Mapping Update API Endpoint Tests
 

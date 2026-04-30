@@ -197,6 +197,35 @@ def create_app(testing=False):
             "new_suggestions": new_suggestions
         })
 
+    @app.route('/api/session/<session_id>/suggestions', methods=['GET'])
+    def get_suggestions(session_id):
+        """Get auto-suggestions filtered by confidence threshold"""
+        if session_id not in app.sessions:
+            return jsonify({"error": "Session not found"}), 404
+
+        # Get confidence threshold from query params (default 50)
+        confidence_threshold = request.args.get('confidence', 50, type=int)
+
+        if confidence_threshold < 0 or confidence_threshold > 100:
+            return jsonify({"error": "Confidence threshold must be between 0 and 100"}), 400
+
+        session_data = app.sessions[session_id]
+
+        # Use SastComparison to generate suggestions
+        comparison = session_data['comparison']
+        suggestions = comparison.generate_suggestions(session_data, confidence_threshold)
+
+        # Build confidence scores summary
+        confidence_scores = {}
+        for suggestion in suggestions:
+            score_range = f"{(suggestion['confidence'] // 10) * 10}-{(suggestion['confidence'] // 10) * 10 + 9}"
+            confidence_scores[score_range] = confidence_scores.get(score_range, 0) + 1
+
+        return jsonify({
+            "suggestions": suggestions,
+            "confidence_scores": confidence_scores
+        })
+
     @app.route('/')
     def index():
         return send_from_directory('static', 'index.html')
