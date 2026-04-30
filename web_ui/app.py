@@ -97,7 +97,10 @@ def create_app(testing=False):
 
         # Group vulnerabilities by file path
         files_grouped = {}
-        for vuln in session_data['benchmark_vulns']:
+
+        # Access benchmark_vulns from the comparison object
+        comparison = session_data['comparison']
+        for idx, vuln in enumerate(comparison.benchmark_vulns):
             file_path = vuln.file_path
             if file_path not in files_grouped:
                 files_grouped[file_path] = {
@@ -106,12 +109,14 @@ def create_app(testing=False):
                     "sast_vulns": []
                 }
             files_grouped[file_path]["benchmark_vulns"].append({
-                "id": vuln.id if hasattr(vuln, 'id') else None,
+                "id": f"bench_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}",
                 "vuln_type": vuln.vuln_type,
-                "line_number": vuln.line_number
+                "line_number": vuln.line_number,
+                "severity": vuln.severity,
+                "description": vuln.description
             })
 
-        for vuln in session_data['sast_vulns']:
+        for idx, vuln in enumerate(session_data['sast_vulns']):
             file_path = vuln.file_path
             if file_path not in files_grouped:
                 files_grouped[file_path] = {
@@ -120,13 +125,19 @@ def create_app(testing=False):
                     "sast_vulns": []
                 }
             files_grouped[file_path]["sast_vulns"].append({
-                "id": vuln.id if hasattr(vuln, 'id') else None,
+                "id": f"sast_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}",
                 "vuln_type": vuln.vuln_type,
-                "line_number": vuln.line_number
+                "line_number": vuln.line_number,
+                "severity": vuln.severity,
+                "description": vuln.description
             })
 
+        # Filter out files with no vulnerabilities
+        files_list = [f for f in files_grouped.values()
+                     if f["benchmark_vulns"] or f["sast_vulns"]]
+
         return jsonify({
-            "files": list(files_grouped.values()),
+            "files": files_list,
             "suggestions": [],  # Empty for now, will be implemented in Task 5
             "mapping_rules": session_data.get('mapping_rules', [])
         })
