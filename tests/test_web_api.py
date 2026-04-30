@@ -400,3 +400,94 @@ def test_get_session_data_empty_session():
     finally:
         if session_id in sessions:
             del sessions[session_id]
+
+# Task 4: Mapping Update API Endpoint Tests
+
+def test_update_mapping_confirm(test_session_data):
+    """Test confirming a vulnerability mapping"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.post(f'/api/session/{session_id}/mapping',
+                             json={
+                                 "action": "confirm",
+                                 "benchmark_id": "bench_0_123abc",
+                                 "sast_id": "sast_0_456def"
+                             })
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert "new_suggestions" in data
+
+        # Verify mapping is stored in session
+        session_data = sessions[session_id]
+        assert "confirmed_mappings" in session_data
+        assert len(session_data["confirmed_mappings"]) == 1
+
+
+def test_update_mapping_deny(test_session_data):
+    """Test denying a vulnerability mapping"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        session_id = test_session_data["session_id"]
+
+        response = client.post(f'/api/session/{session_id}/mapping',
+                             json={
+                                 "action": "deny",
+                                 "benchmark_id": "bench_0_123abc",
+                                 "sast_id": "sast_0_456def"
+                             })
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+        # Verify denial is stored in session
+        session_data = sessions[session_id]
+        assert len(session_data["denied_mappings"]) == 1
+
+
+def test_update_mapping_invalid_action(test_session_data):
+    """Test invalid action parameter"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.post(f'/api/session/{test_session_data["session_id"]}/mapping',
+                             json={
+                                 "action": "invalid",
+                                 "benchmark_id": "bench_0_123abc",
+                                 "sast_id": "sast_0_456def"
+                             })
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "Action must be 'confirm' or 'deny'" in data["error"]
+
+
+def test_update_mapping_missing_fields(test_session_data):
+    """Test missing required fields"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.post(f'/api/session/{test_session_data["session_id"]}/mapping',
+                             json={"action": "confirm"})
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "Missing required fields" in data["error"]
+
+
+def test_update_mapping_invalid_session():
+    """Test mapping update with invalid session"""
+    app = create_app(testing=True)
+    with app.test_client() as client:
+        response = client.post('/api/session/invalid-id/mapping',
+                             json={
+                                 "action": "confirm",
+                                 "benchmark_id": "bench_0_123abc",
+                                 "sast_id": "sast_0_456def"
+                             })
+
+        assert response.status_code == 404
+        data = response.get_json()
+        assert data["error"] == "Session not found"

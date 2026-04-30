@@ -142,6 +142,61 @@ def create_app(testing=False):
             "mapping_rules": session_data.get('mapping_rules', [])
         })
 
+    @app.route('/api/session/<session_id>/mapping', methods=['POST'])
+    def update_mapping(session_id):
+        """Update confirmed/denied mappings and create pattern rules"""
+        if session_id not in app.sessions:
+            return jsonify({"error": "Session not found"}), 404
+
+        if not request.json:
+            return jsonify({"error": "JSON data required"}), 400
+
+        data = request.json
+        action = data.get('action')
+        benchmark_id = data.get('benchmark_id')
+        sast_id = data.get('sast_id')
+
+        if not all([action, benchmark_id, sast_id]):
+            return jsonify({"error": "Missing required fields: action, benchmark_id, sast_id"}), 400
+
+        if action not in ['confirm', 'deny']:
+            return jsonify({"error": "Action must be 'confirm' or 'deny'"}), 400
+
+        session_data = app.sessions[session_id]
+
+        # Initialize mapping storage if not exists
+        if 'confirmed_mappings' not in session_data:
+            session_data['confirmed_mappings'] = []
+        if 'denied_mappings' not in session_data:
+            session_data['denied_mappings'] = []
+        if 'mapping_rules' not in session_data:
+            session_data['mapping_rules'] = []
+
+        mapping = {
+            "benchmark_id": benchmark_id,
+            "sast_id": sast_id,
+            "manual": True
+        }
+
+        if action == 'confirm':
+            session_data['confirmed_mappings'].append(mapping)
+
+            # Create pattern rule for learning
+            rule = create_pattern_rule(session_data, benchmark_id, sast_id)
+            if rule:
+                session_data['mapping_rules'].append(rule)
+
+        elif action == 'deny':
+            session_data['denied_mappings'].append(mapping)
+
+        # Generate new suggestions based on updated rules (placeholder for now)
+        new_suggestions = []
+
+        return jsonify({
+            "success": True,
+            "new_suggestions": new_suggestions
+        })
+
     @app.route('/')
     def index():
         return send_from_directory('static', 'index.html')
@@ -163,6 +218,37 @@ def cleanup_expired_sessions():
 
     for session_id in expired_sessions:
         del sessions[session_id]
+
+
+def create_pattern_rule(session_data, benchmark_id, sast_id):
+    """Create a pattern rule from confirmed mapping"""
+    # Find the actual vulnerability objects
+    comparison = session_data['comparison']
+
+    benchmark_vuln = None
+    for idx, vuln in enumerate(comparison.benchmark_vulns):
+        generated_id = f"bench_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+        if generated_id == benchmark_id:
+            benchmark_vuln = vuln
+            break
+
+    sast_vuln = None
+    for idx, vuln in enumerate(session_data['sast_vulns']):
+        generated_id = f"sast_{idx}_{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+        if generated_id == sast_id:
+            sast_vuln = vuln
+            break
+
+    if not benchmark_vuln or not sast_vuln:
+        return None
+
+    return {
+        "benchmark_type": benchmark_vuln.vuln_type,
+        "sast_pattern": sast_vuln.vuln_type,
+        "file_extension_match": benchmark_vuln.file_path.endswith(sast_vuln.file_path.split('.')[-1]),
+        "confidence_boost": 0.4,
+        "line_proximity_weight": abs(benchmark_vuln.line_number - sast_vuln.line_number)
+    }
 
 if __name__ == '__main__':
     app = create_app()
