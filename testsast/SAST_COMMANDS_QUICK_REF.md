@@ -25,22 +25,22 @@ python3 -m web_ui.app
 semgrep --config=p/sql-injection --json --output=results/semgrep_sql_results.json testsast/knownbad/sql_injection
 
 # Basic HTML report
-python3 sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_sql_results.json --format semgrep --category sql_injection --html results/sql_injection_report.html --scanned-dir testsast/knownbad/sql_injection
+python3 testsast/sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_sql_results.json --format semgrep --category sql_injection --html results/sql_injection_report.html --scanned-dir testsast/knownbad/sql_injection
 
 # AI-assisted analysis (auto-starts Ollama!)
-python3 sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_sql_results.json --format semgrep --category sql_injection --llm-assist --llm-model ollama:codellama --llm-save results/sql_llm_mapping.json --scanned-dir testsast/knownbad/sql_injection
+python3 testsast/sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_sql_results.json --format semgrep --category sql_injection --llm-assist --llm-model ollama:codellama --llm-save results/sql_llm_mapping.json --scanned-dir testsast/knownbad/sql_injection
 ```
 
 ### XSS Analysis
 ```bash
 semgrep --config=p/xss --json --output=results/semgrep_xss_results.json testsast/knownbad/xss
-python3 sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_xss_results.json --format semgrep --category xss --html results/xss_report.html --scanned-dir testsast/knownbad/xss
+python3 testsast/sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_xss_results.json --format semgrep --category xss --html results/xss_report.html --scanned-dir testsast/knownbad/xss
 ```
 
 ### Command Injection Analysis
 ```bash
 semgrep --config=p/command-injection --json --output=results/semgrep_cmd_results.json testsast/knownbad/command_injection
-python3 sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_cmd_results.json --format semgrep --category command_injection --html results/cmd_injection_report.html --scanned-dir testsast/knownbad/command_injection
+python3 testsast/sast_comparison.py --benchmark testsast/reports.json --sast-results results/semgrep_cmd_results.json --format semgrep --category command_injection --html results/cmd_injection_report.html --scanned-dir testsast/knownbad/command_injection
 ```
 
 ## 🎯 Key Options
@@ -75,7 +75,7 @@ for category in "${categories[@]}"; do
     semgrep --config=p/$category --json --output=results/semgrep_${category}_results.json testsast/knownbad/$category
     
     # Generate AI-assisted analysis
-    python3 sast_comparison.py \
+    python3 testsast/sast_comparison.py \
         --benchmark testsast/reports.json \
         --sast-results results/semgrep_${category}_results.json \
         --format semgrep \

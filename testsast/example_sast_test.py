@@ -46,7 +46,7 @@ def run_semgrep_example():
     print("\nStep 2: Comparing Semgrep results to benchmark...")
 
     cmd = [
-        "python3", "sast_comparison.py",
+        "python3", "testsast/sast_comparison.py",
         "--benchmark", "testsast/reports.json",
         "--sast-results", "semgrep_sql_results.json",
         "--format", "semgrep",
@@ -91,7 +91,7 @@ def run_custom_scanner_example():
 
     # Compare against benchmark
     cmd = [
-        "python3", "sast_comparison.py",
+        "python3", "testsast/sast_comparison.py",
         "--benchmark", "testsast/reports.json",
         "--sast-results", "mock_scanner_results.json",
         "--format", "custom",
