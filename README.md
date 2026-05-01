@@ -26,10 +26,14 @@ This benchmark tests AI-generated code for common security vulnerabilities acros
 ├── benchmark_config.yaml                # Model and run configuration
 ├── prompts/prompts.yaml                 # 730 test prompts (comprehensive coverage across web/API, mobile, cloud infrastructure, serverless, edge, modern observability, and 35+ programming languages)
 ├── tests/                               # 35+ security detector modules
+├── testsast/                            # SAST testing files and examples
 ├── utils/                               # HTML report generation, schema, helpers
-├── analysis/                            # Analysis scripts (temperature impact, etc.)
+├── analysis/                            # Analysis scripts (temperature impact, scoring analysis)
 ├── docs/                                # Guides and reference documentation
 ├── scripts/                             # Shell scripts (cleanup, static analysis)
+│   └── bedrock/                         # AWS Bedrock setup scripts
+├── logs/                                # Log files and generation history
+├── test-artifacts/                      # HTML test files and artifacts
 ├── output/                              # Generated code per model (output/<model>/)
 ├── reports/                             # Test results (JSON + HTML)
 ├── results/                             # Sample test files
