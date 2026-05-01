@@ -6827,7 +6827,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 11,
           "code_snippet": "String password = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -27585,7 +27585,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 10,
           "code_snippet": "const char* WIFI_PASSWORD = \"your_wifi_password\";",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

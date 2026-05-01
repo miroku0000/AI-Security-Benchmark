@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Web UI Upload</title>
+</head>
+<body>
+    <h1>Debug Web UI File Upload</h1>
+
+    <form id="upload-form" enctype="multipart/form-data">
+        <div>
+            <label>Benchmark JSON:</label>
+            <input type="file" id="benchmark" name="benchmark_file" accept=".json" required>
+        </div>
+        <div>
+            <label>SAST Results JSON:</label>
+            <input type="file" id="sast" name="sast_file" accept=".json" required>
+        </div>
+        <div>
+            <button type="submit">Upload and Test</button>
+        </div>
+    </form>
+
+    <div id="results"></div>
+    <div id="errors" style="color: red;"></div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('benchmark_file', document.getElementById('benchmark').files[0]);
+            formData.append('sast_file', document.getElementById('sast').files[0]);
+            formData.append('format', 'semgrep');
+
+            try {
+                document.getElementById('results').innerHTML = 'Uploading...';
+                document.getElementById('errors').innerHTML = '';
+
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${responseText}`);
+                }
+
+                const data = JSON.parse(responseText);
+                console.log('Parsed data:', data);
+
+                document.getElementById('results').innerHTML = `
+                    <h2>Upload Success!</h2>
+                    <p>Session ID: ${data.session_id}</p>
+                    <p>Files: ${data.files_count}</p>
+                    <p>Benchmark vulnerabilities: ${data.total_vulnerabilities.benchmark}</p>
+                    <p>SAST vulnerabilities: ${data.total_vulnerabilities.sast}</p>
+                `;
+
+                // Now test session data
+                const sessionResponse = await fetch(`/api/session/${data.session_id}`);
+                if (sessionResponse.ok) {
+                    const sessionData = await sessionResponse.json();
+                    console.log('Session data loaded:', sessionData);
+                    document.getElementById('results').innerHTML += `
+                        <h3>Session Data Retrieved Successfully</h3>
+                        <p>Files in session: ${sessionData.files.length}</p>
+                    `;
+                } else {
+                    const sessionError = await sessionResponse.text();
+                    document.getElementById('errors').innerHTML += `<p>Session data error: ${sessionError}</p>`;
+                }
+
+            } catch (error) {
+                console.error('Upload failed:', error);
+                document.getElementById('errors').innerHTML = `
+                    <h2>Upload Failed</h2>
+                    <p>Error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

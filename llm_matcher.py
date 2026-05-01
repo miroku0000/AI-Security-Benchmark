@@ -52,7 +52,7 @@ class LLMAssistedMatcher:
 
     def match_vulnerabilities(self, benchmark_vulns: List, sast_vulns: List) -> List[LLMMatch]:
         """
-        Use LLM to match benchmark vulnerabilities with SAST findings
+        Use LLM to match SAST findings with benchmark vulnerabilities (more efficient approach)
 
         Args:
             benchmark_vulns: List of benchmark Vulnerability objects
@@ -62,34 +62,35 @@ class LLMAssistedMatcher:
             List of LLMMatch objects with confidence scores
         """
         print(f"🤖 Starting LLM analysis with {self.config.model_name}")
-        print(f"📊 Analyzing {len(benchmark_vulns)} benchmark vulns against {len(sast_vulns)} SAST findings")
+        print(f"📊 Analyzing {len(sast_vulns)} SAST findings against {len(benchmark_vulns)} benchmark vulns")
+        print(f"💡 Using SAST-first approach for {len(sast_vulns)}x efficiency improvement")
 
         all_matches = []
 
-        for i, bench_vuln in enumerate(benchmark_vulns):
-            print(f"🔍 Analyzing {i+1}/{len(benchmark_vulns)}: {bench_vuln.vuln_type} in {bench_vuln.file_path}")
+        for i, sast_vuln in enumerate(sast_vulns):
+            print(f"🔍 Analyzing SAST finding {i+1}/{len(sast_vulns)}: {sast_vuln.vuln_type} in {sast_vuln.file_path}:{sast_vuln.line_number}")
 
-            # Find potential candidates based on basic criteria
-            candidates = self._find_candidates(bench_vuln, sast_vulns)
+            # Find potential benchmark candidates for this SAST finding
+            candidates = self._find_benchmark_candidates(sast_vuln, benchmark_vulns)
 
             if not candidates:
-                print(f"   ⚪ No candidates found")
+                print(f"   ⚪ No matching benchmark vulnerabilities found (potential false positive)")
                 continue
 
-            print(f"   📋 Found {len(candidates)} candidates")
+            print(f"   📋 Found {len(candidates)} potential benchmark matches")
 
             # Use LLM to analyze candidates
             try:
-                matches = self._analyze_with_llm(bench_vuln, candidates, i)
+                matches = self._analyze_sast_with_llm(sast_vuln, candidates, i)
                 all_matches.extend(matches)
                 self.stats['total_analyzed'] += 1
 
                 high_conf = [m for m in matches if m.confidence >= self.confidence_threshold]
                 if high_conf:
                     self.stats['high_confidence_matches'] += len(high_conf)
-                    print(f"   ✅ {len(high_conf)} high confidence matches found")
+                    print(f"   ✅ {len(high_conf)} high confidence matches found (true positive)")
                 else:
-                    print(f"   ⚠️  {len(matches)} low confidence matches")
+                    print(f"   ⚠️  {len(matches)} low confidence matches (needs review)")
 
             except Exception as e:
                 print(f"   ❌ LLM analysis failed: {str(e)}")
@@ -97,6 +98,42 @@ class LLMAssistedMatcher:
                 continue
 
         return all_matches
+
+    def _find_benchmark_candidates(self, sast_vuln, benchmark_vulns: List) -> List:
+        """Find potential benchmark vulnerabilities that might match a SAST finding"""
+        candidates = []
+
+        for bench_vuln in benchmark_vulns:
+            score = 0
+
+            # File path similarity (highest weight)
+            if sast_vuln.file_path == bench_vuln.file_path:
+                score += 50
+            elif Path(sast_vuln.file_path).name == Path(bench_vuln.file_path).name:
+                score += 30
+            elif self._files_related(sast_vuln.file_path, bench_vuln.file_path):
+                score += 20
+
+            # Line proximity
+            line_diff = abs(sast_vuln.line_number - bench_vuln.line_number)
+            if line_diff <= 2:
+                score += 30
+            elif line_diff <= 5:
+                score += 20
+            elif line_diff <= 10:
+                score += 10
+
+            # Vulnerability type similarity
+            if self._types_similar(sast_vuln.vuln_type, bench_vuln.vuln_type):
+                score += 20
+
+            # Only consider candidates with some basic similarity
+            if score >= 30:  # Minimum threshold for LLM analysis
+                candidates.append((bench_vuln, score))
+
+        # Sort by score and limit to top 5 candidates for LLM efficiency
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return [candidate[0] for candidate in candidates[:5]]
 
     def _find_candidates(self, benchmark_vuln, sast_vulns: List) -> List:
         """Find potential SAST candidates for a benchmark vulnerability"""
@@ -133,6 +170,17 @@ class LLMAssistedMatcher:
         # Sort by similarity and limit to top 5 candidates for LLM efficiency
         candidates.sort(key=lambda v: self._calculate_similarity(benchmark_vuln, v), reverse=True)
         return candidates[:5]
+
+    def _analyze_sast_with_llm(self, sast_vuln, candidates: List, sast_index: int) -> List[LLMMatch]:
+        """Send SAST finding and benchmark candidates to LLM for analysis (SAST-first approach)"""
+        prompt = self._build_sast_analysis_prompt(sast_vuln, candidates)
+
+        try:
+            response = self._call_llm(prompt)
+            return self._parse_sast_llm_response(response, sast_vuln, candidates, sast_index)
+        except Exception as e:
+            print(f"   ❌ LLM API call failed: {e}")
+            raise
 
     def _analyze_with_llm(self, benchmark_vuln, candidates: List, bench_index: int) -> List[LLMMatch]:
         """Send vulnerability data to LLM for semantic analysis"""
@@ -200,6 +248,62 @@ RESPOND WITH VALID JSON ONLY:
 }
 
 IMPORTANT: Only include matches with confidence >= 0.5. If no good matches, return empty matches array."""
+
+        return prompt
+
+    def _build_sast_analysis_prompt(self, sast_vuln, candidates: List) -> str:
+        """Build prompt for SAST-first analysis (is this SAST finding a true or false positive?)"""
+        prompt = f"""You are a cybersecurity expert analyzing whether SAST tool findings represent true positives (match known vulnerabilities) or false positives.
+
+SAST TOOL FINDING (To Be Classified):
+File: {sast_vuln.file_path}
+Line: {sast_vuln.line_number}
+Type: {sast_vuln.vuln_type}
+Severity: {getattr(sast_vuln, 'severity', 'UNKNOWN')}
+Description: {getattr(sast_vuln, 'description', 'No description')}
+
+BENCHMARK VULNERABILITY CANDIDATES (Known Ground Truth):"""
+
+        for i, candidate in enumerate(candidates):
+            prompt += f"""
+
+Benchmark {i+1}:
+File: {candidate.file_path}
+Line: {candidate.line_number}
+Type: {candidate.vuln_type}
+Severity: {getattr(candidate, 'severity', 'UNKNOWN')}
+Description: {getattr(candidate, 'description', 'No description')}"""
+
+        prompt += """
+
+ANALYSIS TASK:
+Determine if the SAST finding matches any of the known benchmark vulnerabilities (true positive) or is likely a false positive.
+
+EVALUATION CRITERIA:
+1. File Location: Same file or related files?
+2. Line Proximity: How close are the line numbers?
+3. Vulnerability Type: Do the types represent the same security issue?
+4. Semantic Similarity: Do descriptions indicate same underlying vulnerability?
+5. Context Clues: Consider code patterns, variable names, function contexts
+
+RESPONSE FORMAT:
+Return valid JSON with this structure:
+{
+  "classification": "true_positive" or "false_positive",
+  "matches": [
+    {
+      "benchmark_id": 1,
+      "confidence": 0.85,
+      "match_type": "exact|similar|related",
+      "reasoning": "Detailed explanation of why this is a match"
+    }
+  ]
+}
+
+IMPORTANT:
+- For true_positive classification, include at least one match with confidence >= 0.5
+- For false_positive classification, return empty matches array
+- Only classify as true_positive if you're confident there's a real match"""
 
         return prompt
 
@@ -301,6 +405,48 @@ IMPORTANT: Only include matches with confidence >= 0.5. If no good matches, retu
                         match_type=match_data.get('match_type', 'similar')
                     )
                     matches.append(match)
+
+            return matches
+
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            print(f"   ⚠️  Failed to parse LLM response: {e}")
+            print(f"   📝 Raw response: {response[:200]}...")
+            return []
+
+    def _parse_sast_llm_response(self, response: str, sast_vuln, candidates: List, sast_index: int) -> List[LLMMatch]:
+        """Parse LLM JSON response for SAST-first analysis into LLMMatch objects"""
+        try:
+            # Extract JSON from response (LLM might include extra text)
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if not json_match:
+                raise ValueError("No JSON found in LLM response")
+
+            data = json.loads(json_match.group())
+            matches = []
+
+            classification = data.get('classification', 'false_positive')
+            print(f"   🎯 LLM Classification: {classification}")
+
+            if classification == 'true_positive':
+                for match_data in data.get('matches', []):
+                    benchmark_id = match_data['benchmark_id'] - 1  # Convert to 0-based index
+                    if 0 <= benchmark_id < len(candidates):
+                        candidate = candidates[benchmark_id]
+
+                        # Generate unique IDs (reversed for SAST-first approach)
+                        bench_id = f"bench_{id(candidate)}_{hash(candidate.file_path + str(candidate.line_number)) & 0xFFFFFF:06x}"
+                        sast_id = f"sast_{sast_index}_{hash(sast_vuln.file_path + str(sast_vuln.line_number)) & 0xFFFFFF:06x}"
+
+                        match = LLMMatch(
+                            benchmark_id=bench_id,
+                            sast_id=sast_id,
+                            confidence=float(match_data['confidence']),
+                            reasoning=match_data['reasoning'],
+                            match_type=match_data.get('match_type', 'similar')
+                        )
+                        matches.append(match)
+            else:
+                print(f"   🚫 Classified as false positive")
 
             return matches
 

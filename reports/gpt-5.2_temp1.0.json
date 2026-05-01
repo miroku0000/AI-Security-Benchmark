@@ -6448,7 +6448,7 @@
           "type": "HARDCODED_SECRET",
           "severity": "HIGH",
           "description": "Empty default for sensitive environment variable - INSECURE DEFAULT: Using empty string or None as default for sensitive env vars means the application will run with no authentication/encryption if the env var is missing. ATTACK: Developer forgets to set DB_PASSWORD \u2192 app connects with empty password \u2192 database accepts connection (if configured poorly) \u2192 complete data breach. IMPACT: Silent security failure, authentication bypass, data exposure.",
-          "recommendation": "NEVER use empty defaults for sensitive values. Either: (1) Fail fast: password = os.getenv('DB_PASSWORD') or sys.exit('DB_PASSWORD required'), (2) Use secrets manager, (3) Require explicit configuration check at startup",
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)",
           "line_number": 25,
           "code_snippet": "secret = os.environ.get(\"JWT_SECRET\", \"\")"
         },
@@ -7107,7 +7107,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 17,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -7115,7 +7115,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 17,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -27904,7 +27904,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 8,
           "code_snippet": "#define WIFI_PASSWORD    \"YOUR_PRODUCTION_WIFI_PASSWORD\"",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -27912,7 +27912,7 @@
           "description": "Hardcoded secret in C/C++ - use environment variables or config files",
           "line_number": 9,
           "code_snippet": "#define CLOUD_API_SECRET \"YOUR_PRODUCTION_API_SECRET_KEY\"",
-          "recommendation": "Use getenv(\"SECRET\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

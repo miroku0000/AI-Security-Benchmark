@@ -24,10 +24,113 @@ import argparse
 import json
 import os
 import re
+import subprocess
+import shutil
+import time
+import platform
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
+
+def auto_start_ollama() -> bool:
+    """
+    Automatically start Ollama service with security checks.
+
+    Returns:
+        bool: True if Ollama was started successfully, False otherwise
+    """
+    try:
+        # Check if ollama command exists
+        if not shutil.which('ollama'):
+            print("❌ Ollama is not installed or not in PATH")
+            print("   Install from: https://ollama.ai")
+            return False
+
+        # Check if Ollama is already running
+        try:
+            import requests
+            response = requests.get('http://localhost:11434/api/tags', timeout=2)
+            if response.status_code == 200:
+                print("ℹ️  Ollama is already running")
+                return True
+        except:
+            pass  # Not running, proceed with start
+
+        print("🔧 Starting Ollama service...")
+
+        # Start Ollama in the background
+        if platform.system() == "Windows":
+            # On Windows, start with minimal window
+            subprocess.Popen(
+                ['ollama', 'serve'],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        else:
+            # On Unix-like systems
+            subprocess.Popen(
+                ['ollama', 'serve'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+
+        # Wait for service to start (up to 10 seconds)
+        for i in range(10):
+            time.sleep(1)
+            try:
+                import requests
+                response = requests.get('http://localhost:11434/api/tags', timeout=2)
+                if response.status_code == 200:
+                    print("✅ Ollama service started successfully")
+
+                    # Verify security configuration
+                    if verify_ollama_security_basic():
+                        print("🔒 Ollama security check passed (localhost-only)")
+                    else:
+                        print("⚠️  WARNING: Ollama may be accessible from external interfaces")
+                        print("   Consider running 'python secure_ollama_config.py' for better security")
+
+                    return True
+            except:
+                pass
+
+        print("❌ Ollama service did not start within 10 seconds")
+        return False
+
+    except subprocess.SubprocessError as e:
+        print(f"❌ Failed to start Ollama: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error starting Ollama: {e}")
+        return False
+
+def verify_ollama_security_basic() -> bool:
+    """
+    Basic security check to ensure Ollama is running on localhost only.
+
+    Returns:
+        bool: True if secure (localhost-only), False if potentially exposed
+    """
+    try:
+        if platform.system() == "Windows":
+            result = subprocess.run(['netstat', '-an'], capture_output=True, text=True, timeout=5)
+        else:
+            result = subprocess.run(['netstat', '-tlnp'], capture_output=True, text=True, timeout=5)
+
+        lines = result.stdout.split('\n')
+
+        for line in lines:
+            # Check for Ollama port 11434 bound to external interfaces
+            if '11434' in line and ('0.0.0.0:11434' in line or '*:11434' in line):
+                return False  # External binding detected
+
+        return True  # No external bindings found
+
+    except Exception:
+        # Cannot verify, assume safe for basic check
+        return True
 
 @dataclass
 class Vulnerability:
@@ -2744,12 +2847,33 @@ def main():
                 print("   Use format: ollama:model_name or openai:model_name")
                 return
 
-            # Test LLM connection
+            # Test LLM connection and auto-start Ollama if needed
             print(f"🔗 Testing connection to {args.llm_model} at {args.llm_url}...")
             if not test_llm_connection(llm_config):
-                print(f"❌ Cannot connect to LLM service at {args.llm_url}")
-                print("   Make sure your LLM service is running (e.g., 'ollama serve')")
-                return
+                if args.llm_model.startswith('ollama:'):
+                    print(f"❌ Cannot connect to Ollama at {args.llm_url}")
+                    print("🚀 Attempting to start Ollama service...")
+
+                    if auto_start_ollama():
+                        print("✅ Ollama started successfully, retesting connection...")
+                        # Wait a moment for service to fully start
+                        import time
+                        time.sleep(2)
+
+                        if test_llm_connection(llm_config):
+                            print("✅ LLM connection successful after auto-start")
+                        else:
+                            print("❌ Still cannot connect to Ollama after auto-start")
+                            print("   Please check your Ollama installation or start manually with 'ollama serve'")
+                            return
+                    else:
+                        print("❌ Failed to auto-start Ollama")
+                        print("   Please start manually with 'ollama serve'")
+                        return
+                else:
+                    print(f"❌ Cannot connect to LLM service at {args.llm_url}")
+                    print("   Make sure your LLM service is running")
+                    return
 
             print("✅ LLM connection successful")
 
@@ -2795,14 +2919,76 @@ def main():
             # Interactive review mode
             if args.llm_review and high_conf_matches:
                 print(f"\n🔍 Interactive Review Mode")
+                print("=" * 80)
                 reviewed_matches = []
 
-                for match in high_conf_matches:
-                    print(f"\nMatch: {match.confidence:.1%} confidence")
-                    print(f"Reasoning: {match.reasoning}")
+                for i, match in enumerate(high_conf_matches):
+                    print(f"\n📋 MATCH {i+1}/{len(high_conf_matches)}")
+                    print("=" * 50)
 
+                    # Find the corresponding vulnerabilities
+                    sast_vuln = None
+                    benchmark_vuln = None
+
+                    # Find SAST vulnerability by ID (improved search)
+                    for vuln in sast_vulns:
+                        vuln_hash = f"{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+                        if vuln_hash in match.sast_id:
+                            sast_vuln = vuln
+                            break
+
+                    # Find benchmark vulnerability by ID (improved search)
+                    for vuln in comparison.benchmark_vulns:
+                        vuln_hash = f"{hash(vuln.file_path + str(vuln.line_number)) & 0xFFFFFF:06x}"
+                        if vuln_hash in match.benchmark_id:
+                            benchmark_vuln = vuln
+                            break
+
+                    # Display detailed comparison
+                    print(f"🎯 CONFIDENCE: {match.confidence:.1%}")
+                    print(f"🧠 REASONING: {match.reasoning}")
+                    print("")
+
+                    if sast_vuln:
+                        print("🔍 SAST TOOL FINDING:")
+                        print(f"   📁 File: {sast_vuln.file_path}")
+                        print(f"   📍 Line: {sast_vuln.line_number}")
+                        print(f"   🚨 Type: {sast_vuln.vuln_type}")
+                        print(f"   ⚡ Severity: {getattr(sast_vuln, 'severity', 'N/A')}")
+                        print(f"   📝 Description: {getattr(sast_vuln, 'description', 'N/A')}")
+                    else:
+                        print("❌ SAST vulnerability details not found")
+
+                    print("")
+
+                    if benchmark_vuln:
+                        print("✅ BENCHMARK VULNERABILITY (Ground Truth):")
+                        print(f"   📁 File: {benchmark_vuln.file_path}")
+                        print(f"   📍 Line: {benchmark_vuln.line_number}")
+                        print(f"   🚨 Type: {benchmark_vuln.vuln_type}")
+                        print(f"   ⚡ Severity: {getattr(benchmark_vuln, 'severity', 'N/A')}")
+                        print(f"   📝 Description: {getattr(benchmark_vuln, 'description', 'N/A')}")
+                    else:
+                        print("❌ Benchmark vulnerability details not found")
+
+                    print("")
+                    print("📊 COMPARISON:")
+                    if sast_vuln and benchmark_vuln:
+                        file_match = "✅ Same file" if sast_vuln.file_path == benchmark_vuln.file_path else f"⚠️ Different files"
+                        line_diff = abs(sast_vuln.line_number - benchmark_vuln.line_number) if sast_vuln.line_number and benchmark_vuln.line_number else "N/A"
+                        line_match = f"📍 Line difference: {line_diff}"
+                        type_match = "✅ Same type" if sast_vuln.vuln_type == benchmark_vuln.vuln_type else f"⚠️ Different types"
+
+                        print(f"   {file_match}")
+                        print(f"   {line_match}")
+                        print(f"   {type_match}")
+
+                    print("")
+                    print("-" * 50)
+
+                    review_stopped = False
                     while True:
-                        choice = input("Accept this match? (y/n/q to quit): ").lower().strip()
+                        choice = input("Accept this match? (y/n/s=skip/q=quit): ").lower().strip()
                         if choice in ['y', 'yes']:
                             reviewed_matches.append(match)
                             print("✅ Match accepted")
@@ -2810,11 +2996,18 @@ def main():
                         elif choice in ['n', 'no']:
                             print("❌ Match rejected")
                             break
+                        elif choice in ['s', 'skip']:
+                            print("⏭️ Match skipped")
+                            break
                         elif choice in ['q', 'quit']:
-                            print("Review stopped")
+                            print("🛑 Review stopped")
+                            review_stopped = True
                             break
                         else:
-                            print("Please enter y/n/q")
+                            print("Please enter: 'y'=yes, 'n'=no, 's'=skip, 'q'=quit")
+
+                    if review_stopped:
+                        break
 
                 high_conf_matches = reviewed_matches
                 print(f"📋 Final accepted matches: {len(high_conf_matches)}")

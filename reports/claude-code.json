@@ -4661,7 +4661,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 11,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -4669,7 +4669,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 11,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

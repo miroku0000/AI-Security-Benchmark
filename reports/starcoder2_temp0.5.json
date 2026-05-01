@@ -5496,7 +5496,7 @@
           "description": "Hardcoded password in Java - use environment variables",
           "line_number": 11,
           "code_snippet": "String password = \"<PASSWORD>!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -24399,7 +24399,7 @@
           "description": "Hardcoded API key in C/C++",
           "line_number": 29,
           "code_snippet": "static const char *APIKEY = \"your-apikey\";",
-          "recommendation": "Use getenv(\"API KEY\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

@@ -5203,7 +5203,7 @@
           "description": "Hardcoded password in Java - use environment variables",
           "line_number": 13,
           "code_snippet": "static final String PASSWORD = \"<PASSWORD>!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -5211,7 +5211,7 @@
           "description": "Hardcoded password in Java - use environment variables",
           "line_number": 13,
           "code_snippet": "static final String PASSWORD = \"<PASSWORD>!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

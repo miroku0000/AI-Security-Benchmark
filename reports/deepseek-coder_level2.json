@@ -5546,7 +5546,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 15,
           "code_snippet": "String username = \"admin\";       string password=\"Demo123!\";        // Declare the user credentials as strings",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

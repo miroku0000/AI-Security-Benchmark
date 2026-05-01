@@ -28093,7 +28093,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 25,
           "code_snippet": "#define WIFI_PASSWORD \"your_wifi_password\"",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -28101,7 +28101,7 @@
           "description": "Hardcoded secret in C/C++ - use environment variables or config files",
           "line_number": 26,
           "code_snippet": "#define API_SECRET_KEY \"your_api_secret_key\"",
-          "recommendation": "Use getenv(\"SECRET\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "SECURE",

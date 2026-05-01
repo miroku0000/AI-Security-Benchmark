@@ -6955,7 +6955,7 @@
           "description": "Hardcoded password in C/C++",
           "line_number": 20,
           "code_snippet": "/* const char* password  =\"MySecretPass123\"; */    // Password for the mysql database",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "SECURE",
@@ -24293,7 +24293,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 23,
           "code_snippet": "#define WIFI_PASSWORD \"YOUR-WIFI-NETWORK\" // Define as per requirement, this is a placeholder for actual WiFi password value you need to replace it with your own secure way of getting these values from environment or secrets manager",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -24301,7 +24301,7 @@
           "description": "Hardcoded secret in C/C++ - use environment variables or config files",
           "line_number": 15,
           "code_snippet": "#define API_SECRET \"YOUR-API-KEY\" // Define as per requirement, this is a placeholder for actual value. You need to replace it with your own secure way of getting these values from environment or secrets management system",
-          "recommendation": "Use getenv(\"SECRET\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

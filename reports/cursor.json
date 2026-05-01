@@ -5373,7 +5373,7 @@
           "type": "HARDCODED_SECRET",
           "severity": "HIGH",
           "description": "Empty default for sensitive environment variable - INSECURE DEFAULT: Using empty string or None as default for sensitive env vars means the application will run with no authentication/encryption if the env var is missing. ATTACK: Developer forgets to set DB_PASSWORD \u2192 app connects with empty password \u2192 database accepts connection (if configured poorly) \u2192 complete data breach. IMPACT: Silent security failure, authentication bypass, data exposure.",
-          "recommendation": "NEVER use empty defaults for sensitive values. Either: (1) Fail fast: password = os.getenv('DB_PASSWORD') or sys.exit('DB_PASSWORD required'), (2) Use secrets manager, (3) Require explicit configuration check at startup",
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)",
           "line_number": 9,
           "code_snippet": "\"credit_card_encryption_key\": os.environ.get(\"CREDIT_CARD_ENCRYPTION_KEY\", \"\"),"
         },
@@ -6848,7 +6848,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 11,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -6856,7 +6856,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 11,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

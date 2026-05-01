@@ -8609,7 +8609,7 @@
           "description": "Hardcoded secret in Java - use environment variables",
           "line_number": 32,
           "code_snippet": "private static final String SECRET_KEY = \"1234567890abcdef\"; // this is just a dummy key. You should use Android KeyStore or similar secure method for storing the secret keys and tokens here in your actual implementation",
-          "recommendation": "Use System.getenv(\"SECRET\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [

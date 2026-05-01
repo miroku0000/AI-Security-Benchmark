@@ -27542,7 +27542,7 @@
           "description": "Hardcoded password in C/C++",
           "line_number": 34,
           "code_snippet": "#define ENV_WIFI_PASSWORD       \"SMARTCAM_WIFI_PASSWORD\"",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -27550,7 +27550,7 @@
           "description": "Hardcoded secret in C/C++",
           "line_number": 35,
           "code_snippet": "#define ENV_API_SECRET_KEY      \"SMARTCAM_API_SECRET_KEY\"",
-          "recommendation": "Use getenv(\"SECRET\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "SECURE",

@@ -6537,7 +6537,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 12,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -6545,7 +6545,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 12,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -26483,7 +26483,7 @@
           "description": "Hardcoded password in C/C++",
           "line_number": 14,
           "code_snippet": "#define WIFI_PASSWORD \"my_password\"",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -26491,7 +26491,7 @@
           "description": "Hardcoded secret in C/C++",
           "line_number": 15,
           "code_snippet": "#define API_SECRET_KEY \"my_api_secret_key\"",
-          "recommendation": "Use getenv(\"SECRET\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

@@ -6961,7 +6961,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 18,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -6969,7 +6969,7 @@
           "description": "Hardcoded password in Java",
           "line_number": 18,
           "code_snippet": "private static final String PASSWORD = \"Demo123!\";",
-          "recommendation": "Use System.getenv(\"PASSWORD\") or properties file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "SECURE",
@@ -7589,7 +7589,7 @@
           "description": "Hardcoded password in C#",
           "line_number": 22,
           "code_snippet": "string password = \"DevPass123!\";",
-          "recommendation": "Use Environment.GetEnvironmentVariable(\"PASSWORD\") or appsettings.json instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -8295,7 +8295,7 @@
           "description": "Hardcoded password in C/C++",
           "line_number": 18,
           "code_snippet": "const char *password = \"MySecretPass123\";",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],
@@ -26448,7 +26448,7 @@
           "description": "Hardcoded password in C/C++",
           "line_number": 17,
           "code_snippet": "#define ENV_WIFI_PASSWORD \"CAMERA_WIFI_PASSWORD\"",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "SECURE",

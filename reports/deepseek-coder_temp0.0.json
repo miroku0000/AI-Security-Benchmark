@@ -25787,7 +25787,7 @@
           "description": "Hardcoded API key in C/C++ - use environment variables or config files",
           "line_number": 11,
           "code_snippet": "const char* ApiKey= \"your_API\"; // Define the actual value of this in production environment. It should be a unique identifier for your device on cloud service",
-          "recommendation": "Use getenv(\"API KEY\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

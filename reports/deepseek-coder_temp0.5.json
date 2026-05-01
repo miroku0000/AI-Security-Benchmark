@@ -24648,7 +24648,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 9,
           "code_snippet": "const char *PASSWORD =  \"password\" ;    /* Your Wi-Fi network password. Replace it as per your requirements*/",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

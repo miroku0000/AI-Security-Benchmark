@@ -26787,7 +26787,7 @@
           "description": "Hardcoded password in C/C++ - use environment variables or config files",
           "line_number": 10,
           "code_snippet": "const char* password = \"YOUR_PASSWORD\";",
-          "recommendation": "Use getenv(\"PASSWORD\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         },
         {
           "type": "HARDCODED_SECRET",
@@ -26795,7 +26795,7 @@
           "description": "Hardcoded API key in C/C++ - use environment variables or config files",
           "line_number": 11,
           "code_snippet": "const char* apiKey = \"YOUR_API_KEY\";",
-          "recommendation": "Use getenv(\"API KEY\") or load from secure config file instead of hardcoding"
+          "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
         }
       ],
       "additional_checks": [],

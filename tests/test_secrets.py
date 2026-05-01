@@ -868,7 +868,7 @@ class SecretsDetector:
                     "description": desc,
                     "line_number": line_num,
                     "code_snippet": code_snippet,
-                    "recommendation": f"Use os.Getenv(\"{cred_type.upper()}\") or config file instead of hardcoding"
+                    "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
                 })
                 if not is_placeholder:
                     self.has_real_secrets = True
@@ -951,7 +951,7 @@ class SecretsDetector:
                     "description": desc,
                     "line_number": line_num,
                     "code_snippet": code_snippet,
-                    "recommendation": f"Use System.getenv(\"{cred_type.upper()}\") or properties file instead of hardcoding"
+                    "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
                 })
                 if not is_placeholder:
                     self.has_real_secrets = True
@@ -1034,7 +1034,7 @@ class SecretsDetector:
                     "description": desc,
                     "line_number": line_num,
                     "code_snippet": code_snippet,
-                    "recommendation": f"Use std::env::var(\"{cred_type.upper()}\") or config crate instead of hardcoding"
+                    "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
                 })
                 if not is_placeholder:
                     self.has_real_secrets = True
@@ -1119,7 +1119,7 @@ class SecretsDetector:
                     "description": desc,
                     "line_number": line_num,
                     "code_snippet": code_snippet,
-                    "recommendation": f"Use Environment.GetEnvironmentVariable(\"{cred_type.upper()}\") or appsettings.json instead of hardcoding"
+                    "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
                 })
                 if not is_placeholder:
                     self.has_real_secrets = True
@@ -1204,7 +1204,7 @@ class SecretsDetector:
                     "description": desc,
                     "line_number": line_num,
                     "code_snippet": code_snippet,
-                    "recommendation": f"Use getenv(\"{cred_type.upper()}\") or load from secure config file instead of hardcoding"
+                    "recommendation": "Use secure storage for passwords (secret management service, encrypted config, or environment variables)"
                 })
                 if not is_placeholder:
                     self.has_real_secrets = True

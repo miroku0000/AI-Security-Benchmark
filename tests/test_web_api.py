@@ -578,7 +578,7 @@ def test_update_mapping_invalid_session():
 # Task 6: Export Mapping API Endpoint Tests
 
 def test_export_mapping_success(app, test_session_data):
-    """Test successful mapping export with confirmed mappings"""
+    """Test successful mapping export with confirmed mappings in CLI-compatible format"""
     with app.test_client() as client:
         session_id = test_session_data["session_id"]
 
@@ -608,11 +608,21 @@ def test_export_mapping_success(app, test_session_data):
         assert 'attachment' in response.headers['Content-Disposition']
         assert 'vulnerability_mapping' in response.headers['Content-Disposition']
 
-        # Verify mapping content structure
+        # Verify CLI-compatible format
         mapping_data = response.get_json()
-        assert "confirmed_mappings" in mapping_data
-        assert "mapping_statistics" in mapping_data
-        assert len(mapping_data["confirmed_mappings"]) >= 1
+        assert "matches" in mapping_data  # CLI format uses "matches"
+        assert "benchmark_only" in mapping_data
+        assert "sast_only" in mapping_data
+        assert "mapping_rules" in mapping_data  # CLI format uses "mapping_rules"
+        assert "statistics" in mapping_data
+
+        # Verify matches are in tuple format (list of 2-element lists)
+        assert len(mapping_data["matches"]) >= 1
+        for match in mapping_data["matches"]:
+            assert isinstance(match, list)
+            assert len(match) == 2
+            assert "file_path" in match[0]  # benchmark_dict
+            assert "file_path" in match[1]  # sast_dict
 
 
 def test_export_mapping_empty_session(app, test_session_data):
@@ -624,12 +634,15 @@ def test_export_mapping_empty_session(app, test_session_data):
 
         assert response.status_code == 200
         mapping_data = response.get_json()
-        assert mapping_data["confirmed_mappings"] == []
-        assert mapping_data["mapping_statistics"]["confirmed_mappings"] == 0
+        # CLI format uses "matches" not "confirmed_mappings"
+        assert mapping_data["matches"] == []
+        assert mapping_data["statistics"]["matched_vulns"] == 0
+        # Unmatched benchmarks should be in benchmark_only
+        assert len(mapping_data["benchmark_only"]) > 0
 
 
 def test_export_mapping_with_denied(app, test_session_data):
-    """Test export includes denied mappings"""
+    """Test export - denied mappings are not included in CLI format"""
     with app.test_client() as client:
         session_id = test_session_data["session_id"]
 
@@ -651,7 +664,11 @@ def test_export_mapping_with_denied(app, test_session_data):
 
         assert response.status_code == 200
         mapping_data = response.get_json()
-        assert len(mapping_data["denied_mappings"]) >= 1
+        # CLI format doesn't track denied mappings separately
+        # Denied mappings result in vulnerabilities appearing in benchmark_only/sast_only
+        assert "matches" in mapping_data
+        assert "benchmark_only" in mapping_data
+        assert "sast_only" in mapping_data
 
 
 def test_export_mapping_invalid_session(app):
@@ -664,8 +681,8 @@ def test_export_mapping_invalid_session(app):
         assert data["error"] == "Session not found"
 
 
-def test_export_mapping_metadata(app, test_session_data):
-    """Test export includes proper metadata"""
+def test_export_mapping_cli_format(app, test_session_data):
+    """Test export matches CLI _save_mapping() format exactly"""
     with app.test_client() as client:
         session_id = test_session_data["session_id"]
 
@@ -674,7 +691,27 @@ def test_export_mapping_metadata(app, test_session_data):
         assert response.status_code == 200
         mapping_data = response.get_json()
 
-        assert "export_metadata" in mapping_data
-        assert mapping_data["export_metadata"]["session_id"] == session_id
-        assert mapping_data["export_metadata"]["generated_by"] == "web_ui"
-        assert "export_timestamp" in mapping_data["export_metadata"]
+        # Verify all required CLI fields are present
+        assert "matches" in mapping_data
+        assert "benchmark_only" in mapping_data
+        assert "sast_only" in mapping_data
+        assert "mapping_rules" in mapping_data
+        assert "statistics" in mapping_data
+
+        # Verify statistics structure matches CLI expectations
+        stats = mapping_data["statistics"]
+        assert "files_processed" in stats
+        assert "total_benchmark_vulns" in stats
+        assert "total_sast_vulns" in stats
+        assert "matched_vulns" in stats
+        assert "missed_by_sast" in stats
+        assert "false_positives" in stats
+
+        # Verify matches format is tuple-compatible (lists of 2 dicts)
+        for match in mapping_data["matches"]:
+            assert isinstance(match, list) and len(match) == 2
+            for vuln_dict in match:
+                assert "file_path" in vuln_dict
+                assert "line_number" in vuln_dict
+                assert "vuln_type" in vuln_dict
+                assert "source" in vuln_dict
