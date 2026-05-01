@@ -1,6 +1,8 @@
-# Defcon Demos
+# Exploit Demos
 
-Working demo harnesses for the verified live exploits cited in the Defcon CFP pitches at [`docs/demo/`](../docs/demo/).
+These are demonstrations of how to exploit some of the vulnerabilites we found in LLM Generated code.
+
+Working demo harnesses for the verified live exploits cited in the CFP pitches at [`docs/demo/`](../docs/demo/).
 
 Each subdirectory is a self-contained reproducible exploit. The vulnerable code in every harness is **copied verbatim** from a file in `output/<model>/<file>`; only the surrounding app wiring (route handlers, `app.listen`, etc.) is added so the AI's code can be executed in isolation.
 
