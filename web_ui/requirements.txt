@@ -1,2 +1,30 @@
+# Flask web framework and extensions
 Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Security and validation
+cryptography==41.0.7
+bleach==6.1.0
+
+# File handling and utilities
+requests==2.31.0
+python-dotenv==1.0.0
+
+# JSON processing and validation
+jsonschema==4.20.0
+
+# For enhanced security headers
+flask-talisman==1.1.0
+
+# For session management
+itsdangerous==2.1.2
+
+# For CSRF protection
+WTForms==3.1.1
+Flask-WTF==1.2.1
+
+# Optional: For better development experience
+python-json-logger==2.0.7
+
+# Testing
 pytest==7.4.0

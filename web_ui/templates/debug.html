@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Debug</title>
+    <style>
+        body { font-family: monospace; margin: 40px; }
+        .log { background: #f5f5f5; padding: 20px; margin: 10px 0; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #fff5f5; }
+        .success { border-left-color: #28a745; background: #f5fff5; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Upload Debug Tool</h1>
+
+    <form id="debug-form">
+        <div>
+            <label for="benchmark">Benchmark JSON:</label><br>
+            <input type="file" id="benchmark" accept=".json" required>
+        </div>
+        <br>
+        <div>
+            <label for="sast">SAST Results JSON:</label><br>
+            <input type="file" id="sast" accept=".json" required>
+        </div>
+        <br>
+        <button type="submit">🚀 Test Upload</button>
+        <button type="button" onclick="clearLog()">🧹 Clear Log</button>
+    </form>
+
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+
+        function addLog(message, type = 'log') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            log.appendChild(div);
+            console.log(message);
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+        }
+
+        document.getElementById('debug-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const benchmarkFile = document.getElementById('benchmark').files[0];
+            const sastFile = document.getElementById('sast').files[0];
+
+            if (!benchmarkFile || !sastFile) {
+                addLog('❌ Please select both files', 'error');
+                return;
+            }
+
+            addLog(`📁 Files selected:<br>
+                   &nbsp;&nbsp;Benchmark: ${benchmarkFile.name} (${(benchmarkFile.size / 1024 / 1024).toFixed(2)} MB)<br>
+                   &nbsp;&nbsp;SAST: ${sastFile.name} (${(sastFile.size / 1024).toFixed(2)} KB)`);
+
+            // Test 1: Validate JSON files
+            addLog('🔍 Step 1: Validating JSON files...');
+            try {
+                const benchmarkText = await benchmarkFile.text();
+                const benchmarkJson = JSON.parse(benchmarkText);
+                addLog(`✅ Benchmark JSON valid (${benchmarkJson.files?.length || 0} files)`, 'success');
+
+                const sastText = await sastFile.text();
+                const sastJson = JSON.parse(sastText);
+                addLog(`✅ SAST JSON valid (${sastJson.results?.length || 0} results)`, 'success');
+            } catch (error) {
+                addLog(`❌ JSON validation failed: ${error.message}`, 'error');
+                return;
+            }
+
+            // Test 2: Upload via fetch (like the real UI)
+            addLog('🌐 Step 2: Uploading via fetch API...');
+            const formData = new FormData();
+            formData.append('benchmark_file', benchmarkFile);
+            formData.append('sast_file', sastFile);
+            formData.append('format', 'semgrep');
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                addLog(`📡 Response status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`❌ Upload failed: ${errorText}`, 'error');
+                    return;
+                }
+
+                const result = await response.json();
+                addLog(`✅ Upload successful!<br>
+                       &nbsp;&nbsp;Session ID: ${result.session_id}<br>
+                       &nbsp;&nbsp;Files: ${result.files_count}<br>
+                       &nbsp;&nbsp;Benchmark vulns: ${result.total_vulnerabilities?.benchmark}<br>
+                       &nbsp;&nbsp;SAST vulns: ${result.total_vulnerabilities?.sast}`, 'success');
+
+                // Test 3: Get session data
+                addLog('📊 Step 3: Retrieving session data...');
+                const sessionResponse = await fetch(`/api/session/${result.session_id}`);
+
+                if (sessionResponse.ok) {
+                    const sessionData = await sessionResponse.json();
+                    addLog(`✅ Session data loaded: ${sessionData.files?.length || 0} files available`, 'success');
+
+                    if (sessionData.files?.length > 0) {
+                        const firstFile = sessionData.files[0];
+                        addLog(`📄 First file example:<br>
+                               &nbsp;&nbsp;Path: ${firstFile.file_path}<br>
+                               &nbsp;&nbsp;Benchmark vulns: ${firstFile.benchmark_vulns?.length || 0}<br>
+                               &nbsp;&nbsp;SAST vulns: ${firstFile.sast_vulns?.length || 0}`);
+                    }
+                } else {
+                    const sessionError = await sessionResponse.text();
+                    addLog(`❌ Session data failed: ${sessionError}`, 'error');
+                }
+
+                addLog('🎉 All tests completed successfully! The upload process is working.', 'success');
+
+            } catch (error) {
+                addLog(`❌ Upload error: ${error.message}<br>Stack: ${error.stack}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -9,73 +9,79 @@
 <body>
     <header class="header">
         <h1>SAST Vulnerability Mapping</h1>
-        <div class="controls">
-            <div class="upload-section">
-                <input type="file" id="benchmark-file" accept=".json" style="display: none;">
-                <input type="file" id="sast-file" accept=".json,.sarif" style="display: none;">
-                <button id="upload-btn" class="btn btn-primary">Upload Files</button>
-                <div class="upload-status" id="upload-status"></div>
-            </div>
-            <div class="confidence-section">
-                <label for="confidence-slider">Confidence: <span id="confidence-value">75</span>%</label>
-                <input type="range" id="confidence-slider" min="0" max="100" value="75" class="slider">
-            </div>
-            <div class="export-section">
-                <button id="export-btn" class="btn btn-secondary" disabled>Export Mappings</button>
-                <div class="progress" id="progress">
-                    <span id="progress-text">No session loaded</span>
-                </div>
-            </div>
-        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="width: 70%;">
+                    <div class="controls">
+                        <div class="upload-section">
+                            <input type="file" id="benchmark-file" accept=".json" style="display: none;">
+                            <input type="file" id="sast-file" accept=".json,.sarif" style="display: none;">
+                            <button id="upload-btn" class="btn btn-primary">Upload Files</button>
+                            <div class="upload-status" id="upload-status"></div>
+                        </div>
+                        <div class="confidence-section">
+                            <label for="confidence-slider">Confidence: <span id="confidence-value">75</span>%</label>
+                            <input type="range" id="confidence-slider" min="0" max="100" value="75" class="slider">
+                        </div>
+                        <div class="auto-mapping-section">
+                            <label>
+                                <input type="checkbox" id="auto-mapping-enabled" />
+                                Auto-accept matches above <input type="number" id="auto-mapping-threshold" min="50" max="100" value="80" style="width: 50px; margin: 0 5px;" />%
+                            </label>
+                        </div>
+                        <div class="export-section">
+                            <input type="file" id="import-mappings-file" accept=".json" style="display: none;">
+                            <button id="import-mappings-btn" class="btn btn-info">📥 Import Mappings</button>
+                            <button id="export-mappings-btn" class="btn btn-secondary" disabled>📤 Export Mappings</button>
+                            <button id="analyze-correlations-btn" class="btn btn-warning" disabled>📊 Analyze Correlations</button>
+                            <button id="export-btn" class="btn btn-secondary" disabled>Export Results</button>
+                            <button id="batch-review-btn" class="btn btn-success" disabled>Batch Review 1:1 Matches</button>
+                            <div class="progress" id="progress">
+                                <span id="progress-text">No session loaded</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td style="width: 30%; text-align: right; vertical-align: middle;">
+                    <div id="session-summary" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 0.5rem; font-size: 0.85rem; display: inline-block; color: #495057;">
+                        📊 <span id="files-count">Files: 0</span> •
+                        <span id="unmapped-count" style="color: #dc3545;">Unmapped: 0</span> •
+                        <span id="mapped-count" style="color: #28a745;">Mapped: 0</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
     </header>
 
     <main class="main-content">
-        <aside class="file-list">
-            <h3>Files</h3>
-            <div id="file-list-container" class="file-items">
-                <div class="empty-state">
-                    <p>Upload benchmark and SAST files to begin</p>
-                </div>
-            </div>
-        </aside>
-
         <section class="mapping-panel">
-            <div class="vulnerability-columns">
-                <div class="vulnerability-column benchmark-column">
-                    <h3>Benchmark Vulnerabilities</h3>
-                    <div id="benchmark-vulns" class="vulnerability-list">
+            <div class="sast-findings-panel">
+                <div class="sast-column">
+                    <div class="sast-header">
+                        <h3>🔍 SAST Findings <span id="sast-count" class="count-badge">0</span></h3>
+                        <div class="sast-filters">
+                            <button id="show-unmapped" class="btn btn-sm btn-primary active">Unmapped</button>
+                            <button id="show-mapped" class="btn btn-sm btn-success">Mapped</button>
+                            <button id="show-all" class="btn btn-sm btn-secondary">All</button>
+                        </div>
+                    </div>
+                    <p class="instructions">Click on a SAST finding below to see potential benchmark matches</p>
+                    <div id="sast-findings" class="vulnerability-list">
                         <div class="empty-state">
-                            <p>No file selected</p>
+                            <p>Upload files to see SAST findings</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="mapping-connector">
-                    <div class="connector-line"></div>
-                    <div class="mapping-actions">
-                        <button id="accept-all-btn" class="btn btn-success btn-sm" disabled>Accept All Visible</button>
-                        <button id="reject-all-btn" class="btn btn-danger btn-sm" disabled>Reject All Visible</button>
-                    </div>
-                </div>
-
-                <div class="vulnerability-column sast-column">
-                    <h3>SAST Findings</h3>
-                    <div id="sast-vulns" class="vulnerability-list">
+                <div class="selected-finding-panel">
+                    <div id="selected-finding" class="selected-finding">
                         <div class="empty-state">
-                            <p>No file selected</p>
+                            <p>Select a SAST finding to see details and potential matches</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="suggestions-panel">
-                <h4>Suggested Mappings</h4>
-                <div id="suggestions-container" class="suggestions-list">
-                    <div class="empty-state">
-                        <p>Adjust confidence slider to see suggestions</p>
-                    </div>
-                </div>
-            </div>
         </section>
     </main>
 
@@ -94,6 +100,12 @@
                     <input type="file" id="sast-upload" accept=".json,.sarif">
                     <div class="file-info" id="sast-info"></div>
                 </div>
+                <div class="form-group">
+                    <label for="mapping-rules-upload">Mapping Rules File (Optional):</label>
+                    <input type="file" id="mapping-rules-upload" accept=".json">
+                    <div class="file-info" id="mapping-rules-info"></div>
+                    <p class="help-text">Previously exported mapping rules will be automatically applied to matching SAST findings</p>
+                </div>
                 <div class="form-actions">
                     <button id="cancel-upload" class="btn btn-secondary">Cancel</button>
                     <button id="confirm-upload" class="btn btn-primary" disabled>Start Analysis</button>
@@ -109,8 +121,28 @@
         <p>Processing files...</p>
     </div>
 
+    <!-- Batch Review Modal -->
+    <div id="batch-review-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 90%; max-height: 90%; overflow: hidden; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h3>Batch Review: 1:1 Vulnerability Matches</h3>
+                <button id="close-batch-review" class="btn btn-secondary">✕</button>
+            </div>
+            <div class="batch-controls" style="padding: 1rem; border-bottom: 1px solid #ddd;">
+                <button id="select-all-matches" class="btn btn-primary">✓ Select All</button>
+                <button id="deselect-all-matches" class="btn btn-secondary">✗ Deselect All</button>
+                <span id="selected-count" style="margin-left: 1rem; font-weight: bold;">0 selected</span>
+                <button id="approve-selected" class="btn btn-success" style="margin-left: auto;">Approve Selected Matches</button>
+            </div>
+            <div id="batch-matches-container" style="flex: 1; overflow-y: auto; padding: 1rem;">
+                <!-- Batch matches will be rendered here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/storage.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/security-utils.js') }}?v={{ range(1000, 9999) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/storage.js') }}?v={{ range(1000, 9999) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}?v={{ range(1000, 9999) | random }}"></script>
 </body>
 </html>
