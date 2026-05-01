@@ -16,7 +16,8 @@ import binascii
 # Import existing SAST comparison logic
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from sast_comparison import SASTComparison, Vulnerability
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'testsast'))
+from testsast.sast_comparison import SASTComparison, Vulnerability
 from security import SecurityValidator
 
 # Global session storage (in-memory for simplicity)
